@@ -1,0 +1,40 @@
+{
+  "domain": "channelelements.net",
+  "serverId": "DEV",
+  "baseClientUri": "http://localhost:33111",
+  "baseTransportUri": "ws://localhost:33111",
+  "mongo": {
+    "mongoUrl": "mongodb://localhost:27017/channels-server",
+    "options": {},
+    "serverOptions": {
+      "socketOptions": {
+        "socketTimeoutMS": 300000,
+        "connectTimeoutMS": 300000
+      }
+    }
+  },
+  "ping": {
+    "interval": 300000,
+    "timeout": 350000
+  },
+  "ssl": {
+    "ca": "/usr/local/etc/certs/caBundle",
+    "key": "/usr/local/etc/certs/server.key",
+    "cert": "/usr/local/etc/certs/server.crt"
+  },
+  "client": {
+    "ssl": false,
+    "port": 33111
+  },
+  "debug": {
+    "transport": {
+      "log": {
+        "rx": true,
+        "tx": true
+      }
+    },
+    "clientTester": {
+      "enabled": true
+    }
+  }
+}
