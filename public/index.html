@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
-  <title>Channels Network</title>
+  <title>Channels</title>
   <meta name="description" content="{{&og_description}}">
   <link rel="manifest" href="{{&public_base}}/manifest.json">
   <link rel="icon" href="/s/images/fav2.png" type="image/png">
@@ -29,21 +29,80 @@
   <link rel="import" href="{{&public_base}}/src/channels-app.html">
   <link id="restBase" rel="session" href="{{&rest_base}}">
   <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js"></script>
-
+  <script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
   <style>
     body {
       margin: 0;
       font-family: 'Roboto', sans-serif;
       font-weight: 300;
-      line-height: 1.5;
       overflow-x: hidden;
       overflow-y: auto;
+    }
+
+    .container {
+      max-width: 700px;
+      padding: 20px;
+      margin: 80px auto;
+    }
+
+    .title {
+      font-size: 42px;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      color: #aaa;
+      margin-bottom: 24px;
+    }
+
+    .content {
+      margin: 16px 0;
+      line-height: 1.5;
+    }
+
+    .linkContainer {
+      margin: 32px 0 80px;
+    }
+
+    .link {
+      font-size: 20px;
+      text-decoration: none;
+      color: #aaa;
+      cursor: pointer;
+    }
+
+    .link:hover {
+      color: #42A5F5;
+    }
+
+    .download {
+      margin: 32px;
+      text-align: center;
+    }
+
+    .extLink {
+      height: 16px;
+      width: auto;
+      color: #aaa;
     }
   </style>
 </head>
 
 <body>
-  <h1>Welcome to Channels.Network</h1>
+  <div class="container">
+    <div class="title">Channels</div>
+    <div class="subtitle">A new social network powered by ChannelCoin</div>
+    <div class="content">Imagine a place where you can create a channel and post almost any kind of original content. Your followers will pay
+      for the posts that they find most interesting. And you can pay to promote your posts to others who aren't following
+      you yet. This is Channels and it is coming this fall.</div>
+    <div class="linkContainer">
+      <a href="https://medium.com/channels-network/channels-512d73b9c45e" target="_blank" class="link">Read our whitepaper <img class="extLink" src="/s/images/icons8-external-link.svg"></a>
+    </div>
+    <div class="content">We'll be releasing our first app shortly. Meanwhile, follow us on Twitter.</div>
+    <a href="https://twitter.com/channelscc" class="twitter-follow-button" data-size="large" data-show-count="false" data-show-screen-name="false">Follow</a>
+    <!-- <div class="download">
+      <a href="/"><img src="/s/images/app-store-download.svg" style="width:135px;height:40px"></a>
+    </div> -->
 </body>
 
 </html>
