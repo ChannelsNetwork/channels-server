@@ -2,9 +2,11 @@ import { Cursor, MongoClient, Db, Collection } from "mongodb";
 
 import { configuration } from "./configuration";
 import { Utils } from "./utils";
+import { UserRecord } from "./interfaces/db-records";
 
 export class Database {
   private db: Db;
+  private users: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -13,8 +15,59 @@ export class Database {
       options.server = serverOptions;
     }
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
+    await this.initializeUsers();
   }
 
+  private async initializeUsers(): Promise<void> {
+    this.users = this.db.collection('users');
+    await this.users.createIndex({ address: 1 }, { unique: true });
+    await this.users.createIndex({ inviterCode: 1 }, { unique: true });
+  }
+
+  async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
+    const now = Date.now();
+    const record: UserRecord = {
+      address: address,
+      publicKey: publicKey,
+      added: now,
+      inviteeCode: inviteeCode,
+      inviterCode: inviterCode,
+      balance: balance,
+      inviteeReward: inviteeReward,
+      inviterRewards: inviterRewards,
+      invitationsRemaining: invitationsRemaining,
+      invitationsAccepted: invitationsAccepted,
+      iosDeviceTokens: []
+    };
+    await this.users.insert(record);
+    return record;
+  }
+
+  async findUserByAddress(address: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ address: address });
+  }
+
+  async findUserByInviterCode(code: string): Promise<UserRecord> {
+    if (!code) {
+      return null;
+    }
+    return await this.users.findOne<UserRecord>({ inviterCode: code });
+  }
+
+  async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
+    await this.users.updateOne({ address: user.address }, {
+      $inc: {
+        balance: reward,
+        inviterRewards: reward,
+        invitationsRemaining: -1,
+        invitationsAccepted: 1
+      }
+    });
+    user.balance += reward;
+    user.inviterRewards += reward;
+    user.invitationsRemaining--;
+    user.invitationsAccepted++;
+  }
 }
 
 const db = new Database();

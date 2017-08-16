@@ -24,7 +24,6 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private expressWs: any;
   private started: number;
-  private shadowPublicDirectory: string;
   private restServers: RestServer[] = [rootPageHandler];
   private urlManager: UrlManager;
 
@@ -36,7 +35,6 @@ class ChannelsNetworkWebClient {
     this.setupExceptionHandling();
     await this.setupConfiguration();
     await db.initialize();
-    this.shadowPublicDirectory = configuration.get('components.path', path.join(__dirname, '../shadow-public'));
     await this.setupExpress();
     await this.setupServerPing();
     this.started = Date.now();
@@ -91,7 +89,6 @@ class ChannelsNetworkWebClient {
     }
 
     this.app.use('/v' + VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 * 30 }));
-    this.app.use('/v' + VERSION, express.static(this.shadowPublicDirectory, { maxAge: 1000 * 60 * 60 * 24 * 30 }));
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 * 30 }));
     if (configuration.get('client.ssl')) {
       const privateKey = fs.readFileSync(configuration.get('ssl.key'), 'utf8');
