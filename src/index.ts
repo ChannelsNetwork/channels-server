@@ -18,7 +18,7 @@ import { rootPageHandler } from './page-handlers/root-handler';
 import { userManager } from "./user-manager";
 import { testClient } from "./testing/test-client";
 
-const VERSION = 1;
+const VERSION = 2;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
