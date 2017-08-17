@@ -12,6 +12,12 @@ export interface UserRecord {
   invitationsAccepted: number;
   iosDeviceTokens: string[];
   lastContact: number;
+  identity?: UserIdentity;
+}
+
+export interface UserIdentity {
+  name: string;
+  handle: string;
 }
 
 export interface NetworkRecord {

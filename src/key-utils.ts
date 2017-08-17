@@ -49,7 +49,6 @@ export class KeyUtils {
   static sign(object: any, keyInfo: KeyInfo): string {
     const rs256 = jwa('RS256');
     const signature = rs256.sign(JSON.stringify(object), keyInfo.privateKeyPem);
-    console.log(signature);
     return signature;
   }
 

@@ -1,7 +1,7 @@
 import { MongoClient, Db, Collection } from "mongodb";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity } from "./interfaces/db-records";
 
 export class Database {
   private db: Db;
@@ -29,7 +29,8 @@ export class Database {
     this.users = this.db.collection('users');
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
-    await this.users.createIndex({ iosDeviceTokens: 1 });
+    await this.users.createIndex({ iosDeviceTokens: 1 }, { unique: true, sparse: true });
+    await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
   }
 
   async insertNetwork(balance: number): Promise<NetworkRecord> {
@@ -85,6 +86,10 @@ export class Database {
     return await this.users.findOne<UserRecord>({ iosDeviceTokens: token });
   }
 
+  async findUserByHandle(handle: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
+  }
+
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
     await this.users.updateOne({ address: userRecord.address }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
@@ -93,6 +98,15 @@ export class Database {
   async appendUserIosToken(userRecord: UserRecord, token: string): Promise<void> {
     await this.users.updateOne({ address: userRecord.address }, { $push: { iosDeviceTokens: token } });
     userRecord.iosDeviceTokens.push(token);
+  }
+
+  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string): Promise<void> {
+    const identity: UserIdentity = {
+      name: name,
+      handle: handle.toLowerCase()
+    };
+    await this.users.updateOne({ address: userRecord.address }, { $set: { identity: identity } });
+    userRecord.identity = identity;
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {

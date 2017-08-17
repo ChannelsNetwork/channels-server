@@ -44,3 +44,10 @@ export interface RegisterIosDeviceDetails extends Signable {
 }
 
 export interface RegisterIosDeviceResponse extends RestResponse { }
+
+export interface UpdateUserIdentityDetails extends Signable {
+  name: string;
+  handle: string;
+}
+
+export interface UpdateUserIdentityResponse extends RestResponse { }

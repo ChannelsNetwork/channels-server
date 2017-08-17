@@ -88,7 +88,7 @@ class TestClient implements RestServer {
     };
     console.log("status: tx:", JSON.stringify(request, null, 2));
     return new Promise<void>((resolve, reject) => {
-      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/status"), args, (data: UserStatusResponse, serviceResponse: Response) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/account-status"), args, (data: UserStatusResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
           console.log("status: rx:", JSON.stringify(data, null, 2));
           resolve();
