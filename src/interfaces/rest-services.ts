@@ -1,6 +1,6 @@
 
-export interface RestRequest<T> {
-  version: string;
+export interface RestRequest<T extends Signable> {
+  version: number;
   details: T;
   signature: string;
 }
@@ -20,11 +20,11 @@ export interface Signable {
   timestamp: number;
 }
 
-export interface RegisterUserResponse extends RequestStatusResponse { }
+export interface RegisterUserResponse extends UserStatusResponse { }
 
-export interface RequestStatusDetails extends Signable { }
+export interface UserStatusDetails extends Signable { }
 
-export interface RequestStatusResponse extends RestResponse {
+export interface UserStatusResponse extends RestResponse {
   status: UserStatus;
 }
 
@@ -39,7 +39,7 @@ export interface UserStatus {
   inviteeReward: number;
 }
 
-export interface RequestRegisterIosDeviceDetails extends Signable {
+export interface RegisterIosDeviceDetails extends Signable {
   deviceToken: string;
 }
 

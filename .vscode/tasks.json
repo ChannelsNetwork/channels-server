@@ -17,7 +17,7 @@
       "command": "tslint",
       "args": [
         "-c",
-        "tslint-types.json",
+        "tslint.json",
         "--project",
         "tsconfig.json",
         "--type-check"

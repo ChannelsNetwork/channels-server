@@ -1,6 +1,6 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
-import { Express, Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import * as net from 'net';
 import * as http from 'http';
 import * as https from 'https';
@@ -9,22 +9,23 @@ import * as bodyParser from "body-parser";
 import * as cookieParser from "cookie-parser";
 import * as path from "path";
 import * as fs from 'fs';
-import * as url from 'url';
 
 import { configuration } from "./configuration";
 import { db } from './db';
 import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from './url-manager';
 import { rootPageHandler } from './page-handlers/root-handler';
+import { userManager } from "./user-manager";
+import { testClient } from "./testing/test-client";
 
 const VERSION = 1;
+const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
-  private expressWs: any;
   private started: number;
-  private restServers: RestServer[] = [rootPageHandler];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient];
   private urlManager: UrlManager;
 
   constructor() {
@@ -35,6 +36,7 @@ class ChannelsNetworkWebClient {
     this.setupExceptionHandling();
     await this.setupConfiguration();
     await db.initialize();
+    await this.ensureNetwork();
     await this.setupExpress();
     await this.setupServerPing();
     this.started = Date.now();
@@ -150,6 +152,12 @@ class ChannelsNetworkWebClient {
     });
   }
 
+  private async ensureNetwork(): Promise<void> {
+    const network = await db.getNetwork();
+    if (!network) {
+      await db.insertNetwork(INITIAL_NETWORK_BALANCE);
+    }
+  }
 }
 
 const server = new ChannelsNetworkWebClient();

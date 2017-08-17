@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Debug",
       "program": "${workspaceRoot}/dist/index.js",
-      "smartStep": true,
+      "smartStep": false,
       "outFiles": [
         "../dist/**/*.js"
       ],
@@ -17,7 +17,7 @@
       "type": "node",
       "request": "launch",
       "program": "${workspaceRoot}/src/index.ts",
-      "smartStep": true,
+      "smartStep": false,
       "stopOnEntry": false,
       "args": [],
       "sourceMaps": true,

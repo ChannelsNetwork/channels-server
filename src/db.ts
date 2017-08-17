@@ -1,12 +1,12 @@
-import { Cursor, MongoClient, Db, Collection } from "mongodb";
+import { MongoClient, Db, Collection } from "mongodb";
 
 import { configuration } from "./configuration";
-import { Utils } from "./utils";
-import { UserRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord } from "./interfaces/db-records";
 
 export class Database {
   private db: Db;
   private users: Collection;
+  private networks: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -15,13 +15,39 @@ export class Database {
       options.server = serverOptions;
     }
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
+    await this.initializeNetworks();
     await this.initializeUsers();
+
+  }
+
+  private async initializeNetworks(): Promise<void> {
+    this.networks = this.db.collection('networks');
+    await this.networks.createIndex({ id: 1 }, { unique: true });
   }
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
+    await this.users.createIndex({ iosDeviceTokens: 1 });
+  }
+
+  async insertNetwork(balance: number): Promise<NetworkRecord> {
+    const record: NetworkRecord = {
+      id: '1',
+      created: Date.now(),
+      balance: balance
+    };
+    await this.networks.insert(record);
+    return record;
+  }
+
+  async getNetwork(): Promise<NetworkRecord> {
+    return await this.networks.findOne({ id: '1' });
+  }
+
+  async incrementNetworkBalance(incrementBy: number): Promise<void> {
+    await this.networks.updateOne({ id: '1' }, { $inc: { balance: incrementBy } });
   }
 
   async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
@@ -37,7 +63,8 @@ export class Database {
       inviterRewards: inviterRewards,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
-      iosDeviceTokens: []
+      iosDeviceTokens: [],
+      lastContact: now
     };
     await this.users.insert(record);
     return record;
@@ -51,7 +78,21 @@ export class Database {
     if (!code) {
       return null;
     }
-    return await this.users.findOne<UserRecord>({ inviterCode: code });
+    return await this.users.findOne<UserRecord>({ inviterCode: code.toLowerCase() });
+  }
+
+  async findUserByIosToken(token: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ iosDeviceTokens: token });
+  }
+
+  async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
+    await this.users.updateOne({ address: userRecord.address }, { $set: { lastContact: lastContact } });
+    userRecord.lastContact = lastContact;
+  }
+
+  async appendUserIosToken(userRecord: UserRecord, token: string): Promise<void> {
+    await this.users.updateOne({ address: userRecord.address }, { $push: { iosDeviceTokens: token } });
+    userRecord.iosDeviceTokens.push(token);
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
