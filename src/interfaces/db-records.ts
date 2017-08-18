@@ -25,3 +25,14 @@ export interface NetworkRecord {
   created: number;
   balance: number;
 }
+
+export interface CardRecord {
+  id: string;
+  at: number;
+  by: {
+    address: string;
+    handle: string;
+    name: string;
+  };
+  text: string;
+}

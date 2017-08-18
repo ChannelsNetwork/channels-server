@@ -7,7 +7,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 
@@ -36,7 +36,10 @@ class TestClient implements RestServer {
   private async handleTest(request: Request, response: Response): Promise<void> {
     await this.registerUser();
     await this.registerIosDevice();
+    await this.registerIdentity("unnamed", "user" + Date.now());
     await this.getStatus();
+    await this.postCard("hello world at " + new Date().toString());
+    await this.getFeed();
     response.end();
   }
 
@@ -121,6 +124,97 @@ class TestClient implements RestServer {
       this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/register-ios-device"), args, (data: UserStatusResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
           console.log("register-ios-device: rx:", JSON.stringify(data, null, 2));
+          resolve();
+        } else {
+          reject(serviceResponse.statusCode);
+        }
+      });
+    });
+  }
+
+  private async registerIdentity(name: string, handle: string): Promise<void> {
+    const details: UpdateUserIdentityDetails = {
+      address: this.keyInfo.address,
+      name: name,
+      handle: handle,
+      timestamp: Date.now()
+    };
+    const request: RestRequest<UpdateUserIdentityDetails> = {
+      version: 1,
+      details: details,
+      signature: KeyUtils.sign(details, this.keyInfo)
+    };
+    const args: PostArgs = {
+      data: request,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    };
+    console.log("update-identity: tx:", JSON.stringify(request, null, 2));
+    return new Promise<void>((resolve, reject) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/update-identity"), args, (data: UpdateUserIdentityResponse, serviceResponse: Response) => {
+        if (serviceResponse.statusCode === 200) {
+          console.log("update-identity: rx:", JSON.stringify(data, null, 2));
+          resolve();
+        } else {
+          reject(serviceResponse.statusCode);
+        }
+      });
+    });
+  }
+
+  private async postCard(text: string): Promise<void> {
+    const details: PostCardDetails = {
+      address: this.keyInfo.address,
+      text: text,
+      timestamp: Date.now()
+    };
+    const request: RestRequest<PostCardDetails> = {
+      version: 1,
+      details: details,
+      signature: KeyUtils.sign(details, this.keyInfo)
+    };
+    const args: PostArgs = {
+      data: request,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    };
+    console.log("post-card: tx:", JSON.stringify(request, null, 2));
+    return new Promise<void>((resolve, reject) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/post-card"), args, (data: PostCardResponse, serviceResponse: Response) => {
+        if (serviceResponse.statusCode === 200) {
+          console.log("post-card: rx:", JSON.stringify(data, null, 2));
+          resolve();
+        } else {
+          reject(serviceResponse.statusCode);
+        }
+      });
+    });
+  }
+
+  private async getFeed(): Promise<void> {
+    const details: GetFeedDetails = {
+      address: this.keyInfo.address,
+      maxCount: 5,
+      timestamp: Date.now()
+    };
+    const request: RestRequest<GetFeedDetails> = {
+      version: 1,
+      details: details,
+      signature: KeyUtils.sign(details, this.keyInfo)
+    };
+    const args: PostArgs = {
+      data: request,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    };
+    console.log("feed: tx:", JSON.stringify(request, null, 2));
+    return new Promise<void>((resolve, reject) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/feed"), args, (data: GetFeedResponse, serviceResponse: Response) => {
+        if (serviceResponse.statusCode === 200) {
+          console.log("feed: rx:", JSON.stringify(data, null, 2));
           resolve();
         } else {
           reject(serviceResponse.statusCode);

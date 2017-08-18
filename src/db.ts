@@ -1,12 +1,14 @@
-import { MongoClient, Db, Collection } from "mongodb";
+import { MongoClient, Db, Collection, Cursor } from "mongodb";
+import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord } from "./interfaces/db-records";
 
 export class Database {
   private db: Db;
   private users: Collection;
   private networks: Collection;
+  private cards: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -17,6 +19,7 @@ export class Database {
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
     await this.initializeUsers();
+    await this.initializeCards();
 
   }
 
@@ -31,6 +34,13 @@ export class Database {
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ iosDeviceTokens: 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
+  }
+
+  private async initializeCards(): Promise<void> {
+    this.cards = this.db.collection('cards');
+    await this.cards.createIndex({ id: 1 }, { unique: true });
+    await this.cards.createIndex({ at: -1, "by.address": -1 });
+    await this.cards.createIndex({ "by.address": 1, at: -1 });
   }
 
   async insertNetwork(balance: number): Promise<NetworkRecord> {
@@ -122,6 +132,42 @@ export class Database {
     user.inviterRewards += reward;
     user.invitationsRemaining--;
     user.invitationsAccepted++;
+  }
+
+  async insertCard(byAddress: string, byHandle: string, byName: string, text: string): Promise<CardRecord> {
+    const now = Date.now();
+    const record: CardRecord = {
+      id: uuid.v4(),
+      at: now,
+      by: {
+        address: byAddress,
+        handle: byHandle,
+        name: byName
+      },
+      text: text
+    };
+    await this.cards.insert(record);
+    return record;
+  }
+
+  async findCardById(id: string): Promise<CardRecord> {
+    if (!id) {
+      return null;
+    }
+    return await this.cards.findOne<CardRecord>({ id: id });
+  }
+
+  async findCards(beforeCard: CardRecord, afterCard: CardRecord, maxCount: number): Promise<CardRecord[]> {
+    let cursor = this.cards.find();
+    let anyCursor = cursor as any;  // appears to be a bug in type definitions related to max/min
+    if (afterCard) {
+      anyCursor = anyCursor.min({ at: afterCard.at, "by.address": afterCard.by.address });
+    }
+    if (beforeCard) {
+      anyCursor = anyCursor.max({ at: beforeCard.at, "by.address": beforeCard.by.address });
+    }
+    cursor = anyCursor as Cursor<CardRecord>;
+    return await cursor.sort({ at: -1, byAddress: -1 }).limit(maxCount).toArray();
   }
 }
 

@@ -16,6 +16,7 @@ import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from './url-manager';
 import { rootPageHandler } from './page-handlers/root-handler';
 import { userManager } from "./user-manager";
+import { feedManager } from "./feed-manager";
 import { testClient } from "./testing/test-client";
 
 const VERSION = 2;
@@ -25,7 +26,7 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager];
   private urlManager: UrlManager;
 
   constructor() {

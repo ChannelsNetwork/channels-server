@@ -51,3 +51,41 @@ export interface UpdateUserIdentityDetails extends Signable {
 }
 
 export interface UpdateUserIdentityResponse extends RestResponse { }
+
+export interface CheckHandleDetails extends Signable {
+  handle: string;
+}
+
+export interface CheckHandleResponse extends RestResponse {
+  valid: boolean;
+  inUse: boolean;
+}
+
+export interface PostCardDetails extends Signable {
+  text: string;
+}
+
+export interface PostCardResponse extends RestResponse {
+  cardId: string;
+}
+
+export interface GetFeedDetails extends Signable {
+  beforeCardId?: string;
+  afterCardId?: string;
+  maxCount: number;
+}
+
+export interface GetFeedResponse extends RestResponse {
+  cards: CardDescriptor[];
+}
+
+export interface CardDescriptor {
+  id: string;
+  at: number;
+  by: {
+    address: string;
+    handle: string;
+    name: string;
+  };
+  text: string;
+}

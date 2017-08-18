@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/ChannelsNetwork/channels-server#readme",
   "dependencies": {
+    "@types/uuid": "^3.4.0",
     "basic-auth": "^1.1.0",
     "basic-authorization-header": "^0.2.7",
     "body-parser": "^1.17.2",
@@ -39,7 +40,7 @@
     "secp256k1": "^3.3.0",
     "signal-exit": "^3.0.2",
     "text-encoding": "^0.6.4",
-    "uuid": "^3.0.1",
+    "uuid": "^3.1.0",
     "websocket": "^1.0.24"
   },
   "devDependencies": {

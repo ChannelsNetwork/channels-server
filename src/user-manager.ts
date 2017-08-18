@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, RegisterIosDeviceDetails, UserStatusDetails, Signable, RegisterIosDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, RegisterIosDeviceDetails, UserStatusDetails, Signable, RegisterIosDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -44,6 +44,9 @@ export class UserManager implements RestServer {
     });
     this.app.post(this.urlManager.getDynamicUrl('update-identity'), (request: Request, response: Response) => {
       void this.handleUpdateIdentity(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('check-handle'), (request: Request, response: Response) => {
+      void this.handleCheckHandle(request, response);
     });
   }
 
@@ -125,7 +128,7 @@ export class UserManager implements RestServer {
       response.status(400).send("Missing name and handle");
       return;
     }
-    if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.details.handle)) {
+    if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.details.handle)) {
       response.status(400).send("Invalid handle.  Must start with letter and can only contain letters, digits and/or underscore.");
       return;
     }
@@ -137,6 +140,29 @@ export class UserManager implements RestServer {
     }
     await db.updateUserIdentity(user, requestBody.details.name, requestBody.details.handle);
     response.json({ success: true });
+  }
+
+  private async handleCheckHandle(request: Request, response: Response): Promise<void> {
+    const requestBody = request.body as RestRequest<CheckHandleDetails>;
+    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+    if (!user) {
+      return;
+    }
+    if (!requestBody.details.handle) {
+      response.status(400).send("Missing handle");
+      return;
+    }
+    if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.details.handle)) {
+      response.json({ success: true, valid: false, inUse: false });
+      return;
+    }
+    console.log("UserManager.check-handle", requestBody.details);
+    const existing = await db.findUserByHandle(requestBody.details.handle);
+    if (existing && existing.address !== user.address) {
+      response.json({ success: true, valid: true, inUse: true });
+      return;
+    }
+    response.json({ success: true, valid: true, inUse: false });
   }
 
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
