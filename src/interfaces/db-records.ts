@@ -13,6 +13,7 @@ export interface UserRecord {
   iosDeviceTokens: string[];
   lastContact: number;
   identity?: UserIdentity;
+  storage: number;
 }
 
 export interface UserIdentity {
@@ -35,4 +36,19 @@ export interface CardRecord {
     name: string;
   };
   text: string;
+}
+
+export interface FileRecord {
+  id: string;
+  at: number;
+  status: string;
+  ownerAddress: string;
+  size: number;
+  filename: string;
+  encoding: string;
+  mimetype: string;
+  s3: {
+    bucket: string;
+    key: string;
+  };
 }

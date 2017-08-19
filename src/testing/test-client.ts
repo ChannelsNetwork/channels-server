@@ -10,6 +10,9 @@ import { UrlManager } from "../url-manager";
 import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
+import * as rq from 'request';
+import * as fs from 'fs';
+import * as path from "path";
 
 const RestClient = require('node-rest-client').Client;
 
@@ -40,6 +43,7 @@ class TestClient implements RestServer {
     await this.getStatus();
     await this.postCard("hello world at " + new Date().toString());
     await this.getFeed();
+    await this.uploadFile();
     response.end();
   }
 
@@ -220,6 +224,26 @@ class TestClient implements RestServer {
           reject(serviceResponse.statusCode);
         }
       });
+    });
+  }
+
+  private async uploadFile(): Promise<void> {
+    console.log("uploadFile: tx");
+    const postRq = rq.post(url.resolve(configuration.get('baseClientUri'), "/d/upload"), (error: any, response: rq.RequestResponse, body: any) => {
+      if (error) {
+        console.error("uploadFile: rx failed", error);
+      } else {
+        console.log("uploadFile: rx", response, body);
+      }
+    });
+    const form = postRq.form();
+    form.append("address", this.keyInfo.address);
+    const ts = Date.now().toString();
+    form.append("signatureTimestamp", ts);
+    form.append("signature", KeyUtils.signString(ts, this.keyInfo));
+    form.append("my_file", fs.createReadStream(path.join(__dirname, '../../static/images/icons8-external-link.svg')), {
+      filename: 'icons8-external-link.svg',
+      contentType: 'text/svg'
     });
   }
 }

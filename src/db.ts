@@ -2,13 +2,14 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord } from "./interfaces/db-records";
 
 export class Database {
   private db: Db;
   private users: Collection;
   private networks: Collection;
   private cards: Collection;
+  private files: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -20,7 +21,7 @@ export class Database {
     await this.initializeNetworks();
     await this.initializeUsers();
     await this.initializeCards();
-
+    await this.initializeFiles();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -41,6 +42,11 @@ export class Database {
     await this.cards.createIndex({ id: 1 }, { unique: true });
     await this.cards.createIndex({ at: -1, "by.address": -1 });
     await this.cards.createIndex({ "by.address": 1, at: -1 });
+  }
+
+  private async initializeFiles(): Promise<void> {
+    this.files = this.db.collection('files');
+    await this.files.createIndex({ id: 1 }, { unique: true });
   }
 
   async insertNetwork(balance: number): Promise<NetworkRecord> {
@@ -75,7 +81,8 @@ export class Database {
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       iosDeviceTokens: [],
-      lastContact: now
+      lastContact: now,
+      storage: 0
     };
     await this.users.insert(record);
     return record;
@@ -134,6 +141,15 @@ export class Database {
     user.invitationsAccepted++;
   }
 
+  async incrementUserStorage(user: UserRecord, size: number): Promise<void> {
+    await this.users.updateOne({ address: user.address }, {
+      $inc: {
+        storage: size
+      }
+    });
+    user.storage += size;
+  }
+
   async insertCard(byAddress: string, byHandle: string, byName: string, text: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
@@ -169,6 +185,69 @@ export class Database {
     cursor = anyCursor as Cursor<CardRecord>;
     return await cursor.sort({ at: -1, byAddress: -1 }).limit(maxCount).toArray();
   }
+
+  async insertFile(status: string, s3Bucket: string): Promise<FileRecord> {
+    const now = Date.now();
+    const record: FileRecord = {
+      id: uuid.v4(),
+      at: now,
+      status: status,
+      ownerAddress: null,
+      size: 0,
+      filename: null,
+      encoding: null,
+      mimetype: null,
+      s3: {
+        bucket: s3Bucket,
+        key: null
+      }
+    };
+    await this.files.insert(record);
+    return record;
+  }
+
+  async updateFileStatus(fileRecord: FileRecord, status: string): Promise<void> {
+    await this.files.updateOne({ id: fileRecord.id }, { $set: { status: status } });
+    fileRecord.status = status;
+  }
+
+  async updateFileProgress(fileRecord: FileRecord, ownerAddress: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: string): Promise<void> {
+    await this.files.updateOne({ id: fileRecord.id }, {
+      $set: {
+        ownerAddress: ownerAddress,
+        filename: filename,
+        encoding: encoding,
+        mimetype: mimetype,
+        "s3.key": s3Key,
+        status: status
+      }
+    });
+    fileRecord.ownerAddress = ownerAddress;
+    fileRecord.filename = filename;
+    fileRecord.encoding = encoding;
+    fileRecord.mimetype = mimetype;
+    fileRecord.s3.key = s3Key;
+    fileRecord.status = status;
+  }
+
+  async updateFileCompletion(fileRecord: FileRecord, status: string, size: number): Promise<void> {
+    await this.files.updateOne({ id: fileRecord.id }, {
+      $set: {
+        status: status,
+        size: size
+      }
+    });
+    fileRecord.status = status;
+    fileRecord.size = size;
+  }
+
+  async findFileById(id: string): Promise<FileRecord> {
+    if (!id) {
+      return null;
+    }
+    return await this.files.findOne<FileRecord>({ id: id });
+  }
+
 }
 
 const db = new Database();

@@ -1,0 +1,151 @@
+import * as express from "express";
+// tslint:disable-next-line:no-duplicate-imports
+import { Request, Response } from 'express';
+import * as net from 'net';
+import { configuration } from "./configuration";
+import { RestServer } from './interfaces/rest-server';
+import { db } from "./db";
+import { UserRecord, FileRecord } from "./interfaces/db-records";
+import { UrlManager } from "./url-manager";
+import * as Busboy from 'busboy';
+import * as AWS from 'aws-sdk';
+import * as s3Stream from "s3-upload-stream";
+import * as uuid from "uuid";
+import { KeyUtils } from "./key-utils";
+import * as url from 'url';
+import * as streamMeter from "stream-meter";
+
+const MAX_CLOCK_SKEW = 1000 * 60 * 15;
+export class FileManager implements RestServer {
+  private app: express.Application;
+  private urlManager: UrlManager;
+  private s3StreamUploader: s3Stream.S3StreamUploader;
+
+  async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
+    if (configuration.get('aws.s3.enabled')) {
+      console.log(configuration.get('aws.accessKeyId'), configuration.get('aws.secretAccessKey'), configuration.get('aws.s3.bucket'));
+      this.s3StreamUploader = s3Stream(new AWS.S3({
+        accessKeyId: configuration.get('aws.accessKeyId'),
+        secretAccessKey: configuration.get('aws.secretAccessKey')
+      }));
+    }
+    this.urlManager = urlManager;
+    this.app = app;
+    this.registerHandlers();
+  }
+
+  private registerHandlers(): void {
+    if (this.s3StreamUploader) {
+      this.app.post(this.urlManager.getDynamicUrl('upload'), (request: Request, response: Response) => {
+        void this.handleUpload(request, response);
+      });
+    }
+  }
+
+  private async handleUpload(request: Request, response: Response): Promise<void> {
+    const d = new Date();
+    const fileRecord = await db.insertFile('started', configuration.get('aws.s3.bucket'));
+    let ownerAddress: string;
+    let signatureTimestamp: string;
+    let signature: string;
+    const busboy = new Busboy({ headers: request.headers });
+    busboy.on('file', (fieldname: string, file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string) => {
+      void this.handleUploadStart(file, filename, encoding, mimetype, fileRecord, ownerAddress, signatureTimestamp, signature, response);
+    });
+    busboy.on('field', (fieldname: string, val: any, fieldnameTruncated: boolean, valTruncated: boolean, encoding: string, mimetype: string) => {
+      switch (fieldname) {
+        case 'address':
+          ownerAddress = val.toString();
+          break;
+        case 'signatureTimestamp':
+          signatureTimestamp = val;
+          break;
+        case 'signature':
+          signature = val.toString();
+          break;
+        default:
+          break;
+      }
+    });
+    request.pipe(busboy);
+  }
+
+  private async handleUploadStart(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, fileRecord: FileRecord, ownerAddress: string, signatureTimestamp: string, signature: string, response: Response): Promise<void> {
+    if (!ownerAddress || !signatureTimestamp || !signature) {
+      response.status(400).send("Missing address, timestamp, and/or signature form fields");
+      await this.abortFile(fileRecord);
+      return;
+    }
+    const user = await db.findUserByAddress(ownerAddress);
+    if (!user) {
+      response.status(401).send("No such user");
+      await this.abortFile(fileRecord);
+      return;
+    }
+    if (Math.abs(Date.now() - Number(signatureTimestamp)) > MAX_CLOCK_SKEW) {
+      response.status(400).send("Timestamp is inconsistent");
+      await this.abortFile(fileRecord);
+      return;
+    }
+    if (!KeyUtils.verifyString(signatureTimestamp, user.publicKey, signature)) {
+      response.status(403).send("Invalid signature");
+      await this.abortFile(fileRecord);
+      return;
+    }
+    await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
+  }
+
+  private async abortFile(fileRecord: FileRecord): Promise<void> {
+    await db.updateFileStatus(fileRecord, 'aborted');
+  }
+
+  private async uploadS3(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, fileRecord: FileRecord, user: UserRecord, response: Response): Promise<void> {
+    const d = new Date();
+    let key = fileRecord.id;
+    const meter = streamMeter();
+    if (filename && filename.length > 0 && filename !== '/') {
+      filename = filename.trim();
+      if (filename.startsWith('/')) {
+        filename = filename.substr(1);
+      }
+      key += '/' + filename;
+    }
+    const destination: AWS.S3.PutObjectRequest = {
+      Bucket: configuration.get('aws.s3.bucket'),
+      Key: key
+    };
+    if (mimetype) {
+      destination.ContentType = mimetype;
+    }
+    destination.Tagging = "owner=" + user.address;
+    await db.updateFileProgress(fileRecord, user.address, filename, encoding, mimetype, key, 'uploading');
+    const upload = this.s3StreamUploader.upload(destination);
+    upload.on('error', (err) => {
+      console.warn("FileManager.uploadS3: upload failed", err);
+      db.updateFileStatus(fileRecord, 'failed');
+      response.status(500).send("Internal error " + err);
+    });
+    upload.on('uploaded', (details: any) => {
+      void this.handleUploadCompleted(fileRecord, user, meter, key, response);
+    });
+    file.pipe(meter).pipe(upload);
+  }
+
+  private async handleUploadCompleted(fileRecord: FileRecord, user: UserRecord, meter: streamMeter.StreamMeter, key: string, response: Response): Promise<void> {
+    await db.updateFileCompletion(fileRecord, 'complete', meter.bytes);
+    await db.incrementUserStorage(user, meter.bytes);
+    console.log("FileManager.uploadS3: upload completed", fileRecord.id);
+    let fileUrl: string;
+    fileUrl = configuration.get('aws.s3.useS3Url') ? 'https://s3.amazonaws.com/' + configuration.get('aws.s3.bucket') + '/' + key :
+      url.resolve(configuration.get('storageBaseUri'), key);
+    const reply = {
+      fileId: fileRecord.id,
+      url: fileUrl
+    };
+    response.json(reply);
+  }
+}
+
+const fileManager = new FileManager();
+
+export { fileManager };

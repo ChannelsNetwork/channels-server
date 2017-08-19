@@ -17,6 +17,7 @@ import { UrlManager } from './url-manager';
 import { rootPageHandler } from './page-handlers/root-handler';
 import { userManager } from "./user-manager";
 import { feedManager } from "./feed-manager";
+import { fileManager } from "./file-manager";
 import { testClient } from "./testing/test-client";
 
 const VERSION = 2;
@@ -26,7 +27,7 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager, fileManager];
   private urlManager: UrlManager;
 
   constructor() {
@@ -74,7 +75,7 @@ class ChannelsNetworkWebClient {
         return;
       }
     }
-    await configuration.load('./config.json');
+    await configuration.load(path.join(__dirname, '../config.json'));
   }
 
   private async setupExpress(): Promise<void> {

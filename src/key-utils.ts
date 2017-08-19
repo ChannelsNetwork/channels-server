@@ -47,14 +47,22 @@ export class KeyUtils {
   }
 
   static sign(object: any, keyInfo: KeyInfo): string {
+    return this.signString(JSON.stringify(object), keyInfo);
+  }
+
+  static signString(value: string, keyInfo: KeyInfo): string {
     const rs256 = jwa('RS256');
-    const signature = rs256.sign(JSON.stringify(object), keyInfo.privateKeyPem);
+    const signature = rs256.sign(value, keyInfo.privateKeyPem);
     return signature;
   }
 
   static verify(object: any, publicKeyPem: string, signature: string): boolean {
+    return this.verifyString(JSON.stringify(object), publicKeyPem, signature);
+  }
+
+  static verifyString(value: string, publicKeyPem: string, signature: string): boolean {
     const rs256 = jwa('RS256');
-    return rs256.verify(JSON.stringify(object), signature, publicKeyPem);
+    return rs256.verify(value, signature, publicKeyPem);
   }
 
 }
