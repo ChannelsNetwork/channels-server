@@ -122,7 +122,7 @@ export class FileManager implements RestServer {
     const upload = this.s3StreamUploader.upload(destination);
     upload.on('error', (err) => {
       console.warn("FileManager.uploadS3: upload failed", err);
-      db.updateFileStatus(fileRecord, 'failed');
+      void db.updateFileStatus(fileRecord, 'failed');
       response.status(500).send("Internal error " + err);
     });
     upload.on('uploaded', (details: any) => {

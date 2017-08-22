@@ -63,6 +63,17 @@ export interface CheckHandleResponse extends RestResponse {
 
 export interface PostCardDetails extends Signable {
   text: string;
+  cardType: string;
+  state: {
+    user: CardState;
+    shared: CardState;
+  };
+}
+
+export interface CardState {
+  mutationId: string;
+  properties: { [name: string]: any };
+  collections: { [name: string]: { [key: string]: any } };
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -87,5 +98,13 @@ export interface CardDescriptor {
     handle: string;
     name: string;
   };
+  imageUrl: string;
+  linkUrl: string;
+  title: string;
   text: string;
+  cardType: string;
+  state?: {
+    user: CardState;
+    shared: CardState;
+  };
 }

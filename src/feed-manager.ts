@@ -9,15 +9,24 @@ import { UserRecord, CardRecord } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor } from "./interfaces/rest-services";
+import { cardManager } from "./card-manager";
+import { FeedHandler, socketServer } from "./socket-server";
+import { Initializable } from "./interfaces/initializable";
 
-export class FeedManager implements RestServer {
+export class FeedManager implements Initializable, RestServer, FeedHandler {
   private app: express.Application;
   private urlManager: UrlManager;
 
+  async initialize(): Promise<void> {
+    socketServer.registerFeedHandler(this);
+  }
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     this.urlManager = urlManager;
     this.app = app;
     this.registerHandlers();
+  }
+  async initialize2(): Promise<void> {
+    // noop
   }
 
   private registerHandlers(): void {
@@ -43,8 +52,12 @@ export class FeedManager implements RestServer {
       response.status(400).send("The text for your card is missing.");
       return;
     }
+    if (!requestBody.details.cardType) {
+      response.status(400).send("The cardType for your card is missing.");
+      return;
+    }
     console.log("UserManager.post-card", requestBody.details);
-    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, requestBody.details.text);
+    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, null, null, null, requestBody.details.text, requestBody.details.cardType);
     const reply: PostCardResponse = {
       success: true,
       cardId: card.id
@@ -52,6 +65,26 @@ export class FeedManager implements RestServer {
     response.json(reply);
   }
 
+  async getUserFeed(userAddress: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]> {
+    const result: CardDescriptor[] = [];
+    const cardRecords = await db.findCardsByTime(before, after, Math.min(maxCount, 25));
+    const promises: Array<Promise<CardDescriptor>> = [];
+    for (const record of cardRecords) {
+      promises.push(cardManager.populateCardState(record.id, userAddress));
+    }
+    const cardReplies = await Promise.all(promises);
+    const cards: CardDescriptor[] = [];
+    for (const card of cardReplies) {
+      if (card) {
+        cards.push(card);
+      }
+    }
+    cards.sort((a: CardDescriptor, b: CardDescriptor) => {
+      return a.at - b.at;
+    });
+
+    return result;
+  }
   private async handleFeed(request: Request, response: Response): Promise<void> {
     const requestBody = request.body as RestRequest<GetFeedDetails>;
     const user = await RestHelper.validateRegisteredRequest(requestBody, response);
@@ -66,19 +99,21 @@ export class FeedManager implements RestServer {
       success: true,
       cards: []
     };
+    const promises: Array<Promise<CardDescriptor>> = [];
     for (const record of cardRecords) {
-      const card: CardDescriptor = {
-        id: record.id,
-        at: record.at,
-        by: {
-          address: record.by.address,
-          handle: record.by.handle,
-          name: record.by.name
-        },
-        text: record.text
-      };
-      reply.cards.push(card);
+      promises.push(cardManager.populateCardState(record.id, user.address));
     }
+    const cardReplies = await Promise.all(promises);
+    const cards: CardDescriptor[] = [];
+    for (const card of cardReplies) {
+      if (card) {
+        cards.push(card);
+      }
+    }
+    cards.sort((a: CardDescriptor, b: CardDescriptor) => {
+      return a.at - b.at;
+    });
+    reply.cards = cards;
     console.log("UserManager.feed: " + cardRecords.length + " cards returned", requestBody.details);
     response.json(reply);
   }

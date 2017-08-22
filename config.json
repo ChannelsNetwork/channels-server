@@ -1,6 +1,6 @@
 {
   "domain": "channelelements.net",
-  "serverId": "DEV",
+  "serverId": "http://localhost:33111",
   "baseClientUri": "http://localhost:33111",
   "baseTransportUri": "ws://localhost:33111",
   "mongo": {

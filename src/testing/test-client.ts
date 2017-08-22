@@ -171,6 +171,8 @@ class TestClient implements RestServer {
     const details: PostCardDetails = {
       address: this.keyInfo.address,
       text: text,
+      cardType: "none",
+      state: null,
       timestamp: Date.now()
     };
     const request: RestRequest<PostCardDetails> = {

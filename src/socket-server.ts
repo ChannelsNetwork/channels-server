@@ -1,0 +1,269 @@
+import * as express from "express";
+// tslint:disable-next-line:no-duplicate-imports
+import { Request, Response } from 'express';
+import * as net from 'net';
+import { RestServer } from "./interfaces/rest-server";
+import { UrlManager } from "./url-manager";
+import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
+import * as uuid from 'uuid';
+import { configuration } from "./configuration";
+import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, ErrorReplyDetails, OpenReplyDetails, PostCardDetails, PostCardReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails } from "./interfaces/socket-messages";
+import { db } from "./db";
+import { KeyUtils } from "./key-utils";
+import { CardRecord, UserRecord } from "./interfaces/db-records";
+import { CardDescriptor } from "./interfaces/rest-services";
+
+const MAX_CLOCK_SKEW = 1000 * 60 * 15;
+export class SocketServer implements SocketConnectionHandler {
+  private socketsById: { [id: string]: SocketInfo } = {};
+  private socketsByAddress: { [address: string]: SocketInfo } = {};
+  private pingInterval: number;
+  private pingTimeout: number;
+  private cardHandler: CardHandler;
+  private feedHandler: FeedHandler;
+
+  private async start(): Promise<void> {
+    this.pingInterval = configuration.get('ping.interval', 30000);
+    this.pingTimeout = configuration.get('ping.timeout', 15000);
+    if (this.pingInterval > 0) {
+      setInterval(() => {
+        this.processPings();
+      }, 1000);
+    }
+  }
+
+  async initializeWebsocketServices(urlManager: UrlManager, wsapp: ExpressWithSockets): Promise<void> {
+    wsapp.ws("/d/socket", (ws: ChannelSocket, request: Request) => {
+      console.log("Sockets: connection requested");
+      const socketId = uuid.v4();
+      ws.on('message', (message: Uint8Array | string) => {
+        void this.handleChannelSocketMessage(socketId, ws, message);
+        return false;
+      });
+      ws.on('close', () => {
+        void this.handleChannelSocketClose(socketId, ws);
+      });
+      void this.handleSocketConnectRequest(socketId, ws, request);
+    });
+  }
+
+  registerCardHandler(handler: CardHandler): void {
+    this.cardHandler = handler;
+  }
+
+  registerFeedHandler(handler: FeedHandler): void {
+    this.feedHandler = handler;
+  }
+
+  getOpenSocketAddresses(): string[] {
+    return Object.keys(this.socketsByAddress);
+  }
+
+  private async handleSocketConnectRequest(socketId: string, ws: ChannelSocket, request: Request): Promise<void> {
+    this.socketsById[socketId] = {
+      socketId: socketId,
+      socket: ws,
+      state: "pending-open",
+      lastPingSent: Date.now(),
+      lastPingReply: Date.now(),
+      pingId: Math.floor(Math.random() * 1000),
+      address: null
+    };
+    console.log("SocketServer: socket connected", socketId);
+  }
+
+  private async handleChannelSocketClose(socketId: string, ws: ChannelSocket): Promise<void> {
+    const socket = this.socketsById[socketId];
+    if (socket) {
+      delete this.socketsById[socketId];
+      if (socket.address) {
+        delete this.socketsByAddress[socket.address];
+      }
+    }
+    console.log("SocketServer: socket closed", socketId);
+  }
+
+  private async handleChannelSocketMessage(socketId: string, ws: ChannelSocket, message: Uint8Array | string): Promise<void> {
+    console.log("SocketServer: rx", socketId, message.length);
+    const socketInfo = this.socketsById[socketId];
+    if (!socketInfo) {
+      return;
+    }
+    if (typeof message === 'string') {
+      let msg: any;
+      try {
+        msg = JSON.parse(message as string) as SocketMessage<void>;
+      } catch (err) {
+        console.warn("SocketServer: received non-JSON message", message);
+        return;
+      }
+      switch (msg.type as SocketMessageType) {
+        case 'ping':
+          await this.handlePing(msg as SocketMessage<PingRequestDetails>, socketInfo);
+          break;
+        case 'ping-reply':
+          await this.handlePingReply(msg as SocketMessage<PingReplyDetails>, socketInfo);
+          break;
+        case 'open':
+          await this.handleOpenRequest(msg as SocketMessage<OpenRequestDetails>, socketInfo);
+          break;
+        case 'post-card':
+          await this.handlePostCardRequest(msg as SocketMessage<PostCardDetails>, socketInfo);
+          break;
+        case 'get-feed':
+          await this.handleGetFeed(msg as SocketMessage<GetFeedDetails>, socketInfo);
+          break;
+        default:
+          console.warn("SocketServer: received unexpected message type " + msg.type);
+          break;
+      }
+    } else {
+      console.warn("SocketServer: received non-string message.  Ignoring.", socketId);
+    }
+  }
+
+  private async handlePing(msg: SocketMessage<PingRequestDetails>, socket: SocketInfo): Promise<void> {
+    const details: PingReplyDetails = {};
+    socket.socket.send(JSON.stringify({ type: "ping-reply", requestId: msg.requestId, details: details }));
+  }
+
+  private async handlePingReply(msg: SocketMessage<PingReplyDetails>, socket: SocketInfo): Promise<void> {
+    if (msg.requestId === socket.pingId.toString()) {
+      socket.lastPingReply = Date.now();
+    } else {
+      console.warn("SocketServer: received ping-reply with unexpected requestId.  Ignoring", msg.requestId, socket.socketId);
+    }
+  }
+
+  private async handleOpenRequest(msg: SocketMessage<OpenRequestDetails>, socket: SocketInfo): Promise<void> {
+    if (socket.address) {
+      const errDetails: ErrorReplyDetails = { code: 409, message: "Socket has already been opened" };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    // TODO: validate request structure
+    const user = await db.findUserByAddress(msg.details.address);
+    if (!user) {
+      const errDetails: ErrorReplyDetails = { code: 401, message: "No such user registered" };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    if (!KeyUtils.verify(msg.details.signedDetails, user.publicKey, msg.details.signature)) {
+      const errDetails: ErrorReplyDetails = { code: 403, message: "Invalid signature" };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    if (Math.abs(Date.now() - msg.details.signedDetails.timestamp) > MAX_CLOCK_SKEW) {
+      const errDetails: ErrorReplyDetails = { code: 400, message: "Invalid timestamp" };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    socket.address = user.address;
+    const details: OpenReplyDetails = {};
+    socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
+  }
+
+  private async handlePostCardRequest(msg: SocketMessage<PostCardDetails>, socket: SocketInfo): Promise<void> {
+    const user = await db.findUserByAddress(socket.address);
+    if (!user) {
+      console.warn("SocketServer.handlePostCardRequest: missing user");
+      const errDetails: ErrorReplyDetails = { code: 401, message: "User is missing" };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    const card = await this.cardHandler.postCard(user, msg.details);
+    const details: PostCardReplyDetails = {
+      cardId: card.id
+    };
+    socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
+  }
+
+  private async handleGetFeed(msg: SocketMessage<GetFeedDetails>, socket: SocketInfo): Promise<void> {
+    const user = await db.findUserByAddress(socket.address);
+    if (!user) {
+      console.warn("SocketServer.handleGetFeed: missing user");
+      const errDetails: ErrorReplyDetails = { code: 401, message: "User is missing" };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    const cards = await this.feedHandler.getUserFeed(user.address, msg.details.maxCount, msg.details.before, msg.details.after);
+    const details: GetFeedReplyDetails = {
+      cards: cards
+    };
+    socket.socket.send(JSON.stringify({ type: "get-feed-reply", requestId: msg.requestId, details: details }));
+  }
+
+  private processPings(): void {
+    const now = Date.now();
+    for (const socketId of Object.keys(this.socketsById)) {
+      const socketInfo = this.socketsById[socketId];
+      if (now - socketInfo.lastPingSent > this.pingTimeout && socketInfo.lastPingReply < socketInfo.lastPingSent) {
+        console.warn("SocketServer: Timeout waiting for ping-reply", socketId);
+        this.closeSocket(socketId);
+      } else if (now - socketInfo.lastPingSent > this.pingInterval) {
+        process.nextTick(() => {
+          void this.sendPing(socketInfo);
+        });
+      }
+    }
+  }
+
+  private closeSocket(socketId: string): void {
+    const socketInfo = this.socketsById[socketId];
+    if (socketInfo) {
+      delete this.socketsById[socketId];
+      if (socketInfo.address) {
+        delete this.socketsByAddress[socketInfo.address];
+      }
+      socketInfo.socket.close();
+    }
+  }
+
+  private async sendPing(socket: SocketInfo): Promise<void> {
+    const details: PingRequestDetails = {
+      interval: this.pingInterval
+    };
+    socket.pingId++;
+    socket.socket.send(JSON.stringify({ type: "ping", requestId: socket.pingId.toString(), details: details }));
+    socket.lastPingSent = Date.now();
+  }
+
+  async sendEvent<T>(addresses: string[], event: SocketMessage<T>): Promise<void> {
+    const msgString = JSON.stringify(event);
+    for (const address of addresses) {
+      const socket = this.socketsByAddress[address];
+      if (socket) {
+        socket.socket.send(msgString);
+      }
+    }
+  }
+}
+
+interface SocketInfo {
+  socketId: string;
+  socket: ChannelSocket;
+  state: "pending-open" | "active";
+  lastPingSent: number;
+  lastPingReply: number;
+  pingId: number;
+  address: string;
+}
+
+interface ChannelSocket {
+  on: (event: string, handler: (arg?: any) => void) => void;
+  send: (contents: Uint8Array | string) => void;
+  close: () => void;
+  bufferedAmount: number;
+}
+
+export interface CardHandler {
+  postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord>;
+}
+
+export interface FeedHandler {
+  getUserFeed(userAddress: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]>;
+}
+
+const socketServer = new SocketServer();
+
+export { socketServer };

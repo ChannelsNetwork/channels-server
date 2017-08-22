@@ -19,6 +19,10 @@ import { userManager } from "./user-manager";
 import { feedManager } from "./feed-manager";
 import { fileManager } from "./file-manager";
 import { testClient } from "./testing/test-client";
+import { awsManager } from "./aws-manager";
+import { Initializable } from "./interfaces/initializable";
+import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
+import { socketServer } from "./socket-server";
 
 const VERSION = 2;
 const INITIAL_NETWORK_BALANCE = 25000;
@@ -27,8 +31,11 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
+  private initializables: Initializable[] = [awsManager];
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager, fileManager];
+  private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
+  private wsapp: ExpressWithSockets;
 
   constructor() {
     this.urlManager = new UrlManager(VERSION);
@@ -39,12 +46,25 @@ class ChannelsNetworkWebClient {
     await this.setupConfiguration();
     await db.initialize();
     await this.ensureNetwork();
+    for (const initializable of this.initializables) {
+      await initializable.initialize();
+    }
     await this.setupExpress();
+
+    require('express-ws')(this.app, this.server);
+    this.wsapp = this.app as ExpressWithSockets;
+
+    for (const sserver of this.socketServers) {
+      await sserver.initializeWebsocketServices(this.urlManager, this.wsapp);
+    }
+
+    for (const initializable of this.initializables) {
+      await initializable.initialize2();
+    }
     await this.setupServerPing();
     this.started = Date.now();
 
-    console.log("Channels Network Web Client is running");
-
+    console.log("Channels Network Server is running");
   }
 
   private setupExceptionHandling(): void {
