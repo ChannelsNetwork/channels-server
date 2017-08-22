@@ -2,23 +2,26 @@
 import { CardDescriptor } from "./rest-services";
 import { Mutation, CardStateGroup } from "./db-records";
 
-export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'notify-card-posted' | 'notify-mutation' | 'error';
+export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'open-reply' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'mutate-card' | 'mutate-card-reply' | 'notify-card-posted' | 'notify-mutation';
 export interface SocketMessage<T> {
   type: SocketMessageType;
   requestId?: string;
   details: T;
 }
 
-export interface ErrorReplyDetails {
-  code: number;
-  message: string;
+export interface ReplyDetails {
+  success: boolean;
+  error?: {
+    code: number;
+    message: string;
+  };
 }
 
 export interface PingRequestDetails {
   interval: number;
 }
 
-export interface PingReplyDetails { }
+export interface PingReplyDetails extends ReplyDetails { }
 
 export interface OpenRequestDetails {
   address: string;
@@ -28,7 +31,7 @@ export interface OpenRequestDetails {
   signature: string;
 }
 
-export interface OpenReplyDetails { }
+export interface OpenReplyDetails extends ReplyDetails { }
 
 export interface PostCardDetails {
   imageUrl?: string;
@@ -42,21 +45,31 @@ export interface PostCardDetails {
   };
 }
 
-export interface PostCardReplyDetails {
+export interface PostCardReplyDetails extends ReplyDetails {
   cardId: string;
 }
+
 export interface CardState {
   mutationId: string;
   properties: { [name: string]: any };
   collections: { [name: string]: { [key: string]: any } };
 }
 
+export interface MutateCardDetails {
+  mutationId: string;
+  cardId: string;
+  by: string;
+  at: number;
+  mutation: Mutation;
+}
+
+export interface MutateCardReplyDetails extends ReplyDetails { }
+
 export interface NotifyCardPostedDetails extends CardDescriptor { }
 
 export interface NotifyCardMutationDetails {
   mutationId: string;
   cardId: string;
-  group: CardStateGroup;
   by: string;
   at: number;
   mutation: Mutation;
@@ -68,6 +81,6 @@ export interface GetFeedDetails {
   maxCount: number;
 }
 
-export interface GetFeedReplyDetails {
+export interface GetFeedReplyDetails extends ReplyDetails {
   cards: CardDescriptor[];
 }

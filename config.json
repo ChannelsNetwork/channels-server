@@ -2,7 +2,7 @@
   "domain": "channelelements.net",
   "serverId": "http://localhost:33111",
   "baseClientUri": "http://localhost:33111",
-  "baseTransportUri": "ws://localhost:33111",
+  "baseSocketUri": "ws://localhost:33111",
   "mongo": {
     "mongoUrl": "mongodb://localhost:27017/channels-server",
     "options": {},

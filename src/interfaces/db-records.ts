@@ -19,6 +19,7 @@ export interface UserRecord {
 export interface UserIdentity {
   name: string;
   handle: string;
+  imageUrl: string;
 }
 
 export interface NetworkRecord {
@@ -34,6 +35,7 @@ export interface CardRecord {
     address: string;
     handle: string;
     name: string;
+    imageUrl: string;
   };
   imageUrl: string;
   linkUrl: string;

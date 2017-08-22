@@ -23,7 +23,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   async postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord> {
-    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType);
+    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType);
     await this.announceCard(card, user);
     return card;
   }
@@ -232,7 +232,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       cardId: card.id,
       at: mutation.at,
       by: mutation.by,
-      group: mutation.group,
       mutation: mutation.mutation
     };
     // TODO: only send to subset of addresses based on user feed
@@ -251,7 +250,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         by: {
           address: record.by.address,
           handle: record.by.handle,
-          name: record.by.name
+          name: record.by.name,
+          imageUrl: record.by.imageUrl
         },
         imageUrl: record.imageUrl,
         linkUrl: record.linkUrl,

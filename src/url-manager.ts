@@ -62,4 +62,8 @@ export class UrlManager {
       return '/d' + relativeUrl;
     }
   }
+
+  getSocketUrl(relativeUrl: string): string {
+    return configuration.get('baseSocketUri') + '/d/' + relativeUrl;
+  }
 }

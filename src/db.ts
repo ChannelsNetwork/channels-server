@@ -141,10 +141,11 @@ export class Database {
     userRecord.iosDeviceTokens.push(token);
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string): Promise<void> {
     const identity: UserIdentity = {
       name: name,
-      handle: handle.toLowerCase()
+      handle: handle.toLowerCase(),
+      imageUrl: imageUrl
     };
     await this.users.updateOne({ address: userRecord.address }, { $set: { identity: identity } });
     userRecord.identity = identity;
@@ -174,7 +175,7 @@ export class Database {
     user.storage += size;
   }
 
-  async insertCard(byAddress: string, byHandle: string, byName: string, imageUrl: string, linkUrl: string, title: string, text: string, cardType: string): Promise<CardRecord> {
+  async insertCard(byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: uuid.v4(),
@@ -182,9 +183,10 @@ export class Database {
       by: {
         address: byAddress,
         handle: byHandle,
-        name: byName
+        name: byName,
+        imageUrl: byImageUrl
       },
-      imageUrl: imageUrl,
+      imageUrl: cardImageUrl,
       linkUrl: linkUrl,
       title: title,
       text: text,

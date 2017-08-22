@@ -11,6 +11,7 @@ import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
 import { KeyUtils } from "./key-utils";
 import { RestHelper } from "./rest-helper";
+import * as url from 'url';
 
 const INITIAL_BALANCE = 10;
 const INVITER_REWARD = 2;
@@ -138,7 +139,7 @@ export class UserManager implements RestServer {
       response.status(409).send("This handle is already in use");
       return;
     }
-    await db.updateUserIdentity(user, requestBody.details.name, requestBody.details.handle);
+    await db.updateUserIdentity(user, requestBody.details.name, requestBody.details.handle, requestBody.details.imageUrl);
     response.json({ success: true });
   }
 
@@ -178,7 +179,8 @@ export class UserManager implements RestServer {
         invitationsRemaining: user.invitationsRemaining,
         inviterRewards: user.inviterRewards,
         inviteeReward: user.inviteeReward
-      }
+      },
+      socketUrl: this.urlManager.getSocketUrl('socket')
     };
     response.json(result);
   }

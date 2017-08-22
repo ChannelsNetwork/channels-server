@@ -7,10 +7,10 @@ import { UrlManager } from "./url-manager";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
 import * as uuid from 'uuid';
 import { configuration } from "./configuration";
-import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, ErrorReplyDetails, OpenReplyDetails, PostCardDetails, PostCardReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails } from "./interfaces/socket-messages";
+import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, OpenReplyDetails, PostCardDetails, PostCardReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails, MutateCardDetails, MutateCardReplyDetails } from "./interfaces/socket-messages";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
-import { CardRecord, UserRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, Mutation, CardMutationRecord } from "./interfaces/db-records";
 import { CardDescriptor } from "./interfaces/rest-services";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
@@ -110,6 +110,9 @@ export class SocketServer implements SocketConnectionHandler {
         case 'post-card':
           await this.handlePostCardRequest(msg as SocketMessage<PostCardDetails>, socketInfo);
           break;
+        case 'mutate-card':
+          await this.handleMutateCardRequest(msg as SocketMessage<MutateCardDetails>, socketInfo);
+          break;
         case 'get-feed':
           await this.handleGetFeed(msg as SocketMessage<GetFeedDetails>, socketInfo);
           break;
@@ -123,7 +126,7 @@ export class SocketServer implements SocketConnectionHandler {
   }
 
   private async handlePing(msg: SocketMessage<PingRequestDetails>, socket: SocketInfo): Promise<void> {
-    const details: PingReplyDetails = {};
+    const details: PingReplyDetails = { success: true };
     socket.socket.send(JSON.stringify({ type: "ping-reply", requestId: msg.requestId, details: details }));
   }
 
@@ -137,29 +140,29 @@ export class SocketServer implements SocketConnectionHandler {
 
   private async handleOpenRequest(msg: SocketMessage<OpenRequestDetails>, socket: SocketInfo): Promise<void> {
     if (socket.address) {
-      const errDetails: ErrorReplyDetails = { code: 409, message: "Socket has already been opened" };
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 409, message: "Socket has already been opened" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
     // TODO: validate request structure
     const user = await db.findUserByAddress(msg.details.address);
     if (!user) {
-      const errDetails: ErrorReplyDetails = { code: 401, message: "No such user registered" };
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 401, message: "No such user registered" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
     if (!KeyUtils.verify(msg.details.signedDetails, user.publicKey, msg.details.signature)) {
-      const errDetails: ErrorReplyDetails = { code: 403, message: "Invalid signature" };
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 403, message: "Invalid signature" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
     if (Math.abs(Date.now() - msg.details.signedDetails.timestamp) > MAX_CLOCK_SKEW) {
-      const errDetails: ErrorReplyDetails = { code: 400, message: "Invalid timestamp" };
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 400, message: "Invalid timestamp" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
     socket.address = user.address;
-    const details: OpenReplyDetails = {};
+    const details: OpenReplyDetails = { success: true };
     socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
   }
 
@@ -167,27 +170,42 @@ export class SocketServer implements SocketConnectionHandler {
     const user = await db.findUserByAddress(socket.address);
     if (!user) {
       console.warn("SocketServer.handlePostCardRequest: missing user");
-      const errDetails: ErrorReplyDetails = { code: 401, message: "User is missing" };
+      const errDetails: PostCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cardId: null };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
     const card = await this.cardHandler.postCard(user, msg.details);
     const details: PostCardReplyDetails = {
+      success: true,
       cardId: card.id
     };
-    socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
+    socket.socket.send(JSON.stringify({ type: "post-card-reply", requestId: msg.requestId, details: details }));
+  }
+
+  private async handleMutateCardRequest(msg: SocketMessage<MutateCardDetails>, socket: SocketInfo): Promise<void> {
+    const user = await db.findUserByAddress(socket.address);
+    if (!user) {
+      console.warn("SocketServer.handleMutateCardRequest: missing user");
+      const errDetails: MutateCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" } };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    const mutation = await this.cardHandler.mutateCard(user, msg.details.cardId, msg.details.mutation);
+    const details: MutateCardReplyDetails = { success: true };
+    socket.socket.send(JSON.stringify({ type: "mutate-card-reply", requestId: msg.requestId, details: details }));
   }
 
   private async handleGetFeed(msg: SocketMessage<GetFeedDetails>, socket: SocketInfo): Promise<void> {
     const user = await db.findUserByAddress(socket.address);
     if (!user) {
       console.warn("SocketServer.handleGetFeed: missing user");
-      const errDetails: ErrorReplyDetails = { code: 401, message: "User is missing" };
+      const errDetails: GetFeedReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cards: [] };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
     const cards = await this.feedHandler.getUserFeed(user.address, msg.details.maxCount, msg.details.before, msg.details.after);
     const details: GetFeedReplyDetails = {
+      success: true,
       cards: cards
     };
     socket.socket.send(JSON.stringify({ type: "get-feed-reply", requestId: msg.requestId, details: details }));
@@ -258,6 +276,7 @@ interface ChannelSocket {
 
 export interface CardHandler {
   postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord>;
+  mutateCard(user: UserRecord, cardId: string, mutation: Mutation): Promise<CardMutationRecord>;
 }
 
 export interface FeedHandler {
