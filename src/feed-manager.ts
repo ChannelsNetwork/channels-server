@@ -38,7 +38,6 @@ export class FeedManager implements Initializable, FeedHandler {
     cards.sort((a: CardDescriptor, b: CardDescriptor) => {
       return a.at - b.at;
     });
-
     return result;
   }
   private async handleFeed(request: Request, response: Response): Promise<void> {

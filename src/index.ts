@@ -33,7 +33,7 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private started: number;
   private initializables: Initializable[] = [awsManager, cardManager, feedManager];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
@@ -103,10 +103,20 @@ class ChannelsNetworkWebClient {
     this.app = express();
 
     this.app.use(compression());
-    this.app.use(bodyParser.json()); // for parsing application/json
+    this.app.use(bodyParser.json({ strict: false })); // for parsing application/json
     this.app.use(bodyParser.urlencoded({
       extended: true
     }));
+    // this.app.use((req: any, res: any, next: any) => {
+    //   if (req.is('text/*')) {
+    //     req.text = '';
+    //     req.setEncoding('utf8');
+    //     req.on('data', (chunk: any) => { req.text += chunk; });
+    //     req.on('end', next);
+    //   } else {
+    //     next();
+    //   }
+    // });
     this.app.use(cookieParser());
 
     for (const restServer of this.restServers) {

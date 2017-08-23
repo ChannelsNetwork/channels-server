@@ -36,10 +36,10 @@ export interface OpenReplyDetails extends ReplyDetails { }
 export interface PostCardDetails {
   imageUrl?: string;
   linkUrl?: string;
-  title: string;
+  title?: string;
   text: string;
-  cardType: string;
-  state: {
+  cardType?: string;
+  state?: {
     user: CardState;
     shared: CardState;
   };

@@ -166,6 +166,7 @@ export class SocketServer implements SocketConnectionHandler {
       return;
     }
     socket.address = user.address;
+    this.socketsByAddress[user.address] = socket;
     const details: OpenReplyDetails = { success: true };
     socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
   }

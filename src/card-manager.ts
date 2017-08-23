@@ -216,6 +216,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       // TODO: only send to users based on their feed configuration
       promises.push(this.sendCardPostedNotification(card.id, address));
     }
+    console.log("CardManager.handleCardPostedNotification: Notifying " + addresses.length + " clients");
     await Promise.all(promises);
   }
 

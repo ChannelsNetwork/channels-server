@@ -9,7 +9,10 @@ import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
 import { Initializable } from "./interfaces/initializable";
 import { message } from "aws-sdk/clients/sns";
+import * as bodyParser from "body-parser";
+import { Utils } from "./utils";
 const SnsMessageValidator = require('sns-validator');
+// const RestClient = require('node-rest-client').Client;
 
 const SNS_NOTIFY_OFFSET = 'snsNotify';
 export class AwsManager implements RestServer, Initializable {
@@ -18,6 +21,8 @@ export class AwsManager implements RestServer, Initializable {
   private app: express.Application;
   private urlManager: UrlManager;
   private handlers: NotificationHandler[] = [];
+  // private restClient = new RestClient() as IRestClient;
+  private snsConfirmed = false;
 
   async initialize(): Promise<void> {
     // noop
@@ -34,7 +39,8 @@ export class AwsManager implements RestServer, Initializable {
   }
 
   private registerHandlers(): void {
-    this.app.post(this.urlManager.getDynamicUrl(SNS_NOTIFY_OFFSET), (request: Request, response: Response) => {
+
+    this.app.post(this.urlManager.getDynamicUrl(SNS_NOTIFY_OFFSET), bodyParser.text(), (request: Request, response: Response) => {
       void this.handleSnsNotify(request, response);
     });
   }
@@ -43,19 +49,26 @@ export class AwsManager implements RestServer, Initializable {
     if (configuration.get('aws.accessKeyId') && configuration.get('aws.secretAccessKey')) {
       AWS.config.update({
         accessKeyId: configuration.get('aws.accessKeyId'),
-        secretAccessKey: configuration.get('aws.secretAccessKey')
+        secretAccessKey: configuration.get('aws.secretAccessKey'),
+        region: configuration.get('aws.region', 'us-east-1')
       });
       if (configuration.get('aws.sns.topic')) {
         this.sns = new AWS.SNS();
+        console.log("AwsManager.initialize2: Subscribing to SNS topic " + configuration.get('aws.sns.topic'));
         this.sns.subscribe({
-          Protocol: configuration.get('serverId').split(':')[0],
+          Protocol: configuration.get('aws.sns.callbackBaseUrl').split(':')[0],
           TopicArn: configuration.get('aws.sns.topic'),
-          Endpoint: url.resolve(configuration.get('serverId'), '/d/snsNotify')
+          Endpoint: url.resolve(configuration.get('aws.sns.callbackBaseUrl'), '/d/snsNotify')
         }, (err: any) => {
           if (err) {
             throw err;
           }
         });
+        setTimeout(() => {
+          if (!this.snsConfirmed) {
+            throw new Error("AwsManager: 15 seconds after subscribing, SNS subscription has not been confirmed");
+          }
+        }, 15000);
       }
     }
   }
@@ -73,12 +86,23 @@ export class AwsManager implements RestServer, Initializable {
       switch (type) {
         case 'SubscriptionConfirmation':
           const confirmation = snsMessage;
+          console.log("AwsManager.handleSnsNotify: Confirming SNS subscription", JSON.stringify(snsMessage));
+          // this.restClient.get(confirmation.SubscribeURL, (data: any, confResponse: express.Response): void => {
+          //   if (confResponse.statusCode === 200) {
+          //     console.log("AwsManager.handleSnsNotify: subscription confirmed");
+          //   } else {
+          //     console.error("AwsManager.handleSnsNotify: error confirming subscription", data);
+          //   }
+          // });
           this.sns.confirmSubscription({
             TopicArn: confirmation.TopicArn,
             Token: confirmation.Token
           }, (err: any) => {
             if (err) {
               console.error("AwsManager.handleSnsNotify: error confirming subscription", err);
+            } else {
+              this.snsConfirmed = true;
+              console.log("AwsManager.handleSnsNotify: subscription confirmed");
             }
           });
           break;
@@ -110,6 +134,7 @@ export class AwsManager implements RestServer, Initializable {
   }
 
   private async processNotification(notification: ChannelsServerNotification): Promise<void> {
+    console.log("AwsManager.processNotification", JSON.stringify(notification));
     for (const handler of this.handlers) {
       await handler.handleNotification(notification);
     }
@@ -121,7 +146,9 @@ export class AwsManager implements RestServer, Initializable {
         TopicArn: configuration.get('aws.sns.topic'),
         Message: JSON.stringify(notification),
       }, (err: any) => {
-        console.error("Failure publishing SNS notification", err);
+        if (err) {
+          console.error("Failure publishing SNS notification", err);
+        }
       });
     } else {
       // Bypass SNS and just process locally
@@ -140,6 +167,22 @@ export interface ChannelsServerNotification {
   card: string;
   mutation?: string;
 }
+
+// interface PostArgs {
+//   data: any;
+//   headers: { [name: string]: string };
+// }
+// interface RestArgs {
+//   headers: { [name: string]: string };
+// }
+
+// interface IRestClient {
+//   get(url: string, callback: (data: any, response: Response) => void): void;
+
+//   get(url: string, args: RestArgs, callback: (data: any, response: Response) => void): void;
+//   post(url: string, args: PostArgs, callback: (data: any, response: Response) => void): void;
+//   delete(url: string, args: RestArgs, callback: (data: any, response: Response) => void): void;
+// }
 
 const awsManager = new AwsManager();
 

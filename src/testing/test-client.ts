@@ -7,12 +7,13 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
 import * as fs from 'fs';
 import * as path from "path";
+import { PingReplyDetails, SocketMessage, PingRequestDetails, OpenRequestDetails, OpenReplyDetails, PostCardReplyDetails, PostCardDetails, GetFeedDetails, GetFeedReplyDetails } from "../interfaces/socket-messages";
 
 const RestClient = require('node-rest-client').Client;
 
@@ -21,6 +22,10 @@ class TestClient implements RestServer {
   private urlManager: UrlManager;
   private restClient = new RestClient() as IRestClient;
   private keyInfo = KeyUtils.getKeyInfo(KeyUtils.generatePrivateKey());
+  private socket: connection;
+  private registerResponse: RegisterUserResponse;
+  private requestId = 1001;
+  private callbacksByRequestId: { [id: string]: (message: any) => void } = {};
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     this.urlManager = urlManager;
@@ -41,10 +46,139 @@ class TestClient implements RestServer {
     await this.registerIosDevice();
     await this.registerIdentity("unnamed", "user" + Date.now());
     await this.getStatus();
-    await this.postCard("hello world at " + new Date().toString());
-    await this.getFeed();
     await this.uploadFile();
+    await this.openSocket();
+    await this.sendOpen();
+    await this.postCard();
     response.end();
+  }
+
+  private async openSocket(): Promise<void> {
+    const socket = new WebSocketClient();
+    return new Promise<void>((resolve, reject) => {
+      socket.on('connect', (conn: connection) => {
+        this.socket = conn;
+        conn.on('error', (error: any) => {
+          console.log("TestClient: Connection Error: " + error.toString());
+        });
+        conn.on('close', () => {
+          console.log('TestClient: Connection Closed');
+        });
+        conn.on('message', (message: IMessage) => {
+          if (message.type === 'utf8') {
+            try {
+              const jsonMsg = JSON.parse(message.utf8Data);
+              void this.processSocketRxMessage(jsonMsg, conn);
+            } catch (err) {
+              console.error("TestClient: Invalid JSON in string message", message.utf8Data);
+            }
+          } else {
+            console.error('TestClient: Unexpected binary-type socket message', message);
+          }
+        });
+        resolve();
+      });
+      const headers: any = {};
+      socket.connect(this.registerResponse.socketUrl, null, null, headers);
+    });
+  }
+
+  private async processSocketRxMessage(message: any, conn: connection): Promise<void> {
+    if (!message.type) {
+      console.error("TestClient.processSocketRxMessage: type field missing");
+      return;
+    }
+    switch (message.type) {
+      case 'ping': {
+        const pingMessage = message as SocketMessage<PingRequestDetails>;
+        const details: PingReplyDetails = { success: true };
+        conn.send(JSON.stringify({ type: "ping-reply", requestId: pingMessage.requestId, details: details }));
+        break;
+      }
+      default:
+        console.log("TestClient.processSocketRxMessage: RX", JSON.stringify(message));
+        const requestId = message.requestId as string;
+        if (requestId) {
+          const callback = this.callbacksByRequestId[requestId];
+          if (callback) {
+            delete this.callbacksByRequestId[requestId];
+            callback(message);
+          }
+        }
+        break;
+    }
+  }
+
+  private registerCallback(requestId: string, callback: (message: any) => void): void {
+    this.callbacksByRequestId[requestId] = callback;
+  }
+
+  private async sendOpen(): Promise<void> {
+    const signedDetails = {
+      timestamp: Date.now()
+    };
+    const request: SocketMessage<OpenRequestDetails> = {
+      type: "open",
+      requestId: (this.requestId++).toString(),
+      details: {
+        address: this.keyInfo.address,
+        signedDetails: signedDetails,
+        signature: KeyUtils.sign(signedDetails, this.keyInfo)
+      }
+    };
+    this.socket.send(JSON.stringify(request));
+    return new Promise<void>((resolve, reject) => {
+      this.registerCallback(request.requestId, (message: any): void => {
+        const openReply = message as SocketMessage<OpenReplyDetails>;
+        if (openReply.details.success) {
+          resolve();
+        } else {
+          reject(message);
+        }
+      });
+    });
+  }
+
+  private async postCard(): Promise<void> {
+    const request: SocketMessage<PostCardDetails> = {
+      type: "post-card",
+      requestId: (this.requestId++).toString(),
+      details: {
+        text: "Hello world " + new Date().toString()
+      }
+    };
+    this.socket.send(JSON.stringify(request));
+    return new Promise<void>((resolve, reject) => {
+      this.registerCallback(request.requestId, (message: any): void => {
+        const reply = message as SocketMessage<PostCardReplyDetails>;
+        if (reply.details.success) {
+          resolve();
+        } else {
+          reject(message);
+        }
+      });
+    });
+  }
+
+  private async getFeed(): Promise<void> {
+    const request: SocketMessage<GetFeedDetails> = {
+      type: "get-feed",
+      requestId: (this.requestId++).toString(),
+      details: {
+        maxCount: 5
+      }
+    };
+    this.socket.send(JSON.stringify(request));
+    return new Promise<void>((resolve, reject) => {
+      this.registerCallback(request.requestId, (message: any): void => {
+        const reply = message as SocketMessage<GetFeedReplyDetails>;
+        if (reply.details.success) {
+          resolve();
+        } else {
+          reject(message);
+        }
+      });
+    });
   }
 
   private async registerUser(): Promise<void> {
@@ -68,6 +202,7 @@ class TestClient implements RestServer {
     return new Promise<void>((resolve, reject) => {
       this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/register-user"), args, (data: RegisterUserResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
+          this.registerResponse = data;
           console.log("register-user: rx:", JSON.stringify(data, null, 2));
           resolve();
         } else {
@@ -160,71 +295,6 @@ class TestClient implements RestServer {
       this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/update-identity"), args, (data: UpdateUserIdentityResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
           console.log("update-identity: rx:", JSON.stringify(data, null, 2));
-          resolve();
-        } else {
-          reject(serviceResponse.statusCode);
-        }
-      });
-    });
-  }
-
-  private async postCard(text: string): Promise<void> {
-    const details: PostCardDetails = {
-      address: this.keyInfo.address,
-      imageUrl: null,
-      linkUrl: null,
-      title: null,
-      text: text,
-      cardType: "none",
-      state: null,
-      timestamp: Date.now()
-    };
-    const request: RestRequest<PostCardDetails> = {
-      version: 1,
-      details: details,
-      signature: KeyUtils.sign(details, this.keyInfo)
-    };
-    const args: PostArgs = {
-      data: request,
-      headers: {
-        "Content-Type": "application/json"
-      }
-    };
-    console.log("post-card: tx:", JSON.stringify(request, null, 2));
-    return new Promise<void>((resolve, reject) => {
-      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/post-card"), args, (data: PostCardResponse, serviceResponse: Response) => {
-        if (serviceResponse.statusCode === 200) {
-          console.log("post-card: rx:", JSON.stringify(data, null, 2));
-          resolve();
-        } else {
-          reject(serviceResponse.statusCode);
-        }
-      });
-    });
-  }
-
-  private async getFeed(): Promise<void> {
-    const details: GetFeedDetails = {
-      address: this.keyInfo.address,
-      maxCount: 5,
-      timestamp: Date.now()
-    };
-    const request: RestRequest<GetFeedDetails> = {
-      version: 1,
-      details: details,
-      signature: KeyUtils.sign(details, this.keyInfo)
-    };
-    const args: PostArgs = {
-      data: request,
-      headers: {
-        "Content-Type": "application/json"
-      }
-    };
-    console.log("feed: tx:", JSON.stringify(request, null, 2));
-    return new Promise<void>((resolve, reject) => {
-      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/feed"), args, (data: GetFeedResponse, serviceResponse: Response) => {
-        if (serviceResponse.statusCode === 200) {
-          console.log("feed: rx:", JSON.stringify(data, null, 2));
           resolve();
         } else {
           reject(serviceResponse.statusCode);
