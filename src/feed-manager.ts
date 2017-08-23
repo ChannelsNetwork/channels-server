@@ -46,7 +46,6 @@ export class FeedManager implements RestServer {
     console.log("UserManager.post-card", requestBody.details);
     const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, requestBody.details.text);
     const reply: PostCardResponse = {
-      success: true,
       cardId: card.id
     };
     response.json(reply);
@@ -63,7 +62,6 @@ export class FeedManager implements RestServer {
     const afterCard = await db.findCardById(requestBody.details.afterCardId);
     const cardRecords = await db.findCards(beforeCard, afterCard, maxCount);
     const reply: GetFeedResponse = {
-      success: true,
       cards: []
     };
     for (const record of cardRecords) {

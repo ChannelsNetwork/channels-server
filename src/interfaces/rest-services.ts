@@ -5,10 +5,7 @@ export interface RestRequest<T extends Signable> {
   signature: string;
 }
 
-export interface RestResponse {
-  success: boolean;
-  errorMessage?: string;
-}
+export interface RestResponse { }
 
 export interface RegisterUserDetails extends Signable {
   publicKey: string;
