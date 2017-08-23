@@ -169,7 +169,6 @@ export class UserManager implements RestServer {
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
     const network = await db.getNetwork();
     const result: UserStatusResponse = {
-      success: true,
       status: {
         goLive: this.goLiveDate,
         userBalance: user.balance,

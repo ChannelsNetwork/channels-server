@@ -52,7 +52,6 @@ export class FeedManager implements Initializable, FeedHandler {
     const afterCard = await db.findCardById(requestBody.details.afterCardId);
     const cardRecords = await db.findCards(beforeCard, afterCard, maxCount);
     const reply: GetFeedResponse = {
-      success: true,
       cards: []
     };
     const promises: Array<Promise<CardDescriptor>> = [];
