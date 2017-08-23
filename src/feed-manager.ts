@@ -13,56 +13,12 @@ import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
 
-export class FeedManager implements Initializable, RestServer, FeedHandler {
-  private app: express.Application;
-  private urlManager: UrlManager;
-
+export class FeedManager implements Initializable, FeedHandler {
   async initialize(): Promise<void> {
     socketServer.registerFeedHandler(this);
   }
-  async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
-    this.urlManager = urlManager;
-    this.app = app;
-    this.registerHandlers();
-  }
   async initialize2(): Promise<void> {
     // noop
-  }
-
-  private registerHandlers(): void {
-    this.app.post(this.urlManager.getDynamicUrl('post-card'), (request: Request, response: Response) => {
-      void this.handlePostCard(request, response);
-    });
-    this.app.post(this.urlManager.getDynamicUrl('feed'), (request: Request, response: Response) => {
-      void this.handleFeed(request, response);
-    });
-  }
-
-  private async handlePostCard(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<PostCardDetails>;
-    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-    if (!user) {
-      return;
-    }
-    if (!user.identity || !user.identity.handle) {
-      response.status(403).send("You must have a handle associated with your identity.");
-      return;
-    }
-    if (!requestBody.details.text) {
-      response.status(400).send("The text for your card is missing.");
-      return;
-    }
-    if (!requestBody.details.cardType) {
-      response.status(400).send("The cardType for your card is missing.");
-      return;
-    }
-    console.log("UserManager.post-card", requestBody.details);
-    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, null, null, null, requestBody.details.text, requestBody.details.cardType);
-    const reply: PostCardResponse = {
-      success: true,
-      cardId: card.id
-    };
-    response.json(reply);
   }
 
   async getUserFeed(userAddress: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]> {

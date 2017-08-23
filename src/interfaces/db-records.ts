@@ -52,6 +52,7 @@ export type CardMutationType = "set-property" | "inc-property" | "add-record" | 
 export type CardStateGroup = "user" | "shared";
 
 export interface CardMutationRecord {
+  index: number;
   mutationId: string;
   cardId: string;
   group: CardStateGroup;
@@ -147,4 +148,9 @@ export interface FileRecord {
     bucket: string;
     key: string;
   };
+}
+
+export interface MutationIndexRecord {
+  id: string;
+  index: number;
 }

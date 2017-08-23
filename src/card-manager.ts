@@ -8,10 +8,13 @@ import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, PostCardDetails, NotifyCardMutationDetails } from "./interfaces/socket-messages";
 import { CardDescriptor } from "./interfaces/rest-services";
+const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler {
+  private lastMutationIndexSent = 0;
+  private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
@@ -19,10 +22,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   async initialize2(): Promise<void> {
-    // noop
+    const lastMutation = await db.findLastMutationByIndex();
+    if (lastMutation) {
+      this.lastMutationIndexSent = lastMutation.index;
+    }
   }
 
   async postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord> {
+    if (!details.text) {
+      throw new Error("Invalid card: missing text");
+    }
     const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType);
     await this.announceCard(card, user);
     return card;
@@ -185,7 +194,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.handleCardPostedNotification(notification);
         break;
       case 'mutation':
-        await this.handleMutationNotification(notification);
+        await this.mutationSemaphore(this.handleMutationNotification(notification)); // this ensures that this won't be called twice concurrently
         break;
       default:
         throw new Error("Unhandled notification type " + notification.type);
@@ -221,21 +230,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (addresses.length === 0) {
       return;
     }
-    const card = await db.findCardById(notification.card);
-    const mutation = await db.findMutationById(notification.mutation);
-    if (!card || !mutation) {
-      console.warn("CardManager.handleCardPostedNotification: missing card and/or mutation", notification);
-      return;
+    const toSend = await db.findMutationsAfterIndex(this.lastMutationIndexSent);
+    for (const mutation of toSend) {
+      const details: NotifyCardMutationDetails = {
+        mutationId: mutation.mutationId,
+        cardId: mutation.cardId,
+        at: mutation.at,
+        by: mutation.by,
+        mutation: mutation.mutation
+      };
+      // TODO: only send to subset of addresses based on user feed
+      await socketServer.sendEvent(addresses, { type: 'notify-mutation', details: details });
+      this.lastMutationIndexSent = mutation.index;
     }
-    const details: NotifyCardMutationDetails = {
-      mutationId: mutation.mutationId,
-      cardId: card.id,
-      at: mutation.at,
-      by: mutation.by,
-      mutation: mutation.mutation
-    };
-    // TODO: only send to subset of addresses based on user feed
-    await socketServer.sendEvent(addresses, { type: 'notify-mutation', details: details });
   }
 
   async populateCardState(cardId: string, userAddress: string): Promise<CardDescriptor> {

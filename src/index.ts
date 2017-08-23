@@ -17,6 +17,7 @@ import { UrlManager } from './url-manager';
 import { rootPageHandler } from './page-handlers/root-handler';
 import { userManager } from "./user-manager";
 import { feedManager } from "./feed-manager";
+import { cardManager } from "./card-manager";
 import { fileManager } from "./file-manager";
 import { testClient } from "./testing/test-client";
 import { awsManager } from "./aws-manager";
@@ -31,8 +32,8 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private initializables: Initializable[] = [awsManager];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager, fileManager];
+  private initializables: Initializable[] = [awsManager, cardManager, feedManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;

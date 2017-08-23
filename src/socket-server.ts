@@ -144,7 +144,11 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    // TODO: validate request structure
+    if (!msg.details || !msg.details.address || !msg.details.signature || !msg.details.signedDetails || !msg.details.signedDetails.timestamp) {
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 400, message: "Invalid message details" } };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
     const user = await db.findUserByAddress(msg.details.address);
     if (!user) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 401, message: "No such user registered" } };
@@ -174,12 +178,23 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    const card = await this.cardHandler.postCard(user, msg.details);
-    const details: PostCardReplyDetails = {
-      success: true,
-      cardId: card.id
-    };
-    socket.socket.send(JSON.stringify({ type: "post-card-reply", requestId: msg.requestId, details: details }));
+    if (!msg.details || !msg.details.text) {
+      const errDetails: PostCardReplyDetails = { success: false, error: { code: 400, message: "Invalid card: text is mandatory" }, cardId: null };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    try {
+      const card = await this.cardHandler.postCard(user, msg.details);
+      const details: PostCardReplyDetails = {
+        success: true,
+        cardId: card.id
+      };
+      socket.socket.send(JSON.stringify({ type: "post-card-reply", requestId: msg.requestId, details: details }));
+    } catch (err) {
+      console.warn("SocketServer.handlePostCardRequest: failure", err);
+      const errDetails: PostCardReplyDetails = { success: false, error: { code: 500, message: "Internal error" }, cardId: null };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+    }
   }
 
   private async handleMutateCardRequest(msg: SocketMessage<MutateCardDetails>, socket: SocketInfo): Promise<void> {
@@ -187,6 +202,11 @@ export class SocketServer implements SocketConnectionHandler {
     if (!user) {
       console.warn("SocketServer.handleMutateCardRequest: missing user");
       const errDetails: MutateCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" } };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    if (!msg.details || !msg.details.mutation || !msg.details.mutation.type || !msg.details.mutationId) {
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 400, message: "Invalid message details" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }

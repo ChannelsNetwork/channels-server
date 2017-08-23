@@ -9,10 +9,12 @@ import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
 import { Initializable } from "./interfaces/initializable";
 import { message } from "aws-sdk/clients/sns";
+const SnsMessageValidator = require('sns-validator');
 
 const SNS_NOTIFY_OFFSET = 'snsNotify';
 export class AwsManager implements RestServer, Initializable {
   private sns: AWS.SNS;
+  private snsValidator = new SnsMessageValidator();
   private app: express.Application;
   private urlManager: UrlManager;
   private handlers: NotificationHandler[] = [];
@@ -61,22 +63,27 @@ export class AwsManager implements RestServer, Initializable {
   private async handleSnsNotify(request: Request, response: Response): Promise<void> {
     const type = request.headers['x-amz-sns-message-type'];
     if (type) {
+      let snsMessage: any;
+      try {
+        snsMessage = await this.validateSnsMessage(request.body);
+      } catch (err) {
+        console.error("AwsManager.handleSnsNotify: received invalid SNS message", err);
+        return;
+      }
       switch (type) {
         case 'SubscriptionConfirmation':
-          const confirmation = JSON.parse(request.body);
-          // TODO: verify signature
+          const confirmation = snsMessage;
           this.sns.confirmSubscription({
             TopicArn: confirmation.TopicArn,
             Token: confirmation.Token
           }, (err: any) => {
             if (err) {
-              throw err;
+              console.error("AwsManager.handleSnsNotify: error confirming subscription", err);
             }
           });
           break;
         case 'Notification':
-          const notification = JSON.parse(request.body);
-          // TODO: verify signature
+          const notification = snsMessage;
           const subject = notification.Subject as string;
           const msg = JSON.parse(notification.Message as string) as ChannelsServerNotification;
           await this.processNotification(msg);
@@ -87,6 +94,19 @@ export class AwsManager implements RestServer, Initializable {
     } else {
       console.warn("Received unexpected SNS request");
     }
+  }
+
+  private validateSnsMessage(snsMessageBody: any): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      const snsMessage = JSON.parse(snsMessageBody);
+      this.snsValidator.validate(snsMessage, (err: any) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(snsMessage);
+        }
+      });
+    });
   }
 
   private async processNotification(notification: ChannelsServerNotification): Promise<void> {
@@ -104,6 +124,7 @@ export class AwsManager implements RestServer, Initializable {
         console.error("Failure publishing SNS notification", err);
       });
     } else {
+      // Bypass SNS and just process locally
       await this.processNotification(notification);
     }
   }

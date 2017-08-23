@@ -13,7 +13,6 @@ export interface RestResponse {
 export interface RegisterUserDetails extends Signable {
   publicKey: string;
   inviteCode?: string;
-  socketUrl: string;
 }
 
 export interface Signable {
@@ -65,6 +64,9 @@ export interface CheckHandleResponse extends RestResponse {
 }
 
 export interface PostCardDetails extends Signable {
+  imageUrl: string;
+  linkUrl: string;
+  title: string;
   text: string;
   cardType: string;
   state: {

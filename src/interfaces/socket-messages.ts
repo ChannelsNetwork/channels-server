@@ -58,8 +58,6 @@ export interface CardState {
 export interface MutateCardDetails {
   mutationId: string;
   cardId: string;
-  by: string;
-  at: number;
   mutation: Mutation;
 }
 

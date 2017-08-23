@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 
 export class Database {
@@ -10,6 +10,7 @@ export class Database {
   private users: Collection;
   private networks: Collection;
   private cards: Collection;
+  private mutationIndexes: Collection;
   private mutations: Collection;
   private cardProperties: Collection;
   private cardCollectionItems: Collection;
@@ -25,6 +26,7 @@ export class Database {
     await this.initializeNetworks();
     await this.initializeUsers();
     await this.initializeCards();
+    await this.initializeMutationIndexes();
     await this.initializeMutations();
     await this.initializeCardProperties();
     await this.initializeCardCollectionItems();
@@ -51,8 +53,15 @@ export class Database {
     await this.cards.createIndex({ "by.address": 1, at: -1 });
   }
 
+  private async initializeMutationIndexes(): Promise<void> {
+    this.mutationIndexes = this.db.collection('mutationIndexes');
+    await this.mutationIndexes.createIndex({ id: 1 }, { unique: true });
+    await this.ensureMutationIndex();
+  }
+
   private async initializeMutations(): Promise<void> {
     this.mutations = this.db.collection('mutations');
+    await this.mutations.createIndex({ index: 1 }, { unique: true });
     await this.mutations.createIndex({ id: 1 }, { unique: true });
     await this.mutations.createIndex({ cardId: 1, group: 1, at: -1 });
   }
@@ -258,8 +267,31 @@ export class Database {
     return this.cards.find(query).sort({ at: -1 }).limit(maxCount).toArray();
   }
 
+  async ensureMutationIndex(): Promise<void> {
+    const existing = await this.mutationIndexes.findOne<MutationIndexRecord>({ id: '1' });
+    if (existing) {
+      return;
+    }
+    try {
+      const record: MutationIndexRecord = {
+        id: '1',
+        index: 0
+      };
+      await this.mutationIndexes.insert(record);
+    } catch (err) {
+      console.warn("Db.ensureMutationIndex: race condition");
+    }
+  }
+
+  async incrementAndReturnMutationIndex(): Promise<number> {
+    const record = await this.networks.findOneAndUpdate({ id: '1' }, { $inc: { index: 1 } });
+    return record.value.index;
+  }
+
   async insertMutation(cardId: string, group: CardStateGroup, by: string, mutation: Mutation, at: number): Promise<CardMutationRecord> {
+    const index = await this.incrementAndReturnMutationIndex();
     const record: CardMutationRecord = {
+      index: index,
       mutationId: uuid.v4(),
       cardId: cardId,
       group: group,
@@ -276,12 +308,21 @@ export class Database {
   }
 
   async findLastMutation(cardId: string, group: CardStateGroup): Promise<CardMutationRecord> {
-    const mutations = await db.mutations.find({ cardId: cardId, group: group }).sort({ at: -1 }).limit(1).toArray();
+    const mutations = await db.mutations.find<CardMutationRecord>({ cardId: cardId, group: group }).sort({ at: -1 }).limit(1).toArray();
     if (mutations.length > 0) {
       return mutations[0];
     } else {
       return null;
     }
+  }
+
+  async findLastMutationByIndex(): Promise<CardMutationRecord> {
+    const mutations = await db.mutations.find<CardMutationRecord>().sort({ index: -1 }).limit(1).toArray();
+    return mutations.length > 0 ? mutations[0] : null;
+  }
+
+  async findMutationsAfterIndex(index: number): Promise<CardMutationRecord[]> {
+    return await db.mutations.find<CardMutationRecord>({ index: { $gt: index } }).sort({ index: 1 }).toArray();
   }
 
   async upsertCardProperty(cardId: string, group: CardStateGroup, user: string, name: string, value: any): Promise<CardPropertyRecord> {

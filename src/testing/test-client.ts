@@ -138,6 +138,7 @@ class TestClient implements RestServer {
 
   private async registerIdentity(name: string, handle: string): Promise<void> {
     const details: UpdateUserIdentityDetails = {
+      imageUrl: null,
       address: this.keyInfo.address,
       name: name,
       handle: handle,
@@ -170,6 +171,9 @@ class TestClient implements RestServer {
   private async postCard(text: string): Promise<void> {
     const details: PostCardDetails = {
       address: this.keyInfo.address,
+      imageUrl: null,
+      linkUrl: null,
+      title: null,
       text: text,
       cardType: "none",
       state: null,
