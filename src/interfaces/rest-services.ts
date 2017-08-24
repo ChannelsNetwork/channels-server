@@ -1,7 +1,8 @@
 
 export interface RestRequest<T extends Signable> {
   version: number;
-  details: T;
+  details: string;
+  detailsObject?: T;
   signature: string;
 }
 

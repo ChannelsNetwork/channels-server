@@ -12,6 +12,7 @@ export class RestHelper {
       response.status(400).send("Invalid request body or unsupported version");
       return false;
     }
+    requestBody.detailsObject = JSON.parse(requestBody.details);
     return true;
   }
 
@@ -20,11 +21,11 @@ export class RestHelper {
       return false;
     }
     try {
-      if (!KeyUtils.verify(requestBody.details, publicKey, requestBody.signature)) {
+      if (!KeyUtils.verifyString(requestBody.details, publicKey, requestBody.signature)) {
         response.status(403).send("Signature is invalid");
         return;
       }
-      if (!requestBody.details.timestamp || Math.abs(Date.now() - requestBody.details.timestamp) > MAX_CLOCK_SKEW) {
+      if (!requestBody.detailsObject.timestamp || Math.abs(Date.now() - requestBody.detailsObject.timestamp) > MAX_CLOCK_SKEW) {
         response.status(400).send("Timestamp is not current");
         return;
       }
@@ -39,7 +40,7 @@ export class RestHelper {
     if (!this.validateBasicRequest(requestBody, response)) {
       return null;
     }
-    const userRecord = await db.findUserByAddress(requestBody.details.address);
+    const userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
     if (!userRecord) {
       response.status(401).send("No such registered users");
       return null;

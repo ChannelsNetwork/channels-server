@@ -46,18 +46,10 @@ export class KeyUtils {
     return new Buffer(ethAddress).toString('base64');
   }
 
-  static sign(object: any, keyInfo: KeyInfo): string {
-    return this.signString(JSON.stringify(object), keyInfo);
-  }
-
   static signString(value: string, keyInfo: KeyInfo): string {
     const rs256 = jwa('RS256');
     const signature = rs256.sign(value, keyInfo.privateKeyPem);
     return signature;
-  }
-
-  static verify(object: any, publicKeyPem: string, signature: string): boolean {
-    return this.verifyString(JSON.stringify(object), publicKeyPem, signature);
   }
 
   static verifyString(value: string, publicKeyPem: string, signature: string): boolean {

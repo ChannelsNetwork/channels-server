@@ -39,12 +39,15 @@ export class FeedManager implements RestServer {
       response.status(403).send("You must have a handle associated with your identity.");
       return;
     }
-    if (!requestBody.details.text) {
+    if (requestBody.details) {
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+    }
+    if (!requestBody.detailsObject.text) {
       response.status(400).send("The text for your card is missing.");
       return;
     }
     console.log("UserManager.post-card", requestBody.details);
-    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, requestBody.details.text);
+    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, requestBody.detailsObject.text);
     const reply: PostCardResponse = {
       cardId: card.id
     };
@@ -57,9 +60,12 @@ export class FeedManager implements RestServer {
     if (!user) {
       return;
     }
-    const maxCount = Math.max(1, Math.min(requestBody.details.maxCount ? requestBody.details.maxCount : 100, 100));
-    const beforeCard = await db.findCardById(requestBody.details.beforeCardId);
-    const afterCard = await db.findCardById(requestBody.details.afterCardId);
+    if (requestBody.details) {
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+    }
+    const maxCount = Math.max(1, Math.min(requestBody.detailsObject.maxCount ? requestBody.detailsObject.maxCount : 100, 100));
+    const beforeCard = await db.findCardById(requestBody.detailsObject.beforeCardId);
+    const afterCard = await db.findCardById(requestBody.detailsObject.afterCardId);
     const cardRecords = await db.findCards(beforeCard, afterCard, maxCount);
     const reply: GetFeedResponse = {
       cards: []
