@@ -12,7 +12,6 @@ import { message } from "aws-sdk/clients/sns";
 import * as bodyParser from "body-parser";
 import { Utils } from "./utils";
 const SnsMessageValidator = require('sns-validator');
-// const RestClient = require('node-rest-client').Client;
 
 const SNS_NOTIFY_OFFSET = 'snsNotify';
 export class AwsManager implements RestServer, Initializable {
@@ -21,7 +20,6 @@ export class AwsManager implements RestServer, Initializable {
   private app: express.Application;
   private urlManager: UrlManager;
   private handlers: NotificationHandler[] = [];
-  // private restClient = new RestClient() as IRestClient;
   private snsConfirmed = false;
 
   async initialize(): Promise<void> {
@@ -58,7 +56,7 @@ export class AwsManager implements RestServer, Initializable {
         this.sns.subscribe({
           Protocol: configuration.get('aws.sns.callbackBaseUrl').split(':')[0],
           TopicArn: configuration.get('aws.sns.topic'),
-          Endpoint: url.resolve(configuration.get('aws.sns.callbackBaseUrl'), '/d/snsNotify')
+          Endpoint: url.resolve(configuration.get('aws.sns.callbackBaseUrl'), '/d/' + SNS_NOTIFY_OFFSET)
         }, (err: any) => {
           if (err) {
             throw err;
@@ -66,9 +64,9 @@ export class AwsManager implements RestServer, Initializable {
         });
         setTimeout(() => {
           if (!this.snsConfirmed) {
-            throw new Error("AwsManager: 15 seconds after subscribing, SNS subscription has not been confirmed");
+            throw new Error("AwsManager: 30 seconds after subscribing, SNS subscription has not been confirmed");
           }
-        }, 15000);
+        }, 30000);
       }
     }
   }
@@ -87,13 +85,6 @@ export class AwsManager implements RestServer, Initializable {
         case 'SubscriptionConfirmation':
           const confirmation = snsMessage;
           console.log("AwsManager.handleSnsNotify: Confirming SNS subscription", JSON.stringify(snsMessage));
-          // this.restClient.get(confirmation.SubscribeURL, (data: any, confResponse: express.Response): void => {
-          //   if (confResponse.statusCode === 200) {
-          //     console.log("AwsManager.handleSnsNotify: subscription confirmed");
-          //   } else {
-          //     console.error("AwsManager.handleSnsNotify: error confirming subscription", data);
-          //   }
-          // });
           this.sns.confirmSubscription({
             TopicArn: confirmation.TopicArn,
             Token: confirmation.Token
@@ -115,6 +106,7 @@ export class AwsManager implements RestServer, Initializable {
         default:
           console.warn("Received unexpected SNS request type", type);
       }
+      response.status(200).end();
     } else {
       console.warn("Received unexpected SNS request");
     }
@@ -167,22 +159,6 @@ export interface ChannelsServerNotification {
   card: string;
   mutation?: string;
 }
-
-// interface PostArgs {
-//   data: any;
-//   headers: { [name: string]: string };
-// }
-// interface RestArgs {
-//   headers: { [name: string]: string };
-// }
-
-// interface IRestClient {
-//   get(url: string, callback: (data: any, response: Response) => void): void;
-
-//   get(url: string, args: RestArgs, callback: (data: any, response: Response) => void): void;
-//   post(url: string, args: PostArgs, callback: (data: any, response: Response) => void): void;
-//   delete(url: string, args: RestArgs, callback: (data: any, response: Response) => void): void;
-// }
 
 const awsManager = new AwsManager();
 
