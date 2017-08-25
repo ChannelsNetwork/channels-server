@@ -117,13 +117,14 @@ class TestClient implements RestServer {
     const signedDetails = {
       timestamp: Date.now()
     };
+    const signedDetailsString = JSON.stringify(signedDetails);
     const request: SocketMessage<OpenRequestDetails> = {
       type: "open",
       requestId: (this.requestId++).toString(),
       details: {
         address: this.keyInfo.address,
-        signedDetails: signedDetails,
-        signature: KeyUtils.sign(signedDetails, this.keyInfo)
+        signedDetails: signedDetailsString,
+        signature: KeyUtils.signString(signedDetailsString, this.keyInfo)
       }
     };
     this.socket.send(JSON.stringify(request));
@@ -187,10 +188,11 @@ class TestClient implements RestServer {
       publicKey: this.keyInfo.publicKeyPem,
       timestamp: Date.now()
     };
+    const detailsString = JSON.stringify(details);
     const request: RestRequest<RegisterUserDetails> = {
       version: 1,
-      details: details,
-      signature: KeyUtils.sign(details, this.keyInfo)
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
     };
     const args: PostArgs = {
       data: request,
@@ -217,10 +219,11 @@ class TestClient implements RestServer {
       address: this.keyInfo.address,
       timestamp: Date.now()
     };
+    const detailsString = JSON.stringify(details);
     const request: RestRequest<UserStatusDetails> = {
       version: 1,
-      details: details,
-      signature: KeyUtils.sign(details, this.keyInfo)
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
     };
     const args: PostArgs = {
       data: request,
@@ -247,10 +250,11 @@ class TestClient implements RestServer {
       deviceToken: Math.round(Math.random() * 10000000).toFixed(0).toString(),
       timestamp: Date.now()
     };
+    const detailsString = JSON.stringify(details);
     const request: RestRequest<RegisterIosDeviceDetails> = {
       version: 1,
-      details: details,
-      signature: KeyUtils.sign(details, this.keyInfo)
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
     };
     const args: PostArgs = {
       data: request,
@@ -279,10 +283,11 @@ class TestClient implements RestServer {
       handle: handle,
       timestamp: Date.now()
     };
+    const detailsString = JSON.stringify(details);
     const request: RestRequest<UpdateUserIdentityDetails> = {
       version: 1,
-      details: details,
-      signature: KeyUtils.sign(details, this.keyInfo)
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
     };
     const args: PostArgs = {
       data: request,

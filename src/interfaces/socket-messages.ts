@@ -25,7 +25,8 @@ export interface PingReplyDetails extends ReplyDetails { }
 
 export interface OpenRequestDetails {
   address: string;
-  signedDetails: {
+  signedDetails: string;
+  signedDetailsObject?: {
     timestamp: number;
   };
   signature: string;

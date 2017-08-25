@@ -144,7 +144,10 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    if (!msg.details || !msg.details.address || !msg.details.signature || !msg.details.signedDetails || !msg.details.signedDetails.timestamp) {
+    if (msg.details && msg.details.signedDetails) {
+      msg.details.signedDetailsObject = JSON.parse(msg.details.signedDetails);
+    }
+    if (!msg.details || !msg.details.address || !msg.details.signature || !msg.details.signedDetailsObject || !msg.details.signedDetailsObject.timestamp) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 400, message: "Invalid message details" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
@@ -155,12 +158,12 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    if (!KeyUtils.verify(msg.details.signedDetails, user.publicKey, msg.details.signature)) {
+    if (!KeyUtils.verifyString(msg.details.signedDetails, user.publicKey, msg.details.signature)) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 403, message: "Invalid signature" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    if (Math.abs(Date.now() - msg.details.signedDetails.timestamp) > MAX_CLOCK_SKEW) {
+    if (Math.abs(Date.now() - msg.details.signedDetailsObject.timestamp) > MAX_CLOCK_SKEW) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 400, message: "Invalid timestamp" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
