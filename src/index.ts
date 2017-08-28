@@ -20,7 +20,7 @@ import { feedManager } from "./feed-manager";
 import { fileManager } from "./file-manager";
 import { testClient } from "./testing/test-client";
 
-const VERSION = 2;
+const VERSION = 3;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
