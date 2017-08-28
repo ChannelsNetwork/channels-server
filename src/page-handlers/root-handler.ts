@@ -27,9 +27,9 @@ export class RootPageHandler implements RestServer {
       title: "Channels",
       description: "A social network for compelling original content",
       url: ogUrl,
-      image: url.resolve(ogUrl, '/s/images/logos/og.jpg'),
-      imageWidth: 1200,
-      imageHeight: 798
+      image: url.resolve(ogUrl, '/s/images/logo180.png'),
+      imageWidth: 180,
+      imageHeight: 180
     };
     const view = {
       public_base: this.urlManager.getPublicBaseUrl(),

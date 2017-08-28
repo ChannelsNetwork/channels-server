@@ -6,10 +6,10 @@
   <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
   <title>Channels</title>
   <meta name="description" content="{{&og_description}}">
-  <link rel="manifest" href="{{&public_base}}/manifest.json">
   <link rel="icon" href="/s/images/fav2.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400" rel="stylesheet">
 
-  <meta property="og:title" content="{{&og_title}}">
+  <meta property="og:title" content="Channels">
   <meta property="og:description" content="{{&og_description}}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{&og_url}}">
@@ -18,93 +18,115 @@
   <meta property="og:image:height" content="{{&og_imageheight}}">
 
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:site" content="@ChannelElements">
+  <meta name="twitter:site" content="@channelscc">
   <meta name="twitter:title" content="{{&og_title}}">
   <meta name="twitter:description" content="{{&og_description}}">
   <meta name="twitter:image" content="{{&og_image}}">
   <meta name="twitter:image:width" content="{{&og_imagewidth}}">
   <meta name="twitter:image:height" content="{{&og_imageheight}}">
 
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400" rel="stylesheet">
-  <link rel="import" href="{{&public_base}}/src/channels-app.html">
-  <link id="restBase" rel="session" href="{{&rest_base}}">
-  <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js"></script>
-  <script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
   <style>
     body {
       margin: 0;
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Open Sans', sans-serif;
       font-weight: 300;
+      line-height: 1.5;
       overflow-x: hidden;
       overflow-y: auto;
+      min-height: 100vh;
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-image: url('/s/images/bg.jpg');
     }
 
-    .container {
-      max-width: 700px;
-      padding: 20px;
-      margin: 80px auto;
-    }
-
-    .title {
-      font-size: 42px;
-    }
-
-    .subtitle {
-      font-size: 20px;
-      color: #aaa;
-      margin-bottom: 24px;
-    }
-
-    .content {
-      margin: 16px 0;
-      line-height: 1.5;
-    }
-
-    .linkContainer {
-      margin: 32px 0 80px;
-    }
-
-    .link {
-      font-size: 20px;
-      text-decoration: none;
-      color: #aaa;
-      cursor: pointer;
-    }
-
-    .link:hover {
-      color: #42A5F5;
-    }
-
-    .download {
-      margin: 32px;
+    header {
       text-align: center;
     }
 
-    .extLink {
-      height: 16px;
+    .logo {
+      height: 100px;
       width: auto;
-      color: #aaa;
+      display: block;
+      margin: 0 auto;
+      padding: 15px 5px 5px;
+    }
+
+    h2 {
+      margin: 0;
+      font-weight: 300;
+      font-size: 31px;
+      padding: 0 5px;
+    }
+
+    section {
+      display: block;
+      max-width: 600px;
+      padding: 20px;
+      background: white;
+      color: #000;
+      font-size: 21px;
+      margin: 50px auto 0;
+      color: #333;
+      box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14), 0 1px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 3px -2px rgba(0, 0, 0, 0.4);
+    }
+
+    a,
+    a:visited,
+    a:hover {
+      background: #1E88E5;
+      color: white;
+      padding: 7px 15px;
+      font-size: 19px;
+      margin: 5px 0;
+      text-decoration: none !important;
+      transition: all 0.1s ease;
+    }
+
+    a:hover {
+      box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14), 0 1px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 3px -2px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (max-width: 500px) {
+      .logo {
+        height: 65px;
+      }
+      h2 {
+        font-size: 25px;
+      }
+      section {
+        font-size: 18px;
+        margin: 20px auto 0;
+        padding: 7px 15px 20px;
+      }
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <div class="title">Channels</div>
-    <div class="subtitle">An awesome new social network</div>
-    <div class="content">We want a place to get absorbed in an eclectic mix of information and entertainment. The way things are presented should
-      be just as engaging as the content itself. And the people who create good stuff should get paid well for it.
-    </div>
-    <div class="content">This place doesn't exist yet, so we're creating it ourselves. This is a new social network called Channels and is coming
-      this fall.</div>
-    <div class="linkContainer">
-      <a href="https://medium.com/channels-network/channels-512d73b9c45e" target="_blank" class="link">Read our whitepaper <img class="extLink" src="/s/images/icons8-external-link.svg"></a>
-    </div>
-    <div class="content">We'll be releasing our first app shortly. Meanwhile, follow us on Twitter.</div>
-    <a href="https://twitter.com/channelscc" class="twitter-follow-button" data-size="large" data-show-count="false" data-show-screen-name="false">Follow</a>
-    <!-- <div class="download">
-      <a href="/"><img src="/s/images/app-store-download.svg" style="width:135px;height:40px"></a>
-    </div> -->
+  <header>
+    <img class="logo" src="/s/images/logo-wide2.png">
+    <h2>a social network fueled by cryptocurrency</h2>
+  </header>
+  <section>
+    <p>
+      We want a place to get absorbed in an eclectic mix of information and entertainment, and where the presentation can be just
+      as engaging as the content.
+    </p>
+    <p>We believe this is possible with an open platform where people who create good stuff get paid well for it.</p>
+    <p>
+      This is Channels and is coming this fall.
+    </p>
+    <p>
+      <a href="/s/whitepaper.pdf" target="_blank ">Read our whitepaper</a>
+    </p>
+    <p>
+      We'll be releasing our first app shortly. Meanwhile, follow us on Twitter.
+    </p>
+    <p>
+      <a href="https://twitter.com/channelscc" target="_blank ">Follow us on Twitter</a>
+    </p>
+  </section>
 </body>
 
 </html>

@@ -25,7 +25,7 @@ import { Initializable } from "./interfaces/initializable";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
 import { socketServer } from "./socket-server";
 
-const VERSION = 2;
+const VERSION = 3;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {

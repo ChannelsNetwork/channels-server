@@ -1,7 +1,0 @@
-{
-  "name": "channels-web-client",
-  "short_name": "channels-web-client",
-  "description": "A web client for the Channels Network",
-  "start_url": "/",
-  "display": "standalone"
-}
