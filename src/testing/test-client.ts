@@ -247,9 +247,9 @@ class TestClient implements RestServer {
     const ts = Date.now().toString();
     form.append("signatureTimestamp", ts);
     form.append("signature", KeyUtils.signString(ts, this.keyInfo));
-    form.append("my_file", fs.createReadStream(path.join(__dirname, '../../static/images/icons8-external-link.svg')), {
-      filename: 'icons8-external-link.svg',
-      contentType: 'text/svg'
+    form.append("my_file", fs.createReadStream(path.join(__dirname, '../../static/images/fav2.png')), {
+      filename: 'fav2.png',
+      contentType: 'image/png'
     });
   }
 }

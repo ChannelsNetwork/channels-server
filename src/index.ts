@@ -25,7 +25,8 @@ const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
-  private server: net.Server;
+  private httpServer: net.Server;
+  private httpsServer: net.Server;
   private started: number;
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager, fileManager];
   private urlManager: UrlManager;
@@ -94,7 +95,18 @@ class ChannelsNetworkWebClient {
 
     this.app.use('/v' + VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 * 30 }));
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 * 30 }));
-    if (configuration.get('client.ssl')) {
+    if (configuration.get('client.httpPort')) {
+      this.httpServer = http.createServer(this.app);
+      this.httpServer.listen(configuration.get('client.httpPort'), (err: any) => {
+        if (err) {
+          console.error("Failure listening on HTTP", err);
+          process.exit();
+        } else {
+          console.log("Listening for HTTP client connections on port " + configuration.get('client.httpPort'));
+        }
+      });
+    }
+    if (configuration.get('client.httpsPort')) {
       const privateKey = fs.readFileSync(configuration.get('ssl.key'), 'utf8');
       const certificate = fs.readFileSync(configuration.get('ssl.cert'), 'utf8');
       const credentials: any = {
@@ -105,18 +117,16 @@ class ChannelsNetworkWebClient {
       if (ca) {
         credentials.ca = ca;
       }
-      this.server = https.createServer(credentials, this.app);
-    } else {
-      this.server = http.createServer(this.app);
+      this.httpsServer = https.createServer(credentials, this.app);
+      this.httpsServer.listen(configuration.get('client.httpsPort'), (err: any) => {
+        if (err) {
+          console.error("Failure listening on HTTPS", err);
+          process.exit();
+        } else {
+          console.log("Listening for HTTPS client connections on port " + configuration.get('client.httpsPort'));
+        }
+      });
     }
-    this.server.listen(configuration.get('client.port'), (err: any) => {
-      if (err) {
-        console.error("Failure listening", err);
-        process.exit();
-      } else {
-        console.log("Listening for client connections on port " + configuration.get('client.port'));
-      }
-    });
   }
 
   private getCertificateAuthority(): string[] {

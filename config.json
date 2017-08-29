@@ -23,8 +23,8 @@
     "cert": "/usr/local/etc/certs/server.crt"
   },
   "client": {
-    "ssl": false,
-    "port": 33111
+    "httpPort": 33111,
+    "httpsPort": 0
   },
   "debug": {
     "transport": {
