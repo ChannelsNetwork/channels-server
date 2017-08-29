@@ -17,8 +17,13 @@ import { UrlManager } from './url-manager';
 import { rootPageHandler } from './page-handlers/root-handler';
 import { userManager } from "./user-manager";
 import { feedManager } from "./feed-manager";
+import { cardManager } from "./card-manager";
 import { fileManager } from "./file-manager";
 import { testClient } from "./testing/test-client";
+import { awsManager } from "./aws-manager";
+import { Initializable } from "./interfaces/initializable";
+import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
+import { socketServer } from "./socket-server";
 
 const VERSION = 3;
 const INITIAL_NETWORK_BALANCE = 25000;
@@ -27,8 +32,11 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, feedManager, fileManager];
+  private initializables: Initializable[] = [awsManager, cardManager, feedManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager];
+  private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
+  private wsapp: ExpressWithSockets;
 
   constructor() {
     this.urlManager = new UrlManager(VERSION);
@@ -39,12 +47,25 @@ class ChannelsNetworkWebClient {
     await this.setupConfiguration();
     await db.initialize();
     await this.ensureNetwork();
+    for (const initializable of this.initializables) {
+      await initializable.initialize();
+    }
     await this.setupExpress();
+
+    require('express-ws')(this.app, this.server);
+    this.wsapp = this.app as ExpressWithSockets;
+
+    for (const sserver of this.socketServers) {
+      await sserver.initializeWebsocketServices(this.urlManager, this.wsapp);
+    }
+
+    for (const initializable of this.initializables) {
+      await initializable.initialize2();
+    }
     await this.setupServerPing();
     this.started = Date.now();
 
-    console.log("Channels Network Web Client is running");
-
+    console.log("Channels Network Server is running");
   }
 
   private setupExceptionHandling(): void {
@@ -82,10 +103,20 @@ class ChannelsNetworkWebClient {
     this.app = express();
 
     this.app.use(compression());
-    this.app.use(bodyParser.json()); // for parsing application/json
+    this.app.use(bodyParser.json({ strict: false })); // for parsing application/json
     this.app.use(bodyParser.urlencoded({
       extended: true
     }));
+    // this.app.use((req: any, res: any, next: any) => {
+    //   if (req.is('text/*')) {
+    //     req.text = '';
+    //     req.setEncoding('utf8');
+    //     req.on('data', (chunk: any) => { req.text += chunk; });
+    //     req.on('end', next);
+    //   } else {
+    //     next();
+    //   }
+    // });
     this.app.use(cookieParser());
 
     for (const restServer of this.restServers) {

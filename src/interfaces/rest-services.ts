@@ -24,6 +24,7 @@ export interface UserStatusDetails extends Signable { }
 
 export interface UserStatusResponse extends RestResponse {
   status: UserStatus;
+  socketUrl: string;
 }
 
 export interface UserStatus {
@@ -46,9 +47,20 @@ export interface RegisterIosDeviceResponse extends RestResponse { }
 export interface UpdateUserIdentityDetails extends Signable {
   name: string;
   handle: string;
+  location: string;
+  imageUrl: string;
 }
 
 export interface UpdateUserIdentityResponse extends RestResponse { }
+
+export interface GetUserIdentityDetails extends Signable { }
+
+export interface GetUserIdentityResponse extends RestResponse {
+  name: string;
+  handle: string;
+  location: string;
+  imageUrl: string;
+}
 
 export interface CheckHandleDetails extends Signable {
   handle: string;
@@ -60,7 +72,21 @@ export interface CheckHandleResponse extends RestResponse {
 }
 
 export interface PostCardDetails extends Signable {
+  imageUrl: string;
+  linkUrl: string;
+  title: string;
   text: string;
+  cardType: string;
+  state: {
+    user: CardState;
+    shared: CardState;
+  };
+}
+
+export interface CardState {
+  mutationId: string;
+  properties: { [name: string]: any };
+  collections: { [name: string]: { [key: string]: any } };
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -84,6 +110,15 @@ export interface CardDescriptor {
     address: string;
     handle: string;
     name: string;
+    imageUrl: string;
   };
+  imageUrl: string;
+  linkUrl: string;
+  title: string;
   text: string;
+  cardType: string;
+  state?: {
+    user: CardState;
+    shared: CardState;
+  };
 }

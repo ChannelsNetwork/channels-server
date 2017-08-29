@@ -23,7 +23,6 @@ export class FileManager implements RestServer {
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     if (configuration.get('aws.s3.enabled')) {
-      console.log(configuration.get('aws.accessKeyId'), configuration.get('aws.secretAccessKey'), configuration.get('aws.s3.bucket'));
       this.s3StreamUploader = s3Stream(new AWS.S3({
         accessKeyId: configuration.get('aws.accessKeyId'),
         secretAccessKey: configuration.get('aws.secretAccessKey')
@@ -122,7 +121,7 @@ export class FileManager implements RestServer {
     const upload = this.s3StreamUploader.upload(destination);
     upload.on('error', (err) => {
       console.warn("FileManager.uploadS3: upload failed", err);
-      db.updateFileStatus(fileRecord, 'failed');
+      void db.updateFileStatus(fileRecord, 'failed');
       response.status(500).send("Internal error " + err);
     });
     upload.on('uploaded', (details: any) => {

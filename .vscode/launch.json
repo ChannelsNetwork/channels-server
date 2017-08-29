@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Debug",
       "program": "${workspaceRoot}/dist/index.js",
-      "smartStep": false,
+      "smartStep": true,
       "outFiles": [
         "../dist/**/*.js"
       ],
