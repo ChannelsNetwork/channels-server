@@ -150,11 +150,12 @@ export class Database {
     userRecord.iosDeviceTokens.push(token);
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string): Promise<void> {
     const identity: UserIdentity = {
       name: name,
       handle: handle.toLowerCase(),
-      imageUrl: imageUrl
+      imageUrl: imageUrl,
+      location: location
     };
     await this.users.updateOne({ address: userRecord.address }, { $set: { identity: identity } });
     userRecord.identity = identity;

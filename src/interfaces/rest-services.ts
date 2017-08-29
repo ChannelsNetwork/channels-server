@@ -47,10 +47,20 @@ export interface RegisterIosDeviceResponse extends RestResponse { }
 export interface UpdateUserIdentityDetails extends Signable {
   name: string;
   handle: string;
+  location: string;
   imageUrl: string;
 }
 
 export interface UpdateUserIdentityResponse extends RestResponse { }
+
+export interface GetUserIdentityDetails extends Signable { }
+
+export interface GetUserIdentityResponse extends RestResponse {
+  name: string;
+  handle: string;
+  location: string;
+  imageUrl: string;
+}
 
 export interface CheckHandleDetails extends Signable {
   handle: string;

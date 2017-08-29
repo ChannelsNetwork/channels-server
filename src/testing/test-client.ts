@@ -7,7 +7,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
@@ -44,7 +44,8 @@ class TestClient implements RestServer {
   private async handleTest(request: Request, response: Response): Promise<void> {
     await this.registerUser();
     await this.registerIosDevice();
-    await this.registerIdentity("unnamed", "user" + Date.now());
+    await this.registerIdentity("unnamed", "user" + Date.now(), "Palo Alto, CA");
+    await this.getIdentity();
     await this.getStatus();
     await this.uploadFile();
     await this.openSocket();
@@ -214,6 +215,36 @@ class TestClient implements RestServer {
     });
   }
 
+  private async getIdentity(): Promise<void> {
+    const details: GetUserIdentityDetails = {
+      address: this.keyInfo.address,
+      timestamp: Date.now()
+    };
+    const detailsString = JSON.stringify(details);
+    const request: RestRequest<GetUserIdentityDetails> = {
+      version: 1,
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
+    };
+    const args: PostArgs = {
+      data: request,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    };
+    console.log("get-identity: tx:", JSON.stringify(request, null, 2));
+    return new Promise<void>((resolve, reject) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/get-identity"), args, (data: GetUserIdentityResponse, serviceResponse: Response) => {
+        if (serviceResponse.statusCode === 200) {
+          console.log("get-identity: rx:", JSON.stringify(data, null, 2));
+          resolve();
+        } else {
+          reject(serviceResponse.statusCode);
+        }
+      });
+    });
+  }
+
   private async getStatus(): Promise<void> {
     const details: UserStatusDetails = {
       address: this.keyInfo.address,
@@ -275,11 +306,12 @@ class TestClient implements RestServer {
     });
   }
 
-  private async registerIdentity(name: string, handle: string): Promise<void> {
+  private async registerIdentity(name: string, handle: string, location: string): Promise<void> {
     const details: UpdateUserIdentityDetails = {
       imageUrl: null,
       address: this.keyInfo.address,
       name: name,
+      location: location,
       handle: handle,
       timestamp: Date.now()
     };
@@ -322,9 +354,9 @@ class TestClient implements RestServer {
     const ts = Date.now().toString();
     form.append("signatureTimestamp", ts);
     form.append("signature", KeyUtils.signString(ts, this.keyInfo));
-    form.append("my_file", fs.createReadStream(path.join(__dirname, '../../static/images/icons8-external-link.svg')), {
-      filename: 'icons8-external-link.svg',
-      contentType: 'text/svg'
+    form.append("my_file", fs.createReadStream(path.join(__dirname, '../../static/images/fav2.png')), {
+      filename: 'fav2.png',
+      contentType: 'image/png'
     });
   }
 }

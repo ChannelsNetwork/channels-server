@@ -20,6 +20,7 @@ export interface UserIdentity {
   name: string;
   handle: string;
   imageUrl: string;
+  location: string;
 }
 
 export interface NetworkRecord {

@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, RegisterIosDeviceDetails, UserStatusDetails, Signable, RegisterIosDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, RegisterIosDeviceDetails, UserStatusDetails, Signable, RegisterIosDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -45,6 +45,9 @@ export class UserManager implements RestServer {
     });
     this.app.post(this.urlManager.getDynamicUrl('update-identity'), (request: Request, response: Response) => {
       void this.handleUpdateIdentity(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-identity'), (request: Request, response: Response) => {
+      void this.handleGetIdentity(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('check-handle'), (request: Request, response: Response) => {
       void this.handleCheckHandle(request, response);
@@ -143,8 +146,25 @@ export class UserManager implements RestServer {
       response.status(409).send("This handle is not available");
       return;
     }
-    await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl);
-    response.json({ success: true });
+    await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location);
+    const reply: UpdateUserIdentityResponse = {};
+    response.json(reply);
+  }
+
+  private async handleGetIdentity(request: Request, response: Response): Promise<void> {
+    const requestBody = request.body as RestRequest<GetUserIdentityDetails>;
+    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+    if (!user) {
+      return;
+    }
+    console.log("UserManager.get-identity", requestBody.detailsObject);
+    const reply: GetUserIdentityResponse = {
+      name: user.identity ? user.identity.name : null,
+      location: user.identity ? user.identity.location : null,
+      imageUrl: user.identity ? user.identity.imageUrl : null,
+      handle: user.identity ? user.identity.handle : null
+    };
+    response.json(reply);
   }
 
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
@@ -157,17 +177,20 @@ export class UserManager implements RestServer {
       response.status(400).send("Missing handle");
       return;
     }
+    const reply: CheckHandleResponse = { valid: false, inUse: false };
     if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
-      response.json({ success: true, valid: false, inUse: false });
+      response.json(reply);
       return;
     }
+    reply.valid = true;
     console.log("UserManager.check-handle", requestBody.details);
     const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
     if (existing && existing.address !== user.address) {
-      response.json({ success: true, valid: true, inUse: true });
+      reply.inUse = true;
+      response.json(reply);
       return;
     }
-    response.json({ success: true, valid: true, inUse: false });
+    response.json(reply);
   }
 
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
