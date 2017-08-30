@@ -55,142 +55,172 @@ export class UserManager implements RestServer {
   }
 
   private async handleRegisterUser(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<RegisterUserDetails>;
-    requestBody.detailsObject = JSON.parse(requestBody.details);
-    if (!RestHelper.validateRequest(requestBody, requestBody.detailsObject ? requestBody.detailsObject.publicKey : null, response)) {
-      return;
-    }
-    if (!requestBody.detailsObject.address || !requestBody.detailsObject.publicKey) {
-      response.status(400).send("Invalid request-user details");
-      return;
-    }
-    if (KeyUtils.getAddressFromPublicKey(requestBody.detailsObject.publicKey) !== requestBody.detailsObject.address) {
-      response.status(400).send("This address is inconsistent with the publicKey provided.");
-      return;
-    }
-    console.log("UserManager.register-user", requestBody.detailsObject.address);
-    let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
-    if (!userRecord) {
-      let networkBalanceIncrease = 0;
-      const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
-      let inviteeReward = 0;
-      if (inviter && inviter.invitationsRemaining > 0) {
-        const inviterReward = INVITER_REWARD;
-        await db.incrementInvitationsAccepted(inviter, inviterReward);
-        inviteeReward = INVITEE_REWARD;
-        networkBalanceIncrease += inviterReward;
+    try {
+      const requestBody = request.body as RestRequest<RegisterUserDetails>;
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      if (!RestHelper.validateRequest(requestBody, requestBody.detailsObject ? requestBody.detailsObject.publicKey : null, response)) {
+        return;
       }
-      const inviteCode = await this.generateInviteCode();
-      const newBalance = INITIAL_BALANCE + inviteeReward;
-      userRecord = await db.insertUser(requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, newBalance, inviteeReward, 0, INVITATIONS_ALLOWED, 0);
-      networkBalanceIncrease += newBalance * (1 + (Math.random() * NETWORK_BALANCE_RANDOM_PRODUCT));
-      await db.incrementNetworkBalance(networkBalanceIncrease);
+      if (!requestBody.detailsObject.address || !requestBody.detailsObject.publicKey) {
+        response.status(400).send("Invalid request-user details");
+        return;
+      }
+      if (KeyUtils.getAddressFromPublicKey(requestBody.detailsObject.publicKey) !== requestBody.detailsObject.address) {
+        response.status(400).send("This address is inconsistent with the publicKey provided.");
+        return;
+      }
+      console.log("UserManager.register-user", requestBody.detailsObject.address);
+      let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
+      if (!userRecord) {
+        let networkBalanceIncrease = 0;
+        const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
+        let inviteeReward = 0;
+        if (inviter && inviter.invitationsRemaining > 0) {
+          const inviterReward = INVITER_REWARD;
+          await db.incrementInvitationsAccepted(inviter, inviterReward);
+          inviteeReward = INVITEE_REWARD;
+          networkBalanceIncrease += inviterReward;
+        }
+        const inviteCode = await this.generateInviteCode();
+        const newBalance = INITIAL_BALANCE + inviteeReward;
+        userRecord = await db.insertUser(requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, newBalance, inviteeReward, 0, INVITATIONS_ALLOWED, 0);
+        networkBalanceIncrease += newBalance * (1 + (Math.random() * NETWORK_BALANCE_RANDOM_PRODUCT));
+        await db.incrementNetworkBalance(networkBalanceIncrease);
+      }
+      await this.returnUserStatus(userRecord, response);
+    } catch (err) {
+      console.error("User.handleRegisterUser: Failure", err);
+      response.status(500).send(err);
     }
-    await this.returnUserStatus(userRecord, response);
   }
 
   private async handleRegisterIosDevice(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<RegisterIosDeviceDetails>;
-    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-    if (!user) {
-      return;
-    }
-    if (!requestBody.detailsObject.deviceToken) {
-      response.status(400).send("Device token is missing or invalid");
-      return;
-    }
-    console.log("UserManager.register-ios-device", requestBody.detailsObject.address, requestBody.detailsObject.deviceToken);
-    const existing = await db.findUserByIosToken(requestBody.detailsObject.deviceToken);
-    if (existing) {
-      if (existing.address !== user.address) {
-        response.status(409).send("This device token is already associated with a different user");
+    try {
+      const requestBody = request.body as RestRequest<RegisterIosDeviceDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
         return;
       }
-    } else {
-      await db.appendUserIosToken(user, requestBody.detailsObject.deviceToken);
+      if (!requestBody.detailsObject.deviceToken) {
+        response.status(400).send("Device token is missing or invalid");
+        return;
+      }
+      console.log("UserManager.register-ios-device", requestBody.detailsObject.address, requestBody.detailsObject.deviceToken);
+      const existing = await db.findUserByIosToken(requestBody.detailsObject.deviceToken);
+      if (existing) {
+        if (existing.address !== user.address) {
+          response.status(409).send("This device token is already associated with a different user");
+          return;
+        }
+      } else {
+        await db.appendUserIosToken(user, requestBody.detailsObject.deviceToken);
+      }
+      const reply: RegisterIosDeviceResponse = { success: true };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleRegisterIosDevice: Failure", err);
+      response.status(500).send(err);
     }
-    const reply: RegisterIosDeviceResponse = { success: true };
-    response.json(reply);
   }
 
   private async handleStatus(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<UserStatusDetails>;
-    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-    if (!user) {
-      return;
+    try {
+      const requestBody = request.body as RestRequest<UserStatusDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.status", requestBody.detailsObject.address);
+      await this.returnUserStatus(user, response);
+    } catch (err) {
+      console.error("User.handleStatus: Failure", err);
+      response.status(500).send(err);
     }
-    console.log("UserManager.status", requestBody.detailsObject.address);
-    await this.returnUserStatus(user, response);
   }
 
   private async handleUpdateIdentity(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<UpdateUserIdentityDetails>;
-    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-    if (!user) {
-      return;
+    try {
+      const requestBody = request.body as RestRequest<UpdateUserIdentityDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.name || !requestBody.detailsObject.handle) {
+        response.status(400).send("Missing name and handle");
+        return;
+      }
+      if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
+        response.status(400).send("Invalid handle.  Must start with letter and can only contain letters, digits and/or underscore.");
+        return;
+      }
+      if (!this.isHandlePermissible(requestBody.detailsObject.handle)) {
+        response.status(409).send("This handle is not available");
+      }
+      console.log("UserManager.update-identity", requestBody.detailsObject);
+      const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+      if (existing && existing.address !== user.address) {
+        response.status(409).send("This handle is not available");
+        return;
+      }
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location);
+      const reply: UpdateUserIdentityResponse = {};
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleUpdateIdentity: Failure", err);
+      response.status(500).send(err);
     }
-    if (!requestBody.detailsObject.name || !requestBody.detailsObject.handle) {
-      response.status(400).send("Missing name and handle");
-      return;
-    }
-    if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
-      response.status(400).send("Invalid handle.  Must start with letter and can only contain letters, digits and/or underscore.");
-      return;
-    }
-    if (!this.isHandlePermissible(requestBody.detailsObject.handle)) {
-      response.status(409).send("This handle is not available");
-    }
-    console.log("UserManager.update-identity", requestBody.detailsObject);
-    const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
-    if (existing && existing.address !== user.address) {
-      response.status(409).send("This handle is not available");
-      return;
-    }
-    await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location);
-    const reply: UpdateUserIdentityResponse = {};
-    response.json(reply);
   }
 
   private async handleGetIdentity(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<GetUserIdentityDetails>;
-    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-    if (!user) {
-      return;
+    try {
+      const requestBody = request.body as RestRequest<GetUserIdentityDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.get-identity", requestBody.detailsObject);
+      const reply: GetUserIdentityResponse = {
+        name: user.identity ? user.identity.name : null,
+        location: user.identity ? user.identity.location : null,
+        imageUrl: user.identity ? user.identity.imageUrl : null,
+        handle: user.identity ? user.identity.handle : null
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleGetIdentity: Failure", err);
+      response.status(500).send(err);
     }
-    console.log("UserManager.get-identity", requestBody.detailsObject);
-    const reply: GetUserIdentityResponse = {
-      name: user.identity ? user.identity.name : null,
-      location: user.identity ? user.identity.location : null,
-      imageUrl: user.identity ? user.identity.imageUrl : null,
-      handle: user.identity ? user.identity.handle : null
-    };
-    response.json(reply);
   }
 
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
-    const requestBody = request.body as RestRequest<CheckHandleDetails>;
-    const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-    if (!user) {
-      return;
-    }
-    if (!requestBody.detailsObject.handle) {
-      response.status(400).send("Missing handle");
-      return;
-    }
-    const reply: CheckHandleResponse = { valid: false, inUse: false };
-    if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
+    try {
+      const requestBody = request.body as RestRequest<CheckHandleDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.handle) {
+        response.status(400).send("Missing handle");
+        return;
+      }
+      const reply: CheckHandleResponse = { valid: false, inUse: false };
+      if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
+        response.json(reply);
+        return;
+      }
+      reply.valid = true;
+      console.log("UserManager.check-handle", requestBody.details);
+      const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+      if (existing && existing.address !== user.address) {
+        reply.inUse = true;
+        response.json(reply);
+        return;
+      }
       response.json(reply);
-      return;
+    } catch (err) {
+      console.error("User.handleCheckHandle: Failure", err);
+      response.status(500).send(err);
     }
-    reply.valid = true;
-    console.log("UserManager.check-handle", requestBody.details);
-    const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
-    if (existing && existing.address !== user.address) {
-      reply.inUse = true;
-      response.json(reply);
-      return;
-    }
-    response.json(reply);
   }
 
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {

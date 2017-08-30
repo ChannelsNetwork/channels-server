@@ -70,28 +70,33 @@ export class FileManager implements RestServer {
   }
 
   private async handleUploadStart(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, fileRecord: FileRecord, ownerAddress: string, signatureTimestamp: string, signature: string, response: Response): Promise<void> {
-    if (!ownerAddress || !signatureTimestamp || !signature) {
-      response.status(400).send("Missing address, timestamp, and/or signature form fields");
-      await this.abortFile(fileRecord);
-      return;
+    try {
+      if (!ownerAddress || !signatureTimestamp || !signature) {
+        response.status(400).send("Missing address, timestamp, and/or signature form fields");
+        await this.abortFile(fileRecord);
+        return;
+      }
+      const user = await db.findUserByAddress(ownerAddress);
+      if (!user) {
+        response.status(401).send("No such user");
+        await this.abortFile(fileRecord);
+        return;
+      }
+      if (Math.abs(Date.now() - Number(signatureTimestamp)) > MAX_CLOCK_SKEW) {
+        response.status(400).send("Timestamp is inconsistent");
+        await this.abortFile(fileRecord);
+        return;
+      }
+      if (!KeyUtils.verifyString(signatureTimestamp, user.publicKey, signature)) {
+        response.status(403).send("Invalid signature");
+        await this.abortFile(fileRecord);
+        return;
+      }
+      await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
+    } catch (err) {
+      console.error("File.handleUploadStart: Failure", err);
+      response.status(500).send(err);
     }
-    const user = await db.findUserByAddress(ownerAddress);
-    if (!user) {
-      response.status(401).send("No such user");
-      await this.abortFile(fileRecord);
-      return;
-    }
-    if (Math.abs(Date.now() - Number(signatureTimestamp)) > MAX_CLOCK_SKEW) {
-      response.status(400).send("Timestamp is inconsistent");
-      await this.abortFile(fileRecord);
-      return;
-    }
-    if (!KeyUtils.verifyString(signatureTimestamp, user.publicKey, signature)) {
-      response.status(403).send("Invalid signature");
-      await this.abortFile(fileRecord);
-      return;
-    }
-    await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
   }
 
   private async abortFile(fileRecord: FileRecord): Promise<void> {
