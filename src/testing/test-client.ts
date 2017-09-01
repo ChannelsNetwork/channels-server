@@ -7,7 +7,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
@@ -46,6 +46,7 @@ class TestClient implements RestServer {
     await this.registerIosDevice();
     await this.registerIdentity("unnamed", "user" + Date.now(), "Palo Alto, CA");
     await this.getIdentity();
+    await this.getNews();
     await this.getStatus();
     await this.uploadFile();
     await this.openSocket();
@@ -237,6 +238,37 @@ class TestClient implements RestServer {
       this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/get-identity"), args, (data: GetUserIdentityResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
           console.log("get-identity: rx:", JSON.stringify(data, null, 2));
+          resolve();
+        } else {
+          reject(serviceResponse.statusCode);
+        }
+      });
+    });
+  }
+
+  private async getNews(): Promise<void> {
+    const details: GetNewsDetails = {
+      maxCount: 10,
+      address: this.keyInfo.address,
+      timestamp: Date.now()
+    };
+    const detailsString = JSON.stringify(details);
+    const request: RestRequest<GetNewsDetails> = {
+      version: 1,
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
+    };
+    const args: PostArgs = {
+      data: request,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    };
+    console.log("get-news: tx:", JSON.stringify(request, null, 2));
+    return new Promise<void>((resolve, reject) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/get-news"), args, (data: GetNewsResponse, serviceResponse: Response) => {
+        if (serviceResponse.statusCode === 200) {
+          console.log("get-news: rx:", JSON.stringify(data, null, 2));
           resolve();
         } else {
           reject(serviceResponse.statusCode);

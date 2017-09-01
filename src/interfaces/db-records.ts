@@ -14,6 +14,7 @@ export interface UserRecord {
   lastContact: number;
   identity?: UserIdentity;
   storage: number;
+  admin: boolean;
 }
 
 export interface UserIdentity {
@@ -154,4 +155,13 @@ export interface FileRecord {
 export interface MutationIndexRecord {
   id: string;
   index: number;
+}
+
+export interface NewsItemRecord {
+  id: string;
+  timestamp: number;
+  title: string;
+  text: string;
+  imageUrl: string;
+  linkUrl: string;
 }

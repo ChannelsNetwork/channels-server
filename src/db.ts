@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 
 export class Database {
@@ -15,6 +15,7 @@ export class Database {
   private cardProperties: Collection;
   private cardCollectionItems: Collection;
   private files: Collection;
+  private newsItems: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -31,6 +32,7 @@ export class Database {
     await this.initializeCardProperties();
     await this.initializeCardCollectionItems();
     await this.initializeFiles();
+    await this.initializeNewsItems();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -82,6 +84,12 @@ export class Database {
     await this.files.createIndex({ id: 1 }, { unique: true });
   }
 
+  private async initializeNewsItems(): Promise<void> {
+    this.newsItems = this.db.collection('newsItems');
+    await this.newsItems.createIndex({ id: 1 }, { unique: true });
+    await this.newsItems.createIndex({ timestamp: -1 });
+  }
+
   async insertNetwork(balance: number): Promise<NetworkRecord> {
     const record: NetworkRecord = {
       id: '1',
@@ -115,7 +123,8 @@ export class Database {
       invitationsAccepted: invitationsAccepted,
       iosDeviceTokens: [],
       lastContact: now,
-      storage: 0
+      storage: 0,
+      admin: false
     };
     await this.users.insert(record);
     return record;
@@ -502,6 +511,26 @@ export class Database {
     return await this.files.findOne<FileRecord>({ id: id });
   }
 
+  async insertNewsItem(record: NewsItemRecord): Promise<NewsItemRecord> {
+    try {
+      await this.newsItems.insertOne(record);
+    } catch (err) {
+      console.log("Initial news item is already present");
+      // noop:  record may already be there
+    }
+    return await this.newsItems.findOne<NewsItemRecord>({ id: record.id });
+  }
+
+  async findNewsItemById(id: string): Promise<NewsItemRecord> {
+    return await this.newsItems.findOne<NewsItemRecord>({ id: id });
+  }
+
+  async findNewsItems(maxCount: number): Promise<NewsItemRecord[]> {
+    if (!maxCount || maxCount < 0 || maxCount > 200) {
+      maxCount = 200;
+    }
+    return await this.newsItems.find<NewsItemRecord>().sort({ timestamp: -1 }).limit(maxCount).toArray();
+  }
 }
 
 const db = new Database();
