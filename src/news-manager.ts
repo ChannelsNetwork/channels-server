@@ -15,8 +15,8 @@ const INITIAL_NEWS_ITEM: NewsItemRecord = {
   timestamp: Date.now(),
   title: "Channels Whitepaper",
   text: "We've made our comprehensive technical description of Channels available for everyone to read.",
-  imageUrl: "/s/images/logo180.png",
-  linkUrl: "/s/whitepaper.pdf"
+  imageUrl: "https://channels.cc/s/images/logo180.png",
+  linkUrl: "https://channels.cc/s/whitepaper.pdf"
 };
 
 export class NewsManager implements RestServer {
