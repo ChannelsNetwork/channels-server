@@ -1,4 +1,6 @@
 
+import { NewsItemRecord } from "./db-records";
+
 export interface RestRequest<T extends Signable> {
   version: number;
   details: string;
@@ -60,6 +62,11 @@ export interface GetUserIdentityResponse extends RestResponse {
   handle: string;
   location: string;
   imageUrl: string;
+  settings: UserSettings;
+}
+
+export interface UserSettings {
+  displayNetworkBalance: boolean;
 }
 
 export interface CheckHandleDetails extends Signable {
@@ -121,4 +128,21 @@ export interface CardDescriptor {
     user: CardState;
     shared: CardState;
   };
+}
+
+export interface GetNewsDetails extends Signable {
+  maxCount: number;
+}
+
+export interface GetNewsResponse extends RestResponse {
+  items: NewsItem[];
+}
+
+export interface NewsItem {
+  id: string;
+  timestamp: number;
+  title: string;
+  text: string;
+  imageUrl: string;
+  linkUrl: string;
 }

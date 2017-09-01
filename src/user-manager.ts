@@ -183,7 +183,10 @@ export class UserManager implements RestServer {
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
         imageUrl: user.identity ? user.identity.imageUrl : null,
-        handle: user.identity ? user.identity.handle : null
+        handle: user.identity ? user.identity.handle : null,
+        settings: {
+          displayNetworkBalance: user.admin
+        }
       };
       response.json(reply);
     } catch (err) {

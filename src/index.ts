@@ -19,6 +19,7 @@ import { userManager } from "./user-manager";
 import { feedManager } from "./feed-manager";
 import { cardManager } from "./card-manager";
 import { fileManager } from "./file-manager";
+import { newsManager } from "./news-manager";
 import { testClient } from "./testing/test-client";
 import { awsManager } from "./aws-manager";
 import { Initializable } from "./interfaces/initializable";
@@ -33,7 +34,7 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private started: number;
   private initializables: Initializable[] = [awsManager, cardManager, feedManager];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
