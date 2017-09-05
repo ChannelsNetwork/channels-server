@@ -52,21 +52,23 @@ export class AwsManager implements RestServer, Initializable {
       });
       if (configuration.get('aws.sns.topic')) {
         this.sns = new AWS.SNS();
-        console.log("AwsManager.initialize2: Subscribing to SNS topic " + configuration.get('aws.sns.topic'));
-        this.sns.subscribe({
-          Protocol: configuration.get('aws.sns.callbackBaseUrl').split(':')[0],
-          TopicArn: configuration.get('aws.sns.topic'),
-          Endpoint: url.resolve(configuration.get('aws.sns.callbackBaseUrl'), '/d/' + SNS_NOTIFY_OFFSET)
-        }, (err: any) => {
-          if (err) {
-            throw err;
-          }
-        });
         setTimeout(() => {
-          if (!this.snsConfirmed) {
-            throw new Error("AwsManager: 30 seconds after subscribing, SNS subscription has not been confirmed");
-          }
-        }, 30000);
+          console.log("AwsManager.initialize2: Subscribing to SNS topic " + configuration.get('aws.sns.topic') + " using callback " + url.resolve(configuration.get('aws.sns.callbackBaseUrl'), '/d/' + SNS_NOTIFY_OFFSET));
+          this.sns.subscribe({
+            Protocol: configuration.get('aws.sns.callbackBaseUrl').split(':')[0],
+            TopicArn: configuration.get('aws.sns.topic'),
+            Endpoint: url.resolve(configuration.get('aws.sns.callbackBaseUrl'), '/d/' + SNS_NOTIFY_OFFSET)
+          }, (err: any) => {
+            if (err) {
+              throw err;
+            }
+          });
+          setTimeout(() => {
+            if (!this.snsConfirmed) {
+              throw new Error("AwsManager: 45 seconds after subscribing, SNS subscription has not been confirmed");
+            }
+          }, 45000);  // If not subscribed within 45 seconds, declare failure
+        }, 5000); // Waiting 5 seconds after startup before initiating subscription
       }
     }
   }
