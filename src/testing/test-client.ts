@@ -17,6 +17,8 @@ import { PingReplyDetails, SocketMessage, PingRequestDetails, OpenRequestDetails
 
 const RestClient = require('node-rest-client').Client;
 
+const APP_VERSION = "0.0.1";
+
 class TestClient implements RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -188,7 +190,8 @@ class TestClient implements RestServer {
     const details: RegisterUserDetails = {
       address: this.keyInfo.address,
       publicKey: this.keyInfo.publicKeyPem,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      appVersion: APP_VERSION
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<RegisterUserDetails> = {
@@ -280,7 +283,8 @@ class TestClient implements RestServer {
   private async getStatus(): Promise<void> {
     const details: UserStatusDetails = {
       address: this.keyInfo.address,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      appVersion: APP_VERSION
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<UserStatusDetails> = {

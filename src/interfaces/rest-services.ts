@@ -13,6 +13,7 @@ export interface RestResponse { }
 export interface RegisterUserDetails extends Signable {
   publicKey: string;
   inviteCode?: string;
+  appVersion: string;
 }
 
 export interface Signable {
@@ -22,10 +23,13 @@ export interface Signable {
 
 export interface RegisterUserResponse extends UserStatusResponse { }
 
-export interface UserStatusDetails extends Signable { }
+export interface UserStatusDetails extends Signable {
+  appVersion: string;
+}
 
 export interface UserStatusResponse extends RestResponse {
   status: UserStatus;
+  appUpdateUrl: string;
   socketUrl: string;
 }
 

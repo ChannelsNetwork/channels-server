@@ -239,7 +239,8 @@ export class UserManager implements RestServer {
         inviterRewards: user.inviterRewards,
         inviteeReward: user.inviteeReward
       },
-      socketUrl: this.urlManager.getSocketUrl('socket')
+      socketUrl: this.urlManager.getSocketUrl('socket'),
+      appUpdateUrl: null
     };
     response.json(result);
   }
