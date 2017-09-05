@@ -136,12 +136,10 @@ export class FileManager implements RestServer {
   }
 
   private async handleUploadCompleted(fileRecord: FileRecord, user: UserRecord, meter: streamMeter.StreamMeter, key: string, response: Response): Promise<void> {
-    await db.updateFileCompletion(fileRecord, 'complete', meter.bytes);
+    const fileUrl = url.resolve(configuration.get('aws.s3.baseUrl'), key);
+    await db.updateFileCompletion(fileRecord, 'complete', meter.bytes, fileUrl);
     await db.incrementUserStorage(user, meter.bytes);
     console.log("FileManager.uploadS3: upload completed", fileRecord.id);
-    let fileUrl: string;
-    fileUrl = configuration.get('aws.s3.useS3Url') ? 'https://s3.amazonaws.com/' + configuration.get('aws.s3.bucket') + '/' + key :
-      url.resolve(configuration.get('storageBaseUri'), key);
     const reply = {
       fileId: fileRecord.id,
       url: fileUrl

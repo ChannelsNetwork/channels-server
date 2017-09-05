@@ -150,6 +150,7 @@ export interface FileRecord {
     bucket: string;
     key: string;
   };
+  url: string;
 }
 
 export interface MutationIndexRecord {

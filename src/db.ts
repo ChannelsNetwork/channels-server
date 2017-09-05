@@ -463,7 +463,8 @@ export class Database {
       s3: {
         bucket: s3Bucket,
         key: null
-      }
+      },
+      url: null
     };
     await this.files.insert(record);
     return record;
@@ -493,11 +494,12 @@ export class Database {
     fileRecord.status = status;
   }
 
-  async updateFileCompletion(fileRecord: FileRecord, status: FileStatus, size: number): Promise<void> {
+  async updateFileCompletion(fileRecord: FileRecord, status: FileStatus, size: number, url: string): Promise<void> {
     await this.files.updateOne({ id: fileRecord.id }, {
       $set: {
         status: status,
-        size: size
+        size: size,
+        url: url
       }
     });
     fileRecord.status = status;
