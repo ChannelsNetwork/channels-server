@@ -14,6 +14,7 @@ import * as rq from 'request';
 import * as fs from 'fs';
 import * as path from "path";
 import { PingReplyDetails, SocketMessage, PingRequestDetails, OpenRequestDetails, OpenReplyDetails, PostCardReplyDetails, PostCardDetails, GetFeedDetails, GetFeedReplyDetails } from "../interfaces/socket-messages";
+import { IRestClient, PostArgs } from "../interfaces/irest-client";
 
 const RestClient = require('node-rest-client').Client;
 
@@ -395,22 +396,6 @@ class TestClient implements RestServer {
       contentType: 'image/png'
     });
   }
-}
-
-interface PostArgs {
-  data: any;
-  headers: { [name: string]: string };
-}
-interface RestArgs {
-  headers: { [name: string]: string };
-}
-
-interface IRestClient {
-  get(url: string, callback: (data: any, response: Response) => void): void;
-
-  get(url: string, args: RestArgs, callback: (data: any, response: Response) => void): void;
-  post(url: string, args: PostArgs, callback: (data: any, response: Response) => void): void;
-  delete(url: string, args: RestArgs, callback: (data: any, response: Response) => void): void;
 }
 
 const testClient = new TestClient();

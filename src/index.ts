@@ -1,6 +1,6 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as net from 'net';
 import * as http from 'http';
 import * as https from 'https';
@@ -25,6 +25,7 @@ import { awsManager } from "./aws-manager";
 import { Initializable } from "./interfaces/initializable";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
 import { socketServer } from "./socket-server";
+import { mediumManager } from "./medium-manager";
 
 const VERSION = 3;
 const INITIAL_NETWORK_BALANCE = 25000;
@@ -34,7 +35,7 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private started: number;
   private initializables: Initializable[] = [awsManager, cardManager, feedManager];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
@@ -108,6 +109,18 @@ class ChannelsNetworkWebClient {
     this.app.use(bodyParser.urlencoded({
       extended: true
     }));
+    this.app.use((req: Request, res: Response, next: NextFunction) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      if (req.method.toLowerCase() === "options") {
+        res.setHeader("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS");
+        const requestedHeaders = req.header("Access-Control-Request-Headers");
+        if (requestedHeaders) {
+          res.setHeader("Access-Control-Allow-Headers", requestedHeaders);
+        }
+      }
+      next();
+    });
     // this.app.use((req: any, res: any, next: any) => {
     //   if (req.is('text/*')) {
     //     req.text = '';
