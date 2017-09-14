@@ -1,0 +1,68 @@
+<dom-module id="text-input">
+  <template>
+    <style is="custom-style" include="app-styles">
+       :host {
+        display: block;
+        font-size: 20px;
+      }
+
+      label {
+        display: block;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        margin-bottom: 5px;
+        color: var(--highlight-blue);
+        opacity: 0;
+        transition: opacity 0.3s ease-out;
+      }
+
+      input {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        background: transparent;
+        outline: none;
+        border: none;
+        border-bottom: 1px solid #fff;
+        color: inherit;
+        font-family: inherit;
+        font-size: inherit;
+      }
+    </style>
+    <label id="lbl">[[label]]</label>
+    <input id="txt" placeholder$="[[placeholder]]" on-input="_onInput">
+  </template>
+  <script>
+    class TextInput extends Polymer.Element {
+      static get is() { return "text-input"; }
+      static get properties() {
+        return {
+          label: String,
+          placeholder: String
+        }
+      }
+
+      get input() {
+        return this.$.txt;
+      }
+
+      get value() {
+        return this.$.txt.value;
+      }
+
+      set value(v) {
+        this.$.txt.value = v;
+        this._onInput();
+      }
+
+      _onInput() {
+        if (this.value) {
+          this.$.lbl.style.opacity = 1;
+        } else {
+          this.$.lbl.style.opacity = 0;
+        }
+      }
+    }
+    window.customElements.define(TextInput.is, TextInput);
+  </script>
+</dom-module>

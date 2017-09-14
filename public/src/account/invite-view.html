@@ -1,0 +1,70 @@
+<dom-module id="invite-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #3E2723;
+        font-size: 20px;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      #container {
+        max-width: 500px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        padding: 30px 0;
+      }
+
+      input {
+        outline: none;
+        display: block;
+        font-family: inherit;
+        font-size: 50px;
+        background: transparent;
+        border: none;
+        color: #81D4FA;
+        box-sizing: border-box;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div id="container">
+        <h2>Invite a friend</h2>
+        <p>
+          Give this code to some of your friends to use when they register with Channels. We'll reward both you and them with additional
+          coins.
+        </p>
+        <div>
+          <input id="code" value="34M9K3">
+        </div>
+        <div class="buttons">
+          <button on-click="_onCancel">Close</button>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class InviteView extends Polymer.Element {
+      static get is() { return "invite-view"; }
+
+      onActivate() {
+      }
+
+      _onCancel() {
+        $router.goto("launch");
+      }
+    }
+    window.customElements.define(InviteView.is, InviteView);
+  </script>
+</dom-module>

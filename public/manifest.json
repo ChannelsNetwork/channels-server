@@ -1,0 +1,7 @@
+{
+  "name": "channels",
+  "short_name": "channels",
+  "description": "Channels web client",
+  "start_url": "/",
+  "display": "standalone"
+}

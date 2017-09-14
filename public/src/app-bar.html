@@ -1,0 +1,77 @@
+<dom-module id="app-bar">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: rgba(33, 33, 33, 1);
+      }
+
+      #container {
+        height: 60px;
+        padding: 0 0 0 16px;
+      }
+
+      .logo {
+        display: block;
+        height: 40px;
+      }
+
+      button {
+        color: white;
+        font-size: 14px;
+      }
+
+      .selected {
+        color: var(--highlight-blue);
+        font-weight: bold;
+      }
+
+      #balancePanel {
+        height: 60px;
+        padding: 0 16px;
+        background: var(--bg-yellow);
+        color: #000;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+
+      a:hover {
+        box-shadow: none;
+      }
+    </style>
+    <div id="container" class="horizontal layout center">
+      <a href="#"><img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png"></a>
+      <div class="flex"></div>
+      <a href="#launch"><button id="launch">Launch</button></a>
+      <a href="#account"><button id="account">Account</button></a>
+      <a href="https://medium.com/channels-network" target="_blank"><button id="blog">Blog</button></a>
+      <a href="#balance">
+        <div id="balancePanel" class="horizontal layout center">ℂ10.000</div>
+      </a>
+    </div>
+  </template>
+  <script>
+    class AppBar extends Polymer.Element {
+      static get is() { return "app-bar"; }
+      static get properties() {
+        return {};
+      }
+
+      onRoute(route) {
+        var path = route.segments[0];
+        var match = null;
+        if (path) {
+          match = this.$[path];
+        }
+        if (this._prevMatch) {
+          this._prevMatch.classList.remove("selected");
+        }
+        if (match) {
+          match.classList.add("selected");
+          this._prevMatch = match;
+        }
+      }
+    }
+    window.customElements.define(AppBar.is, AppBar);
+  </script>
+</dom-module>

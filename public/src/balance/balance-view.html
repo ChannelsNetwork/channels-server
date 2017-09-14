@@ -1,0 +1,65 @@
+<dom-module id="balance-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #37474F;
+        min-height: 100vh;
+      }
+
+      .content {
+        padding: 30px 15px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+        position: relative;
+        box-sizing: border-box;
+        font-size: 20px;
+      }
+
+      .balancePanel {
+        padding: 30px 0 10px;
+      }
+
+      .balance {
+        display: inline-block;
+        background: var(--bg-yellow);
+        color: #000;
+        font-size: 50px;
+        padding: 10px 20px;
+        border-radius: 5px;
+        text-align: left;
+        line-height: 1.2;
+        min-width: 250px;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      label {
+        font-size: 20px;
+        display: block;
+        margin-bottom: 8px;
+        letter-spacing: 0.05em;
+      }
+    </style>
+    <div class="barspace"></div>
+    <div class="content">
+      <p>
+        You have ChannelCoins waiting for you when you get started. You'll be able to use these to pay for content, to promote your
+        own content, or to trade in for cash
+      </p>
+      <div class="balancePanel">
+        <div class="balance">
+          <label>Balance</label>
+          <div>ℂ10.000</div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class BalanceView extends Polymer.Element {
+      static get is() {
+        return "balance-view";
+      }
+    }
+    window.customElements.define(BalanceView.is, BalanceView);
+  </script>
+</dom-module>

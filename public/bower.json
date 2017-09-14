@@ -1,0 +1,13 @@
+{
+  "name": "channels",
+  "description": "Channels web client",
+  "main": "index.html",
+  "dependencies": {
+    "polymer": "Polymer/polymer#^2.0.0",
+    "iron-flex-layout": "^2.0.0",
+    "channels-web-utils": "ChannelsNetwork/channels-web-key-utils#^0.1.1"
+  },
+  "devDependencies": {
+    "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0"
+  }
+}

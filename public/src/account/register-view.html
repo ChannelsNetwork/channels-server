@@ -1,0 +1,75 @@
+<link rel="import" href="../controls/text-input.html">
+
+<dom-module id="register-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #212121;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      #container {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        text-align: right;
+        padding: 30px 0 5px;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div id="container">
+        <h2>Register with Channels</h2>
+        <form>
+          <text-input id="handle" label="Handle" placeholder="Handle" on-input="_onInput"></text-input>
+          <text-input id="name" label="Full name" placeholder="Full name" on-input="_onInput"></text-input>
+          <text-input id="location" label="Location" placeholder="Location (optional)" on-input="_onInput"></text-input>
+          <text-input id="code" label="Invite code" placeholder="Invite code (optional)" on-input="_onInput"></text-input>
+          <div class="buttons">
+            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+            <button id="btnSave" on-click="_onSave" disabled>Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </template>
+  <script>
+    class RegisterView extends Polymer.Element {
+      static get is() { return "register-view"; }
+
+      onActivate() {
+        this.$.handle.value = "";
+        this.$.name.value = "";
+        this.$.location.value = "";
+        this.$.code.value = "";
+        this.$.handle.input.focus();
+        this._onInput();
+      }
+
+      _onCancel() {
+        $router.goto("");
+      }
+
+      _onSave() {
+        $core.generateKey();
+        // $router.goto("");
+      }
+
+      _onInput() {
+        let valid = this.$.handle.value.trim() && this.$.name.value.trim();
+        this.$.btnSave.disabled = !valid;
+      }
+    }
+    window.customElements.define(RegisterView.is, RegisterView);
+  </script>
+</dom-module>

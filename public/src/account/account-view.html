@@ -1,0 +1,72 @@
+<dom-module id="account-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #424242;
+        min-height: 100vh;
+      }
+
+      .content {
+        padding: 30px 15px 20px;
+        max-width: 400px;
+        margin: 0 auto;
+        position: relative;
+      }
+
+      .row {
+        margin-top: 20px;
+        font-size: 20px;
+      }
+
+      .buttons {
+        padding: 30px 0 5px;
+      }
+
+      label {
+        display: block;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        margin-bottom: 5px;
+        color: var(--highlight-blue);
+      }
+
+      button {
+        padding: 10px 0;
+      }
+
+      .value {
+        color: white;
+      }
+    </style>
+    <div class="barspace"></div>
+    <div class="content">
+      <h3>My Account</h3>
+      <div class="row">
+        <label>Handle</label>
+        <div class="value">preetster</div>
+      </div>
+      <div class="row">
+        <label>Name</label>
+        <div class="value">Preet Shihn</div>
+      </div>
+      <div class="row">
+        <label>Location</label>
+        <div class="value">unknown</div>
+      </div>
+      <div class="buttons">
+        <button on-click="_onEdit">Edit profile</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AccountView extends Polymer.Element {
+      static get is() { return "account-view"; }
+
+      _onEdit() {
+        $router.goto("edit-profile");
+      }
+    }
+    window.customElements.define(AccountView.is, AccountView);
+  </script>
+</dom-module>

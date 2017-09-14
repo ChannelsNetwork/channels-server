@@ -1,0 +1,183 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="app-styles.html">
+<link rel="import" href="app-bar.html">
+<link rel="import" href="core/core.html">
+
+
+<dom-module id="main-app">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+      }
+
+      .shell {
+        height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+        background: #213034;
+        color: white;
+      }
+
+      #pageContainer {
+        position: relative;
+        transition: all 0.3s ease;
+      }
+
+      app-bar {
+        position: fixed;
+        top: -70px;
+        left: 0;
+        right: 0;
+        z-index: 2;
+        transition: top 0.3s ease;
+      }
+    </style>
+    <hash-router id="router" on-route-change="onRouteChange"></hash-router>
+    <channels-core></channels-core>
+    <div id="shell" class="shell vertical layout">
+      <app-bar id="toolbar"></app-bar>
+      <div id="pageContainer" class="flex">
+        <home-view id="home" class="home page" data-href="home/home-view.html" data-dir="down"></home-view>
+        <register-view class="register page" data-href="account/register-view.html" data-dir="up"></register-view>
+        <launch-view class="launch page" data-toolbar="true" data-href="launch/launch-view.html"></launch-view>
+        <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
+        <edit-account-view class="edit-profile page" data-href="account/edit-account-view.html" data-dir="up"></edit-account-view>
+        <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
+        <invite-view class="invite page" data-href="account/invite-view.html"></invite-view>
+      </div>
+    </div>
+  </template>
+
+  <script src="hash-router.js"></script>
+  <script>
+    class MainApp extends Polymer.Element {
+      static get is() { return 'main-app'; }
+
+      constructor() {
+        super();
+        this._lastPage = null;
+        window.$app = this;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        window.$router = this.$.router;
+      }
+
+      onRouteChange(event) {
+        const route = event.detail.route;
+        let pageName = route.segments[0] || "home";
+        const pages = this.shadowRoot.querySelectorAll(".page");
+        if (pages) {
+          for (let i = 0; i < pages.length; i++) {
+            pages[i].style.display = "none";
+          }
+        }
+        let activePage = this.shadowRoot.querySelector("." + pageName);
+        if (!activePage) {
+          activePage = this.$.home;
+          pageName = "home";
+        }
+
+        // Notify prev page it's being hidden
+        if (this._lastPage) {
+          if (this._lastPage != activePage) {
+            this._lastPage.style.display = "";
+            if (this._lastPage.onDeactivate) {
+              this._lastPage.onDeactivate();
+            }
+          }
+        }
+        var lastPage = this._lastPage;
+        this._lastPage = activePage;
+
+        // animation setup
+        var animate = lastPage && (lastPage != activePage);
+        const animationType = activePage.getAttribute("data-dir") || "right";
+        const showToolbar = activePage.getAttribute("data-toolbar") == "true";
+        if (animate) {
+          lastPage.classList.add("floatingPage");
+          activePage.classList.add("floatingPage");
+          if (!showToolbar) {
+            this._setBarVisible(false);
+          }
+        } else {
+          activePage.style.display = "";
+          this._setBarVisible(showToolbar);
+        }
+
+        // import page and activate it
+        const pageHref = activePage.getAttribute("data-href");
+
+        const pageCallback = () => {
+          if (activePage.onActivate) {
+            activePage.onActivate(route);
+          }
+          if (animate) {
+            this._animate(lastPage, activePage, animationType, showToolbar);
+          }
+        };
+        if (pageHref) {
+          Polymer.importHref(this.resolveUrl(pageHref), pageCallback);
+        } else {
+          pageCallback();
+        }
+
+        // scroll to top
+        this.$.shell.scrollTop = 0;
+
+        // notify toolbar
+        this.$.toolbar.onRoute(route);
+      }
+
+      _setBarVisible(visible) {
+        this.$.toolbar.style.top = visible ? "0px" : "-70px";
+      }
+
+      _animate(p1, p2, animation, showToolbar) {
+        this.$.shell.style.overflow = "hidden";
+        p2.style.zIndex = 1;
+        p1.style.zIndex = 0;
+        p2.style.display = "";
+        var animationComplete = () => {
+          this.$.shell.style.overflow = null;
+          p1.style.display = "none";
+          p1.style.transform = "none";
+          p1.classList.remove("floatingPage");
+          p2.classList.remove("floatingPage");
+          p2.style.zIndex = 0;
+          p1.style.zIndex = 0;
+          if (showToolbar) {
+            this._setBarVisible(true);
+          }
+        };
+        switch (animation) {
+          case "down":
+            p2.style.transform = "translateY(-100vh)";
+            p1.style.transform = "none";
+            setTimeout(() => {
+              p2.style.transform = "none";
+              p1.style.transform = "translateY(100vh)";
+              setTimeout(animationComplete, 500);
+            }, 50);
+            break;
+          case "up":
+          default:
+            p2.style.transform = "translateY(100vh)";
+            p1.style.transform = "none";
+            setTimeout(() => {
+              p2.style.transform = "none";
+              p1.style.transform = "translateY(-100vh)";
+              setTimeout(animationComplete, 500);
+            }, 50);
+            break;
+        }
+      }
+    }
+    window.customElements.define(MainApp.is, MainApp);
+  </script>
+</dom-module>
