@@ -1,4 +1,5 @@
 import { configuration } from "./configuration";
+import * as url from 'url';
 
 export class UrlManager {
   private version: number;
@@ -50,6 +51,10 @@ export class UrlManager {
     } else {
       return '/d' + relativeUrl;
     }
+  }
+
+  getPublicUrl(relativeUrl: string): string {
+    return url.resolve(this.getPublicBaseUrl(true), relativeUrl);
   }
 
   getVersionedUrl(relativeUrl: string, absolute = false): string {

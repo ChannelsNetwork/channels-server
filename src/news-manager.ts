@@ -10,14 +10,23 @@ import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { NewsItemRecord } from "./interfaces/db-records";
 
-const INITIAL_NEWS_ITEM: NewsItemRecord = {
+const NEWS_ITEMS: NewsItemRecord[] = [{
   id: "1",
   timestamp: Date.now(),
   title: "Channels Whitepaper",
   text: "We've made our comprehensive technical description of Channels available for everyone to read.",
   imageUrl: "https://channels.cc/s/images/logo180.png",
   linkUrl: "https://channels.cc/s/whitepaper.pdf"
-};
+},
+{
+  id: "2",
+  timestamp: Date.now(),
+  title: "Whitepaper Updated",
+  text: "We've updated the whitepaper with additional details and descriptions.",
+  imageUrl: "https://channels.cc/s/images/logo180.png",
+  linkUrl: "https://channels.cc/s/whitepaper_1_1.pdf"
+}
+];
 
 export class NewsManager implements RestServer {
   private app: express.Application;
@@ -27,9 +36,11 @@ export class NewsManager implements RestServer {
     this.urlManager = urlManager;
     this.app = app;
     this.registerHandlers();
-    const existingItem = await db.findNewsItemById(INITIAL_NEWS_ITEM.id);
-    if (!existingItem) {
-      await db.insertNewsItem(INITIAL_NEWS_ITEM);
+    for (const item of NEWS_ITEMS) {
+      const existingItem = await db.findNewsItemById(item.id);
+      if (!existingItem) {
+        await db.insertNewsItem(item);
+      }
     }
   }
 

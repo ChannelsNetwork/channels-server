@@ -27,7 +27,7 @@ import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/expres
 import { socketServer } from "./socket-server";
 import { mediumManager } from "./medium-manager";
 
-const VERSION = 3;
+const VERSION = 4;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
@@ -137,8 +137,9 @@ class ChannelsNetworkWebClient {
       await restServer.initializeRestServices(this.urlManager, this.app);
     }
 
-    this.app.use('/v' + VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 * 30 }));
-    this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 * 30 }));
+    this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, "../public/whitepaper.pdf"), { maxAge: 1000 * 60 * 15 }));
+    this.app.use('/v' + VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
+    this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 }));
     if (configuration.get('client.ssl')) {
       const privateKey = fs.readFileSync(configuration.get('ssl.key'), 'utf8');
       const certificate = fs.readFileSync(configuration.get('ssl.cert'), 'utf8');
