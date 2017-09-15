@@ -63,7 +63,8 @@
         };
       }
 
-      onActivate() {
+      onActivate(route) {
+        this._routeContext = route.context;
         if (!$core.hasKey) {
           setTimeout(() => {
             $router.goto("");
@@ -81,7 +82,11 @@
       }
 
       _onCancel() {
-        $router.goto("launch");
+        if (this._routeContext && this._routeContext.returnPage) {
+          $router.goto(this._routeContext.returnPage);
+        } else {
+          $router.goto("launch");
+        }
       }
     }
     window.customElements.define(InviteView.is, InviteView);
