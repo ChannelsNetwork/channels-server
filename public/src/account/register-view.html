@@ -64,6 +64,7 @@
       }
 
       onActivate() {
+        this._alreadyRegistered = false;
         this._hideProgress();
         this.$.handle.value = "";
         this.$.name.value = "";
@@ -72,7 +73,6 @@
         this.$.handle.input.focus();
         this._onInput();
         this.$.container.style.opacity = 0;
-        this._alreadyRegistered = false;
         if ($core.hasKey) {
           this._alreadyRegistered = true;
           this._progress("You are already registered with channels.", true);
@@ -115,7 +115,7 @@
           $router.goto("launch");
         }).catch((err) => {
           console.error(err);
-          this._progress("Error registering handle: " + err, true);
+          this._progress(err || "Oops. Something went wrong when registering your handle.", true);
         });
       }
 

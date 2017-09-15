@@ -101,12 +101,20 @@
           <p>
             <a href="/whitepaper.pdf" target="_blank">Read our whitepaper</a>
           </p>
-          <p>
-            We'll be releasing shortly.<br>Meanwhile, you can register your handle now.
-          </p>
-          <p>
-            <a href="#register">Register handle</a>
-          </p>
+          <section id="sec1">
+            <p>
+              We'll be releasing shortly.<br>Meanwhile, you can register your handle now.
+            </p>
+            <p>
+              <a href="#register">Register handle</a>
+            </p>
+          </section>
+          <section id="sec2" style="display: none;">
+            <p>You're already registered with Channels!</p>
+            <p>
+              <a href="#balance">View your balance</a>
+            </p>
+          </section>
           <p><a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a></p>
         </div>
       </div>
@@ -124,6 +132,13 @@
         setTimeout(() => {
           this.$.logo.hidden = false;
         }, 100);
+        if ($core.hasKey) {
+          this.$.sec2.style.display = "";
+          this.$.sec1.style.display = "none";
+        } else {
+          this.$.sec2.style.display = "none";
+          this.$.sec1.style.display = "";
+        }
       }
     }
     window.customElements.define(HomeView.is, HomeView);
