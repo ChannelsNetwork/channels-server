@@ -1,7 +1,8 @@
 {
-  "name": "channels",
+  "name": "Channels",
   "short_name": "channels",
-  "description": "Channels web client",
+  "description": "Channels is a content network fueled by cryptocurrency",
   "start_url": "/",
-  "display": "standalone"
+  "display": "standalone",
+  "gcm_sender_id": "482941778795"
 }
