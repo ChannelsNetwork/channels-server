@@ -46,7 +46,6 @@ export class Database {
     this.users = this.db.collection('users');
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
-    await this.users.createIndex({ iosDeviceTokens: 1 });
     await this.users.createIndex({ "identity.handle": 1 });
   }
 
