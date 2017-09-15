@@ -10,18 +10,27 @@ export interface UserRecord {
   inviterRewards: number;
   invitationsRemaining: number;
   invitationsAccepted: number;
-  iosDeviceTokens: string[];
   lastContact: number;
   identity?: UserIdentity;
   storage: number;
   admin: boolean;
 }
 
+export interface DeviceTokenRecord {
+  type: DeviceType;
+  token: string;
+  userAddress: string;
+  added: number;
+}
+
+export type DeviceType = "web" | "ios";
+
 export interface UserIdentity {
   name: string;
   handle: string;
   imageUrl: string;
   location: string;
+  emailAddress: string;
 }
 
 export interface NetworkRecord {

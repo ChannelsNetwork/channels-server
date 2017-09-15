@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType } from "./interfaces/db-records";
 import { Utils } from "./utils";
 
 export class Database {
@@ -16,6 +16,7 @@ export class Database {
   private cardCollectionItems: Collection;
   private files: Collection;
   private newsItems: Collection;
+  private deviceTokens: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -33,6 +34,7 @@ export class Database {
     await this.initializeCardCollectionItems();
     await this.initializeFiles();
     await this.initializeNewsItems();
+    await this.initializeDeviceTokens();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -89,6 +91,11 @@ export class Database {
     await this.newsItems.createIndex({ id: 1 }, { unique: true });
     await this.newsItems.createIndex({ timestamp: -1 });
   }
+  private async initializeDeviceTokens(): Promise<void> {
+    this.deviceTokens = this.db.collection('deviceTokens');
+    await this.deviceTokens.createIndex({ type: 1, token: 1 }, { unique: true });
+    await this.deviceTokens.createIndex({ userAddress: 1, type: 1 });
+  }
 
   async insertNetwork(balance: number): Promise<NetworkRecord> {
     const record: NetworkRecord = {
@@ -121,7 +128,6 @@ export class Database {
       inviterRewards: inviterRewards,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
-      iosDeviceTokens: [],
       lastContact: now,
       storage: 0,
       admin: false
@@ -141,10 +147,6 @@ export class Database {
     return await this.users.findOne<UserRecord>({ inviterCode: code.toLowerCase() });
   }
 
-  async findUserByIosToken(token: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ iosDeviceTokens: token });
-  }
-
   async findUserByHandle(handle: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
   }
@@ -154,20 +156,38 @@ export class Database {
     userRecord.lastContact = lastContact;
   }
 
-  async appendUserIosToken(userRecord: UserRecord, token: string): Promise<void> {
-    await this.users.updateOne({ address: userRecord.address }, { $push: { iosDeviceTokens: token } });
-    userRecord.iosDeviceTokens.push(token);
-  }
-
-  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string): Promise<void> {
-    const identity: UserIdentity = {
-      name: name,
-      handle: handle.toLowerCase(),
-      imageUrl: imageUrl,
-      location: location
-    };
-    await this.users.updateOne({ address: userRecord.address }, { $set: { identity: identity } });
-    userRecord.identity = identity;
+  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string, emailAddress: string): Promise<void> {
+    const update: any = {};
+    if (!userRecord.identity) {
+      userRecord.identity = {
+        name: null,
+        handle: null,
+        imageUrl: null,
+        location: null,
+        emailAddress: null
+      };
+    }
+    if (typeof name !== 'undefined') {
+      update["identity.name"] = name;
+      userRecord.identity.name = name;
+    }
+    if (typeof handle !== 'undefined') {
+      update["identity.handle"] = handle;
+      userRecord.identity.handle = handle;
+    }
+    if (typeof imageUrl !== 'undefined') {
+      update["identity.imageUrl"] = imageUrl;
+      userRecord.identity.imageUrl = imageUrl;
+    }
+    if (typeof location !== 'undefined') {
+      update["identity.location"] = location;
+      userRecord.identity.location = location;
+    }
+    if (typeof emailAddress !== 'undefined') {
+      update["identity.emailAddress"] = emailAddress;
+      userRecord.identity.emailAddress = emailAddress;
+    }
+    await this.users.updateOne({ address: userRecord.address }, { $set: update });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
@@ -533,6 +553,22 @@ export class Database {
     }
     return await this.newsItems.find<NewsItemRecord>().sort({ timestamp: -1 }).limit(maxCount).toArray();
   }
+
+  async insertDeviceToken(type: DeviceType, token: string, userAddress: string): Promise<DeviceTokenRecord> {
+    const record: DeviceTokenRecord = {
+      type: type,
+      token: token,
+      userAddress: userAddress,
+      added: Date.now()
+    };
+    await this.deviceTokens.insertOne(record);
+    return record;
+  }
+
+  async findDeviceToken(type: DeviceType, token: string): Promise<DeviceTokenRecord> {
+    return await this.deviceTokens.findOne<DeviceTokenRecord>({ type: type, token: token });
+  }
+
 }
 
 const db = new Database();

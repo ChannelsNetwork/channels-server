@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, RegisterIosDeviceDetails, UserStatusDetails, Signable, RegisterIosDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -37,8 +37,8 @@ export class UserManager implements RestServer {
     this.app.post(this.urlManager.getDynamicUrl('register-user'), (request: Request, response: Response) => {
       void this.handleRegisterUser(request, response);
     });
-    this.app.post(this.urlManager.getDynamicUrl('register-ios-device'), (request: Request, response: Response) => {
-      void this.handleRegisterIosDevice(request, response);
+    this.app.post(this.urlManager.getDynamicUrl('register-device'), (request: Request, response: Response) => {
+      void this.handleRegisterDevice(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('account-status'), (request: Request, response: Response) => {
       void this.handleStatus(request, response);
@@ -94,31 +94,31 @@ export class UserManager implements RestServer {
     }
   }
 
-  private async handleRegisterIosDevice(request: Request, response: Response): Promise<void> {
+  private async handleRegisterDevice(request: Request, response: Response): Promise<void> {
     try {
-      const requestBody = request.body as RestRequest<RegisterIosDeviceDetails>;
+      const requestBody = request.body as RestRequest<RegisterDeviceDetails>;
       const user = await RestHelper.validateRegisteredRequest(requestBody, response);
       if (!user) {
         return;
       }
-      if (!requestBody.detailsObject.deviceToken) {
+      if (!requestBody.detailsObject.token || !requestBody.detailsObject.type) {
         response.status(400).send("Device token is missing or invalid");
         return;
       }
-      console.log("UserManager.register-ios-device", requestBody.detailsObject.address, requestBody.detailsObject.deviceToken);
-      const existing = await db.findUserByIosToken(requestBody.detailsObject.deviceToken);
+      console.log("UserManager.register-device", requestBody.detailsObject.address, requestBody.detailsObject);
+      const existing = await db.findDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token);
       if (existing) {
-        if (existing.address !== user.address) {
+        if (existing.userAddress !== user.address) {
           response.status(409).send("This device token is already associated with a different user");
           return;
         }
       } else {
-        await db.appendUserIosToken(user, requestBody.detailsObject.deviceToken);
+        await db.insertDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token, user.address);
       }
-      const reply: RegisterIosDeviceResponse = { success: true };
+      const reply: RegisterDeviceResponse = { success: true };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleRegisterIosDevice: Failure", err);
+      console.error("User.handleRegisterDevice: Failure", err);
       response.status(500).send(err);
     }
   }
@@ -162,7 +162,7 @@ export class UserManager implements RestServer {
         response.status(409).send("This handle is not available");
         return;
       }
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location);
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress);
       const reply: UpdateUserIdentityResponse = {};
       response.json(reply);
     } catch (err) {
@@ -184,6 +184,7 @@ export class UserManager implements RestServer {
         location: user.identity ? user.identity.location : null,
         imageUrl: user.identity ? user.identity.imageUrl : null,
         handle: user.identity ? user.identity.handle : null,
+        emailAddress: user.identity ? user.identity.emailAddress : null,
         settings: {
           displayNetworkBalance: user.admin
         }
@@ -198,9 +199,12 @@ export class UserManager implements RestServer {
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<CheckHandleDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-      if (!user) {
-        return;
+      let user: UserRecord;
+      if (requestBody.signature) {
+        user = await RestHelper.validateRegisteredRequest(requestBody, response);
+        if (!user) {
+          return;
+        }
       }
       if (!requestBody.detailsObject.handle) {
         response.status(400).send("Missing handle");
@@ -214,10 +218,12 @@ export class UserManager implements RestServer {
       reply.valid = true;
       console.log("UserManager.check-handle", requestBody.details);
       const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
-      if (existing && existing.address !== user.address) {
-        reply.inUse = true;
-        response.json(reply);
-        return;
+      if (existing) {
+        if (!user || existing.address !== user.address) {
+          reply.inUse = true;
+          response.json(reply);
+          return;
+        }
       }
       response.json(reply);
     } catch (err) {
