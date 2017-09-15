@@ -1,5 +1,6 @@
 const _CKeys = {
-  KEYS: "channels-identity"
+  KEYS: "channels-identity",
+  PROFILE: "channels-profile"
 };
 
 class CoreService extends Polymer.Element {
@@ -8,9 +9,14 @@ class CoreService extends Polymer.Element {
   constructor() {
     super();
     window.$core = this;
+    this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.storage = new StorageService();
     this.rest = new RestService();
     this._keys = this.storage.getLocal(_CKeys.KEYS, true);
+    this._profile = null;
+    if (this._keys && this._keys.privateKey) {
+      this._profile = this.storage.getLocal(_CKeys.PROFILE, true);
+    }
   }
 
   _loadKeyLib() {
@@ -45,6 +51,7 @@ class CoreService extends Polymer.Element {
       }
       this._loadKeyLib().then(() => {
         this._keys = $keyUtils.generateKey();
+        this.storage.setLocal(_CKeys.KEYS, this._keys);
         resolve();
       }).catch((err) => {
         reject(err);
@@ -62,11 +69,44 @@ class CoreService extends Polymer.Element {
       }
       let details = RestUtils.registerUserDetails(this._keys.address, this._keys.publicKeyPem, inviteCode);
       let request = this._createRequest(details);
-      return this.rest.post("", request).then((result) => {
+      const url = this.restBase + "/register-user";
+      return this.rest.post(url, request).then((result) => {
         this._registration = result;
         return result;
       });
     });
+  }
+
+  updateUserProfile(name, handle, location) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.updateIdentityDetails(this._keys.address, name, handle, location, null);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/update-identity";
+      return this.rest.post(url, request).then(() => {
+        return this.getUserProfile();
+      })
+    });
+  }
+
+  getUserProfile() {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.getUserIdentityDetails(this._keys.address);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/get-identity";
+      return this.rest.post(url, request).then((profile) => {
+        this._profile = profile;
+        this.storage.setLocal(_CKeys.PROFILE, profile);
+        return profile;
+      });
+    });
+  }
+
+  get profile() {
+    return this._profile;
+  }
+
+  get hasKey() {
+    return (this._keys && this._keys.privateKey);
   }
 
 }

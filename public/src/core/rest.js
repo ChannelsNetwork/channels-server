@@ -50,6 +50,24 @@ class RestUtils {
       inviteCode: inviteCode,
       address: address,
       timestamp: RestUtils.now()
-    }
+    };
+  }
+
+  static updateIdentityDetails(address, name, handle, location, imageUrl) {
+    return {
+      name: name,
+      handle: handle,
+      location: location,
+      imageUrl: imageUrl,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static getUserIdentityDetails(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
   }
 }
