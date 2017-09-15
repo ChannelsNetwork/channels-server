@@ -53,6 +53,14 @@ class RestUtils {
     };
   }
 
+  static registerDeviceDetails(address, deviceToken) {
+    return {
+      deviceToken: deviceToken,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static updateIdentityDetails(address, name, handle, location, imageUrl) {
     return {
       name: name,

@@ -7,8 +7,12 @@
         display: block;
       }
 
-      .container {
+      .view {
         min-height: 100vh;
+        box-sizing: border-box;
+      }
+
+      .container {
         @apply --layout-horizontal;
         @apply --layout-center;
       }
@@ -33,6 +37,11 @@
         vertical-align: middle;
       }
 
+      .content {
+        font-size: 18px;
+        max-width: 650px;
+      }
+
       #textPanel {
         font-size: 18px;
         max-width: 650px;
@@ -43,6 +52,17 @@
 
       h3 {
         margin-bottom: 20px;
+      }
+
+      .cell {
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      em {
+        color: var(--highlight-blue);
+        font-weight: bold;
+        font-style: normal;
       }
 
       @media (max-width: 850px) {
@@ -79,12 +99,12 @@
         }
       }
     </style>
-    <div class="container">
+    <section class="container view">
       <div id="logoPanel" class="panel">
         <channels-logo hidden id="logo"></channels-logo>
       </div>
       <div class="flex panel">
-        <div id="textPanel">
+        <div id="textPanel" class="content">
           <h1>Channels</h1>
           <h3>A social network fueled by cryptocurrency</h3>
           <p>
@@ -100,10 +120,10 @@
           </p>
           <section id="sec1">
             <p>
-              We'll be releasing shortly.<br>Meanwhile, you can register your handle now.
+              We'll be releasing shortly.
             </p>
             <p>
-              <a href="#register">Register handle</a>
+              <a href="#register">Reserve your ChannelCoin</a>
             </p>
           </section>
           <section id="sec2" style="display: none;">
@@ -115,7 +135,59 @@
           <p><a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a></p>
         </div>
       </div>
-    </div>
+    </section>
+    <section class="view horizontal layout center">
+      <div class="cell flex"></div>
+      <div class="flex cell">
+        <div class="content">
+          <h3>Content</h3>
+          <p>
+            As a consumer you will come here to find engaging information and entertainment -- <em>videos, photos,
+            stories, games, and more</em>. Anyone will be able to publish content here and set their own price on it.
+          </p>
+          <p>
+            Advertisers can enter an auction to determine the price they must <em>pay consumers who see their content</em>.
+          </p>
+          <p>
+            Channels makes sure that consumers see the <em>fewest and best ads</em> that pay enough to cover the costs of
+            the content they choose to buy.
+          </p>
+        </div>
+    </section>
+    <section class="view horizontal layout center">
+      <div class="cell flex"></div>
+      <div class="flex cell">
+        <div class="content">
+          <h3>ChannelCoin</h3>
+          <p>
+            Unlike Google and Facebook, the two largest ad networks, Channels does not participate as a middleman in these transactions.
+          </p>
+          <p>
+            Every ad a consumer sees is backed by a tiny <em>transaction directly between the advertiser and the consumer</em>.
+            Every post a consumer opens results in a small transaction between the consumer and the one who posted that content.
+          </p>
+          <p>
+            These transactions are frictionless and anonymous. And all of this is possible because we use a new cryptocurrency called
+            <em>ChannelCoin</em>. Advertisers will buy these coins. Content producers will sell these coins.
+          </p>
+          <p>
+            The market will determine the fair market value of the content and advertising space based on the price of this currency.
+          </p>
+        </div>
+    </section>
+    <section class="view horizontal layout center">
+      <div class="cell flex"></div>
+      <div class="flex cell">
+        <div class="content">
+          <h3>Open and Transparent</h3>
+          <p>
+            Channels is an <em>open-source network</em>. Unlike the big players today who shroud their systems in secrecy,
+            we think consumers, advertisers, and content producers value transparency -- <em>understanding where the money is coming from, where
+            it is going to, and why</em>.
+          </p>
+          <p>Users in this network remain anonymous, but auctions and transactions are all transparent.</p>
+        </div>
+    </section>
   </template>
   <script>
     class HomeView extends Polymer.Element {

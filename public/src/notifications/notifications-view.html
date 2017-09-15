@@ -112,6 +112,7 @@
                       if (isSubscribed && this._active) {
                         this.skip();
                       }
+                      this._registerDevice();
                     });
                   });
                   this._oneSignalHooked = true;
@@ -123,6 +124,18 @@
               });
             });
           }
+        });
+      }
+
+      _registerDevice() {
+        OneSignal.push(() => {
+          OneSignal.getUserId().then((userid) => {
+            if (userid) {
+              $core.registerDevice(userid).then(() => { });
+            }
+          }).catch((err) => {
+            console.error(err);
+          })
         });
       }
     }
