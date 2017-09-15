@@ -72,6 +72,7 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
+        this._fire("channels-registration", this._registration);
         this.getUserProfile();
         return result;
       });
@@ -97,6 +98,7 @@ class CoreService extends Polymer.Element {
       return this.rest.post(url, request).then((profile) => {
         this._profile = profile;
         this.storage.setLocal(_CKeys.PROFILE, profile);
+        this._fire("channels-profile", this._profile);
         return profile;
       });
     });
@@ -108,6 +110,15 @@ class CoreService extends Polymer.Element {
 
   get hasKey() {
     return (this._keys && this._keys.privateKey);
+  }
+
+  get registartion() {
+    return this._registration;
+  }
+
+  _fire(name, detail) {
+    let ce = new CustomEvent(name, { bubbles: true, composed: true, detail: (detail || {}) });
+    window.dispatchEvent(ce);
   }
 
 }
