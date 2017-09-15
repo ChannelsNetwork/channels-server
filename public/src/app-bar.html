@@ -46,7 +46,7 @@
       <a href="#account"><button id="account">Account</button></a>
       <a href="https://medium.com/channels-network" target="_blank"><button id="blog">Blog</button></a>
       <a href="#balance">
-        <div id="balancePanel" class="horizontal layout center">ℂ10.000</div>
+        <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
       </a>
     </div>
   </template>
@@ -54,7 +54,9 @@
     class AppBar extends Polymer.Element {
       static get is() { return "app-bar"; }
       static get properties() {
-        return {};
+        return {
+          balance: String
+        };
       }
 
       onRoute(route) {

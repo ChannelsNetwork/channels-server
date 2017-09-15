@@ -57,24 +57,24 @@
       }
     </style>
     <div class="barspace"></div>
-    <div class="content">
+    <div id="content" class="content">
       <h3>We're holding a spot for you!</h3>
       <h3>Channels will be going live in</h3>
       <div class="count horizontal layout center-center">
         <div class="countPanel">
-          <div class="countValue">88</div>
+          <div class="countValue">[[days]]</div>
           <div class="countLabel">days</div>
         </div>
         <div class="countPanel">
-          <div class="countValue">88</div>
+          <div class="countValue">[[hours]]</div>
           <div class="countLabel">Hours</div>
         </div>
         <div class="countPanel">
-          <div class="countValue">88</div>
+          <div class="countValue">[[minutes]]</div>
           <div class="countLabel">Minutes</div>
         </div>
         <div class="countPanel">
-          <div class="countValue">88</div>
+          <div class="countValue">[[seconds]]</div>
           <div class="countLabel">Seconds</div>
         </div>
       </div>
@@ -89,6 +89,63 @@
   <script>
     class LaunchView extends Polymer.Element {
       static get is() { return "launch-view"; }
+      static get properties() {
+        return {
+          days: Number,
+          hours: Number,
+          minutes: Number,
+          seconds: Number,
+          status: Object
+        };
+      }
+
+      onActivate() {
+        this._active = true;
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        } else {
+          this.$.content.style.opacity = 0;
+          $core.register().then((info) => {
+            this.$.content.style.opacity = 1;
+            this.status = info.status;
+            this._refresh();
+          }).catch((err) => {
+            console.error(err);
+            setTimeout(() => {
+              $router.goto("");
+            }, 600);
+          });
+        }
+      }
+
+      onDeactivate() {
+        this._active = false;
+      }
+
+      _refresh() {
+        if (!this.status) {
+          return;
+        }
+        var diff = (this.status.goLive - (new Date()).getTime()) / 1000;
+        this.days = Math.floor(diff / (3600 * 24));
+        this.hours = Math.floor(diff / 3600 % 24);
+        this.minutes = Math.floor(diff / 60 % 60);
+        this.seconds = Math.round(diff % 60);
+
+        this._step();
+      }
+
+      _step() {
+        if (this._active) {
+          setTimeout(() => {
+            if (this._active) {
+              this._refresh();
+            }
+          }, 1000);
+        }
+      }
     }
     window.customElements.define(LaunchView.is, LaunchView);
   </script>

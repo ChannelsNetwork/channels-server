@@ -45,11 +45,11 @@ class CoreService extends Polymer.Element {
 
   ensureKey() {
     return new Promise((resolve, reject) => {
-      if (this._keys && this._keys.privateKey) {
-        resolve();
-        return;
-      }
       this._loadKeyLib().then(() => {
+        if (this._keys && this._keys.privateKey) {
+          resolve();
+          return;
+        }
         this._keys = $keyUtils.generateKey();
         this.storage.setLocal(_CKeys.KEYS, this._keys);
         resolve();

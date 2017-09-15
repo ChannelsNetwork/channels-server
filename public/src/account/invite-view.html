@@ -46,7 +46,7 @@
           coins.
         </p>
         <div>
-          <input id="code" value="34M9K3">
+          <input id="code" value$="[[code]]">
         </div>
         <div class="buttons">
           <button on-click="_onCancel">Close</button>
@@ -57,8 +57,21 @@
   <script>
     class InviteView extends Polymer.Element {
       static get is() { return "invite-view"; }
+      static get properties() {
+        return {
+          code: String
+        };
+      }
 
       onActivate() {
+        $core.register().then((info) => {
+          this.code = info.status.inviteCode;
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            this._onCancel();
+          }, 600);
+        });
       }
 
       _onCancel() {
