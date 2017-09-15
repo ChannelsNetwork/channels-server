@@ -30,7 +30,7 @@
       }
     </style>
     <label id="lbl">[[label]]</label>
-    <input id="txt" placeholder$="[[placeholder]]" on-input="_onInput">
+    <input id="txt" type$="[[type]]" placeholder$="[[placeholder]]" on-input="_onInput">
   </template>
   <script>
     class TextInput extends Polymer.Element {
@@ -38,7 +38,11 @@
       static get properties() {
         return {
           label: String,
-          placeholder: String
+          placeholder: String,
+          type: {
+            type: String,
+            value: "text"
+          }
         }
       }
 

@@ -46,7 +46,7 @@
           <p><button on-click="enableNotifications">Enable push notifications</button></p>
           <p>or give us your email address and we will keep you updated</p>
         </section>
-        <text-input id="email" label="Email" placeholder="Your email" on-input="_onInput"></text-input>
+        <text-input id="email" type="email" label="Email" placeholder="Your email" on-input="_onInput"></text-input>
         <p><button id="btnSubmit" on-click="submitEmail" disabled>Submit</button></p>
         <p><button on-click="skip">I don't want any notifications</button></p>
       </div>
@@ -87,6 +87,10 @@
 
       skip() {
         $router.goto("launch");
+      }
+
+      submitEmail() {
+        this.skip();
       }
 
       enableNotifications() {

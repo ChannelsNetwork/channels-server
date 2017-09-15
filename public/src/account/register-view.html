@@ -113,7 +113,7 @@
         $core.register(code).then(() => {
           return $core.updateUserProfile(name, handle, location);
         }).then((ss) => {
-          $router.goto("launch");
+          $router.goto("notifications");
         }).catch((err) => {
           console.error(err);
           this._progress(err || "Oops. Something went wrong when registering your handle.", true);
