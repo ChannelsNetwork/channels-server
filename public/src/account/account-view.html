@@ -44,15 +44,15 @@
       <h3>My Account</h3>
       <div class="row">
         <label>Handle</label>
-        <div class="value">preetster</div>
+        <div class="value">[[profile.handle]]</div>
       </div>
       <div class="row">
         <label>Name</label>
-        <div class="value">Preet Shihn</div>
+        <div class="value">[[profile.name]]</div>
       </div>
       <div class="row">
         <label>Location</label>
-        <div class="value">unknown</div>
+        <div class="value">[[profile.location]]</div>
       </div>
       <div class="buttons">
         <button on-click="_onEdit">Edit profile</button>
@@ -62,6 +62,38 @@
   <script>
     class AccountView extends Polymer.Element {
       static get is() { return "account-view"; }
+      static get properties() {
+        return {
+          profile: Object
+        };
+      }
+
+      onActivate() {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        var profile = {
+          handle: "Not specified",
+          name: "Not specified",
+          location: "Unknown"
+        };
+        let p = $core.profile;
+        if (p) {
+          if (p.handle) {
+            profile.handle = p.handle;
+          }
+          if (p.name) {
+            profile.name = p.name;
+          }
+          if (p.location) {
+            profile.location = p.location;
+          }
+        }
+        this.profile = profile;
+      }
 
       _onEdit() {
         $router.goto("edit-profile");

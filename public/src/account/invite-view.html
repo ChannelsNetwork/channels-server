@@ -64,6 +64,12 @@
       }
 
       onActivate() {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
         $core.register().then((info) => {
           this.code = info.status.inviteCode;
         }).catch((err) => {

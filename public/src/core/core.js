@@ -72,6 +72,7 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
+        this.getUserProfile();
         return result;
       });
     });

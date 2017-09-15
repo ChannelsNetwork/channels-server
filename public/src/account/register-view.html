@@ -17,6 +17,7 @@
         max-width: 600px;
         padding: 16px;
         margin: 0 auto;
+        box-sizing: border-box;
       }
 
       #progressPanel {
@@ -60,7 +61,7 @@
       static get properties() {
         return {
           progress: String
-        }
+        };
       }
 
       onActivate() {
