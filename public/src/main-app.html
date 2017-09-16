@@ -69,6 +69,10 @@
         window.$router = this.$.router;
       }
 
+      get shell() {
+        return this.$.shell;
+      }
+
       onRouteChange(event) {
         const route = event.detail.route;
         let pageName = route.segments[0] || "home";

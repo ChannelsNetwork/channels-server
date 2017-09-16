@@ -83,7 +83,7 @@ class CoreService extends Polymer.Element {
     return this.ensureKey().then(() => {
       let details = RestUtils.registerDeviceDetails(this._keys.address, deviceCode);
       let request = this._createRequest(details);
-      const url = this.restBase + "/register-ios-device";
+      const url = this.restBase + "/register-device";
       return this.rest.post(url, request);
     });
   }

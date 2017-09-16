@@ -50,6 +50,7 @@
         opacity: 0;
         transform: translateX(50px);
         transition: all 1s ease;
+        box-sizing: border-box;
       }
 
       h3 {
@@ -144,7 +145,7 @@
         }
       }
     </style>
-    <section class="view view2">
+    <section id="p1" class="view view2">
       <div id="logoPanel" class="vectorPanel panel">
         <channels-logo hidden id="logo"></channels-logo>
       </div>
@@ -181,7 +182,7 @@
         </div>
       </div>
     </section>
-    <section class="view" style="background: #38262f;">
+    <section id="p2" class="view" style="background: #38262f;">
       <div class="flex cell">
         <div class="content centered">
           <h3>Content</h3>
@@ -198,7 +199,7 @@
           </p>
         </div>
     </section>
-    <section class="view" style="background: #26382f;">
+    <section id="p3" class="view" style="background: #26382f;">
       <div class="flex cell">
         <div class="content centered">
           <h3>ChannelCoin</h3>
@@ -218,7 +219,7 @@
           </p>
         </div>
     </section>
-    <section class="view" style="background: #2f2638;">
+    <section id="p4" class="view" style="background: #2f2638;">
       <div class="flex cell">
         <div class="content centered">
           <h3>Open and Transparent</h3>
@@ -230,7 +231,7 @@
           <p>Users in this network remain anonymous, but auctions and transactions are all transparent.</p>
         </div>
     </section>
-    <section class="view" style="background: #242426;">
+    <section id="p5" class="view" style="background: #242426;">
       <div class="flex cell">
         <div class="content centered" style="text-align: center;">
           <h3>Want to learn even more?</h3>
@@ -239,11 +240,19 @@
           <p><a href="https://medium.com/channels-network" target="_blank">Check out our blog</a></p>
         </div>
     </section>
-    <button id="fab" title="More" on-click="_more"><iron-icon icon="ch:expand-more"></iron-icon></button>
+    <button id="fab" title="More" on-click="_more"><iron-icon icon="[[fabIcon]]"></iron-icon></button>
   </template>
   <script>
     class HomeView extends Polymer.Element {
       static get is() { return 'home-view'; }
+      static get properties() {
+        return {
+          fabIcon: {
+            type: String,
+            value: "ch:expand-more"
+          }
+        };
+      }
 
       onActivate() {
         setTimeout(() => {
@@ -265,22 +274,64 @@
           this._scrollHandler = () => {
             this._onScroll();
           };
-          window.addEventListener("scroll", this._scrollHandler);
+          $app.shell.addEventListener("scroll", this._scrollHandler);
         }
+
+        this._goingDown = true;
+        $app.shell.scrollTop = 0;
+        this.set("fabIcon", "ch:expand-more");
       }
 
       onDeactivate() {
         if (this._scrollHandler) {
-          window.removeEventListener("scroll", this._scrollHandler);
+          $app.shell.removeEventListener("scroll", this._scrollHandler);
           this._scrollHandler = null;
         }
       }
 
       _more() {
+        let sizes = [
+          this.$.p1.getBoundingClientRect(), this.$.p2.getBoundingClientRect(),
+          this.$.p3.getBoundingClientRect(), this.$.p4.getBoundingClientRect(),
+          this.$.p5.getBoundingClientRect()
+        ];
+        let winh = window.innerHeight;
+        let index = 0;
+        for (var i = 0; i < sizes.length; i++) {
+          let top = sizes[i].top;
+          if (top > (winh * 0.1)) {
+            index = i;
+            break;
+          }
+        }
+        this._animateScroll(sizes[index].top);
       }
 
-      _onScroll(event) {
-        console.log("scroll!", event.target);
+      _onScroll() {
+        let winh = window.innerHeight;
+        let threshold = this.$.p5.getBoundingClientRect().top;
+        var goingDown = threshold > (winh * 0.1);
+        if (this._goingDown != goingDown) {
+          this._goingDown = goingDown;
+          this.set("fabIcon", goingDown ? "ch:expand-more" : "ch:expand-less");
+        }
+      }
+
+      _animateScroll(offset) {
+        var iv = $app.shell.scrollTop;
+        var diff = offset;
+        this._animStart = 0;
+        this._step = (timestamp) => {
+          if (!this._animStart) {
+            this._animStart = timestamp;
+          }
+          let progress = Math.min(1, Math.max(0, (timestamp - this._animStart) / 400));
+          $app.shell.scrollTop = iv + (diff * progress);
+          if (progress < 1) {
+            window.requestAnimationFrame(this._step);
+          }
+        };
+        window.requestAnimationFrame(this._step);
       }
     }
     window.customElements.define(HomeView.is, HomeView);

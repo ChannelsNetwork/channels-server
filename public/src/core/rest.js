@@ -55,7 +55,8 @@ class RestUtils {
 
   static registerDeviceDetails(address, deviceToken) {
     return {
-      deviceToken: deviceToken,
+      token: deviceToken,
+      type: "web",
       address: address,
       timestamp: RestUtils.now()
     };
