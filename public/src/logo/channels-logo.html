@@ -1,0 +1,121 @@
+<dom-module id="channels-logo">
+  <template>
+    <style is="custom-style">
+       :host {
+        display: inline-block;
+        height: 200px;
+        width: 200px;
+        position: relative
+      }
+
+      svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .cu {
+        fill: #c7f465;
+      }
+
+      .cl {
+        fill: #ffb734;
+      }
+
+      .b1,
+      .b2,
+      .b3 {
+        fill-rule: evenodd;
+      }
+
+      .b1 {
+        fill: #4ecdc4;
+      }
+
+      .b2 {
+        fill: #865ea4;
+      }
+
+      .b3 {
+        fill: #ff6b6b;
+      }
+
+      path {
+        transition: all 3s ease-in-out;
+      }
+
+      .hidden {
+        opacity: 0;
+      }
+
+      .cu.hidden {
+        transform: translate3d(0, -100px, 0);
+      }
+
+      .cl.hidden {
+        transform: translate3d(0, 100px, 0);
+      }
+
+      .b1.hidden {
+        transform: translate3d(-150px, -60px, 0);
+      }
+
+      .b2.hidden {
+        transform: translate3d(250px, -80px, 0);
+      }
+
+      .b3.hidden {
+        transform: translate3d(-150px, 60px, 0);
+      }
+    </style>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 344.62 398.8">
+      <path id="cu" class="cu" d="M147.56,172c4.92-70.88,52.61-105.41,113.14-105.41a174,174,0,0,1,67.55,13.16l16.38-63.89C330.35,8.43,298.7,0,257,0,149.26,0,62.67,67.59,62.67,189c0,6,.22,11.79.63,17.56Z"></path>
+      <path id="cl" class="cl" d="M328.24,288.84c-15.82,6.36-42.74,11.61-67,11.61-38.08,0-67.84-12.61-87.4-35.05L95,298.6c30.39,42.11,82,68.4,154,68.4,43.29,0,76.57-7.91,91.36-15.31Z"></path>
+      <path id="b1" class="b1" d="M0,214.34l160.83-92.88c-8.76,16.93-13.68,37.86-13.68,62.82,0,3.29.07,6.51.26,9.69L0,279.08Z"></path>
+      <path id="b2" class="b2" d="M44.33,253.49,147.41,194c1.22,21.48,6.47,40.27,15.38,55.87L44.33,318.23Z"></path>
+      <path id="b3" class="b3" d="M16.75,334.06l146-84.3a94.7,94.7,0,0,0,43.44,39.67L16.75,398.8Z"></path>
+    </svg>
+  </template>
+  <script>
+    class ChannelsLogo extends Polymer.Element {
+      static get is() { return "channels-logo"; }
+      static get properties() {
+        return {
+          hidden: {
+            type: Boolean,
+            observer: '_refresh'
+          }
+        }
+      }
+
+      connectedCallback() {
+        super.connectedCallback()
+        this._attached = true;
+        this._refresh();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _refresh() {
+        if (this.hidden) {
+          this.$.cu.classList.add("hidden");
+          this.$.cl.classList.add("hidden");
+          this.$.b1.classList.add("hidden");
+          this.$.b2.classList.add("hidden");
+          this.$.b3.classList.add("hidden");
+        } else {
+          this.$.cu.classList.remove("hidden");
+          this.$.cl.classList.remove("hidden");
+          this.$.b1.classList.remove("hidden");
+          this.$.b2.classList.remove("hidden");
+          this.$.b3.classList.remove("hidden");
+        }
+      }
+    }
+    window.customElements.define(ChannelsLogo.is, ChannelsLogo);
+  </script>
+</dom-module>

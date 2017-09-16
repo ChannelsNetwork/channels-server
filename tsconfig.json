@@ -15,8 +15,7 @@
     }
   },
   "include": [
-    "src/**/*",
-    "public/**/*"
+    "src/**/*"
   ],
   "experimentalDecorators": true,
   "forceConsistentCasingInFileNames": true,

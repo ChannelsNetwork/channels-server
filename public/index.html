@@ -6,8 +6,10 @@
   <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
   <title>Channels</title>
   <meta name="description" content="{{&og_description}}">
+  <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/s/images/fav2.png" type="image/png">
-  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans|Raleway" rel="stylesheet">
+  <link id="restBase" rel="session" href="{{&rest_base}}">
 
   <meta property="og:title" content="Channels">
   <meta property="og:description" content="{{&og_description}}">
@@ -16,7 +18,6 @@
   <meta property="og:image" content="{{&og_image}}">
   <meta property="og:image:width" content="{{&og_imagewidth}}">
   <meta property="og:image:height" content="{{&og_imageheight}}">
-
   <meta name="twitter:card" content="summary">
   <meta name="twitter:site" content="@channelscc">
   <meta name="twitter:title" content="{{&og_title}}">
@@ -25,82 +26,8 @@
   <meta name="twitter:image:width" content="{{&og_imagewidth}}">
   <meta name="twitter:image:height" content="{{&og_imageheight}}">
 
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Open Sans', sans-serif;
-      font-weight: 300;
-      line-height: 1.5;
-      overflow-x: hidden;
-      overflow-y: auto;
-      min-height: 100vh;
-      background-size: cover;
-      background-position: center center;
-      background-repeat: no-repeat;
-      background-image: url('/s/images/bg.jpg');
-    }
-
-    header {
-      text-align: center;
-    }
-
-    .logo {
-      height: 100px;
-      width: auto;
-      display: block;
-      margin: 0 auto;
-      padding: 15px 5px 5px;
-    }
-
-    h2 {
-      margin: 0;
-      font-weight: 300;
-      font-size: 31px;
-      padding: 0 5px;
-    }
-
-    section {
-      display: block;
-      max-width: 600px;
-      padding: 20px;
-      background: white;
-      color: #000;
-      font-size: 21px;
-      margin: 50px auto 0;
-      color: #333;
-      box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14), 0 1px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 3px -2px rgba(0, 0, 0, 0.4);
-    }
-
-    a,
-    a:visited,
-    a:hover {
-      background: #1E88E5;
-      color: white;
-      padding: 7px 15px;
-      font-size: 19px;
-      margin: 5px 0;
-      text-decoration: none !important;
-      transition: all 0.1s ease;
-    }
-
-    a:hover {
-      box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14), 0 1px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 3px -2px rgba(0, 0, 0, 0.4);
-    }
-
-    @media (max-width: 500px) {
-      .logo {
-        height: 65px;
-      }
-      h2 {
-        font-size: 25px;
-      }
-      section {
-        font-size: 18px;
-        margin: 20px auto 0;
-        padding: 7px 15px 20px;
-      }
-    }
-  </style>
+  <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js"></script>
+  <link rel="import" href="{{&public_base}}/src/main-app.html">
 
   <!-- Google Analytics -->
   <script>
@@ -110,42 +37,22 @@
       }, i[r].l = 1 * new Date(); a = s.createElement(o),
         m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
     })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
-
     ga('create', 'UA-52117709-8', 'auto');
     ga('send', 'pageview');
-
-    function onWhitePaper() {
-      if (window.ga) {
-        window.ga('send', 'pageview', "/whitepaper");
-      }
-    }
   </script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Open Sans', sans-serif;
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
 </head>
 
 <body>
-  <header>
-    <img class="logo" src="/s/images/logo-wide2.png">
-    <h2>a social network fueled by cryptocurrency</h2>
-  </header>
-  <section>
-    <p>
-      We want a place to get absorbed in an eclectic mix of information and entertainment, and where the presentation can be just
-      as engaging as the content.
-    </p>
-    <p>We believe this is possible with an open platform where people who create good stuff get paid well for it.</p>
-    <p>
-      This is Channels and is coming this fall.
-    </p>
-    <p>
-      <a onclick="onWhitePaper()" href="/whitepaper.pdf" target="_blank ">Read our whitepaper</a>
-    </p>
-    <p>
-      We'll be releasing our first app shortly. Meanwhile, follow us on Twitter.
-    </p>
-    <p>
-      <a href="https://twitter.com/channelscc" target="_blank ">Follow us on Twitter</a>
-    </p>
-  </section>
+  <main-app></main-app>
 </body>
 
 </html>

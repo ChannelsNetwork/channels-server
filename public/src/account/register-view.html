@@ -1,0 +1,198 @@
+<link rel="import" href="../controls/text-input.html">
+
+<dom-module id="register-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #212121;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      #container,
+      #progressPanel {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      #progressPanel {
+        text-align: center;
+        font-size: 20px;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        text-align: right;
+        padding: 30px 0 5px;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div id="container">
+        <h2>Register with Channels</h2>
+        <div>
+          <text-input id="handle" label="Handle" placeholder="Handle" on-input="_onHandleInput"></text-input>
+          <text-input id="name" label="Full name" placeholder="Full name" on-input="_onInput"></text-input>
+          <text-input id="location" label="Location" placeholder="Location (optional)" on-input="_onInput"></text-input>
+          <text-input id="code" label="Invite code" placeholder="Invite code (optional)" on-input="_onInput"></text-input>
+          <div class="buttons">
+            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+            <button id="btnSave" on-click="_onSave" disabled>Save</button>
+          </div>
+        </div>
+      </div>
+      <div id="progressPanel" style="display: none;">
+        <p>[[progress]]</p>
+        <p id="errorPanel" style="display: none;"><button on-click="_onOk">OK</button></p>
+      </div>
+    </div>
+  </template>
+  <script>
+    class RegisterView extends Polymer.Element {
+      static get is() { return "register-view"; }
+
+      static get properties() {
+        return {
+          progress: String
+        };
+      }
+
+      onActivate() {
+        this._alreadyRegistered = false;
+        this._hideProgress();
+        this.$.handle.validate(null);
+        this.$.handle.value = "";
+        this.$.name.value = "";
+        this.$.location.value = "";
+        this.$.code.value = "";
+        this.$.handle.input.focus();
+        this._onInput();
+        this.$.container.style.opacity = 0;
+        if ($core.hasKey) {
+          this._alreadyRegistered = true;
+          this._progress("You are already registered with channels.", true);
+        } else {
+          this.$.container.style.opacity = 1;
+        }
+      }
+
+      _progress(progress, error) {
+        if (progress) {
+          this.set("progress", progress);
+          this.$.errorPanel.style.display = error ? "" : "none";
+          this.$.progressPanel.style.display = "";
+          this.$.container.style.display = "none";
+        } else {
+          this.$.progressPanel.style.display = "none";
+          this.$.container.style.display = "";
+        }
+      }
+
+      _onCancel() {
+        $router.goto("");
+      }
+
+      _onSave() {
+        let handle = this.$.handle.value.trim();
+        let name = this.$.name.value.trim();
+        if (!(handle && name)) {
+          this._onInput();
+          return;
+        }
+        let location = this.$.location.value.trim();
+        let code = this.$.code.value.trim();
+
+        this._progress("Registering handle...");
+
+        $core.register(code).then(() => {
+          return $core.updateUserProfile(name, handle, location);
+        }).then((ss) => {
+          $router.goto("notifications");
+        }).catch((err) => {
+          console.error(err);
+          this._progress(err || "Oops. Something went wrong when registering your handle.", true);
+        });
+      }
+
+      _hideProgress() {
+        this._progress(null);
+      }
+
+      _onInput() {
+        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this._handleValid;
+        this.$.btnSave.disabled = !valid;
+      }
+
+      _onOk() {
+        if (this._alreadyRegistered) {
+          $router.goto("launch");
+        } else {
+          this._hideProgress();
+        }
+      }
+
+      _onHandleInput() {
+        this._handleValid = true;
+        this._onInput();
+        this._validateHandle();
+      }
+
+      _validateHandle() {
+        if (this._handleValidationPending) {
+          return;
+        }
+        if (this._handleValidationInProgress) {
+          this._handleValidationRequested = true;
+        } else {
+          this._scheduleValidation();
+        }
+      }
+
+      _scheduleValidation() {
+        this._handleValidationInProgress = true;
+        this._handleValidationRequested = false;
+        this._handleValidationPending = true;
+        var _complete = () => {
+          this._handleValidationInProgress = false;
+          if (this._handleValidationRequested) {
+            this._scheduleValidation();
+          } else {
+            this._onInput();
+          }
+        };
+        setTimeout(() => {
+          this._handleValidationPending = false;
+          let handle = this.$.handle.value.trim();
+          if (handle) {
+            $core.checkHandle(handle).then((response) => {
+              this._handleValid = false;
+              if (!response.valid) {
+                this.$.handle.validate("Invalid handle", true);
+              } else if (response.inUse) {
+                this.$.handle.validate("Not available", true);
+              } else {
+                this._handleValid = true;
+                this.$.handle.validate("Available", false);
+              }
+              _complete();
+            }).catch((err) => {
+              console.error(err);
+              _complete();
+            });
+          } else {
+            this.$.handle.validate(null);
+            _complete();
+          }
+        }, 700);
+      }
+    }
+    window.customElements.define(RegisterView.is, RegisterView);
+  </script>
+</dom-module>
