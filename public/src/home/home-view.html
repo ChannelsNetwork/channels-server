@@ -1,5 +1,7 @@
 <link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../logo/channels-logo.html">
+<link rel="import" href="../app-icons.html" async>
+
 <dom-module id="home-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
@@ -10,9 +12,6 @@
       .view {
         min-height: 100vh;
         box-sizing: border-box;
-      }
-
-      .container {
         @apply --layout-horizontal;
         @apply --layout-center;
       }
@@ -21,7 +20,7 @@
         padding: 15px;
       }
 
-      #logoPanel {
+      .vectorPanel {
         text-align: center;
         -ms-flex: 1 1 0.000000001px;
         -webkit-flex: 1;
@@ -42,8 +41,11 @@
         max-width: 650px;
       }
 
+      .content.centered {
+        margin: 0 auto;
+      }
+
       #textPanel {
-        font-size: 18px;
         max-width: 650px;
         opacity: 0;
         transform: translateX(50px);
@@ -55,7 +57,7 @@
       }
 
       .cell {
-        padding: 10px;
+        padding: 20px 16px;
         box-sizing: border-box;
       }
 
@@ -65,12 +67,42 @@
         font-style: normal;
       }
 
+      iron-icon {
+        width: 32px;
+        height: 32px;
+        display: block;
+        color: #000;
+        margin: 0 auto;
+      }
+
+      #fab {
+        position: fixed;
+        bottom: 67px;
+        right: 41px;
+        background: var(--bg-yellow);
+        outline: none;
+        width: 56px;
+        height: 56px;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        border-radius: 100%;
+        box-shadow: 0 0 3px rgba(0, 0, 0, 0.12), 0 3px 3px rgba(0, 0, 0, 0.24), 0 0 6px rgba(0, 0, 0, 0.12), 0 6px 6px rgba(0, 0, 0, 0.24);
+        box-sizing: border-box;
+        overflow: hidden;
+        white-space: nowrap;
+        transition: all 0.2s ease-out;
+        z-index: 90;
+        transform: translate3d(0px, 0px, 0px);
+      }
+
       @media (max-width: 850px) {
         #logo {
           width: 280px;
           height: 280px;
         }
-        #logoPanel {
+
+        .vectorPanel {
           -ms-flex: 0;
           -webkit-flex: 0;
           flex: 0;
@@ -78,29 +110,42 @@
       }
 
       @media (max-width: 650px) {
-        .container {
+        .view2 {
           @apply --layout-vertical;
         }
+
         h1 {
           font-size: 40px;
-          text-align: center;
         }
+
         h3 {
           font-size: 26px;
-          text-align: center;
         }
+
         #logo {
-          width: 180px;
-          height: 180px;
+          width: 100px;
+          height: 100px;
         }
-        #logoPanel {
+
+        .vectorPanel {
           width: 100%;
           box-sizing: border-box;
+          text-align: left;
+        }
+
+        .content {
+          font-size: 16px;
+          line-height: 1.35;
+        }
+
+        #fab {
+          bottom: 24px;
+          right: 16px;
         }
       }
     </style>
-    <section class="container view">
-      <div id="logoPanel" class="panel">
+    <section class="view view2">
+      <div id="logoPanel" class="vectorPanel panel">
         <channels-logo hidden id="logo"></channels-logo>
       </div>
       <div class="flex panel">
@@ -136,10 +181,9 @@
         </div>
       </div>
     </section>
-    <section class="view horizontal layout center">
-      <div class="cell flex"></div>
+    <section class="view" style="background: #38262f;">
       <div class="flex cell">
-        <div class="content">
+        <div class="content centered">
           <h3>Content</h3>
           <p>
             As a consumer you will come here to find engaging information and entertainment -- <em>videos, photos,
@@ -154,10 +198,9 @@
           </p>
         </div>
     </section>
-    <section class="view horizontal layout center">
-      <div class="cell flex"></div>
+    <section class="view" style="background: #26382f;">
       <div class="flex cell">
-        <div class="content">
+        <div class="content centered">
           <h3>ChannelCoin</h3>
           <p>
             Unlike Google and Facebook, the two largest ad networks, Channels does not participate as a middleman in these transactions.
@@ -175,10 +218,9 @@
           </p>
         </div>
     </section>
-    <section class="view horizontal layout center">
-      <div class="cell flex"></div>
+    <section class="view" style="background: #2f2638;">
       <div class="flex cell">
-        <div class="content">
+        <div class="content centered">
           <h3>Open and Transparent</h3>
           <p>
             Channels is an <em>open-source network</em>. Unlike the big players today who shroud their systems in secrecy,
@@ -188,6 +230,16 @@
           <p>Users in this network remain anonymous, but auctions and transactions are all transparent.</p>
         </div>
     </section>
+    <section class="view" style="background: #242426;">
+      <div class="flex cell">
+        <div class="content centered" style="text-align: center;">
+          <h3>Want to learn even more?</h3>
+          <p><a href="/whitepaper.pdf" target="_blank">Read our whitepaper</a></p>
+          <p><a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a></p>
+          <p><a href="https://medium.com/channels-network" target="_blank">Check out our blog</a></p>
+        </div>
+    </section>
+    <button id="fab" title="More" on-click="_more"><iron-icon icon="ch:expand-more"></iron-icon></button>
   </template>
   <script>
     class HomeView extends Polymer.Element {
@@ -208,6 +260,27 @@
           this.$.sec2.style.display = "none";
           this.$.sec1.style.display = "";
         }
+
+        if (!this._scrollHandler) {
+          this._scrollHandler = () => {
+            this._onScroll();
+          };
+          window.addEventListener("scroll", this._scrollHandler);
+        }
+      }
+
+      onDeactivate() {
+        if (this._scrollHandler) {
+          window.removeEventListener("scroll", this._scrollHandler);
+          this._scrollHandler = null;
+        }
+      }
+
+      _more() {
+      }
+
+      _onScroll(event) {
+        console.log("scroll!", event.target);
       }
     }
     window.customElements.define(HomeView.is, HomeView);
