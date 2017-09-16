@@ -79,4 +79,12 @@ class RestUtils {
       timestamp: RestUtils.now()
     };
   }
+
+  static checkHandleDetails(address, handle) {
+    return {
+      handle: handle,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
 }

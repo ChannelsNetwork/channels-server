@@ -1,6 +1,6 @@
 <dom-module id="text-input">
   <template>
-    <style is="custom-style" include="app-styles">
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
        :host {
         display: block;
         font-size: 20px;
@@ -28,8 +28,28 @@
         font-family: inherit;
         font-size: inherit;
       }
+
+      #validator {
+        font-size: 10pt;
+        padding-left: 5px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .valid {
+        color: #66BB6A;
+      }
+
+      .notvalid {
+        color: #EF5350;
+      }
     </style>
-    <label id="lbl">[[label]]</label>
+    <div class="horizontal layout center">
+      <label class="flex" id="lbl">[[label]]</label>
+      <div class="hidden" id="validator">[[_validation]]</div>
+    </div>
     <input id="txt" type$="[[type]]" placeholder$="[[placeholder]]" on-input="_onInput">
   </template>
   <script>
@@ -42,7 +62,8 @@
           type: {
             type: String,
             value: "text"
-          }
+          },
+          _validation: String
         }
       }
 
@@ -64,6 +85,22 @@
           this.$.lbl.style.opacity = 1;
         } else {
           this.$.lbl.style.opacity = 0;
+        }
+      }
+
+      validate(message, isError) {
+        this._validation = message || "";
+        if (message) {
+          this.$.validator.classList.remove("hidden");
+          if (isError) {
+            this.$.validator.classList.remove("valid");
+            this.$.validator.classList.add("notvalid");
+          } else {
+            this.$.validator.classList.add("valid");
+            this.$.validator.classList.remove("notvalid");
+          }
+        } else {
+          this.$.validator.classList.add("hidden");
         }
       }
     }

@@ -75,24 +75,31 @@
           }, 600);
           return;
         }
-        var profile = {
-          handle: "Not specified",
-          name: "Not specified",
-          location: "Unknown"
-        };
-        let p = $core.profile;
-        if (p) {
-          if (p.handle) {
-            profile.handle = p.handle;
+        $core.register().then((info) => {
+          var profile = {
+            handle: "Not specified",
+            name: "Not specified",
+            location: "Unknown"
+          };
+          let p = $core.profile;
+          if (p) {
+            if (p.handle) {
+              profile.handle = p.handle;
+            }
+            if (p.name) {
+              profile.name = p.name;
+            }
+            if (p.location) {
+              profile.location = p.location;
+            }
           }
-          if (p.name) {
-            profile.name = p.name;
-          }
-          if (p.location) {
-            profile.location = p.location;
-          }
-        }
-        this.profile = profile;
+          this.profile = profile;
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
       }
 
       _onEdit() {

@@ -205,6 +205,8 @@ export class UserManager implements RestServer {
         if (!user) {
           return;
         }
+      } else {
+        requestBody.detailsObject = JSON.parse(requestBody.details);
       }
       if (!requestBody.detailsObject.handle) {
         response.status(400).send("Missing handle");
