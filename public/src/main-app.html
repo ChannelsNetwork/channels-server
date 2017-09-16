@@ -137,6 +137,13 @@
 
         // notify toolbar
         this.$.toolbar.onRoute(route);
+
+        // notify analytics 
+        if (window.ga) {
+          try {
+            window.ga('send', 'pageview', "/" + pageName);
+          } catch (err) { }
+        }
       }
 
       _setBarVisible(visible) {
