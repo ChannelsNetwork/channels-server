@@ -1,5 +1,5 @@
 
-import { NewsItemRecord } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType } from "./db-records";
 
 export interface RestRequest<T extends Signable> {
   version: number;
@@ -44,17 +44,19 @@ export interface UserStatus {
   inviteeReward: number;
 }
 
-export interface RegisterIosDeviceDetails extends Signable {
-  deviceToken: string;
+export interface RegisterDeviceDetails extends Signable {
+  type: DeviceType;
+  token: string;
 }
 
-export interface RegisterIosDeviceResponse extends RestResponse { }
+export interface RegisterDeviceResponse extends RestResponse { }
 
 export interface UpdateUserIdentityDetails extends Signable {
-  name: string;
-  handle: string;
-  location: string;
-  imageUrl: string;
+  name?: string;
+  handle?: string;
+  location?: string;
+  imageUrl?: string;
+  emailAddress?: string;
 }
 
 export interface UpdateUserIdentityResponse extends RestResponse { }
@@ -66,6 +68,7 @@ export interface GetUserIdentityResponse extends RestResponse {
   handle: string;
   location: string;
   imageUrl: string;
+  emailAddress: string;
   settings: UserSettings;
 }
 

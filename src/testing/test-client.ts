@@ -7,7 +7,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterIosDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
@@ -46,7 +46,7 @@ class TestClient implements RestServer {
 
   private async handleTest(request: Request, response: Response): Promise<void> {
     await this.registerUser();
-    await this.registerIosDevice();
+    await this.registerDevice();
     await this.registerIdentity("unnamed", "user" + Date.now(), "Palo Alto, CA");
     await this.getIdentity();
     await this.getNews();
@@ -312,14 +312,15 @@ class TestClient implements RestServer {
     });
   }
 
-  private async registerIosDevice(): Promise<void> {
-    const details: RegisterIosDeviceDetails = {
+  private async registerDevice(): Promise<void> {
+    const details: RegisterDeviceDetails = {
       address: this.keyInfo.address,
-      deviceToken: Math.round(Math.random() * 10000000).toFixed(0).toString(),
+      type: "web",
+      token: Math.round(Math.random() * 10000000).toFixed(0).toString(),
       timestamp: Date.now()
     };
     const detailsString = JSON.stringify(details);
-    const request: RestRequest<RegisterIosDeviceDetails> = {
+    const request: RestRequest<RegisterDeviceDetails> = {
       version: 1,
       details: detailsString,
       signature: KeyUtils.signString(detailsString, this.keyInfo)
@@ -330,11 +331,11 @@ class TestClient implements RestServer {
         "Content-Type": "application/json"
       }
     };
-    console.log("register-ios-device: tx:", JSON.stringify(request, null, 2));
+    console.log("register-device: tx:", JSON.stringify(request, null, 2));
     return new Promise<void>((resolve, reject) => {
-      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/register-ios-device"), args, (data: UserStatusResponse, serviceResponse: Response) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/register-device"), args, (data: UserStatusResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
-          console.log("register-ios-device: rx:", JSON.stringify(data, null, 2));
+          console.log("register-device: rx:", JSON.stringify(data, null, 2));
           resolve();
         } else {
           reject(serviceResponse.statusCode);
