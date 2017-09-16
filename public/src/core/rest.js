@@ -62,12 +62,13 @@ class RestUtils {
     };
   }
 
-  static updateIdentityDetails(address, name, handle, location, imageUrl) {
+  static updateIdentityDetails(address, name, handle, location, imageUrl, emailAddress) {
     return {
       name: name,
       handle: handle,
       location: location,
       imageUrl: imageUrl,
+      emailAddress: emailAddress,
       address: address,
       timestamp: RestUtils.now()
     };

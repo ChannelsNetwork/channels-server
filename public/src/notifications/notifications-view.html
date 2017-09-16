@@ -90,7 +90,18 @@
       }
 
       submitEmail() {
-        this.skip();
+        let email = this.$.email.value.trim();
+        if (!email) {
+          this._onInput();
+        } else {
+          let p = $core.profile;
+          $core.updateUserProfile(p.name, p.handle, p.location, null, email).then(() => {
+            this.skip();
+          }).catch((err) => {
+            console.error();
+            this.skip();
+          });
+        }
       }
 
       enableNotifications() {
