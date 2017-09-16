@@ -112,7 +112,7 @@
         this._progress("Registering handle...");
 
         $core.register(code).then(() => {
-          return $core.updateUserProfile(name, handle, location);
+          return $core.updateUserProfile(name, handle, location, null, null);
         }).then((ss) => {
           $router.goto("notifications");
         }).catch((err) => {

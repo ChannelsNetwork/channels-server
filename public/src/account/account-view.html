@@ -54,6 +54,10 @@
         <label>Location</label>
         <div class="value">[[profile.location]]</div>
       </div>
+      <div class="row">
+        <label>Email</label>
+        <div class="value">[[profile.emailAddress]]</div>
+      </div>
       <div class="buttons">
         <button on-click="_onEdit">Edit profile</button>
       </div>
@@ -79,7 +83,8 @@
           var profile = {
             handle: "Not specified",
             name: "Not specified",
-            location: "Unknown"
+            location: "Unknown",
+            emailAddress: "Not specified"
           };
           let p = $core.profile;
           if (p) {
@@ -91,6 +96,9 @@
             }
             if (p.location) {
               profile.location = p.location;
+            }
+            if (p.emailAddress) {
+              profile.emailAddress = p.emailAddress;
             }
           }
           this.profile = profile;

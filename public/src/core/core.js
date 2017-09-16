@@ -88,9 +88,9 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  updateUserProfile(name, handle, location) {
+  updateUserProfile(name, handle, location, imageUrl, email) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.updateIdentityDetails(this._keys.address, name, handle, location, null);
+      let details = RestUtils.updateIdentityDetails(this._keys.address, name, handle, location, imageUrl, email);
       let request = this._createRequest(details);
       const url = this.restBase + "/update-identity";
       return this.rest.post(url, request).then(() => {

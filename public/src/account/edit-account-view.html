@@ -45,6 +45,7 @@
           <text-input id="handle" label="Handle" placeholder="Handle" on-input="_onHandleInput"></text-input>
           <text-input id="name" label="Full name" placeholder="Full name" on-input="_onInput"></text-input>
           <text-input id="location" label="Location" placeholder="Location (optional)" on-input="_onInput"></text-input>
+          <text-input id="email" label="Email" placeholder="Email (optional)" on-input="_onInput"></text-input>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>
@@ -67,6 +68,7 @@
       }
 
       onActivate() {
+        this._handleValid = true;
         this._hideProgress();
         if (!$core.hasKey) {
           setTimeout(() => {
@@ -78,11 +80,13 @@
         this.$.handle.value = "";
         this.$.name.value = "";
         this.$.location.value = "";
+        this.$.email.value = "";
         let p = $core.profile;
         if (p) {
           this.$.handle.value = p.handle || "";
           this.$.name.value = p.name || "";
           this.$.location.value = p.location || "";
+          this.$.email.value = p.emailAddress || "";
         }
         this.$.handle.input.focus();
         this._onInput();
@@ -100,10 +104,11 @@
           return;
         }
         let location = this.$.location.value.trim();
+        let email = this.$.email.value.trim();
 
         this._progress("Updating profile...");
 
-        $core.updateUserProfile(name, handle, location).then(() => {
+        $core.updateUserProfile(name, handle, location, null, email).then(() => {
           $router.goto("account");
         }).catch((err) => {
           console.error(err);
