@@ -27,7 +27,7 @@ import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/expres
 import { socketServer } from "./socket-server";
 import { mediumManager } from "./medium-manager";
 
-const VERSION = 7;
+const VERSION = 8;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
