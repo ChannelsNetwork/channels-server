@@ -25,7 +25,7 @@ export class RootPageHandler implements RestServer {
     const ogUrl = configuration.get('baseClientUri');
     const metadata = {
       title: "Channels",
-      description: "A social network fueled by cryptocurrency. The place to get absorbed in a mix of information and entertainment where the presentation is as engaging as the content.",
+      description: "A content network fueled by cryptocurrency. The place to get absorbed in a mix of information and entertainment where the presentation is as engaging as the content.",
       url: ogUrl,
       image: url.resolve(ogUrl, '/s/images/logo700.png'),
       imageWidth: 180,
