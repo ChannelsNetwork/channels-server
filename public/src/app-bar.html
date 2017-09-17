@@ -104,8 +104,8 @@
 
       connectedCallback() {
         super.connectedCallback();
-        if ($core.registartion) {
-          this._refreshBalance($core.registartion);
+        if ($core.registration) {
+          this._refreshBalance($core.registration);
         }
         window.addEventListener("channels-registration", (event) => {
           var reg = event.detail;
@@ -115,8 +115,17 @@
         });
       }
 
-      _refreshBalance(reg) {
-        this.balance = "ℂ" + (reg.status.userBalance || 0).toFixed(3);
+      _refreshBalance(reg, fetched) {
+        setInterval(() => {
+          this.balance = "ℂ" + this._truncateBalance($core.balance);
+        }, 1000);
+      }
+
+      _truncateBalance(value) {
+        if (!value) {
+          return 0;
+        }
+        return Math.floor(value * 1000) / 1000;
       }
 
       onRoute(route) {

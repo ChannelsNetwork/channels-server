@@ -72,6 +72,7 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
+        this._lastRegistrationAt = Date.now();
         this._fire("channels-registration", this._registration);
         this.getUserProfile();
         return result;
@@ -139,8 +140,15 @@ class CoreService extends Polymer.Element {
     return (this._keys && this._keys.privateKey);
   }
 
-  get registartion() {
+  get registration() {
     return this._registration;
+  }
+
+  get balance() {
+    if (!this._registration) {
+      return 0;
+    }
+    return this._registration.status.userBalance * (1 + (Date.now() - this._lastRegistrationAt) * this._registration.interestRatePerMillisecond);
   }
 
   _fire(name, detail) {

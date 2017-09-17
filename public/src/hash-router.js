@@ -18,7 +18,9 @@ class HashRouter extends Polymer.Element {
   }
 
   onRoute() {
-    this.dispatchEvent(new CustomEvent('route-change', { bubbles: true, composed: true, detail: { route: this.route } }));
+    setTimeout(() => {
+      this.dispatchEvent(new CustomEvent('route-change', { bubbles: true, composed: true, detail: { route: this.route } }));
+    }, 100);
   }
 
   connectedCallback() {
