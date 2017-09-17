@@ -33,7 +33,7 @@ export class UserManager implements RestServer {
     this.urlManager = urlManager;
     this.app = app;
     this.registerHandlers();
-    this.goLiveDate = new Date(2017, 9, 25, 12, 0, 0, 0).getTime();
+    this.goLiveDate = new Date(2017, 11, 15, 12, 0, 0, 0).getTime();
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
