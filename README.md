@@ -1,2 +1,2 @@
 # channels-server
-A server for the Channels social network
+A server for the Channels content network
