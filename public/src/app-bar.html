@@ -116,6 +116,7 @@
       }
 
       _refreshBalance(reg, fetched) {
+        this.balance = "ℂ" + this._truncateBalance($core.balance);
         setInterval(() => {
           this.balance = "ℂ" + this._truncateBalance($core.balance);
         }, 1000);
@@ -123,7 +124,7 @@
 
       _truncateBalance(value) {
         if (!value) {
-          return 0;
+          return "0.000";
         }
         return (Math.floor(value * 1000) / 1000).toFixed(3);
       }
