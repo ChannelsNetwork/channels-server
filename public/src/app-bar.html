@@ -125,7 +125,7 @@
         if (!value) {
           return 0;
         }
-        return Math.floor(value * 1000) / 1000;
+        return (Math.floor(value * 1000) / 1000).toFixed(3);
       }
 
       onRoute(route) {
