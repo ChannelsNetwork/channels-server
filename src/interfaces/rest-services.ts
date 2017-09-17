@@ -31,6 +31,7 @@ export interface UserStatusResponse extends RestResponse {
   status: UserStatus;
   appUpdateUrl: string;
   socketUrl: string;
+  interestRatePerMillisecond: number;
 }
 
 export interface UserStatus {

@@ -6,6 +6,7 @@ export interface UserRecord {
   inviteeCode: string;
   inviterCode: string;
   balance: number;
+  balanceLastUpdated: number;
   inviteeReward: number;
   inviterRewards: number;
   invitationsRemaining: number;

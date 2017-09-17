@@ -20,6 +20,9 @@ const INVITATIONS_ALLOWED = 5;
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
 const DIGITS = '0123456789';
 const NETWORK_BALANCE_RANDOM_PRODUCT = 1.5;
+const ANNUAL_INTEREST_RATE = 0.3;
+const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
+const BALANCE_UPDATE_INTERVAL = 60 * 60 * 1000;
 
 export class UserManager implements RestServer {
   private app: express.Application;
@@ -31,6 +34,9 @@ export class UserManager implements RestServer {
     this.app = app;
     this.registerHandlers();
     this.goLiveDate = new Date(2017, 9, 25, 12, 0, 0, 0).getTime();
+    setInterval(() => {
+      void this.updateBalances();
+    }, 30000);
   }
 
   private registerHandlers(): void {
@@ -236,6 +242,7 @@ export class UserManager implements RestServer {
 
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
     const network = await db.getNetwork();
+    await this.updateUserBalance(user);
     const result: UserStatusResponse = {
       status: {
         goLive: this.goLiveDate,
@@ -245,10 +252,11 @@ export class UserManager implements RestServer {
         invitationsUsed: user.invitationsAccepted,
         invitationsRemaining: user.invitationsRemaining,
         inviterRewards: user.inviterRewards,
-        inviteeReward: user.inviteeReward
+        inviteeReward: user.inviteeReward,
       },
       socketUrl: this.urlManager.getSocketUrl('socket'),
-      appUpdateUrl: null
+      appUpdateUrl: null,
+      interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND
     };
     response.json(result);
   }
@@ -271,6 +279,26 @@ export class UserManager implements RestServer {
 
   private isHandlePermissible(handle: string): boolean {
     return BAD_WORDS.indexOf(handle.toLowerCase()) < 0;
+  }
+
+  private async updateBalances(): Promise<void> {
+    const now = Date.now();
+    const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
+    for (const user of users) {
+      await this.updateUserBalance(user);
+    }
+  }
+
+  private async updateUserBalance(user: UserRecord): Promise<void> {
+    const now = Date.now();
+    await db.updateUserBalance(user, user.balanceLastUpdated, this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance), now);
+  }
+
+  private calculateInterestBetween(from: number, to: number, balance: number): number {
+    if (from === 0) {
+      return 0;
+    }
+    return (to - from) * balance * INTEREST_RATE_PER_MILLISECOND;
   }
 }
 

@@ -47,6 +47,8 @@ export class Database {
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
+    await this.users.createIndex({ balanceLastUpdated: -1 });
+    await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
   }
 
   private async initializeCards(): Promise<void> {
@@ -123,6 +125,7 @@ export class Database {
       inviteeCode: inviteeCode,
       inviterCode: inviterCode,
       balance: balance,
+      balanceLastUpdated: now,
       inviteeReward: inviteeReward,
       inviterRewards: inviterRewards,
       invitationsRemaining: invitationsRemaining,
@@ -211,6 +214,24 @@ export class Database {
       }
     });
     user.storage += size;
+  }
+
+  async findUsersForBalanceUpdates(before: number): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ balanceLastUpdated: { $lt: before } }).toArray();
+  }
+
+  async updateUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBy: number, now: number): Promise<void> {
+    const result = await this.users.updateOne({ address: user.address, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
+    if (result.modifiedCount > 0) {
+      user.balance += incrementBy;
+      user.balanceLastUpdated = now;
+    } else {
+      const updatedUser = await this.findUserByAddress(user.address);
+      if (updatedUser) {
+        user.balance = updatedUser.balance;
+        user.balanceLastUpdated = updatedUser.balanceLastUpdated;
+      }
+    }
   }
 
   async insertCard(byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string): Promise<CardRecord> {
