@@ -24,7 +24,7 @@
         display: inline-block;
         background: var(--bg-yellow);
         color: #000;
-        font-size: 50px;
+        font-size: 36px;
         padding: 10px 20px;
         border-radius: 5px;
         text-align: left;
@@ -97,7 +97,11 @@
         }
         $core.register().then((info) => {
           this.$.balanceCard.style.opacity = 1;
-          this.balance = "ℂ" + (info.status.userBalance || 0).toFixed(3);
+          const at = Date.now();
+          const initial = info.status.userBalance || 0;
+          this.balanceTimer = setInterval(() => {
+            this.balance = "ℂ" + $core.balance.toFixed(8);
+          }, 250);
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -108,6 +112,13 @@
 
       onInvite() {
         $router.goto("invite", { returnPage: "balance" });
+      }
+
+      onDeactivate() {
+        if (this.balanceTimer) {
+          clearInterval(this.balanceTimer);
+          this.balanceTimer = null;
+        }
       }
     }
     window.customElements.define(BalanceView.is, BalanceView);
