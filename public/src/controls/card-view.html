@@ -1,0 +1,211 @@
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
+<link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+
+<dom-module id="card-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        position: relative;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .container {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        overflow: hidden;
+        background: white;
+        position: relative;
+        @apply --layout-vertical;
+      }
+
+      #imagePanel {
+        height: 250px;
+        overflow: hidden;
+        background-color: #f0f0f0;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .textPanel {
+        padding: 10px 14px;
+      }
+
+      #headline {
+        font-size: 18px;
+        max-height: 65px;
+        margin-bottom: 6px;
+      }
+
+      #description {
+        font-size: 14px;
+        color: #424242;
+      }
+
+      #authorImage {
+        width: 40px;
+        height: 40px;
+        border-radius: 100%;
+        margin-right: 10px;
+      }
+
+      .rating {
+        height: 3px;
+        background: #f5f5f5;
+        position: relative;
+      }
+
+      #ratingBar {
+        position: absolute;
+        box-sizing: border-box;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        widows: 0%;
+        background: #2196F3;
+      }
+
+      .bottomBar {
+        padding: 10px 2px 10px 10px;
+        background: #fafafa;
+        font-size: 13px;
+      }
+
+      .timestamp {
+        font-size: 11px;
+      }
+
+      iron-icon {
+        color: #808080;
+        width: 28px;
+        height: 28px;
+        margin: 0 5px;
+        cursor: pointer;
+      }
+
+      .revenue {
+        color: #4CAF50;
+        font-weight: bold;
+        font-size: 14px;
+        margin-right: 5px;
+      }
+
+      .container.negative .revenue {
+        display: none;
+      }
+
+      .container.wide {
+        @apply --layout-horizontal;
+      }
+
+      .container.wide #imagePanel {
+        @apply --layout-flex;
+        height: 100%;
+        width: auto;
+      }
+
+      .container.wide .textPanel {
+        padding: 30px 14px 15px;
+      }
+
+      .container.wide #headline {
+        font-size: 22px;
+        max-height: 130px;
+      }
+
+      .container.wide #description {
+        font-size: 16px;
+      }
+    </style>
+    <div id="container" class="container">
+      <div id="imagePanel"></div>
+      <div class="vertical layout flex">
+        <div class="flex vertical layout textPanel">
+          <soso-truncated-text id="headline" text="[[data.title]]"></soso-truncated-text>
+          <soso-truncated-text id="description" class="flex" text="[[data.description]]"></soso-truncated-text>
+        </div>
+        <div class="rating">
+          <div id="ratingBar"></div>
+        </div>
+        <div class="horizontal layout center bottomBar">
+          <img id="authorImage">
+          <div class="flex vertical layout">
+            <div class="authorName">[[data.meta.author]]</div>
+            <div class="timestamp">[[data.meta.timestamp]]</div>
+          </div>
+          <div class="revenue">ℂ[[data.meta.revenue]]</div>
+          <div class="buttonBar horizontal layout center">
+            <iron-icon icon="ch:expand-more"></iron-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardView extends Polymer.Element {
+      static get is() { return "card-view"; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_onData'
+          }
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        Polymer.RenderStatus.beforeNextRender(this, function () {
+          setTimeout(() => {
+            if (this.offsetWidth > 600) {
+              this.$.container.classList.add("wide");
+            }
+            this.style.opacity = 1;
+          }, 50);
+        });
+      }
+
+      _onData() {
+        if (!this.data) {
+          return;
+        }
+        var img = this.data.image;
+        if (img) {
+          this.$.imagePanel.style.display = "";
+          this.$.imagePanel.style.backgroundImage = "url(" + img + ")";
+        } else {
+          this.$.imagePanel.style.display = "none";
+        }
+        this.$.authorImage.src = this.data.meta.authorImage || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+        if (this.data.meta.cost < 0) {
+          this.$.container.classList.add("negative");
+        } else {
+          this.$.container.classList.remove("negative");
+        }
+        let uc = this.data.meta.upCount;
+        let dc = this.data.meta.downCount;
+        let tc = uc + dc;
+        let rating = tc ? (uc / tc) * 100 : 0;
+        this.$.ratingBar.style.width = rating + "%";
+
+        // if (this.data.meta.cost < 0) {
+        //   this.$.scorePanel.classList.add("negative");
+        // } else {
+        //   this.$.scorePanel.classList.remove("negative");
+        // }
+        // let cost = Math.abs(this.data.meta.cost);
+      }
+    }
+    window.customElements.define(CardView.is, CardView);
+  </script>
+</dom-module>

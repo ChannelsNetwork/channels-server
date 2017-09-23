@@ -1,0 +1,158 @@
+<link rel="import" href="../controls/card-view.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
+<dom-module id="preview-page">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #fafafa;
+        color: #000;
+        min-height: 100vh;
+      }
+
+      .main {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 50px 15px 20px;
+      }
+
+      .cardContainer {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .cardContainer card-view {
+        width: 310px;
+        height: 500px;
+        margin: 10px;
+        box-sizing: border-box;
+      }
+
+      .cardContainer card-view:nth-child(1) {
+        width: 100%;
+      }
+
+      .cardContainer card-view:nth-child(2) {
+        width: 640px;
+      }
+
+      .cardContainer card-view:nth-child(4),
+      .cardContainer card-view:nth-child(5) {
+        width: 480px;
+      }
+    </style>
+    <div class="barspace"></div>
+    <div class="main">
+      <div class="cardContainer horizontal layout justified wrap">
+        <dom-repeat items="[[items]]">
+          <template>
+            <card-view data="[[item]]"></card-view>
+          </template>
+        </dom-repeat>
+      </div>
+    </div>
+  </template>
+  <script>
+    var _data_ = [
+      {
+        title: "Why Texas Is No Longer Feeling Miraculous",
+        description: "The state’s Republicans have somehow become anti-business, and businesses are staying away.",
+        image: "https://static01.nyt.com/images/2017/09/24/opinion/24parkerWEB/24parkerWEB-facebookJumbo.jpg",
+        meta: {
+          author: "Richard Parker",
+          cost: Math.round(Math.random() * 5) * ((Math.random() > 0.5) ? -1 : 1),
+          timestamp: (new Date()).getTime(),
+          paid: (Math.random() > 0.85),
+          revenue: (Math.random() * 300).toFixed(2),
+          upCount: Math.floor(Math.random() * 60),
+          downCount: Math.floor(Math.random() * 40)
+        }
+      },
+      {
+        title: "Facebook’s Frankenstein Moment",
+        description: "A series of scandals have opened up the possibility that the company may have created something it can’t fully control.",
+        image: "https://static01.nyt.com/images/2017/09/22/business/22ROOSE3/22ROOSE3-facebookJumbo.jpg",
+        meta: {
+          author: "Kevin Roose",
+          authorImage: "https://pbs.twimg.com/profile_images/829880330945339393/fiYCN4sH_400x400.jpg",
+          cost: Math.round(Math.random() * 5) * ((Math.random() > 0.5) ? -1 : 1),
+          timestamp: (new Date()).getTime(),
+          paid: (Math.random() > 0.85),
+          revenue: (Math.random() * 300).toFixed(2),
+          upCount: Math.floor(Math.random() * 60),
+          downCount: Math.floor(Math.random() * 40)
+        }
+      },
+      {
+        title: "Jared Goff and the Rams Are a Thursday Night Surprise",
+        description: "Expectations were rock bottom for a game between the Rams and the 49ers. But it turned out to be an entertaining shootout.",
+        image: "https://static01.nyt.com/images/2017/09/23/sports/23goffWEB1/23goffWEB1-facebookJumbo.jpg",
+        meta: {
+          author: "Victor Mather",
+          cost: Math.round(Math.random() * 5) * ((Math.random() > 0.85) ? -1 : 1),
+          timestamp: (new Date()).getTime(),
+          paid: (Math.random() > 0.85),
+          revenue: (Math.random() * 300).toFixed(2),
+          upCount: Math.floor(Math.random() * 60),
+          downCount: Math.floor(Math.random() * 40)
+        }
+      },
+      {
+        title: "On 'Star Trek: Discovery,' a Franchise Boldly Goes Into the Serial TV Era",
+        description: "The first new “Star Trek” series in more than a decade deals with the demands of long-form storytelling and confronts earthbound production problems.",
+        image: "https://static01.nyt.com/images/2017/09/24/arts/24STARTREK1/24STARTREK1-facebookJumbo.jpg",
+        meta: {
+          author: "Dave Itzkoff",
+          authorImage: "https://static01.nyt.com/images/2011/05/31/timestopics/topics-itzkoff-pic/topics-itzkoff-pic-thumbLarge-v2.jpg",
+          cost: Math.round(Math.random() * 5) * ((Math.random() > 0.95) ? -1 : 1),
+          timestamp: (new Date()).getTime(),
+          paid: (Math.random() > 0.85),
+          revenue: (Math.random() * 300).toFixed(2),
+          upCount: Math.floor(Math.random() * 60),
+          downCount: Math.floor(Math.random() * 40)
+        }
+      },
+      {
+        title: "The Lonely Road Back From a Very Public Injury",
+        description: "Manchester City midfielder Ilkay Gundogan had braced himself for the worst when he went down with a torn A.C.L. last December. Now he just had to face it.",
+        image: "https://static01.nyt.com/images/2017/09/14/sports/-00ACLweb02-copy/-00ACLweb02-copy-facebookJumbo-v2.jpg",
+        meta: {
+          author: "Rory Smith",
+          authorImage: "https://pbs.twimg.com/profile_images/829040471095771137/MCE06bOS_400x400.jpg",
+          cost: Math.round(Math.random() * 5) * ((Math.random() > 0.95) ? -1 : 1),
+          timestamp: (new Date()).getTime(),
+          paid: (Math.random() > 0.85),
+          revenue: (Math.random() * 300).toFixed(2),
+          upCount: Math.floor(Math.random() * 60),
+          downCount: Math.floor(Math.random() * 40)
+        }
+      }
+    ]
+    class PreviewPage extends Polymer.Element {
+      static get is() { return "preview-page"; }
+      static get properties() {
+        return {
+          items: Array
+        }
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+
+        let items = [_data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4]]
+        // let items = [_data_[0], _data_[1], _data_[2]];
+        var currentIndex = items.length, temporaryValue, randomIndex;
+        while (0 != currentIndex) {
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex -= 1;
+          temporaryValue = items[currentIndex];
+          items[currentIndex] = items[randomIndex];
+          items[randomIndex] = temporaryValue;
+        }
+        this.items = items;
+      }
+    }
+    window.customElements.define(PreviewPage.is, PreviewPage);
+  </script>
+</dom-module>
