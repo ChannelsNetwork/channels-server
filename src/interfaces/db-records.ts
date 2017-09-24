@@ -1,7 +1,8 @@
 
 export interface UserRecord {
-  address: string;
-  publicKey: string;
+  keys: UserKey[];
+  address?: string;  // deprecated
+  publicKey?: string; // deprecated
   added: number;
   inviteeCode: string;
   inviterCode: string;
@@ -15,6 +16,13 @@ export interface UserRecord {
   identity?: UserIdentity;
   storage: number;
   admin: boolean;
+  syncCode?: string;
+  syncCodeExpires?: number;
+}
+
+export interface UserKey {
+  address: string;
+  publicKey: string;
 }
 
 export interface DeviceTokenRecord {

@@ -52,6 +52,19 @@ export interface RegisterDeviceDetails extends Signable {
 
 export interface RegisterDeviceResponse extends RestResponse { }
 
+export interface GetSyncCodeDetails extends Signable { }
+
+export interface GetSyncCodeResponse extends RestResponse {
+  syncCode: string;
+}
+
+export interface SyncIdentityDetails extends Signable {
+  handle: string;
+  syncCode: string;
+}
+
+export interface SyncIdentityResponse extends UserStatusResponse { }
+
 export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
   handle?: string;
