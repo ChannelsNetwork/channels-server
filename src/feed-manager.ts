@@ -36,7 +36,7 @@ export class FeedManager implements Initializable, FeedHandler {
       }
     }
     cards.sort((a: CardDescriptor, b: CardDescriptor) => {
-      return a.at - b.at;
+      return a.postedAt - b.postedAt;
     });
     return result;
   }
@@ -68,7 +68,7 @@ export class FeedManager implements Initializable, FeedHandler {
       }
     }
     cards.sort((a: CardDescriptor, b: CardDescriptor) => {
-      return a.at - b.at;
+      return a.postedAt - b.postedAt;
     });
     reply.cards = cards;
     console.log("UserManager.feed: " + cardRecords.length + " cards returned", requestBody.details);

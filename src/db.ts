@@ -54,7 +54,7 @@ export class Database {
   private async initializeCards(): Promise<void> {
     this.cards = this.db.collection('cards');
     await this.cards.createIndex({ id: 1 }, { unique: true });
-    await this.cards.createIndex({ at: -1, "by.address": -1 });
+    await this.cards.createIndex({ postedAt: -1, "by.address": -1 });
     await this.cards.createIndex({ "by.address": 1, at: -1 });
   }
 
@@ -234,22 +234,33 @@ export class Database {
     }
   }
 
-  async insertCard(byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string): Promise<CardRecord> {
+  async insertCard(byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: uuid.v4(),
-      at: now,
+      postedAt: now,
       by: {
         address: byAddress,
         handle: byHandle,
         name: byName,
         imageUrl: byImageUrl
       },
-      imageUrl: cardImageUrl,
-      linkUrl: linkUrl,
-      title: title,
-      text: text,
-      cardType: cardType,
+      summary: {
+        imageUrl: cardImageUrl,
+        linkUrl: linkUrl,
+        title: title,
+        text: text,
+      },
+      cardType: {
+        project: cardType,
+        iconUrl: cardTypeIconUrl
+      },
+      pricing: {
+        promotionFee: promotionFee,
+        openPayment: openPayment,
+        openFeeUnits: openFeeUnits
+      },
+      revenue: 0,
       lock: {
         server: '',
         at: 0
@@ -297,13 +308,13 @@ export class Database {
     let cursor = this.cards.find();
     let anyCursor = cursor as any;  // appears to be a bug in type definitions related to max/min
     if (afterCard) {
-      anyCursor = anyCursor.min({ at: afterCard.at, "by.address": afterCard.by.address });
+      anyCursor = anyCursor.min({ postedAt: afterCard.postedAt, "by.address": afterCard.by.address });
     }
     if (beforeCard) {
-      anyCursor = anyCursor.max({ at: beforeCard.at, "by.address": beforeCard.by.address });
+      anyCursor = anyCursor.max({ postedAt: beforeCard.postedAt, "by.address": beforeCard.by.address });
     }
     cursor = anyCursor as Cursor<CardRecord>;
-    return await cursor.sort({ at: -1, byAddress: -1 }).limit(maxCount).toArray();
+    return await cursor.sort({ postedAt: -1, byAddress: -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByTime(before: number, after: number, maxCount: number): Promise<CardRecord[]> {
@@ -314,7 +325,7 @@ export class Database {
     if (after) {
       query.after = { $gt: after };
     }
-    return this.cards.find(query).sort({ at: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
   async ensureMutationIndex(): Promise<void> {

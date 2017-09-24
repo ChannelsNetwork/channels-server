@@ -42,18 +42,29 @@ export interface NetworkRecord {
 
 export interface CardRecord {
   id: string;
-  at: number;
+  postedAt: number;
   by: {
     address: string;
     handle: string;
     name: string;
     imageUrl: string;
   };
-  imageUrl: string;
-  linkUrl: string;
-  title: string;
-  text: string;
-  cardType: string;
+  summary: {
+    imageUrl: string;
+    linkUrl: string;
+    title: string;
+    text: string;
+  };
+  cardType: {
+    project: string;
+    iconUrl: string;
+  };
+  pricing: {
+    promotionFee: number;
+    openPayment: number; // in ChannelCoin
+    openFeeUnits: number; // 1 - 10
+  };
+  revenue: number;
   lock: {
     server: string;
     at: number;

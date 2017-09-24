@@ -32,7 +32,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!details.text) {
       throw new Error("Invalid card: missing text");
     }
-    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType);
+    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.openPayment, details.openFeeUnits);
     await this.announceCard(card, user);
     return card;
   }
@@ -254,18 +254,34 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     try {
       const card: CardDescriptor = {
         id: record.id,
-        at: record.at,
+        postedAt: record.postedAt,
         by: {
           address: record.by.address,
           handle: record.by.handle,
           name: record.by.name,
-          imageUrl: record.by.imageUrl
+          imageUrl: record.by.imageUrl,
+          isFollowing: false,
+          isBlocked: false
         },
-        imageUrl: record.imageUrl,
-        linkUrl: record.linkUrl,
-        title: record.title,
-        text: record.text,
+        summary: {
+          imageUrl: record.summary.imageUrl,
+          linkUrl: record.summary.linkUrl,
+          title: record.summary.title,
+          text: record.summary.text,
+        },
         cardType: record.cardType,
+        pricing: {
+          promotionFee: record.pricing.promotionFee,
+          openFeeUnits: record.pricing.openFeeUnits,
+          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * this.getBaseCardPrice() : -record.pricing.openPayment,
+        },
+        history: {
+          revenue: record.revenue,
+          likes: 0,
+          dislikes: 0,
+          opens: 0,
+          impressions: 0
+        },
         state: {
           user: {
             mutationId: null,
@@ -317,6 +333,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
+  }
+
+  private getBaseCardPrice(): number {
+    return 0;
   }
 
 }

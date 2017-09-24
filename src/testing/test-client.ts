@@ -150,7 +150,9 @@ class TestClient implements RestServer {
       type: "post-card",
       requestId: (this.requestId++).toString(),
       details: {
-        text: "Hello world " + new Date().toString()
+        text: "Hello world " + new Date().toString(),
+        promotionFee: 0,
+        openFeeUnits: 1
       }
     };
     this.socket.send(JSON.stringify(request));
