@@ -23,6 +23,7 @@ export interface UserRecord {
 export interface UserKey {
   address: string;
   publicKey: string;
+  added: number;
 }
 
 export interface DeviceTokenRecord {

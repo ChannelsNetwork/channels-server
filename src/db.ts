@@ -43,23 +43,27 @@ export class Database {
   }
 
   private async initializeUsers(): Promise<void> {
-    this.users = this.db.collection('users2');
+    this.users = this.db.collection('users');
+    try {
+      const exists = await this.users.indexExists("address_1");
+      if (exists) {
+        await this.users.dropIndex("address_1");
+      }
+    } catch (err) {
+      console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
+    }
+
+    // Migrate old users with single address/publicKey to new collection
+    const existing = await this.users.find<UserRecord>({ address: { $exists: true } }).toArray();
+    for (const u of existing) {
+      await this.users.updateOne({ address: u.address }, { $push: { keys: { address: u.address, publicKey: u.publicKey, added: u.added } }, $unset: { address: 1, publicKey: 1 } });
+    }
+
     await this.users.createIndex({ "keys.address": 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
     await this.users.createIndex({ balanceLastUpdated: -1 });
     await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
-
-    // Migrate old users with single address/publicKey to new collection
-    const oldUsers = this.db.collection('users');
-    const existing = await oldUsers.find({}).toArray();
-    for (const u of existing) {
-      await oldUsers.deleteOne({ address: u.address });
-      u.keys.push({ address: u.address, publicKey: u.publicKey });
-      delete u.address;
-      delete u.publicKey;
-      await this.users.insertOne(u);
-    }
   }
 
   private async initializeCards(): Promise<void> {
@@ -130,7 +134,7 @@ export class Database {
   async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
-      keys: [{ address: address, publicKey: publicKey }],
+      keys: [{ address: address, publicKey: publicKey, added: now }],
       added: now,
       inviteeCode: inviteeCode,
       inviterCode: inviterCode,
@@ -150,7 +154,7 @@ export class Database {
 
   async updateUserAddAddress(user: UserRecord, newAddress: string, newPublicKey: string): Promise<void> {
     await this.users.updateOne({ "keys.address": user.keys[0].address }, { $push: { keys: { address: newAddress, publicKey: newPublicKey } } });
-    user.keys.push({ address: newAddress, publicKey: newPublicKey });
+    user.keys.push({ address: newAddress, publicKey: newPublicKey, added: Date.now() });
   }
 
   async updateUserSyncCode(address: string, syncCode: string, syncCodeExpires: number): Promise<void> {
