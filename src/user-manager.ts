@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, GetSyncCodeDetails, GetSyncCodeResponse, SyncIdentityDetails, SyncIdentityResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -18,11 +18,13 @@ const INVITER_REWARD = 2;
 const INVITEE_REWARD = 2;
 const INVITATIONS_ALLOWED = 5;
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
+const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
 const NETWORK_BALANCE_RANDOM_PRODUCT = 1.5;
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 60 * 60 * 1000;
+const SYNC_CODE_LIFETIME = 1000 * 60 * 5;
 
 export class UserManager implements RestServer {
   private app: express.Application;
@@ -51,6 +53,12 @@ export class UserManager implements RestServer {
     });
     this.app.post(this.urlManager.getDynamicUrl('update-identity'), (request: Request, response: Response) => {
       void this.handleUpdateIdentity(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-sync-code'), (request: Request, response: Response) => {
+      void this.handleGetSyncCode(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('sync-identity'), (request: Request, response: Response) => {
+      void this.handleSyncIdentity(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('get-identity'), (request: Request, response: Response) => {
       void this.handleGetIdentity(request, response);
@@ -177,6 +185,71 @@ export class UserManager implements RestServer {
     }
   }
 
+  private async handleGetSyncCode(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetSyncCodeDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.identity || !user.identity.handle) {
+        response.status(403).send("You must have a handle to get a sync code");
+        return;
+      }
+      console.log("UserManager.get-sync-code", requestBody.detailsObject);
+      const syncCode = this.generateSyncCode();
+      await db.updateUserSyncCode(requestBody.detailsObject.address, syncCode, Date.now() + SYNC_CODE_LIFETIME);
+      const reply: GetSyncCodeResponse = {
+        syncCode: syncCode
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleGetSyncCode: Failure", err);
+      response.status(500).send(err);
+    }
+  }
+
+  private async handleSyncIdentity(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<SyncIdentityDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.sync-identity", requestBody.detailsObject);
+      if (!requestBody.detailsObject.handle || !requestBody.detailsObject.syncCode) {
+        response.status(400).send("You must provide existing user handle and syncCode");
+        return;
+      }
+      const syncUser = await db.findUserByHandle(requestBody.detailsObject.handle);
+      if (!syncUser) {
+        response.status(404).send("No such handle");
+        return;
+      }
+      if (syncUser.syncCode !== requestBody.detailsObject.syncCode || !syncUser.syncCodeExpires || Date.now() > syncUser.syncCodeExpires) {
+        response.status(401).send("This code is not valid or has expired");
+        return;
+      }
+      let publicKey: string;
+      for (const k of user.keys) {
+        if (k.address === requestBody.detailsObject.address) {
+          publicKey = k.publicKey;
+          break;
+        }
+      }
+      if (user.keys.length > 1) {
+        await db.updateUserRemoveAddress(requestBody.detailsObject.address);
+      } else {
+        await db.deleteUser(requestBody.detailsObject.address);
+      }
+      await db.updateUserAddAddress(syncUser, requestBody.detailsObject.address, publicKey);
+      await this.returnUserStatus(syncUser, response);
+    } catch (err) {
+      console.error("User.handleSyncIdentity: Failure", err);
+      response.status(500).send(err);
+    }
+  }
+
   private async handleGetIdentity(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetUserIdentityDetails>;
@@ -275,6 +348,16 @@ export class UserManager implements RestServer {
         return result;
       }
     }
+  }
+
+  private generateSyncCode(): string {
+    let result = '';
+    result += NON_ZERO_DIGITS[Math.floor(Math.random() * NON_ZERO_DIGITS.length)];
+    result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
+    result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
+    result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
+    result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
+    return result;
   }
 
   private isHandlePermissible(handle: string): boolean {

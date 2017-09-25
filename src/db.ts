@@ -44,7 +44,22 @@ export class Database {
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    await this.users.createIndex({ address: 1 }, { unique: true });
+    try {
+      const exists = await this.users.indexExists("address_1");
+      if (exists) {
+        await this.users.dropIndex("address_1");
+      }
+    } catch (err) {
+      console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
+    }
+
+    // Migrate old users with single address/publicKey to new collection
+    const existing = await this.users.find<UserRecord>({ address: { $exists: true } }).toArray();
+    for (const u of existing) {
+      await this.users.updateOne({ address: u.address }, { $push: { keys: { address: u.address, publicKey: u.publicKey, added: u.added } }, $unset: { address: 1, publicKey: 1 } });
+    }
+
+    await this.users.createIndex({ "keys.address": 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
     await this.users.createIndex({ balanceLastUpdated: -1 });
@@ -119,8 +134,7 @@ export class Database {
   async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
-      address: address,
-      publicKey: publicKey,
+      keys: [{ address: address, publicKey: publicKey, added: now }],
       added: now,
       inviteeCode: inviteeCode,
       inviterCode: inviterCode,
@@ -138,8 +152,17 @@ export class Database {
     return record;
   }
 
+  async updateUserAddAddress(user: UserRecord, newAddress: string, newPublicKey: string): Promise<void> {
+    await this.users.updateOne({ "keys.address": user.keys[0].address }, { $push: { keys: { address: newAddress, publicKey: newPublicKey } } });
+    user.keys.push({ address: newAddress, publicKey: newPublicKey, added: Date.now() });
+  }
+
+  async updateUserSyncCode(address: string, syncCode: string, syncCodeExpires: number): Promise<void> {
+    await this.users.updateOne({ "keys.address": address }, { $set: { syncCode: syncCode, syncCodeExpires: syncCodeExpires } });
+  }
+
   async findUserByAddress(address: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ address: address });
+    return await this.users.findOne<UserRecord>({ "keys.address": address });
   }
 
   async findUserByInviterCode(code: string): Promise<UserRecord> {
@@ -154,8 +177,16 @@ export class Database {
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
-    await this.users.updateOne({ address: userRecord.address }, { $set: { lastContact: lastContact } });
+    await this.users.updateOne({ "keys.address": userRecord.address }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
+  }
+
+  async updateUserRemoveAddress(address: string): Promise<void> {
+    await this.users.updateOne({ "keys.address": address }, { $pull: { keys: { address: address } } });
+  }
+
+  async deleteUser(address: string): Promise<void> {
+    await this.users.deleteOne({ "keys.address": address });
   }
 
   async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string, emailAddress: string): Promise<void> {
@@ -189,11 +220,11 @@ export class Database {
       update["identity.emailAddress"] = emailAddress;
       userRecord.identity.emailAddress = emailAddress;
     }
-    await this.users.updateOne({ address: userRecord.address }, { $set: update });
+    await this.users.updateOne({ "keys.address": userRecord.address }, { $set: update });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
-    await this.users.updateOne({ address: user.address }, {
+    await this.users.updateOne({ "keys.address": user.address }, {
       $inc: {
         balance: reward,
         inviterRewards: reward,
@@ -208,7 +239,7 @@ export class Database {
   }
 
   async incrementUserStorage(user: UserRecord, size: number): Promise<void> {
-    await this.users.updateOne({ address: user.address }, {
+    await this.users.updateOne({ "keys.address": user.address }, {
       $inc: {
         storage: size
       }
@@ -221,7 +252,7 @@ export class Database {
   }
 
   async updateUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBy: number, now: number): Promise<void> {
-    const result = await this.users.updateOne({ address: user.address, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
+    const result = await this.users.updateOne({ "keys.address": user.address, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
     if (result.modifiedCount > 0) {
       user.balance += incrementBy;
       user.balanceLastUpdated = now;
