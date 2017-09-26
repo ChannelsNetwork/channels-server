@@ -109,11 +109,11 @@
           lastPage.classList.add("floatingPage");
           activePage.classList.add("floatingPage");
           if (!showToolbar) {
-            this._setBarVisible(false);
+            this.setBarVisible(false);
           }
         } else {
           activePage.style.display = "";
-          this._setBarVisible(showToolbar);
+          this.setBarVisible(showToolbar);
         }
 
         // import page and activate it
@@ -147,7 +147,7 @@
         }
       }
 
-      _setBarVisible(visible) {
+      setBarVisible(visible) {
         this.$.toolbar.style.top = visible ? "0px" : "-70px";
       }
 
@@ -165,7 +165,7 @@
           p2.style.zIndex = 0;
           p1.style.zIndex = 0;
           if (showToolbar) {
-            this._setBarVisible(true);
+            this.setBarVisible(true);
           }
         };
         switch (animation) {

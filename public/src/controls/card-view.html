@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+<link rel="import" href="card-header.html">
 
 <dom-module id="card-view">
   <template>
@@ -59,12 +60,7 @@
         color: #424242;
       }
 
-      #authorImage {
-        width: 40px;
-        height: 40px;
-        border-radius: 100%;
-        margin-right: 10px;
-      }
+
 
       .rating {
         height: 3px;
@@ -94,31 +90,6 @@
         border-left: 1px solid #000;
         box-sizing: border-box;
         background: #2196F3;
-      }
-
-      .bottomBar {
-        padding: 10px 2px 10px 10px;
-        background: #fafafa;
-        font-size: 13px;
-      }
-
-      .timestamp {
-        font-size: 11px;
-      }
-
-      iron-icon {
-        color: #808080;
-        width: 28px;
-        height: 28px;
-        margin: 0 5px;
-        cursor: pointer;
-      }
-
-      .revenue {
-        color: #4CAF50;
-        font-weight: bold;
-        font-size: 14px;
-        margin-right: 5px;
       }
 
       #price {
@@ -165,10 +136,6 @@
       }
 
       #price label {
-        display: none;
-      }
-
-      .container.negative .revenue {
         display: none;
       }
 
@@ -258,17 +225,7 @@
             <div id="posBar"></div>
           </div>
         </div>
-        <div class="horizontal layout center bottomBar">
-          <img id="authorImage">
-          <div class="flex vertical layout">
-            <div class="authorName">[[data.meta.author]]</div>
-            <div class="timestamp">[[data.meta.timestamp]]</div>
-          </div>
-          <div class="revenue">ℂ[[data.meta.revenue]]</div>
-          <div class="buttonBar horizontal layout center">
-            <iron-icon icon="ch:expand-more"></iron-icon>
-          </div>
-        </div>
+        <card-header data="[[data]]"></card-header>
       </div>
     </div>
     <div id="price"><label>Pays</label>[[price]]</div>
@@ -309,7 +266,6 @@
         } else {
           this.$.imagePanel.style.display = "none";
         }
-        this.$.authorImage.src = this.data.meta.authorImage || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
         if (this.data.meta.cost < 0) {
           this.$.container.classList.add("negative");
           this.$.price.classList.add("negative");
