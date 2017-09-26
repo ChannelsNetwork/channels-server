@@ -72,13 +72,27 @@
         position: relative;
       }
 
-      #ratingBar {
+      .barCell {
+        position: relative;
+      }
+
+      #negBar {
         position: absolute;
-        box-sizing: border-box;
         top: 0;
-        left: 0;
         bottom: 0;
-        widows: 0%;
+        right: 0;
+        border-right: 1px solid #000;
+        box-sizing: border-box;
+        background: #F44336;
+      }
+
+      #posBar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        border-left: 1px solid #000;
+        box-sizing: border-box;
         background: #2196F3;
       }
 
@@ -236,8 +250,13 @@
           </div>
           <soso-truncated-text id="description" class="flex" text="[[data.description]]"></soso-truncated-text>
         </div>
-        <div class="rating">
-          <div id="ratingBar"></div>
+        <div class="rating horizontal layout">
+          <div class="flex barCell">
+            <div id="negBar"></div>
+          </div>
+          <div class="flex barCell">
+            <div id="posBar"></div>
+          </div>
         </div>
         <div class="horizontal layout center bottomBar">
           <img id="authorImage">
@@ -302,7 +321,8 @@
         let dc = this.data.meta.downCount;
         let tc = uc + dc;
         let rating = tc ? (uc / tc) * 100 : 0;
-        this.$.ratingBar.style.width = rating + "%";
+        this.$.posBar.style.width = rating + "%";
+        this.$.negBar.style.width = (100 - rating) + "%";
 
         let cost = this.data.meta.cost;
         let absCost = Math.abs(cost).toFixed(2);
