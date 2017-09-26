@@ -185,16 +185,12 @@
         if (this._prevTarget) {
           this._prevTarget.close(false);
         }
-        // if (this._prevOpenNode) {
-        //   this._prevOpenNode.remove();
-        //   this._prevOpenNode = null;
-        // }
 
         let node = document.createElement("div");
-        node.textContent = "Inserted node goes here";
         node.classList.add('openCardShell');
         node.style.height = window.innerHeight + "px";
         current.parentElement.insertBefore(node, current);
+        var nodeToRemove = this._prevOpenNode;
         this._prevOpenNode = node;
 
         $app.shell.scrollTop = $app.shell.scrollTop + window.innerHeight + 20;
@@ -204,8 +200,30 @@
         this._prevTarget = target;
 
         requestAnimationFrame(() => {
-          target.open(node);
+          this.style.pointerEvents = "none";
+          target.open(node).then(() => {
+            setTimeout(() => {
+              $app.scrollTo(node, 700).then(() => {
+                this.restoreStateAfterAnimation(nodeToRemove);
+              }).catch((err) => {
+                this.restoreStateAfterAnimation(nodeToRemove);
+              });
+            }, 300);
+          }).catch((err) => {
+            this.restoreStateAfterAnimation(nodeToRemove);
+          });
         });
+      }
+
+      restoreStateAfterAnimation(nodeToRemove) {
+        if (nodeToRemove) {
+          setTimeout(() => {
+            this.style.pointerEvents = "";
+            nodeToRemove.remove();
+          }, 50);
+        } else {
+          this.style.pointerEvents = "";
+        }
       }
     }
     window.customElements.define(PreviewPage.is, PreviewPage);

@@ -190,6 +190,38 @@
             break;
         }
       }
+
+      scrollTo(node, duration) {
+        return new Promise((resolve, reject) => {
+          var diff = node.getBoundingClientRect().top;
+          var iv = this.shell.scrollTop;
+          if (this._scrolling) {
+            this._scrolling = false;
+            this.shell.scrollTop = iv + diff;
+            resolve();
+          } else {
+            this._scrollAnimStart = 0;
+            this._scrolling = true;
+            var _step = (timestamp) => {
+              if (!this._scrolling) {
+                return;
+              }
+              if (!this._scrollAnimStart) {
+                this._scrollAnimStart = timestamp;
+              }
+              let progress = Math.min(1, Math.max(0, (timestamp - this._scrollAnimStart) / duration));
+              this.shell.scrollTop = iv + (diff * progress);
+              if (progress < 1) {
+                window.requestAnimationFrame(_step);
+              } else {
+                this._scrolling = false;
+                resolve();
+              }
+            };
+            requestAnimationFrame(_step);
+          }
+        });
+      }
     }
     window.customElements.define(MainApp.is, MainApp);
   </script>
