@@ -276,10 +276,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * this.getBaseCardPrice() : -record.pricing.openPayment,
         },
         history: {
-          revenue: record.revenue,
-          likes: 0,
-          dislikes: 0,
-          opens: 0,
+          revenue: record.revenue.value,
+          likes: record.likes.value,
+          dislikes: record.dislikes.value,
+          opens: record.opens.value,
           impressions: 0
         },
         state: {

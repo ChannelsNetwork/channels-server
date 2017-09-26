@@ -73,11 +73,27 @@ export interface CardRecord {
     openPayment: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10
   };
-  revenue: number;
+  revenue: CardStatistic;
+  impressions: CardStatistic;
+  opens: CardStatistic;
+  likes: CardStatistic;
+  dislikes: CardStatistic;
+  score: CardStatistic;
+  lastScored: number;
   lock: {
     server: string;
     at: number;
   };
+}
+
+export interface CardStatistic {
+  value: number;
+  history: CardStatisticHistory[];
+}
+
+export interface CardStatisticHistory {
+  value: number;
+  at: number;
 }
 
 export type CardMutationType = "set-property" | "inc-property" | "add-record" | "update-record" | "update-record-field" | "inc-record-field" | "delete-record" | "move-record";

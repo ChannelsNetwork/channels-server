@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic } from "./interfaces/db-records";
 import { Utils } from "./utils";
 
 export class Database {
@@ -71,6 +71,26 @@ export class Database {
     await this.cards.createIndex({ id: 1 }, { unique: true });
     await this.cards.createIndex({ postedAt: -1, "by.address": -1 });
     await this.cards.createIndex({ "by.address": 1, at: -1 });
+    await this.cards.createIndex({ postedAt: 1, lastScored: -1 });
+
+    // Migrate cards that don't have stats set up yet...
+    const existing = await this.cards.find<CardRecord>({ opens: { $exists: false } }).toArray();
+    const stat: CardStatistic = {
+      value: 0,
+      history: []
+    };
+    for (const card of existing) {
+      await this.cards.updateOne({ id: card.id }, {
+        $set: {
+          revenue: stat,
+          opens: stat,
+          likes: stat,
+          dislikes: stat,
+          score: stat
+        }
+      });
+    }
+    await this.cards.updateMany({ lastScored: { $exists: false } }, { $set: { lastScored: 0 } });
   }
 
   private async initializeMutationIndexes(): Promise<void> {
@@ -291,7 +311,13 @@ export class Database {
         openPayment: openPayment,
         openFeeUnits: openFeeUnits
       },
-      revenue: 0,
+      revenue: { value: 0, history: [] },
+      opens: { value: 0, history: [] },
+      impressions: { value: 0, history: [] },
+      likes: { value: 0, history: [] },
+      dislikes: { value: 0, history: [] },
+      score: { value: 0, history: [] },
+      lastScored: now,
       lock: {
         server: '',
         at: 0
@@ -313,7 +339,16 @@ export class Database {
       }
       if (card.lock && card.lock.at > 0 && Date.now() - card.lock.at > timeout || !card.lock || card.lock.at === 0) {
         const lock = { server: serverId, at: Date.now() };
-        const updateResult = await this.cards.updateOne({ id: cardId, "lock.server": card.lock.server, "lock.at": card.lock.at }, { $set: { lock: lock } });
+        const query: any = { id: cardId };
+        if (card.lock) {
+          if (card.lock.server) {
+            query["lock.server"] = card.lock.server;
+          }
+          if (card.lock.server) {
+            query["lock.at"] = card.lock.at;
+          }
+        }
+        const updateResult = await this.cards.updateOne(query, { $set: { lock: lock } });
         if (updateResult.modifiedCount === 1) {
           card.lock = lock;
           return card;
@@ -333,6 +368,25 @@ export class Database {
       return null;
     }
     return await this.cards.findOne<CardRecord>({ id: id });
+  }
+
+  async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
+  }
+
+  async updateCardScore(card: CardRecord, score: number, addHistory: boolean): Promise<void> {
+    const now = Date.now();
+    const update: any = { $set: { "score.value": score, lastScored: now } };
+    if (addHistory) {
+      update.$push = { "score.history": { value: score, at: now } };
+    }
+    await this.cards.updateOne({ id: card.id }, update);
+    card.score.value = score;
+    card.lastScored = now;
+  }
+
+  async clearCardScoreHistoryBefore(card: CardRecord, before: number): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, { $pull: { history: { at: { $lte: before } } } });
   }
 
   async findCards(beforeCard: CardRecord, afterCard: CardRecord, maxCount: number): Promise<CardRecord[]> {

@@ -159,10 +159,10 @@ export interface CardDescriptor {
   };
   history: {
     revenue: number;
+    impressions: number;
+    opens: number;
     likes: number;
     dislikes: number;
-    opens: number;
-    impressions: number;
   };
   state?: {
     user: CardState;
