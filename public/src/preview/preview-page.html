@@ -186,6 +186,14 @@
         if (!this._prevScrollValue) {
           this._prevScrollValue = $app.shell.scrollTop;
         } else {
+          if ($app.shell.scrollTop <= 0) {
+            this._prevScrollValue = 0;
+            if (!this._barShowing) {
+              this._barShowing = true;
+              $app.setBarVisible(true);
+            }
+            return;
+          }
           let diff = $app.shell.scrollTop - this._prevScrollValue;
           if (diff > 10) {
             this._prevScrollValue = $app.shell.scrollTop;
@@ -234,6 +242,7 @@
         this._prevOpenNode = node;
 
         $app.shell.scrollTop = $app.shell.scrollTop + window.innerHeight + 20;
+        this._barShowing = false;
         $app.setBarVisible(false);
 
         var target = event.target;

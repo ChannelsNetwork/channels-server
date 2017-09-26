@@ -239,7 +239,7 @@
       </div>
       <div id="price"><label>Pays</label>[[price]]</div>
     </div>
-    <open-card id="openCard" data="[[data]]"></open-card>
+    <open-card id="openCard" data="[[data]]" on-click="opeCardClick"></open-card>
   </template>
   <script>
     class CardView extends Polymer.Element {
@@ -310,6 +310,10 @@
         this.$.cardShell.style.opacity = 1;
         this.$.openCard.close(animate);
         this.style.pointerEvents = "";
+      }
+
+      opeCardClick(event) {
+        event.stopPropagation();
       }
     }
     window.customElements.define(CardView.is, CardView);
