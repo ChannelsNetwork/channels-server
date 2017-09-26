@@ -163,6 +163,46 @@
         this.items = items;
       }
 
+      onActivate() {
+        this._barShowing = true;
+        this._prevScrollValue = 0;
+        this._preventScroll = false;
+        this._scrollListener = () => {
+          if (!this._preventScroll) {
+            this.onScroll();
+          }
+        };
+        $app.shell.addEventListener("scroll", this._scrollListener);
+      }
+
+      onDeactivate() {
+        if (this._scrollListener) {
+          $app.shell.removeEventListener("scroll", this._scrollListener);
+          this._scrollListener = null;
+        }
+      }
+
+      onScroll() {
+        if (!this._prevScrollValue) {
+          this._prevScrollValue = $app.shell.scrollTop;
+        } else {
+          let diff = $app.shell.scrollTop - this._prevScrollValue;
+          if (diff > 10) {
+            this._prevScrollValue = $app.shell.scrollTop;
+            if (this._barShowing) {
+              this._barShowing = false;
+              $app.setBarVisible(false);
+            }
+          } else if (diff < -5) {
+            this._prevScrollValue = $app.shell.scrollTop;
+            if (!this._barShowing) {
+              this._barShowing = true;
+              $app.setBarVisible(true);
+            }
+          }
+        }
+      }
+
       onCardClick(event) {
         let current = event.target;
         if (!current) {
@@ -198,7 +238,7 @@
 
         var target = event.target;
         this._prevTarget = target;
-
+        this._preventScroll = true;
         requestAnimationFrame(() => {
           this.style.pointerEvents = "none";
           target.open(node).then(() => {
@@ -224,6 +264,9 @@
         } else {
           this.style.pointerEvents = "";
         }
+        setTimeout(() => {
+          this._preventScroll = false;
+        }, 200);
       }
     }
     window.customElements.define(PreviewPage.is, PreviewPage);
