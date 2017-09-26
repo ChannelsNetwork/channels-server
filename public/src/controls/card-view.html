@@ -2,15 +2,23 @@
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
 <link rel="import" href="card-header.html">
+<link rel="import" href="open-card.html">
 
 <dom-module id="card-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
        :host {
         display: block;
-        position: relative;
         opacity: 0;
         transition: opacity 0.2s ease;
+        position: relative;
+      }
+
+      #cardShell {
+        position: relative;
+        height: 100%;
+        box-sizing: border-box;
+        transition: opacity 0.3s ease;
       }
 
       .container {
@@ -207,28 +215,31 @@
         font-size: 16px;
       }
     </style>
-    <div id="container" class="container">
-      <div id="imagePanel"></div>
-      <div class="vertical layout flex">
-        <div class="flex vertical layout textPanel">
-          <div id="headline">
-            <img src$="[[data.meta.cardIcon]]">
-            <span>[[data.title]]</span>
+    <div id="cardShell">
+      <div id="container" class="container">
+        <div id="imagePanel"></div>
+        <div class="vertical layout flex">
+          <div class="flex vertical layout textPanel">
+            <div id="headline">
+              <img src$="[[data.meta.cardIcon]]">
+              <span>[[data.title]]</span>
+            </div>
+            <soso-truncated-text id="description" class="flex" text="[[data.description]]"></soso-truncated-text>
           </div>
-          <soso-truncated-text id="description" class="flex" text="[[data.description]]"></soso-truncated-text>
+          <div id="rating" class="rating horizontal layout">
+            <div class="flex barCell">
+              <div id="negBar"></div>
+            </div>
+            <div class="flex barCell">
+              <div id="posBar"></div>
+            </div>
+          </div>
+          <card-header id="cardHeader" data="[[data]]"></card-header>
         </div>
-        <div class="rating horizontal layout">
-          <div class="flex barCell">
-            <div id="negBar"></div>
-          </div>
-          <div class="flex barCell">
-            <div id="posBar"></div>
-          </div>
-        </div>
-        <card-header data="[[data]]"></card-header>
       </div>
+      <div id="price"><label>Pays</label>[[price]]</div>
     </div>
-    <div id="price"><label>Pays</label>[[price]]</div>
+    <open-card id="openCard" data="[[data]]"></open-card>
   </template>
   <script>
     class CardView extends Polymer.Element {
@@ -283,6 +294,20 @@
         let cost = this.data.meta.cost;
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
+      }
+
+      open(node) {
+        this.$.cardHeader.style.opacity = 0;
+        this.$.rating.style.opacity = 0;
+        this.$.cardShell.style.opacity = 0;
+        this.$.openCard.open(node);
+      }
+
+      close(animate) {
+        this.$.cardHeader.style.opacity = 1;
+        this.$.rating.style.opacity = 1;
+        this.$.cardShell.style.opacity = 1;
+        this.$.openCard.close(animate);
       }
     }
     window.customElements.define(CardView.is, CardView);

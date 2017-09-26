@@ -173,7 +173,6 @@
           if (current.previousSibling.nodeType !== Node.ELEMENT_NODE) {
             current = current.previousSibling;
           } else {
-            console.log(current.previousSibling.nodeType);
             let prevTop = current.previousSibling.getBoundingClientRect().top;
             if (prevTop == currentTop) {
               current = current.previousSibling;
@@ -182,6 +181,15 @@
             }
           }
         }
+
+        if (this._prevTarget) {
+          this._prevTarget.close(false);
+        }
+        // if (this._prevOpenNode) {
+        //   this._prevOpenNode.remove();
+        //   this._prevOpenNode = null;
+        // }
+
         let node = document.createElement("div");
         node.textContent = "Inserted node goes here";
         node.classList.add('openCardShell');
@@ -191,6 +199,13 @@
 
         $app.shell.scrollTop = $app.shell.scrollTop + window.innerHeight + 20;
         $app.setBarVisible(false);
+
+        var target = event.target;
+        this._prevTarget = target;
+
+        requestAnimationFrame(() => {
+          target.open(node);
+        });
       }
     }
     window.customElements.define(PreviewPage.is, PreviewPage);
