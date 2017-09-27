@@ -12,6 +12,7 @@ import { UrlManager } from "./url-manager";
 import { KeyUtils } from "./key-utils";
 import { RestHelper } from "./rest-helper";
 import * as url from 'url';
+import { UserHelper } from "./user-helper";
 
 const INITIAL_BALANCE = 10;
 const INVITER_REWARD = 2;
@@ -122,12 +123,12 @@ export class UserManager implements RestServer {
       console.log("UserManager.register-device", requestBody.detailsObject.address, requestBody.detailsObject);
       const existing = await db.findDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token);
       if (existing) {
-        if (existing.userAddress !== user.address) {
+        if (!UserHelper.isUsersAddress(user, existing.userAddress)) {
           response.status(409).send("This device token is already associated with a different user");
           return;
         }
       } else {
-        await db.insertDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token, user.address);
+        await db.insertDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token, requestBody.detailsObject.address);
       }
       const reply: RegisterDeviceResponse = { success: true };
       response.json(reply);
@@ -172,7 +173,7 @@ export class UserManager implements RestServer {
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
       const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
-      if (existing && existing.address !== user.address) {
+      if (existing && existing.id !== user.id) {
         response.status(409).send("This handle is not available");
         return;
       }
@@ -198,7 +199,7 @@ export class UserManager implements RestServer {
       }
       console.log("UserManager.get-sync-code", requestBody.detailsObject);
       const syncCode = this.generateSyncCode();
-      await db.updateUserSyncCode(requestBody.detailsObject.address, syncCode, Date.now() + SYNC_CODE_LIFETIME);
+      await db.updateUserSyncCode(user, syncCode, Date.now() + SYNC_CODE_LIFETIME);
       const reply: GetSyncCodeResponse = {
         syncCode: syncCode
       };
@@ -300,7 +301,7 @@ export class UserManager implements RestServer {
       console.log("UserManager.check-handle", requestBody.details);
       const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
       if (existing) {
-        if (!user || existing.address !== user.address) {
+        if (!user || existing.id !== user.id) {
           reply.inUse = true;
           response.json(reply);
           return;

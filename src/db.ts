@@ -4,6 +4,7 @@ import * as uuid from "uuid";
 import { configuration } from "./configuration";
 import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic } from "./interfaces/db-records";
 import { Utils } from "./utils";
+import { UserHelper } from "./user-helper";
 
 export class Database {
   private db: Db;
@@ -59,6 +60,12 @@ export class Database {
       await this.users.updateOne({ address: u.address }, { $push: { keys: { address: u.address, publicKey: u.publicKey, added: u.added } }, $unset: { address: 1, publicKey: 1 } });
     }
 
+    const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
+    for (const u of noIds) {
+      await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
+    }
+
+    await this.users.createIndex({ id: 1 }, { unique: true });
     await this.users.createIndex({ "keys.address": 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
@@ -154,6 +161,7 @@ export class Database {
   async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
+      id: uuid.v4(),
       keys: [{ address: address, publicKey: publicKey, added: now }],
       added: now,
       inviteeCode: inviteeCode,
@@ -173,12 +181,18 @@ export class Database {
   }
 
   async updateUserAddAddress(user: UserRecord, newAddress: string, newPublicKey: string): Promise<void> {
-    await this.users.updateOne({ "keys.address": user.keys[0].address }, { $push: { keys: { address: newAddress, publicKey: newPublicKey } } });
+    await this.users.updateOne({ id: user.id }, { $push: { keys: { address: newAddress, publicKey: newPublicKey } } });
     user.keys.push({ address: newAddress, publicKey: newPublicKey, added: Date.now() });
   }
 
-  async updateUserSyncCode(address: string, syncCode: string, syncCodeExpires: number): Promise<void> {
-    await this.users.updateOne({ "keys.address": address }, { $set: { syncCode: syncCode, syncCodeExpires: syncCodeExpires } });
+  async updateUserSyncCode(user: UserRecord, syncCode: string, syncCodeExpires: number): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { syncCode: syncCode, syncCodeExpires: syncCodeExpires } });
+    user.syncCode = syncCode;
+    user.syncCodeExpires = syncCodeExpires;
+  }
+
+  async findUserById(id: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ id: id });
   }
 
   async findUserByAddress(address: string): Promise<UserRecord> {
@@ -197,7 +211,7 @@ export class Database {
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
-    await this.users.updateOne({ "keys.address": userRecord.address }, { $set: { lastContact: lastContact } });
+    await this.users.updateOne({ id: userRecord.id }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
   }
 
@@ -240,11 +254,11 @@ export class Database {
       update["identity.emailAddress"] = emailAddress;
       userRecord.identity.emailAddress = emailAddress;
     }
-    await this.users.updateOne({ "keys.address": userRecord.address }, { $set: update });
+    await this.users.updateOne({ id: userRecord.id }, { $set: update });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
-    await this.users.updateOne({ "keys.address": user.address }, {
+    await this.users.updateOne({ id: user.id }, {
       $inc: {
         balance: reward,
         inviterRewards: reward,
@@ -259,7 +273,7 @@ export class Database {
   }
 
   async incrementUserStorage(user: UserRecord, size: number): Promise<void> {
-    await this.users.updateOne({ "keys.address": user.address }, {
+    await this.users.updateOne({ id: user.id }, {
       $inc: {
         storage: size
       }
@@ -272,12 +286,12 @@ export class Database {
   }
 
   async updateUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBy: number, now: number): Promise<void> {
-    const result = await this.users.updateOne({ "keys.address": user.address, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
+    const result = await this.users.updateOne({ id: user.id, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
     if (result.modifiedCount > 0) {
       user.balance += incrementBy;
       user.balanceLastUpdated = now;
     } else {
-      const updatedUser = await this.findUserByAddress(user.address);
+      const updatedUser = await this.findUserById(user.id);
       if (updatedUser) {
         user.balance = updatedUser.balance;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
@@ -285,12 +299,13 @@ export class Database {
     }
   }
 
-  async insertCard(byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: uuid.v4(),
       postedAt: now,
       by: {
+        id: byUserId,
         address: byAddress,
         handle: byHandle,
         name: byName,
@@ -591,7 +606,7 @@ export class Database {
       id: uuid.v4(),
       at: now,
       status: status,
-      ownerAddress: null,
+      ownerId: null,
       size: 0,
       filename: null,
       encoding: null,
@@ -611,10 +626,10 @@ export class Database {
     fileRecord.status = status;
   }
 
-  async updateFileProgress(fileRecord: FileRecord, ownerAddress: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus): Promise<void> {
+  async updateFileProgress(fileRecord: FileRecord, ownerId: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus): Promise<void> {
     await this.files.updateOne({ id: fileRecord.id }, {
       $set: {
-        ownerAddress: ownerAddress,
+        ownerId: ownerId,
         filename: filename,
         encoding: encoding,
         mimetype: mimetype,
@@ -622,7 +637,7 @@ export class Database {
         status: status
       }
     });
-    fileRecord.ownerAddress = ownerAddress;
+    fileRecord.ownerId = ownerId;
     fileRecord.filename = filename;
     fileRecord.encoding = encoding;
     fileRecord.mimetype = mimetype;

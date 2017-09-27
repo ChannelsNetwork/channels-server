@@ -3,6 +3,7 @@ import { Signable, RestRequest } from "./interfaces/rest-services";
 import { KeyUtils } from "./key-utils";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
+import { UserHelper } from "./user-helper";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 
@@ -21,6 +22,10 @@ export class RestHelper {
       return false;
     }
     try {
+      if (!publicKey) {
+        response.status(401).send("No public key available");
+        return;
+      }
       if (!KeyUtils.verifyString(requestBody.details, publicKey, requestBody.signature)) {
         response.status(403).send("Signature is invalid");
         return;
@@ -45,11 +50,11 @@ export class RestHelper {
       response.status(401).send("No such registered users");
       return null;
     }
-    if (!this.validateRequest(requestBody, userRecord.publicKey, response)) {
+    const publicKey = UserHelper.getPublicKeyForAddress(userRecord, requestBody.detailsObject.address);
+    if (!this.validateRequest(requestBody, publicKey, response)) {
       return null;
     }
     await db.updateLastUserContact(userRecord, Date.now());
     return userRecord;
   }
-
 }

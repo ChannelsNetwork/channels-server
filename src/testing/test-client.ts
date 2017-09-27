@@ -55,6 +55,7 @@ class TestClient implements RestServer {
     await this.openSocket();
     await this.sendOpen();
     await this.postCard();
+    await this.getFeed();
     response.end();
   }
 

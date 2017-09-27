@@ -53,8 +53,11 @@ export class UrlManager {
     }
   }
 
-  getPublicUrl(relativeUrl: string): string {
-    return url.resolve(this.getPublicBaseUrl(true), relativeUrl);
+  getPublicUrl(relativeUrl: string, absolute = false): string {
+    if (!relativeUrl.startsWith('/')) {
+      relativeUrl = '/' + relativeUrl;
+    }
+    return this.getPublicBaseUrl(absolute) + relativeUrl;
   }
 
   getVersionedUrl(relativeUrl: string, absolute = false): string {

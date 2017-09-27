@@ -1,5 +1,6 @@
 
 export interface UserRecord {
+  id: string;
   keys: UserKey[];
   address?: string;  // deprecated
   publicKey?: string; // deprecated
@@ -53,6 +54,7 @@ export interface CardRecord {
   id: string;
   postedAt: number;
   by: {
+    id: string;
     address: string;
     handle: string;
     name: string;
@@ -187,7 +189,7 @@ export interface FileRecord {
   id: string;
   at: number;
   status: FileStatus;
-  ownerAddress: string;
+  ownerId: string;
   size: number;
   filename: string;
   encoding: string;
