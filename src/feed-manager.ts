@@ -273,7 +273,7 @@ export class FeedManager implements Initializable, FeedHandler {
         by: {
           address: 'jmodell',
           handle: 'jmodell',
-          name: "Josh Modelljosh_",
+          name: "Josh Modell",
           imageUrl: this.getPreviewUrl("josh_modell.jpg"),
           isFollowing: false,
           isBlocked: false
