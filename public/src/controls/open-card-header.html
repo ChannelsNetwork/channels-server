@@ -1,0 +1,122 @@
+<dom-module id="open-card-header">
+  <template>
+    <style is="custom-style" include="iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+      }
+
+      iron-icon {
+        color: #808080;
+        width: 28px;
+        height: 28px;
+        padding: 0 8px;
+        cursor: pointer;
+      }
+
+      .ratingIcon {
+        width: 24px;
+        height: 24px;
+      }
+
+      .bar {
+        background: #fafafa;
+        font-size: 14px;
+        height: 60px;
+      }
+
+      #authorImage {
+        width: 40px;
+        height: 40px;
+        border-radius: 100%;
+        margin: 0 10px;
+      }
+
+      #timestamp {
+        font-size: 11px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      #price {
+        padding: 0 8px;
+        background: var(--bg-yellow);
+        color: #000;
+        letter-spacing: 0.05em;
+        font-size: 15px;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      #price label {
+        display: none;
+      }
+
+      #price.negative {
+        background: #69F0AE;
+      }
+
+      #price.negative label {
+        text-transform: uppercase;
+        font-size: 11px;
+        line-height: 14px;
+        height: 14px;
+        letter-spacing: 0.2em;
+        color: rgba(0, 0, 0, 0.8);
+        display: block;
+        text-align: center;
+        padding: 3px 6px;
+      }
+    </style>
+    <div class="horizontal layout center bar">
+      <div id="price" class="horizontal layout center">
+        <div><label>Pays</label>[[price]]</div>
+      </div>
+      <img id="authorImage">
+      <div class="flex vertical layout">
+        <div class="authorName">[[data.meta.author]]</div>
+        <div id="timestamp">[[data.meta.timestamp]]</div>
+      </div>
+      <div id="rating" class="vertical layout">
+        <div>
+          <iron-icon class="ratingIcon" icon="ch:thumb-up"></iron-icon>
+          <iron-icon class="ratingIcon" icon="ch:thumb-down"></iron-icon>
+        </div>
+      </div>
+      <div class="horizontal layout center">
+        <iron-icon icon="ch:expand-more"></iron-icon>
+      </div>
+    </div>
+  </template>
+  <script>
+    class OpenCardHeader extends Polymer.Element {
+      static get is() { return "open-card-header"; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_onData'
+          },
+          price: String
+        };
+      }
+
+      _onData() {
+        if (!this.data) {
+          return;
+        }
+        this.$.authorImage.src = this.data.meta.authorImage || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+        let cost = this.data.meta.cost;
+        let absCost = Math.abs(cost).toFixed(2);
+        this.price = 'ℂ' + absCost;
+        if (this.data.meta.cost < 0) {
+          this.$.price.classList.add("negative");
+        } else {
+          this.$.price.classList.remove("negative");
+        }
+      }
+    }
+    window.customElements.define(OpenCardHeader.is, OpenCardHeader);
+  </script>
+</dom-module>
