@@ -52,6 +52,19 @@ export interface RegisterDeviceDetails extends Signable {
 
 export interface RegisterDeviceResponse extends RestResponse { }
 
+export interface GetSyncCodeDetails extends Signable { }
+
+export interface GetSyncCodeResponse extends RestResponse {
+  syncCode: string;
+}
+
+export interface SyncIdentityDetails extends Signable {
+  handle: string;
+  syncCode: string;
+}
+
+export interface SyncIdentityResponse extends UserStatusResponse { }
+
 export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
   handle?: string;
@@ -120,18 +133,37 @@ export interface GetFeedResponse extends RestResponse {
 
 export interface CardDescriptor {
   id: string;
-  at: number;
+  postedAt: number;
   by: {
     address: string;
     handle: string;
     name: string;
     imageUrl: string;
+    isFollowing: boolean;
+    isBlocked: boolean;
   };
-  imageUrl: string;
-  linkUrl: string;
-  title: string;
-  text: string;
-  cardType: string;
+  summary: {
+    imageUrl: string;
+    linkUrl: string;
+    title: string;
+    text: string;
+  };
+  cardType: {
+    project: string;
+    iconUrl: string;
+  };
+  pricing: {
+    promotionFee: number;
+    openFee: number;  // in ChannelCoin, -ve for ads
+    openFeeUnits: number;  // 1..10 for paid content, 0 for ads
+  };
+  history: {
+    revenue: number;
+    impressions: number;
+    opens: number;
+    likes: number;
+    dislikes: number;
+  };
   state?: {
     user: CardState;
     shared: CardState;

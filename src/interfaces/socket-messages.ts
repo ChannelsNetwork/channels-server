@@ -40,6 +40,10 @@ export interface PostCardDetails {
   title?: string;
   text: string;
   cardType?: string;
+  cardTypeIconUrl?: string;
+  promotionFee: number;
+  openPayment?: number; // for ads, in ChannelCoin
+  openFeeUnits?: number; // for content, 1..10
   state?: {
     user: CardState;
     shared: CardState;
