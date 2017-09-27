@@ -1,0 +1,87 @@
+<link rel="import" href="card-view.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+
+<dom-module id="card-feed">
+  <template>
+    <style is="custom-style" include="iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+      }
+
+      #container {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      card-view {
+        width: var(--grid-card-width);
+        height: 500px;
+        margin: 1.1%;
+        box-sizing: border-box;
+      }
+
+      .openCardShell {
+        margin: 10px;
+        box-sizing: border-box;
+        width: 100%;
+      }
+    </style>
+    <div id="container" class="horizontal layout wrap">
+      <dom-repeat items="[[items]]">
+        <template>
+          <card-view data="[[item]]" on-click="onCardClick"></card-view>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class CardFeed extends Polymer.Element {
+      static get is() { return "card-feed"; }
+      static get properties() {
+        return {
+          nominalWidth: {
+            type: Number,
+            value: 300
+          },
+          items: Array
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        Polymer.RenderStatus.beforeNextRender(this, function () {
+          this.refreshLayout();
+        });
+      }
+
+      refreshLayout() {
+        this._refreshAttempts = 0;
+        this._refreshStyles();
+      }
+
+      _refreshStyles() {
+        let w = this.offsetWidth;
+        if (w === 0) {
+          if (this._refreshAttempts < 10) {
+            this._refreshAttempts++;
+            setTimeout(() => {
+              this._refreshStyles();
+            }, 50);
+          }
+          return;
+        }
+        let cols = Math.max(1, Math.min(3, Math.floor(w / this.nominalWidth)));
+        let colWidth = Math.floor((100 - (cols * 1.1 * 2)) / cols);
+        if (this._colWidth != colWidth) {
+          this._colWidth = colWidth;
+          this.updateStyles({
+            '--grid-card-width': colWidth + "%"
+          });
+        }
+        this._refreshAttempts = 0;
+      }
+    }
+    window.customElements.define(CardFeed.is, CardFeed);
+  </script>
+</dom-module>

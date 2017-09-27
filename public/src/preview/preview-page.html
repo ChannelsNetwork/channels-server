@@ -1,5 +1,4 @@
-<link rel="import" href="../controls/card-view.html">
-<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../card/card-feed.html">
 
 <dom-module id="preview-page">
   <template>
@@ -12,50 +11,23 @@
       }
 
       .main {
+        padding: 50px 0 20px;
+      }
+
+      #feed {
         max-width: 1000px;
         margin: 0 auto;
-        padding: 50px 15px 20px;
-      }
-
-      .cardContainer {
-        width: 100%;
         box-sizing: border-box;
       }
-
-      .cardContainer card-view {
-        width: 310px;
-        height: 500px;
+      /* .openCardShell {
         margin: 10px;
         box-sizing: border-box;
-      }
-      /* .cardContainer card-view:nth-child(1) {
         width: 100%;
-      }
-
-      .cardContainer card-view:nth-child(2) {
-        width: 640px;
-      }
-
-      .cardContainer card-view:nth-child(4),
-      .cardContainer card-view:nth-child(5) {
-        width: 480px;
       } */
-
-      .openCardShell {
-        margin: 10px;
-        box-sizing: border-box;
-        width: 100%;
-      }
     </style>
     <div class="barspace"></div>
     <div class="main">
-      <div class="cardContainer horizontal layout justified wrap">
-        <dom-repeat items="[[items]]">
-          <template>
-            <card-view data="[[item]]" on-click="onCardClick"></card-view>
-          </template>
-        </dom-repeat>
-      </div>
+      <card-feed id="feed" items="[[items]]"></card-feed>
     </div>
   </template>
   <script>
@@ -150,8 +122,7 @@
       connectedCallback() {
         super.connectedCallback();
 
-        let items = [_data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4]]
-        // let items = [_data_[0], _data_[1], _data_[2]];
+        let items = [_data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4]];
         var currentIndex = items.length, temporaryValue, randomIndex;
         while (0 != currentIndex) {
           randomIndex = Math.floor(Math.random() * currentIndex);
@@ -173,6 +144,12 @@
           }
         };
         $app.shell.addEventListener("scroll", this._scrollListener);
+
+        this._resizeListener = _debounce(() => {
+          this.onResize();
+        }, 350);
+        window.addEventListener("resize", this._resizeListener);
+        this.onResize();
       }
 
       onDeactivate() {
@@ -180,6 +157,14 @@
           $app.shell.removeEventListener("scroll", this._scrollListener);
           this._scrollListener = null;
         }
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      onResize() {
+        this.$.feed.refreshLayout();
       }
 
       onScroll() {
