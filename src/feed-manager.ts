@@ -188,7 +188,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.25,
           openFeeUnits: 5
         },
         history: {
@@ -222,7 +222,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.05,
           openFeeUnits: 1
         },
         history: {
@@ -256,7 +256,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.15,
           openFeeUnits: 3
         },
         history: {
@@ -290,7 +290,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.10,
           openFeeUnits: 2
         },
         history: {
@@ -324,7 +324,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.10,
           openFeeUnits: 2
         },
         history: {
@@ -392,7 +392,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.40,
           openFeeUnits: 8
         },
         history: {
@@ -426,7 +426,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.10,
           openFeeUnits: 2
         },
         history: {
@@ -460,7 +460,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.15,
           openFeeUnits: 3
         },
         history: {
@@ -494,7 +494,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.30,
           openFeeUnits: 6
         },
         history: {
@@ -528,7 +528,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.10,
           openFeeUnits: 2
         },
         history: {
@@ -596,7 +596,7 @@ export class FeedManager implements Initializable, FeedHandler {
         },
         pricing: {
           promotionFee: 0,
-          openFee: 0,
+          openFee: 0.20,
           openFeeUnits: 4
         },
         history: {
