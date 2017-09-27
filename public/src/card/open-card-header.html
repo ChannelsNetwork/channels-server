@@ -1,3 +1,5 @@
+<link rel="import" href="../controls/progress-icon.html">
+
 <dom-module id="open-card-header">
   <template>
     <style is="custom-style" include="iron-flex iron-flex-alignment">
@@ -13,9 +15,8 @@
         cursor: pointer;
       }
 
-      .ratingIcon {
-        width: 24px;
-        height: 24px;
+      progress-icon {
+        margin-right: 5px;
       }
 
       .bar {
@@ -78,15 +79,10 @@
         <div class="authorName">[[data.meta.author]]</div>
         <div id="timestamp">[[data.meta.timestamp]]</div>
       </div>
-      <div id="rating" class="vertical layout">
-        <div>
-          <iron-icon class="ratingIcon" icon="ch:thumb-up"></iron-icon>
-          <iron-icon class="ratingIcon" icon="ch:thumb-down"></iron-icon>
-        </div>
-      </div>
-      <div class="horizontal layout center">
-        <iron-icon icon="ch:expand-more"></iron-icon>
-      </div>
+      <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent></progress-icon>
+      <iron-icon icon="ch:expand-more"></iron-icon>
+      <iron-icon icon="ch:fullscreen"></iron-icon>
+      <iron-icon icon="ch:close" on-click="onCloseCard"></iron-icon>
     </div>
   </template>
   <script>
@@ -98,7 +94,8 @@
             type: Object,
             observer: '_onData'
           },
-          price: String
+          price: String,
+          rating: Number
         };
       }
 
@@ -115,6 +112,15 @@
         } else {
           this.$.price.classList.remove("negative");
         }
+        let uc = this.data.meta.upCount;
+        let dc = this.data.meta.downCount;
+        let tc = uc + dc;
+        this.rating = tc ? (uc / tc) * 100 : 0;
+      }
+
+      onCloseCard(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true, detail: {} }));
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);

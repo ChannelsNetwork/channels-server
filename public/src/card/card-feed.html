@@ -30,7 +30,7 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-click="_onCardClick"></card-view>
+          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClose"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -84,6 +84,23 @@
 
       _onCardClick(event) {
         this.dispatchEvent(new CustomEvent('card-click', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
+      }
+
+      _onCardClose(event) {
+        console.log("card-close", event.target, event.currentTarget);
+        this.closeCard();
+      }
+
+      closeCard() {
+        if (this._openCard) {
+          this._openCard.close();
+          this._openCard.style.height = "";
+          this._openCard = null;
+        }
+        if (this._openCardShell) {
+          this._openCardShell.remove();
+          this._openCardShell = null;
+        }
       }
 
       openCard(card) {
