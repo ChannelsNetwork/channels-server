@@ -15,19 +15,14 @@
       }
 
       #feed {
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 0 auto;
         box-sizing: border-box;
       }
-      /* .openCardShell {
-        margin: 10px;
-        box-sizing: border-box;
-        width: 100%;
-      } */
     </style>
     <div class="barspace"></div>
     <div class="main">
-      <card-feed id="feed" items="[[items]]"></card-feed>
+      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick"></card-feed>
     </div>
   </template>
   <script>
@@ -197,70 +192,17 @@
       }
 
       onCardClick(event) {
-        let current = event.target;
-        if (!current) {
-          return;
-        }
-        let currentTop = current.getBoundingClientRect().top;
-        while (current.previousSibling) {
-          if (current.previousSibling.nodeType !== Node.ELEMENT_NODE) {
-            current = current.previousSibling;
-          } else {
-            let prevTop = current.previousSibling.getBoundingClientRect().top;
-            if (prevTop == currentTop) {
-              current = current.previousSibling;
-            } else {
-              break;
-            }
-          }
-        }
-
-        if (this._prevTarget) {
-          this._prevTarget.close(false);
-        }
-
-        let node = document.createElement("div");
-        node.classList.add('openCardShell');
-        node.style.height = window.innerHeight + "px";
-        current.parentElement.insertBefore(node, current);
-        var nodeToRemove = this._prevOpenNode;
-        this._prevOpenNode = node;
-
-        $app.shell.scrollTop = $app.shell.scrollTop + window.innerHeight + 20;
-        this._barShowing = false;
-        $app.setBarVisible(false);
-
-        var target = event.target;
-        this._prevTarget = target;
-        this._preventScroll = true;
-        requestAnimationFrame(() => {
-          this.style.pointerEvents = "none";
-          target.open(node).then(() => {
-            setTimeout(() => {
-              $app.scrollTo(node, 700).then(() => {
-                this.restoreStateAfterAnimation(nodeToRemove);
-              }).catch((err) => {
-                this.restoreStateAfterAnimation(nodeToRemove);
-              });
-            }, 300);
+        let card = event.detail.card;
+        if (card) {
+          this._barShowing = false;
+          $app.setBarVisible(false);
+          this._preventScroll = true;
+          this.$.feed.openCard(card).then(() => {
+            this._preventScroll = false;
           }).catch((err) => {
-            this.restoreStateAfterAnimation(nodeToRemove);
+            this._preventScroll = false;
           });
-        });
-      }
-
-      restoreStateAfterAnimation(nodeToRemove) {
-        if (nodeToRemove) {
-          setTimeout(() => {
-            this.style.pointerEvents = "";
-            nodeToRemove.remove();
-          }, 50);
-        } else {
-          this.style.pointerEvents = "";
         }
-        setTimeout(() => {
-          this._preventScroll = false;
-        }, 200);
       }
     }
     window.customElements.define(PreviewPage.is, PreviewPage);
