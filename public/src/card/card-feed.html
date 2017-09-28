@@ -16,7 +16,7 @@
 
       card-view {
         width: var(--grid-card-width);
-        height: 500px;
+        height: var(--grid-card-height, 500px);
         margin: 1.1%;
         box-sizing: border-box;
       }
@@ -46,6 +46,16 @@
           },
           items: Array
         };
+      }
+
+      constructor() {
+        super();
+        let ht = Math.min(Math.max(400, 0.6 * window.innerHeight), 520);
+        let imgHt = ht < 480 ? "170px" : "250px";
+        this.updateStyles({
+          '--grid-card-height': ht + "px",
+          '--card-img-height': imgHt
+        });
       }
 
       connectedCallback() {
@@ -134,7 +144,7 @@
           // Create a new node to contain the open card
           let node = document.createElement("div");
           node.classList.add('openCardShell');
-          let shellHeight = window.innerHeight - 50;
+          let shellHeight = window.innerHeight - 100;
           node.style.height = shellHeight + "px";
           current.parentElement.insertBefore(node, current);
           var nodeToRemove = this._openCardShell;
