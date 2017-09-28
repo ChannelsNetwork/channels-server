@@ -15,6 +15,11 @@ import { CardDescriptor } from "./interfaces/rest-services";
 import { UserHelper } from "./user-helper";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
+
+export interface UserSocketHandler {
+  onUserSocketMessage(address: string): Promise<UserRecord>;
+}
+
 export class SocketServer implements SocketConnectionHandler {
   private socketsById: { [id: string]: SocketInfo } = {};
   private socketsByAddress: { [address: string]: SocketInfo } = {};
@@ -22,6 +27,7 @@ export class SocketServer implements SocketConnectionHandler {
   private pingTimeout: number;
   private cardHandler: CardHandler;
   private feedHandler: FeedHandler;
+  private userHandler: UserSocketHandler;
 
   private async start(): Promise<void> {
     this.pingInterval = configuration.get('ping.interval', 30000);
@@ -31,6 +37,10 @@ export class SocketServer implements SocketConnectionHandler {
         this.processPings();
       }, 1000);
     }
+  }
+
+  setUserHandler(handler: UserSocketHandler): void {
+    this.userHandler = handler;
   }
 
   async initializeWebsocketServices(urlManager: UrlManager, wsapp: ExpressWithSockets): Promise<void> {
@@ -154,7 +164,7 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    const user = await db.findUserByAddress(msg.details.address);
+    const user = await this.userHandler.onUserSocketMessage(msg.details.address);
     if (!user) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 401, message: "No such user registered" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
@@ -184,7 +194,7 @@ export class SocketServer implements SocketConnectionHandler {
   }
 
   private async handlePostCardRequest(msg: SocketMessage<PostCardDetails>, socket: SocketInfo): Promise<void> {
-    const user = await db.findUserByAddress(socket.address);
+    const user = await this.userHandler.onUserSocketMessage(socket.address);
     if (!user) {
       console.warn("SocketServer.handlePostCardRequest: missing user");
       const errDetails: PostCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cardId: null };
@@ -211,7 +221,7 @@ export class SocketServer implements SocketConnectionHandler {
   }
 
   private async handleMutateCardRequest(msg: SocketMessage<MutateCardDetails>, socket: SocketInfo): Promise<void> {
-    const user = await db.findUserByAddress(socket.address);
+    const user = await this.userHandler.onUserSocketMessage(socket.address);
     if (!user) {
       console.warn("SocketServer.handleMutateCardRequest: missing user");
       const errDetails: MutateCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" } };
@@ -229,7 +239,7 @@ export class SocketServer implements SocketConnectionHandler {
   }
 
   private async handleGetFeed(msg: SocketMessage<GetFeedDetails>, socket: SocketInfo): Promise<void> {
-    const user = await db.findUserByAddress(socket.address);
+    const user = await this.userHandler.onUserSocketMessage(socket.address);
     if (!user) {
       console.warn("SocketServer.handleGetFeed: missing user");
       const errDetails: GetFeedReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cards: [] };
