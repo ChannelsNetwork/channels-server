@@ -1,7 +1,9 @@
 
 export interface UserRecord {
-  address: string;
-  publicKey: string;
+  id: string;
+  keys: UserKey[];
+  address?: string;  // deprecated
+  publicKey?: string; // deprecated
   added: number;
   inviteeCode: string;
   inviterCode: string;
@@ -15,6 +17,14 @@ export interface UserRecord {
   identity?: UserIdentity;
   storage: number;
   admin: boolean;
+  syncCode?: string;
+  syncCodeExpires?: number;
+}
+
+export interface UserKey {
+  address: string;
+  publicKey: string;
+  added: number;
 }
 
 export interface DeviceTokenRecord {
@@ -42,22 +52,50 @@ export interface NetworkRecord {
 
 export interface CardRecord {
   id: string;
-  at: number;
+  postedAt: number;
   by: {
+    id: string;
     address: string;
     handle: string;
     name: string;
     imageUrl: string;
   };
-  imageUrl: string;
-  linkUrl: string;
-  title: string;
-  text: string;
-  cardType: string;
+  summary: {
+    imageUrl: string;
+    linkUrl: string;
+    title: string;
+    text: string;
+  };
+  cardType: {
+    project: string;
+    iconUrl: string;
+  };
+  pricing: {
+    promotionFee: number;
+    openPayment: number; // in ChannelCoin
+    openFeeUnits: number; // 1 - 10
+  };
+  revenue: CardStatistic;
+  impressions: CardStatistic;
+  opens: CardStatistic;
+  likes: CardStatistic;
+  dislikes: CardStatistic;
+  score: CardStatistic;
+  lastScored: number;
   lock: {
     server: string;
     at: number;
   };
+}
+
+export interface CardStatistic {
+  value: number;
+  history: CardStatisticHistory[];
+}
+
+export interface CardStatisticHistory {
+  value: number;
+  at: number;
 }
 
 export type CardMutationType = "set-property" | "inc-property" | "add-record" | "update-record" | "update-record-field" | "inc-record-field" | "delete-record" | "move-record";
@@ -151,7 +189,7 @@ export interface FileRecord {
   id: string;
   at: number;
   status: FileStatus;
-  ownerAddress: string;
+  ownerId: string;
   size: number;
   filename: string;
   encoding: string;

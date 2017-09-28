@@ -28,11 +28,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord> {
+  async postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord> {
     if (!details.text) {
       throw new Error("Invalid card: missing text");
     }
-    const card = await db.insertCard(user.address, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.openPayment, details.openFeeUnits);
     await this.announceCard(card, user);
     return card;
   }
@@ -56,15 +56,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         case "set-property": {
           const pMutation = mutation as SetPropertyMutation;
           if (pMutation.value === 'null') {
-            await db.deleteCardProperty(cardId, pMutation.group, pMutation.group === 'user' ? user.address : '', pMutation.name);
+            await db.deleteCardProperty(cardId, pMutation.group, pMutation.group === 'user' ? user.id : '', pMutation.name);
           } else {
-            await db.upsertCardProperty(cardId, pMutation.group, pMutation.group === 'user' ? user.address : '', pMutation.name, pMutation.value);
+            await db.upsertCardProperty(cardId, pMutation.group, pMutation.group === 'user' ? user.id : '', pMutation.name, pMutation.value);
           }
           break;
         }
         case "inc-property": {
           const ipMutation = mutation as IncrementPropertyMutation;
-          const property = await db.findCardProperty(cardId, ipMutation.group, ipMutation.group === 'user' ? user.address : '', ipMutation.name);
+          const property = await db.findCardProperty(cardId, ipMutation.group, ipMutation.group === 'user' ? user.id : '', ipMutation.name);
           let value = 0;
           if (property) {
             if (typeof property.value === 'number') {
@@ -72,32 +72,32 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             }
           }
           value += ipMutation.incrementBy;
-          await db.upsertCardProperty(cardId, ipMutation.group, ipMutation.group === 'user' ? user.address : '', ipMutation.name, value);
+          await db.upsertCardProperty(cardId, ipMutation.group, ipMutation.group === 'user' ? user.id : '', ipMutation.name, value);
           break;
         }
         case "add-record": {
           const arMutation = mutation as AddRecordMutation;
           let newIndex: number;
           if (arMutation.beforeKey) {
-            const before = await db.findCardCollectionItemRecord(card.id, arMutation.group, user.address, arMutation.collectionName, arMutation.beforeKey);
+            const before = await db.findCardCollectionItemRecord(card.id, arMutation.group, user.id, arMutation.collectionName, arMutation.beforeKey);
             if (before) {
-              const prior = await db.findFirstCardCollectionItemRecordBeforeIndex(card.id, arMutation.group, user.address, arMutation.collectionName, before.index);
+              const prior = await db.findFirstCardCollectionItemRecordBeforeIndex(card.id, arMutation.group, user.id, arMutation.collectionName, before.index);
               newIndex = prior ? (before.index - prior.index) / 2.0 : before.index - 1;
             } else {
               throw new Error("No record with specified before key");
             }
           } else {
-            const after = await db.findCardCollectionItemRecordLast(card.id, arMutation.group, user.address, arMutation.collectionName);
+            const after = await db.findCardCollectionItemRecordLast(card.id, arMutation.group, user.id, arMutation.collectionName);
             newIndex = after ? after.index + 1 : 1;
           }
-          await db.insertCardCollectionItem(card.id, arMutation.group, user.address, arMutation.collectionName, arMutation.key, newIndex, arMutation.value);
+          await db.insertCardCollectionItem(card.id, arMutation.group, user.id, arMutation.collectionName, arMutation.key, newIndex, arMutation.value);
           break;
         }
         case "update-record": {
           const urMutation = mutation as UpdateRecordMutation;
-          const existing = await db.findCardCollectionItemRecord(card.id, urMutation.group, user.address, urMutation.collectionName, urMutation.key);
+          const existing = await db.findCardCollectionItemRecord(card.id, urMutation.group, user.id, urMutation.collectionName, urMutation.key);
           if (existing) {
-            await db.updateCardCollectionItemRecord(card.id, urMutation.group, user.address, urMutation.collectionName, urMutation.key, urMutation.value);
+            await db.updateCardCollectionItemRecord(card.id, urMutation.group, user.id, urMutation.collectionName, urMutation.key, urMutation.value);
           } else {
             throw new Error("No such collection item");
           }
@@ -105,12 +105,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         case "update-record-field": {
           const urfMutation = mutation as UpdateRecordFieldMutation;
-          const existing = await db.findCardCollectionItemRecord(card.id, urfMutation.group, user.address, urfMutation.collectionName, urfMutation.key);
+          const existing = await db.findCardCollectionItemRecord(card.id, urfMutation.group, user.id, urfMutation.collectionName, urfMutation.key);
           if (existing) {
             if (urfMutation.value === null) {
-              await db.unsetCardCollectionItemField(card.id, urfMutation.group, user.address, urfMutation.collectionName, urfMutation.key, urfMutation.path);
+              await db.unsetCardCollectionItemField(card.id, urfMutation.group, user.id, urfMutation.collectionName, urfMutation.key, urfMutation.path);
             } else {
-              await db.updateCardCollectionItemField(card.id, urfMutation.group, user.address, urfMutation.collectionName, urfMutation.key, urfMutation.path, urfMutation.value);
+              await db.updateCardCollectionItemField(card.id, urfMutation.group, user.id, urfMutation.collectionName, urfMutation.key, urfMutation.path, urfMutation.value);
             }
           } else {
             throw new Error("No such collection item");
@@ -119,9 +119,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         case "inc-record-field": {
           const irfMutation = mutation as IncrementRecordFieldMutation;
-          const existing = await db.findCardCollectionItemRecord(card.id, irfMutation.group, user.address, irfMutation.collectionName, irfMutation.key);
+          const existing = await db.findCardCollectionItemRecord(card.id, irfMutation.group, user.id, irfMutation.collectionName, irfMutation.key);
           if (existing) {
-            await db.incrementCardCollectionItemField(card.id, irfMutation.group, user.address, irfMutation.collectionName, irfMutation.key, irfMutation.path, irfMutation.incrementBy);
+            await db.incrementCardCollectionItemField(card.id, irfMutation.group, user.id, irfMutation.collectionName, irfMutation.key, irfMutation.path, irfMutation.incrementBy);
           } else {
             throw new Error("No such collection item");
           }
@@ -129,25 +129,25 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         case "delete-record": {
           const drMutation = mutation as DeleteRecordMutation;
-          await db.deleteCardCollectionItemRecord(card.id, drMutation.group, user.address, drMutation.collectionName, drMutation.key);
+          await db.deleteCardCollectionItemRecord(card.id, drMutation.group, user.id, drMutation.collectionName, drMutation.key);
           break;
         }
         case "move-record": {
           const mrMutation = mutation as MoveRecordMutation;
           let modifiedIndex: number;
           if (mrMutation.beforeKey) {
-            const before = await db.findCardCollectionItemRecord(card.id, mrMutation.group, user.address, mrMutation.collectionName, mrMutation.beforeKey);
+            const before = await db.findCardCollectionItemRecord(card.id, mrMutation.group, user.id, mrMutation.collectionName, mrMutation.beforeKey);
             if (before) {
-              const prior = await db.findFirstCardCollectionItemRecordBeforeIndex(card.id, mrMutation.group, user.address, mrMutation.collectionName, before.index);
+              const prior = await db.findFirstCardCollectionItemRecordBeforeIndex(card.id, mrMutation.group, user.id, mrMutation.collectionName, before.index);
               modifiedIndex = prior ? (before.index - prior.index) / 2.0 : before.index - 1;
             } else {
               throw new Error("No record with specified before key");
             }
           } else {
-            const after = await db.findCardCollectionItemRecordLast(card.id, mrMutation.group, user.address, mrMutation.collectionName);
+            const after = await db.findCardCollectionItemRecordLast(card.id, mrMutation.group, user.id, mrMutation.collectionName);
             modifiedIndex = after ? after.index + 1 : 1;
           }
-          await db.updateCardCollectionItemIndex(card.id, mrMutation.group, user.address, mrMutation.collectionName, mrMutation.key, modifiedIndex);
+          await db.updateCardCollectionItemIndex(card.id, mrMutation.group, user.id, mrMutation.collectionName, mrMutation.key, modifiedIndex);
           break;
         }
         default:
@@ -160,7 +160,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (lastMutation && lastMutation.at >= at) {
         at = lastMutation.at + 1;
       }
-      const mutationRecord = await db.insertMutation(card.id, mutation.group, user.address, mutation, at);
+      const mutationRecord = await db.insertMutation(card.id, mutation.group, user.id, mutation, at);
       await this.announceMutation(mutationRecord, user);
     } finally {
       if (card) {
@@ -172,7 +172,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private async announceCard(card: CardRecord, user: UserRecord): Promise<void> {
     const notification: ChannelsServerNotification = {
       type: 'card-posted',
-      user: user.address,
+      user: user.id,
       card: card.id
     };
     await awsManager.sendSns(notification);
@@ -181,7 +181,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private async announceMutation(mutationRecord: CardMutationRecord, user: UserRecord): Promise<void> {
     const notification: ChannelsServerNotification = {
       type: 'mutation',
-      user: user.address,
+      user: user.id,
       card: mutationRecord.cardId,
       mutation: mutationRecord.mutationId
     };
@@ -254,18 +254,34 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     try {
       const card: CardDescriptor = {
         id: record.id,
-        at: record.at,
+        postedAt: record.postedAt,
         by: {
           address: record.by.address,
           handle: record.by.handle,
           name: record.by.name,
-          imageUrl: record.by.imageUrl
+          imageUrl: record.by.imageUrl,
+          isFollowing: false,
+          isBlocked: false
         },
-        imageUrl: record.imageUrl,
-        linkUrl: record.linkUrl,
-        title: record.title,
-        text: record.text,
+        summary: {
+          imageUrl: record.summary.imageUrl,
+          linkUrl: record.summary.linkUrl,
+          title: record.summary.title,
+          text: record.summary.text,
+        },
         cardType: record.cardType,
+        pricing: {
+          promotionFee: record.pricing.promotionFee,
+          openFeeUnits: record.pricing.openFeeUnits,
+          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * this.getBaseCardPrice() : -record.pricing.openPayment,
+        },
+        history: {
+          revenue: record.revenue.value,
+          likes: record.likes.value,
+          dislikes: record.dislikes.value,
+          opens: record.opens.value,
+          impressions: 0
+        },
         state: {
           user: {
             mutationId: null,
@@ -317,6 +333,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
+  }
+
+  private getBaseCardPrice(): number {
+    return 0;
   }
 
 }

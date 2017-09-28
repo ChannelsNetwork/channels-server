@@ -2,8 +2,9 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic } from "./interfaces/db-records";
 import { Utils } from "./utils";
+import { UserHelper } from "./user-helper";
 
 export class Database {
   private db: Db;
@@ -44,7 +45,28 @@ export class Database {
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    await this.users.createIndex({ address: 1 }, { unique: true });
+    try {
+      const exists = await this.users.indexExists("address_1");
+      if (exists) {
+        await this.users.dropIndex("address_1");
+      }
+    } catch (err) {
+      console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
+    }
+
+    // Migrate old users with single address/publicKey to new collection
+    const existing = await this.users.find<UserRecord>({ address: { $exists: true } }).toArray();
+    for (const u of existing) {
+      await this.users.updateOne({ address: u.address }, { $push: { keys: { address: u.address, publicKey: u.publicKey, added: u.added } }, $unset: { address: 1, publicKey: 1 } });
+    }
+
+    const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
+    for (const u of noIds) {
+      await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
+    }
+
+    await this.users.createIndex({ id: 1 }, { unique: true });
+    await this.users.createIndex({ "keys.address": 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
     await this.users.createIndex({ balanceLastUpdated: -1 });
@@ -54,8 +76,28 @@ export class Database {
   private async initializeCards(): Promise<void> {
     this.cards = this.db.collection('cards');
     await this.cards.createIndex({ id: 1 }, { unique: true });
-    await this.cards.createIndex({ at: -1, "by.address": -1 });
+    await this.cards.createIndex({ postedAt: -1, "by.address": -1 });
     await this.cards.createIndex({ "by.address": 1, at: -1 });
+    await this.cards.createIndex({ postedAt: 1, lastScored: -1 });
+
+    // Migrate cards that don't have stats set up yet...
+    const existing = await this.cards.find<CardRecord>({ opens: { $exists: false } }).toArray();
+    const stat: CardStatistic = {
+      value: 0,
+      history: []
+    };
+    for (const card of existing) {
+      await this.cards.updateOne({ id: card.id }, {
+        $set: {
+          revenue: stat,
+          opens: stat,
+          likes: stat,
+          dislikes: stat,
+          score: stat
+        }
+      });
+    }
+    await this.cards.updateMany({ lastScored: { $exists: false } }, { $set: { lastScored: 0 } });
   }
 
   private async initializeMutationIndexes(): Promise<void> {
@@ -119,8 +161,8 @@ export class Database {
   async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
-      address: address,
-      publicKey: publicKey,
+      id: uuid.v4(),
+      keys: [{ address: address, publicKey: publicKey, added: now }],
       added: now,
       inviteeCode: inviteeCode,
       inviterCode: inviterCode,
@@ -138,8 +180,23 @@ export class Database {
     return record;
   }
 
+  async updateUserAddAddress(user: UserRecord, newAddress: string, newPublicKey: string): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $push: { keys: { address: newAddress, publicKey: newPublicKey } } });
+    user.keys.push({ address: newAddress, publicKey: newPublicKey, added: Date.now() });
+  }
+
+  async updateUserSyncCode(user: UserRecord, syncCode: string, syncCodeExpires: number): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { syncCode: syncCode, syncCodeExpires: syncCodeExpires } });
+    user.syncCode = syncCode;
+    user.syncCodeExpires = syncCodeExpires;
+  }
+
+  async findUserById(id: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ id: id });
+  }
+
   async findUserByAddress(address: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ address: address });
+    return await this.users.findOne<UserRecord>({ "keys.address": address });
   }
 
   async findUserByInviterCode(code: string): Promise<UserRecord> {
@@ -154,8 +211,16 @@ export class Database {
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
-    await this.users.updateOne({ address: userRecord.address }, { $set: { lastContact: lastContact } });
+    await this.users.updateOne({ id: userRecord.id }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
+  }
+
+  async updateUserRemoveAddress(address: string): Promise<void> {
+    await this.users.updateOne({ "keys.address": address }, { $pull: { keys: { address: address } } });
+  }
+
+  async deleteUser(address: string): Promise<void> {
+    await this.users.deleteOne({ "keys.address": address });
   }
 
   async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string, emailAddress: string): Promise<void> {
@@ -189,11 +254,11 @@ export class Database {
       update["identity.emailAddress"] = emailAddress;
       userRecord.identity.emailAddress = emailAddress;
     }
-    await this.users.updateOne({ address: userRecord.address }, { $set: update });
+    await this.users.updateOne({ id: userRecord.id }, { $set: update });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
-    await this.users.updateOne({ address: user.address }, {
+    await this.users.updateOne({ id: user.id }, {
       $inc: {
         balance: reward,
         inviterRewards: reward,
@@ -208,7 +273,7 @@ export class Database {
   }
 
   async incrementUserStorage(user: UserRecord, size: number): Promise<void> {
-    await this.users.updateOne({ address: user.address }, {
+    await this.users.updateOne({ id: user.id }, {
       $inc: {
         storage: size
       }
@@ -221,12 +286,12 @@ export class Database {
   }
 
   async updateUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBy: number, now: number): Promise<void> {
-    const result = await this.users.updateOne({ address: user.address, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
+    const result = await this.users.updateOne({ id: user.id, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
     if (result.modifiedCount > 0) {
       user.balance += incrementBy;
       user.balanceLastUpdated = now;
     } else {
-      const updatedUser = await this.findUserByAddress(user.address);
+      const updatedUser = await this.findUserById(user.id);
       if (updatedUser) {
         user.balance = updatedUser.balance;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
@@ -234,22 +299,40 @@ export class Database {
     }
   }
 
-  async insertCard(byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: uuid.v4(),
-      at: now,
+      postedAt: now,
       by: {
+        id: byUserId,
         address: byAddress,
         handle: byHandle,
         name: byName,
         imageUrl: byImageUrl
       },
-      imageUrl: cardImageUrl,
-      linkUrl: linkUrl,
-      title: title,
-      text: text,
-      cardType: cardType,
+      summary: {
+        imageUrl: cardImageUrl,
+        linkUrl: linkUrl,
+        title: title,
+        text: text,
+      },
+      cardType: {
+        project: cardType,
+        iconUrl: cardTypeIconUrl
+      },
+      pricing: {
+        promotionFee: promotionFee,
+        openPayment: openPayment,
+        openFeeUnits: openFeeUnits
+      },
+      revenue: { value: 0, history: [] },
+      opens: { value: 0, history: [] },
+      impressions: { value: 0, history: [] },
+      likes: { value: 0, history: [] },
+      dislikes: { value: 0, history: [] },
+      score: { value: 0, history: [] },
+      lastScored: now,
       lock: {
         server: '',
         at: 0
@@ -271,7 +354,16 @@ export class Database {
       }
       if (card.lock && card.lock.at > 0 && Date.now() - card.lock.at > timeout || !card.lock || card.lock.at === 0) {
         const lock = { server: serverId, at: Date.now() };
-        const updateResult = await this.cards.updateOne({ id: cardId, "lock.server": card.lock.server, "lock.at": card.lock.at }, { $set: { lock: lock } });
+        const query: any = { id: cardId };
+        if (card.lock) {
+          if (card.lock.server) {
+            query["lock.server"] = card.lock.server;
+          }
+          if (card.lock.server) {
+            query["lock.at"] = card.lock.at;
+          }
+        }
+        const updateResult = await this.cards.updateOne(query, { $set: { lock: lock } });
         if (updateResult.modifiedCount === 1) {
           card.lock = lock;
           return card;
@@ -293,17 +385,36 @@ export class Database {
     return await this.cards.findOne<CardRecord>({ id: id });
   }
 
+  async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
+  }
+
+  async updateCardScore(card: CardRecord, score: number, addHistory: boolean): Promise<void> {
+    const now = Date.now();
+    const update: any = { $set: { "score.value": score, lastScored: now } };
+    if (addHistory) {
+      update.$push = { "score.history": { value: score, at: now } };
+    }
+    await this.cards.updateOne({ id: card.id }, update);
+    card.score.value = score;
+    card.lastScored = now;
+  }
+
+  async clearCardScoreHistoryBefore(card: CardRecord, before: number): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, { $pull: { history: { at: { $lte: before } } } });
+  }
+
   async findCards(beforeCard: CardRecord, afterCard: CardRecord, maxCount: number): Promise<CardRecord[]> {
     let cursor = this.cards.find();
     let anyCursor = cursor as any;  // appears to be a bug in type definitions related to max/min
     if (afterCard) {
-      anyCursor = anyCursor.min({ at: afterCard.at, "by.address": afterCard.by.address });
+      anyCursor = anyCursor.min({ postedAt: afterCard.postedAt, "by.address": afterCard.by.address });
     }
     if (beforeCard) {
-      anyCursor = anyCursor.max({ at: beforeCard.at, "by.address": beforeCard.by.address });
+      anyCursor = anyCursor.max({ postedAt: beforeCard.postedAt, "by.address": beforeCard.by.address });
     }
     cursor = anyCursor as Cursor<CardRecord>;
-    return await cursor.sort({ at: -1, byAddress: -1 }).limit(maxCount).toArray();
+    return await cursor.sort({ postedAt: -1, byAddress: -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByTime(before: number, after: number, maxCount: number): Promise<CardRecord[]> {
@@ -314,7 +425,7 @@ export class Database {
     if (after) {
       query.after = { $gt: after };
     }
-    return this.cards.find(query).sort({ at: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
   async ensureMutationIndex(): Promise<void> {
@@ -495,7 +606,7 @@ export class Database {
       id: uuid.v4(),
       at: now,
       status: status,
-      ownerAddress: null,
+      ownerId: null,
       size: 0,
       filename: null,
       encoding: null,
@@ -515,10 +626,10 @@ export class Database {
     fileRecord.status = status;
   }
 
-  async updateFileProgress(fileRecord: FileRecord, ownerAddress: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus): Promise<void> {
+  async updateFileProgress(fileRecord: FileRecord, ownerId: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus): Promise<void> {
     await this.files.updateOne({ id: fileRecord.id }, {
       $set: {
-        ownerAddress: ownerAddress,
+        ownerId: ownerId,
         filename: filename,
         encoding: encoding,
         mimetype: mimetype,
@@ -526,7 +637,7 @@ export class Database {
         status: status
       }
     });
-    fileRecord.ownerAddress = ownerAddress;
+    fileRecord.ownerId = ownerId;
     fileRecord.filename = filename;
     fileRecord.encoding = encoding;
     fileRecord.mimetype = mimetype;

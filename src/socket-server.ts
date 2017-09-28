@@ -12,6 +12,7 @@ import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { CardRecord, UserRecord, Mutation, CardMutationRecord } from "./interfaces/db-records";
 import { CardDescriptor } from "./interfaces/rest-services";
+import { UserHelper } from "./user-helper";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class SocketServer implements SocketConnectionHandler {
@@ -67,7 +68,8 @@ export class SocketServer implements SocketConnectionHandler {
       lastPingSent: Date.now(),
       lastPingReply: Date.now(),
       pingId: Math.floor(Math.random() * 1000),
-      address: null
+      address: null,
+      userId: null
     };
     console.log("SocketServer: socket connected", socketId);
   }
@@ -158,7 +160,13 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    if (!KeyUtils.verifyString(msg.details.signedDetails, user.publicKey, msg.details.signature)) {
+    const publicKey = UserHelper.getPublicKeyForAddress(user, msg.details.address);
+    if (!publicKey) {
+      const errDetails: OpenReplyDetails = { success: false, error: { code: 401, message: "Invalid address" } };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+      return;
+    }
+    if (!KeyUtils.verifyString(msg.details.signedDetails, publicKey, msg.details.signature)) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 403, message: "Invalid signature" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
@@ -168,8 +176,9 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    socket.address = user.address;
-    this.socketsByAddress[user.address] = socket;
+    socket.address = msg.details.address;
+    socket.userId = user.id;
+    this.socketsByAddress[msg.details.address] = socket;
     const details: OpenReplyDetails = { success: true };
     socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
   }
@@ -188,7 +197,7 @@ export class SocketServer implements SocketConnectionHandler {
       return;
     }
     try {
-      const card = await this.cardHandler.postCard(user, msg.details);
+      const card = await this.cardHandler.postCard(user, msg.details, socket.address);
       const details: PostCardReplyDetails = {
         success: true,
         cardId: card.id
@@ -227,7 +236,7 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    const cards = await this.feedHandler.getUserFeed(user.address, msg.details.maxCount, msg.details.before, msg.details.after);
+    const cards = await this.feedHandler.getUserFeed(user.id, msg.details.maxCount, msg.details.before, msg.details.after);
     const details: GetFeedReplyDetails = {
       success: true,
       cards: cards
@@ -288,6 +297,7 @@ interface SocketInfo {
   lastPingSent: number;
   lastPingReply: number;
   pingId: number;
+  userId: string;
   address: string;
 }
 
@@ -299,12 +309,12 @@ interface ChannelSocket {
 }
 
 export interface CardHandler {
-  postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord>;
+  postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord>;
   mutateCard(user: UserRecord, cardId: string, mutation: Mutation): Promise<CardMutationRecord>;
 }
 
 export interface FeedHandler {
-  getUserFeed(userAddress: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]>;
+  getUserFeed(userId: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]>;
 }
 
 const socketServer = new SocketServer();

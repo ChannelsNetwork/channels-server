@@ -14,6 +14,7 @@ import * as uuid from "uuid";
 import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
+import { UserHelper } from "./user-helper";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -87,7 +88,13 @@ export class FileManager implements RestServer {
         await this.abortFile(fileRecord);
         return;
       }
-      if (!KeyUtils.verifyString(signatureTimestamp, user.publicKey, signature)) {
+      const publicKey = UserHelper.getPublicKeyForAddress(user, ownerAddress);
+      if (!publicKey) {
+        response.status(401).send("No such address");
+        await this.abortFile(fileRecord);
+        return;
+      }
+      if (!KeyUtils.verifyString(signatureTimestamp, publicKey, signature)) {
         response.status(403).send("Invalid signature");
         await this.abortFile(fileRecord);
         return;
@@ -121,8 +128,8 @@ export class FileManager implements RestServer {
     if (mimetype) {
       destination.ContentType = mimetype;
     }
-    destination.Tagging = "owner=" + user.address;
-    await db.updateFileProgress(fileRecord, user.address, filename, encoding, mimetype, key, 'uploading');
+    destination.Tagging = "owner=" + user.id;
+    await db.updateFileProgress(fileRecord, user.id, filename, encoding, mimetype, key, 'uploading');
     const upload = this.s3StreamUploader.upload(destination);
     upload.on('error', (err) => {
       console.warn("FileManager.uploadS3: upload failed", err);

@@ -50,7 +50,7 @@ class ChannelsNetworkWebClient {
     await db.initialize();
     await this.ensureNetwork();
     for (const initializable of this.initializables) {
-      await initializable.initialize();
+      await initializable.initialize(this.urlManager);
     }
     await this.setupExpress();
 
