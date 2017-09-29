@@ -8,6 +8,7 @@ import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, PostCardDetails, NotifyCardMutationDetails } from "./interfaces/socket-messages";
 import { CardDescriptor } from "./interfaces/rest-services";
+import { priceRegulator } from "./price-regulator";
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -251,6 +252,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!record) {
       return null;
     }
+    const basePrice = await priceRegulator.getBaseCardFee();
     try {
       const card: CardDescriptor = {
         id: record.id,
@@ -273,7 +275,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         pricing: {
           promotionFee: record.pricing.promotionFee,
           openFeeUnits: record.pricing.openFeeUnits,
-          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * this.getBaseCardPrice() : -record.pricing.openPayment,
+          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
         history: {
           revenue: record.revenue.value,
@@ -333,10 +335,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
-  }
-
-  private getBaseCardPrice(): number {
-    return 0;
   }
 
 }

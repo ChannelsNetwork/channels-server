@@ -773,7 +773,7 @@ export class Database {
   }
 
   async findFirstCardOpensBefore(before: number): Promise<CardOpensRecord> {
-    const result = await this.cardOpens.find<CardOpensRecord>({ periodStarted: { $lt: before } }).sort({ periodStarting: -1 }).limit(1).toArray();
+    const result = await this.cardOpens.find<CardOpensRecord>({ periodStarted: { $lt: before } }).sort({ periodStarted: -1 }).limit(1).toArray();
     if (result.length > 0) {
       return result[0];
     } else {
@@ -782,7 +782,7 @@ export class Database {
   }
 
   async findCurrentCardOpens(): Promise<CardOpensRecord> {
-    const result = await this.cardOpens.find<CardOpensRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
+    const result = await this.cardOpens.find<CardOpensRecord>({}).sort({ periodStarted: -1 }).limit(1).toArray();
     if (result.length > 0) {
       return result[0];
     } else {
