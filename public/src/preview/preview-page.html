@@ -1,0 +1,154 @@
+<link rel="import" href="../card/card-feed.html">
+
+<dom-module id="preview-page">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+       :host {
+        display: block;
+        background: #fafafa;
+        color: #000;
+        min-height: 100vh;
+      }
+
+      .main {
+        padding: 0 0 20px;
+      }
+
+      .header {
+        padding: 20px;
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .header div {
+        max-width: 800px;
+      }
+
+      #feed {
+        max-width: 1200px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 600px) {
+        .header {
+          padding: 5px 10px;
+          font-size: 14px;
+        }
+      }
+    </style>
+    <div class="barspace"></div>
+    <div class="header">
+      <div>
+        <p>
+          This is an example of what your feed will look like when we go live.
+        </p>
+        <p>
+          You can see a variety of cards, each with its own price tag. These cards do not yet have content but if they did, when you
+          tap on one, your balance would go down or up accordingly.
+        </p>
+      </div>
+    </div>
+    <div class="main">
+      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-close="onCardClose"></card-feed>
+    </div>
+  </template>
+  <script>
+    class PreviewPage extends Polymer.Element {
+      static get is() { return "preview-page"; }
+      static get properties() {
+        return {
+          items: Array
+        }
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        let items = $core.dummy.getPreviewCards();
+        this.items = items;
+      }
+
+      onActivate() {
+        this._barShowing = true;
+        this._prevScrollValue = 0;
+        this._preventScroll = false;
+        this._scrollListener = () => {
+          if (!this._preventScroll) {
+            this.onScroll();
+          }
+        };
+        $app.shell.addEventListener("scroll", this._scrollListener);
+
+        this._resizeListener = _debounce(() => {
+          this.onResize();
+        }, 350);
+        window.addEventListener("resize", this._resizeListener);
+        this.onResize();
+      }
+
+      onDeactivate() {
+        if (this._scrollListener) {
+          $app.shell.removeEventListener("scroll", this._scrollListener);
+          this._scrollListener = null;
+        }
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      onResize() {
+        this.$.feed.refreshLayout();
+      }
+
+      onScroll() {
+        if (!this._prevScrollValue) {
+          this._prevScrollValue = $app.shell.scrollTop;
+        } else {
+          if ($app.shell.scrollTop <= 0) {
+            this._prevScrollValue = 0;
+            if (!this._barShowing) {
+              this._barShowing = true;
+              $app.setBarVisible(true);
+            }
+            return;
+          }
+          let diff = $app.shell.scrollTop - this._prevScrollValue;
+          if (diff > 10) {
+            this._prevScrollValue = $app.shell.scrollTop;
+            if (this._barShowing) {
+              this._barShowing = false;
+              $app.setBarVisible(false);
+            }
+          } else if (diff < -5) {
+            this._prevScrollValue = $app.shell.scrollTop;
+            if (!this._barShowing) {
+              this._barShowing = true;
+              $app.setBarVisible(true);
+            }
+          }
+        }
+      }
+
+      onCardClose() {
+        this._barShowing = true;
+        $app.setBarVisible(true);
+      }
+
+      onCardClick(event) {
+        let card = event.detail.card;
+        if (card) {
+          this._barShowing = false;
+          $app.setBarVisible(false);
+          this._preventScroll = true;
+          this.$.feed.openCard(card).then(() => {
+            this._preventScroll = false;
+          }).catch((err) => {
+            this._preventScroll = false;
+          });
+        }
+      }
+    }
+    window.customElements.define(PreviewPage.is, PreviewPage);
+  </script>
+</dom-module>

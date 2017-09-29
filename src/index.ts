@@ -29,7 +29,7 @@ import { mediumManager } from "./medium-manager";
 import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 
-const VERSION = 9;
+const VERSION = 12;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
