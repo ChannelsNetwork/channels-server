@@ -8,7 +8,10 @@ export interface UserRecord {
   inviteeCode: string;
   inviterCode: string;
   balance: number;
+  withdrawableBalance: number;
+  targetBalance: number;
   balanceLastUpdated: number;
+  balanceBelowTarget: boolean;
   inviteeReward: number;
   inviterRewards: number;
   invitationsRemaining: number;
@@ -213,4 +216,24 @@ export interface NewsItemRecord {
   text: string;
   imageUrl: string;
   linkUrl: string;
+}
+
+export interface SubsidyBalanceRecord {
+  id: string;
+  balance: number;
+  totalContributions: number;
+  totalPayments: number;
+  lastContribution: number;
+}
+
+export interface CardOpensRecord {
+  periodStarted: number;
+  periodEnded: number;
+  thisPeriod: CardOpensInfo;
+  total: CardOpensInfo;
+}
+
+export interface CardOpensInfo {
+  opens: number;
+  units: number;
 }

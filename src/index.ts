@@ -26,6 +26,7 @@ import { Initializable } from "./interfaces/initializable";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
 import { socketServer } from "./socket-server";
 import { mediumManager } from "./medium-manager";
+import { priceRegulator } from "./price-regulator";
 
 const VERSION = 9;
 const INITIAL_NETWORK_BALANCE = 25000;
@@ -34,7 +35,7 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private initializables: Initializable[] = [awsManager, cardManager, feedManager];
+  private initializables: Initializable[] = [awsManager, cardManager, feedManager, priceRegulator];
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;

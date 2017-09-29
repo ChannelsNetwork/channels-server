@@ -13,6 +13,8 @@ import { KeyUtils } from "./key-utils";
 import { RestHelper } from "./rest-helper";
 import * as url from 'url';
 import { UserHelper } from "./user-helper";
+import { socketServer, UserSocketHandler } from "./socket-server";
+import { priceRegulator } from "./price-regulator";
 
 const INITIAL_BALANCE = 10;
 const INVITER_REWARD = 2;
@@ -24,10 +26,10 @@ const DIGITS = '0123456789';
 const NETWORK_BALANCE_RANDOM_PRODUCT = 1.5;
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
-const BALANCE_UPDATE_INTERVAL = 60 * 60 * 1000;
+const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 5;
 const SYNC_CODE_LIFETIME = 1000 * 60 * 5;
 
-export class UserManager implements RestServer {
+export class UserManager implements RestServer, UserSocketHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
@@ -36,6 +38,7 @@ export class UserManager implements RestServer {
     this.urlManager = urlManager;
     this.app = app;
     this.registerHandlers();
+    socketServer.setUserHandler(this);
     this.goLiveDate = new Date(2017, 11, 15, 12, 0, 0, 0).getTime();
     setInterval(() => {
       void this.updateBalances();
@@ -375,7 +378,22 @@ export class UserManager implements RestServer {
 
   private async updateUserBalance(user: UserRecord): Promise<void> {
     const now = Date.now();
-    await db.updateUserBalance(user, user.balanceLastUpdated, this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance), now);
+    let subsidy = 0;
+    let balanceBelowTarget = false;
+    if (user.balanceBelowTarget) {
+      const subsidyRate = await priceRegulator.getUserSubsidyRate();
+      subsidy = (now - user.balanceLastUpdated) * subsidyRate;
+      if (user.targetBalance > user.balance + subsidy) {
+        balanceBelowTarget = true;
+      } else {
+        subsidy = Math.min(subsidy, user.targetBalance - user.balance);
+      }
+      if (subsidy > 0) {
+        await priceRegulator.onUserSubsidyPaid(subsidy);
+      }
+    }
+    const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
+    await db.incrementUserBalance(user, user.balanceLastUpdated, interest + subsidy, interest, balanceBelowTarget, now);
   }
 
   private calculateInterestBetween(from: number, to: number, balance: number): number {
@@ -383,6 +401,15 @@ export class UserManager implements RestServer {
       return 0;
     }
     return (to - from) * balance * INTEREST_RATE_PER_MILLISECOND;
+  }
+
+  async onUserSocketMessage(address: string): Promise<UserRecord> {
+    const user = await db.findUserByAddress(address);
+    if (!user) {
+      return null;
+    }
+    await db.updateLastUserContact(user, Date.now());
+    return user;
   }
 }
 
