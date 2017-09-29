@@ -71,16 +71,12 @@
       }
 
       @media (max-width: 600px) {
-        #closeIcon {
-          display: none;
-        }
-
-        .bar.fullscreen #closeIcon {
-          display: initial;
-        }
-
         iron-icon {
           padding: 0 6px 0 4px;
+        }
+        #moreIcon,
+        #fullIcon {
+          display: none;
         }
       }
     </style>
@@ -94,7 +90,7 @@
         <div id="timestamp">[[data.postedAt]]</div>
       </div>
       <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent on-click="showToast"></progress-icon>
-      <iron-icon icon="ch:expand-more" on-click="showToast"></iron-icon>
+      <iron-icon id="moreIcon" icon="ch:expand-more" on-click="showToast"></iron-icon>
       <iron-icon id="fullIcon" icon="ch:fullscreen" on-click="showToast"></iron-icon>
       <iron-icon id="closeIcon" icon="ch:close" on-click="onCloseCard"></iron-icon>
     </div>
