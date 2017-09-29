@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
 
@@ -18,6 +18,8 @@ export class Database {
   private files: Collection;
   private newsItems: Collection;
   private deviceTokens: Collection;
+  private cardOpens: Collection;
+  private subsidyBalance: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -36,6 +38,8 @@ export class Database {
     await this.initializeFiles();
     await this.initializeNewsItems();
     await this.initializeDeviceTokens();
+    await this.initializeCardOpens();
+    await this.initializeSubsidyBalance();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -70,7 +74,19 @@ export class Database {
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
     await this.users.createIndex({ balanceLastUpdated: -1 });
+    await this.users.createIndex({ lastContact: -1 });
+    await this.users.createIndex({ belowTargetBalance: 1 });
+
+    await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
+    await this.users.updateMany({ belowTargetBalance: { $exists: false } }, { $set: { belowTargetBalance: false } });
+    await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
+    await this.users.updateMany({ widthdrawableBalance: { $exists: false } }, { $set: { widthdrawableBalance: 0 } });
     await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
+
+    const noTarget = await this.users.find<UserRecord>({ targetBalance: 0 }).toArray();
+    for (const u of noTarget) {
+      await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
+    }
   }
 
   private async initializeCards(): Promise<void> {
@@ -140,6 +156,33 @@ export class Database {
     await this.deviceTokens.createIndex({ userAddress: 1, type: 1 });
   }
 
+  private async initializeCardOpens(): Promise<void> {
+    this.cardOpens = this.db.collection('cardOpens');
+    await this.cardOpens.createIndex({ periodStarted: -1 }, { unique: true });
+    await this.cardOpens.createIndex({ periodEnded: -1 }, { unique: true });
+  }
+
+  private async initializeSubsidyBalance(): Promise<void> {
+    this.subsidyBalance = this.db.collection('subsidyBalance');
+    await this.subsidyBalance.createIndex({ id: 1 }, { unique: true });
+    await this.subsidyBalance.createIndex({ lastContribution: 1 });
+    const count = await this.subsidyBalance.count({});
+    if (count < 1) {
+      const record: SubsidyBalanceRecord = {
+        id: "1",
+        balance: 0,
+        totalContributions: 0,
+        totalPayments: 0,
+        lastContribution: Date.now()
+      };
+      try {
+        await this.subsidyBalance.insertOne(record);
+      } catch (err) {
+        console.error("Db.initializeSubsidyBalance: collision adding initial record");
+      }
+    }
+  }
+
   async insertNetwork(balance: number): Promise<NetworkRecord> {
     const record: NetworkRecord = {
       id: '1',
@@ -174,7 +217,10 @@ export class Database {
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
       storage: 0,
-      admin: false
+      admin: false,
+      targetBalance: balance,
+      withdrawableBalance: 0,
+      balanceBelowTarget: false
     };
     await this.users.insert(record);
     return record;
@@ -285,18 +331,29 @@ export class Database {
     return await this.users.find<UserRecord>({ balanceLastUpdated: { $lt: before } }).toArray();
   }
 
-  async updateUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBy: number, now: number): Promise<void> {
-    const result = await this.users.updateOne({ id: user.id, balanceLastUpdated: lastBalanceUpdated }, { $inc: { balance: incrementBy }, $set: { balanceLastUpdated: now } });
+  async incrementUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBalanceBy: number, incrementTargetBy: number, balanceBelowTarget: boolean, now: number): Promise<void> {
+    const result = await this.users.updateOne({ id: user.id, balanceLastUpdated: lastBalanceUpdated }, {
+      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy },
+      $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
+    });
     if (result.modifiedCount > 0) {
-      user.balance += incrementBy;
+      user.balance += incrementBalanceBy;
+      user.targetBalance += incrementTargetBy;
+      user.balanceBelowTarget = balanceBelowTarget;
       user.balanceLastUpdated = now;
     } else {
       const updatedUser = await this.findUserById(user.id);
       if (updatedUser) {
         user.balance = updatedUser.balance;
+        user.targetBalance = updatedUser.targetBalance;
+        user.balanceBelowTarget = updatedUser.balanceBelowTarget;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
     }
+  }
+
+  async countUsersBelowTargetBalance(): Promise<number> {
+    return await this.users.count({ belowTargetBalance: true });
   }
 
   async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
@@ -700,6 +757,78 @@ export class Database {
     return await this.deviceTokens.findOne<DeviceTokenRecord>({ type: type, token: token });
   }
 
+  async insertCardOpens(record: CardOpensRecord): Promise<boolean> {
+    try {
+      await this.cardOpens.insertOne(record);
+      return true;
+    } catch (err) {
+      console.log("Db.insertCardOpens: collision inserting card opens record");
+      return false;
+    }
+  }
+
+  async finalizeCardOpensPeriod(periodStarted: number, periodEnded: number): Promise<boolean> {
+    const result = await this.cardOpens.updateOne({ periodStarted: periodStarted, periodEnded: 0 }, { $set: { periodEnded: periodEnded } });
+    return result.modifiedCount === 1;
+  }
+
+  async findFirstCardOpensBefore(before: number): Promise<CardOpensRecord> {
+    const result = await this.cardOpens.find<CardOpensRecord>({ periodStarted: { $lt: before } }).sort({ periodStarted: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
+  }
+
+  async findCurrentCardOpens(): Promise<CardOpensRecord> {
+    const result = await this.cardOpens.find<CardOpensRecord>({}).sort({ periodStarted: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
+  }
+
+  async incrementCardOpensData(periodStarted: number, additions: CardOpensInfo): Promise<boolean> {
+    const increments: any = {};
+    if (additions.opens) {
+      increments["thisPeriod.opens"] = additions.opens;
+      increments["total.opens"] = additions.opens;
+    }
+    if (additions.units) {
+      increments["thisPeriod.units"] = additions.units;
+      increments["total.units"] = additions.units;
+    }
+    const result = await this.cardOpens.updateOne({ periodStarted: periodStarted, periodEnded: 0 }, { $inc: increments });
+    return result.modifiedCount === 1;
+  }
+
+  async getSubsidyBalance(): Promise<SubsidyBalanceRecord> {
+    return await this.subsidyBalance.findOne<SubsidyBalanceRecord>({ id: "1" });
+  }
+
+  async incrementSubsidyContributions(lastContribution: number, newLastContribution: number, amount: number): Promise<boolean> {
+    const result = await this.subsidyBalance.updateOne({ id: "1", lastContribution: lastContribution }, {
+      $inc: {
+        balance: amount,
+        totalContributions: amount
+      },
+      $set: {
+        lastContribution: newLastContribution
+      }
+    });
+    return result.modifiedCount === 1;
+  }
+
+  async incrementSubsidyPayments(amount: number): Promise<void> {
+    await this.subsidyBalance.updateOne({ id: "1" }, {
+      $inc: {
+        balance: -amount,
+        totalPayments: amount
+      }
+    });
+  }
 }
 
 const db = new Database();
