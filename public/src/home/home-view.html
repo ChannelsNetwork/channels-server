@@ -97,6 +97,13 @@
         transform: translate3d(0px, 0px, 0px);
       }
 
+      a.button {
+        background: var(--button-yellow);
+        color: #000;
+        padding: 5px 8px;
+        border-radius: 3px;
+      }
+
       @media (max-width: 850px) {
         #logo {
           width: 280px;
@@ -164,21 +171,21 @@
           <p>
             <a href="/whitepaper.pdf" target="_blank">Read our whitepaper</a>
           </p>
+          <p><a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a></p>
           <section id="sec1">
             <p>
               We'll be releasing shortly.
             </p>
             <p>
-              <a href="#register">Reserve your ChannelCoin</a>
+              <a class="button" href="#register">Reserve your ChannelCoin</a>
             </p>
           </section>
           <section id="sec2" style="display: none;">
             <p>You're already registered with Channels!</p>
             <p>
-              <a href="#balance">View your balance</a>
+              <a class="button" href="#balance">View your balance</a>
             </p>
           </section>
-          <p><a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a></p>
         </div>
       </div>
     </section>
@@ -234,11 +241,16 @@
     <section id="p5" class="view" style="background: #242426;">
       <div class="flex cell">
         <div class="content centered" style="text-align: center;">
+          <div style="padding: 0 0 60px;">
+            <a id="bottomReserve" class="button" href="#register">Reserve your ChannelCoin</a>
+            <a id="bottomBalance" style="display: none;" class="button" href="#balance">View your balance</a>
+          </div>
           <h3>Want to learn even more?</h3>
           <p><a href="/whitepaper.pdf" target="_blank">Read our whitepaper</a></p>
           <p><a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a></p>
           <p><a href="https://medium.com/channels-network" target="_blank">Check out our blog</a></p>
         </div>
+      </div>
     </section>
     <button id="fab" title="More" on-click="_more"><iron-icon icon="[[fabIcon]]"></iron-icon></button>
   </template>
@@ -265,9 +277,13 @@
         if ($core.hasKey) {
           this.$.sec2.style.display = "";
           this.$.sec1.style.display = "none";
+          this.$.bottomBalance.style.display = "";
+          this.$.bottomReserve.style.display = "none";
         } else {
           this.$.sec2.style.display = "none";
           this.$.sec1.style.display = "";
+          this.$.bottomBalance.style.display = "none";
+          this.$.bottomReserve.style.display = "";
         }
 
         if (!this._scrollHandler) {
