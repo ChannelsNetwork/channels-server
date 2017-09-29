@@ -453,6 +453,40 @@ class DummyService {
           likes: 50,
           dislikes: 7
         }
+      },
+      {
+        id: "p12",
+        postedAt: now - 1000 * 60 * 5650,
+        by: {
+          address: "pyropodcast",
+          handle: "pyropodcast",
+          name: "Pyro Podcast",
+          imageUrl: this.getPreviewUrl("podcast_handle.jpg"),
+          isFollowing: false,
+          isBlocked: false
+        },
+        summary: {
+          imageUrl: this.getPreviewUrl("football_podcast.jpg"),
+          linkUrl: null,
+          title: "Pyro Podcast Show 285",
+          text: "Foreshadowing Week 4"
+        },
+        cardType: {
+          project: null,
+          iconUrl: this.getPreviewUrl("icon_interactive.png")
+        },
+        pricing: {
+          promotionFee: 0,
+          openFee: 0.25,
+          openFeeUnits: 3
+        },
+        history: {
+          revenue: 201.24,
+          impressions: 0,
+          opens: 1342,
+          likes: 24,
+          dislikes: 2
+        }
       }
     ];
 
