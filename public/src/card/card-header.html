@@ -47,7 +47,7 @@
         <div class="authorName">[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
-      <div id="revenue" class="revenue">ℂ[[data.history.revenue]]</div>
+      <div id="revenue" class="revenue">ℂ[[data.history.revenueDisplay]]</div>
       <div class="horizontal layout center">
         <iron-icon icon="ch:expand-more"></iron-icon>
       </div>
@@ -79,6 +79,7 @@
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
+        this.set("data.history.revenueDisplay", this.data.history.revenue.toFixed(2));
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);
