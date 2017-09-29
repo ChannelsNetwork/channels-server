@@ -117,15 +117,19 @@
       connectedCallback() {
         super.connectedCallback();
 
-        let items = [_data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4]];
-        var currentIndex = items.length, temporaryValue, randomIndex;
-        while (0 != currentIndex) {
-          randomIndex = Math.floor(Math.random() * currentIndex);
-          currentIndex -= 1;
-          temporaryValue = items[currentIndex];
-          items[currentIndex] = items[randomIndex];
-          items[randomIndex] = temporaryValue;
-        }
+        // let items = [_data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4], _data_[0], _data_[1], _data_[2], _data_[3], _data_[4]];
+        // var currentIndex = items.length, temporaryValue, randomIndex;
+        // while (0 != currentIndex) {
+        //   randomIndex = Math.floor(Math.random() * currentIndex);
+        //   currentIndex -= 1;
+        //   temporaryValue = items[currentIndex];
+        //   items[currentIndex] = items[randomIndex];
+        //   items[randomIndex] = temporaryValue;
+        // }
+        // this.items = items;
+
+        let items = $core.dummy.getPreviewCards();
+        console.log("preview items", items);
         this.items = items;
       }
 

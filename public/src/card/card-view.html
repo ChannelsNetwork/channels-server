@@ -221,10 +221,10 @@
         <div class="vertical layout flex">
           <div class="flex vertical layout textPanel">
             <div id="headline">
-              <img src$="[[data.meta.cardIcon]]">
-              <span>[[data.title]]</span>
+              <img src$="[[data.cardType.iconUrl]]">
+              <span>[[data.summary.title]]</span>
             </div>
-            <soso-truncated-text id="description" class="flex" text="[[data.description]]"></soso-truncated-text>
+            <soso-truncated-text id="description" class="flex" text="[[data.summary.text]]"></soso-truncated-text>
           </div>
           <div id="rating" class="rating horizontal layout">
             <div class="flex barCell">
@@ -270,28 +270,28 @@
         if (!this.data) {
           return;
         }
-        var img = this.data.image;
+        let cost = this.data.pricing.openFee;
+        var img = this.data.summary.imageUrl;
         if (img) {
           this.$.imagePanel.style.display = "";
           this.$.imagePanel.style.backgroundImage = "url(" + img + ")";
         } else {
           this.$.imagePanel.style.display = "none";
         }
-        if (this.data.meta.cost < 0) {
+        if (cost < 0) {
           this.$.container.classList.add("negative");
           this.$.price.classList.add("negative");
         } else {
           this.$.container.classList.remove("negative");
           this.$.price.classList.remove("negative");
         }
-        let uc = this.data.meta.upCount;
-        let dc = this.data.meta.downCount;
+        let uc = this.data.history.likes;
+        let dc = this.data.history.dislikes;
         let tc = uc + dc;
         let rating = tc ? (uc / tc) * 100 : 0;
         this.$.posBar.style.width = rating + "%";
         this.$.negBar.style.width = (100 - rating) + "%";
 
-        let cost = this.data.meta.cost;
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
       }

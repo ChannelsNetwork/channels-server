@@ -90,8 +90,8 @@
       </div>
       <img id="authorImage">
       <div class="flex vertical layout">
-        <div class="authorName">[[data.meta.author]]</div>
-        <div id="timestamp">[[data.meta.timestamp]]</div>
+        <div class="authorName">[[data.by.name]]</div>
+        <div id="timestamp">[[data.postedAt]]</div>
       </div>
       <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent></progress-icon>
       <iron-icon icon="ch:expand-more"></iron-icon>
@@ -117,17 +117,17 @@
         if (!this.data) {
           return;
         }
-        this.$.authorImage.src = this.data.meta.authorImage || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
-        let cost = this.data.meta.cost;
+        this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+        let cost = this.data.pricing.openFee;
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
-        if (this.data.meta.cost < 0) {
+        if (cost < 0) {
           this.$.price.classList.add("negative");
         } else {
           this.$.price.classList.remove("negative");
         }
-        let uc = this.data.meta.upCount;
-        let dc = this.data.meta.downCount;
+        let uc = this.data.history.likes || 0;
+        let dc = this.data.history.dislikes || 0;
         let tc = uc + dc;
         this.rating = tc ? (uc / tc) * 100 : 0;
       }

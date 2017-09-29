@@ -44,10 +44,10 @@
     <div class="horizontal layout center bar">
       <img id="authorImage">
       <div class="flex vertical layout">
-        <div class="authorName">[[data.meta.author]]</div>
-        <div id="timestamp">[[data.meta.timestamp]]</div>
+        <div class="authorName">[[data.by.name]]</div>
+        <div id="timestamp">[[data.postedAt]]</div>
       </div>
-      <div class="revenue">ℂ[[data.meta.revenue]]</div>
+      <div id="revenue" class="revenue">ℂ[[data.history.revenue]]</div>
       <div class="horizontal layout center">
         <iron-icon icon="ch:expand-more"></iron-icon>
       </div>
@@ -69,7 +69,13 @@
         if (!this.data) {
           return;
         }
-        this.$.authorImage.src = this.data.meta.authorImage || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+        this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+        let cost = this.data.pricing.openFee;
+        if (cost < 0) {
+          this.$.revenue.classList.add("hidden");
+        } else {
+          this.$.revenue.classList.remove("hidden");
+        }
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);
