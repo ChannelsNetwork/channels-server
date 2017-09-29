@@ -45,7 +45,7 @@
       <img id="authorImage">
       <div class="flex vertical layout">
         <div class="authorName">[[data.by.name]]</div>
-        <div id="timestamp">[[data.postedAt]]</div>
+        <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
       <div id="revenue" class="revenue">ℂ[[data.history.revenue]]</div>
       <div class="horizontal layout center">
@@ -75,6 +75,9 @@
           this.$.revenue.classList.add("hidden");
         } else {
           this.$.revenue.classList.remove("hidden");
+        }
+        if (!this.data.postedAtDisplay) {
+          this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
       }
     }

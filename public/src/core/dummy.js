@@ -99,7 +99,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon-play.png")
+          iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
           promotionFee: 0,
@@ -160,7 +160,7 @@ class DummyService {
           isBlocked: false
         },
         summary: {
-          imageUrl: this.getPreviewUrl("mini_crossword.jpg"),
+          imageUrl: this.getPreviewUrl("crossword1.jpg"),
           linkUrl: null,
           title: "Solemn Promise",
           text: "Solve this mini-crossword in one minute"
@@ -201,7 +201,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon-play.png")
+          iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
           promotionFee: 0.11,
@@ -235,7 +235,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon-play.png")
+          iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
           promotionFee: 0,
@@ -254,10 +254,10 @@ class DummyService {
         id: 'p7',
         postedAt: now - 1000 * 60 * 2165,
         by: {
-          address: '',
-          handle: '',
-          name: "",
-          imageUrl: this.getPreviewUrl(""),
+          address: 'road_warrior',
+          handle: 'road_warrior',
+          name: "Road Warrior",
+          imageUrl: this.getPreviewUrl("road-warrior.jpg"),
           isFollowing: false,
           isBlocked: false
         },
@@ -269,7 +269,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon-play.png")
+          iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
           promotionFee: 0,
@@ -291,7 +291,7 @@ class DummyService {
           address: 'brightside',
           handle: 'brightside',
           name: "Bright Side",
-          imageUrl: this.getPreviewUrl(""),
+          imageUrl: this.getPreviewUrl("brightside.png"),
           isFollowing: false,
           isBlocked: false
         },
@@ -325,7 +325,7 @@ class DummyService {
           address: 'aperrotta',
           handle: 'aperrotta',
           name: "Anthony Perrotta",
-          imageUrl: this.getPreviewUrl(""),
+          imageUrl: this.getPreviewUrl("anthony.jpg"),
           isFollowing: false,
           isBlocked: false
         },
