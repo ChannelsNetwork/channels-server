@@ -28,7 +28,7 @@ import { socketServer } from "./socket-server";
 import { mediumManager } from "./medium-manager";
 import { priceRegulator } from "./price-regulator";
 
-const VERSION = 10;
+const VERSION = 11;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
