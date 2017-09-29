@@ -10,8 +10,10 @@ class CoreService extends Polymer.Element {
     super();
     window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
+    this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
     this.storage = new StorageService();
     this.rest = new RestService();
+    this.dummy = new DummyService(this);
     this._keys = this.storage.getLocal(_CKeys.KEYS, true);
     this._profile = null;
     if (this._keys && this._keys.privateKey) {

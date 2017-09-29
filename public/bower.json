@@ -7,7 +7,8 @@
     "iron-flex-layout": "^2.0.0",
     "channels-web-utils": "ChannelsNetwork/channels-web-key-utils#^0.1.1",
     "iron-icon": "PolymerElements/iron-icon#^2.0.1",
-    "iron-iconset-svg": "PolymerElements/iron-iconset-svg#^2.1.0"
+    "iron-iconset-svg": "PolymerElements/iron-iconset-svg#^2.1.0",
+    "soso-truncated-text": "pshihn/soso-truncated-text#^1.0.2"
   },
   "devDependencies": {
     "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",

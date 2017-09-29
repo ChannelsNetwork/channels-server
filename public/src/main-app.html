@@ -3,6 +3,7 @@
 <link rel="import" href="app-styles.html">
 <link rel="import" href="app-bar.html">
 <link rel="import" href="core/core.html">
+<link rel="import" href="controls/timed-toast.html">
 
 
 <dom-module id="main-app">
@@ -49,11 +50,14 @@
         <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
         <invite-view class="invite page" data-href="account/invite-view.html"></invite-view>
         <notifications-view class="notifications page" data-href="notifications/notifications-view.html"></notifications-view>
+        <preview-page class="preview page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
       </div>
     </div>
+    <timed-toast id="toast"></timed-toast>
   </template>
 
   <script src="hash-router.js"></script>
+  <script src="app.js"></script>
   <script>
     class MainApp extends Polymer.Element {
       static get is() { return 'main-app'; }
@@ -108,11 +112,11 @@
           lastPage.classList.add("floatingPage");
           activePage.classList.add("floatingPage");
           if (!showToolbar) {
-            this._setBarVisible(false);
+            this.setBarVisible(false);
           }
         } else {
           activePage.style.display = "";
-          this._setBarVisible(showToolbar);
+          this.setBarVisible(showToolbar);
         }
 
         // import page and activate it
@@ -146,7 +150,7 @@
         }
       }
 
-      _setBarVisible(visible) {
+      setBarVisible(visible) {
         this.$.toolbar.style.top = visible ? "0px" : "-70px";
       }
 
@@ -164,7 +168,7 @@
           p2.style.zIndex = 0;
           p1.style.zIndex = 0;
           if (showToolbar) {
-            this._setBarVisible(true);
+            this.setBarVisible(true);
           }
         };
         switch (animation) {
@@ -188,6 +192,42 @@
             }, 50);
             break;
         }
+      }
+
+      scrollTo(node, duration) {
+        return new Promise((resolve, reject) => {
+          var diff = node.getBoundingClientRect().top;
+          var iv = this.shell.scrollTop;
+          if (this._scrolling) {
+            this._scrolling = false;
+            this.shell.scrollTop = iv + diff;
+            resolve();
+          } else {
+            this._scrollAnimStart = 0;
+            this._scrolling = true;
+            var _step = (timestamp) => {
+              if (!this._scrolling) {
+                return;
+              }
+              if (!this._scrollAnimStart) {
+                this._scrollAnimStart = timestamp;
+              }
+              let progress = Math.min(1, Math.max(0, (timestamp - this._scrollAnimStart) / duration));
+              this.shell.scrollTop = iv + (diff * progress);
+              if (progress < 1) {
+                window.requestAnimationFrame(_step);
+              } else {
+                this._scrolling = false;
+                resolve();
+              }
+            };
+            requestAnimationFrame(_step);
+          }
+        });
+      }
+
+      toast(message) {
+        this.$.toast.show(message);
       }
     }
     window.customElements.define(MainApp.is, MainApp);

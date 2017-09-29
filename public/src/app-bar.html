@@ -3,7 +3,7 @@
 <dom-module id="app-bar">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-     :host {
+       :host {
         display: block;
         background: rgba(33, 33, 33, 1);
       }
@@ -69,9 +69,9 @@
           letter-spacing: initial;
           margin-left: 2px;
           padding: 0 5px;
+          font-size: 15px;
         }
       }
-    }
     </style>
     <div id="container" class="horizontal layout center">
       <a id="logoLink" href="#"><img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png"></a>
@@ -79,14 +79,16 @@
       <div id="linksBar" class="horizontal layout center">
         <a href="#"><button id="home">Home</button></a>
         <a href="#launch"><button id="launch">Launch</button></a>
+        <a href="#preview"><button id="preview">Preview</button></a>
         <a href="#account"><button id="account">Account</button></a>
         <a href="https://medium.com/channels-network" target="_blank"><button id="blog">Blog</button></a>
       </div>
       <div id="iconsBar" class="flex horizontal layout center">
         <a class="flex" href="#"><button><iron-icon icon="ch:home"></iron-icon><div>Home</div></button></a>
         <a class="flex" href="#launch"><button id="ilaunch"><iron-icon icon="ch:near-me"></iron-icon><div>Launch</div></button></a>
+        <a class="flex" href="#preview"><button id="ipreview"><iron-icon icon="ch:apps"></iron-icon><div>Preview</div></button></a>
         <a class="flex" href="#account"><button id="iaccount"><iron-icon icon="ch:account-circle"></iron-icon><div>Account</div></button></a>
-        <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a>
+        <!-- <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a> -->
       </div>
       <a href="#balance">
         <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
