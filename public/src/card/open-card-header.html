@@ -93,9 +93,9 @@
         <div class="authorName">[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAt]]</div>
       </div>
-      <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent></progress-icon>
-      <iron-icon icon="ch:expand-more"></iron-icon>
-      <iron-icon id="fullIcon" icon="ch:fullscreen"></iron-icon>
+      <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent on-click="showToast"></progress-icon>
+      <iron-icon icon="ch:expand-more" on-click="showToast"></iron-icon>
+      <iron-icon id="fullIcon" icon="ch:fullscreen" on-click="showToast"></iron-icon>
       <iron-icon id="closeIcon" icon="ch:close" on-click="onCloseCard"></iron-icon>
     </div>
   </template>
@@ -135,6 +135,10 @@
       onCloseCard(event) {
         event.stopPropagation();
         this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      showToast() {
+        $app.toast("This action is not enabled in preview mode.");
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);

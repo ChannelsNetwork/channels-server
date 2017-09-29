@@ -3,6 +3,7 @@
 <link rel="import" href="app-styles.html">
 <link rel="import" href="app-bar.html">
 <link rel="import" href="core/core.html">
+<link rel="import" href="controls/timed-toast.html">
 
 
 <dom-module id="main-app">
@@ -52,6 +53,7 @@
         <preview-page class="preview page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
       </div>
     </div>
+    <timed-toast id="toast"></timed-toast>
   </template>
 
   <script src="hash-router.js"></script>
@@ -222,6 +224,10 @@
             requestAnimationFrame(_step);
           }
         });
+      }
+
+      toast(message) {
+        this.$.toast.show(message);
       }
     }
     window.customElements.define(MainApp.is, MainApp);

@@ -297,6 +297,7 @@
       }
 
       open(node) {
+        this._cardOpen = true;
         this.$.cardHeader.style.opacity = 0;
         this.$.rating.style.opacity = 0;
         this.$.cardShell.style.opacity = 0;
@@ -305,6 +306,7 @@
       }
 
       close(animate) {
+        this._cardOpen = false;
         this.$.cardHeader.style.opacity = 1;
         this.$.rating.style.opacity = 1;
         this.$.cardShell.style.opacity = 1;
@@ -314,6 +316,12 @@
 
       opeCardClick(event) {
         event.stopPropagation();
+      }
+
+      refreshLayout() {
+        if (this._cardOpen) {
+          this.$.openCard.refreshLayout(this);
+        }
       }
     }
     window.customElements.define(CardView.is, CardView);

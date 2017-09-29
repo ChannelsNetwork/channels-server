@@ -90,6 +90,13 @@
           });
         }
         this._refreshAttempts = 0;
+        this._refreshOpenCardLayout();
+      }
+
+      _refreshOpenCardLayout() {
+        if (this._openCard) {
+          this._openCard.refreshLayout();
+        }
       }
 
       _onCardClick(event) {
