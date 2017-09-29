@@ -16,3 +16,13 @@ var _debounce = function (func, wait, immediate) {
     }
   }
 };
+
+var _friendlyTime = function (time) {
+  return moment(time).calendar(null, {
+    sameDay: 'h:mm a',
+    nextDay: '[Tomorrow]',
+    nextWeek: 'dddd',
+    lastWeek: '[Last] dddd',
+    sameElse: 'M/D/YYYY'
+  });
+};

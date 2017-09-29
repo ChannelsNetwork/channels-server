@@ -87,7 +87,7 @@
       <img id="authorImage">
       <div class="flex vertical layout">
         <div class="authorName">[[data.by.name]]</div>
-        <div id="timestamp">[[data.postedAt]]</div>
+        <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
       <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent on-click="showToast"></progress-icon>
       <iron-icon id="moreIcon" icon="ch:expand-more" on-click="showToast"></iron-icon>
@@ -126,6 +126,9 @@
         let dc = this.data.history.dislikes || 0;
         let tc = uc + dc;
         this.rating = tc ? (uc / tc) * 100 : 0;
+        if (!this.data.postedAtDisplay) {
+          this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
+        }
       }
 
       onCloseCard(event) {
