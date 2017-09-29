@@ -28,7 +28,7 @@ const DIGITS = '0123456789';
 const NETWORK_BALANCE_RANDOM_PRODUCT = 1.5;
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
-const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 5;
+const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const SYNC_CODE_LIFETIME = 1000 * 60 * 5;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
@@ -110,7 +110,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             timestamp: null,
             address: null,
             type: "transfer",
-            reason: "invitation-reward",
+            reason: "inviter-reward",
             amount: INVITER_REWARD,
             toRecipients: [rewardRecipient]
           };
@@ -132,6 +132,17 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           toRecipients: [grantRecipient]
         };
         await networkEntity.performBankTransaction(grant);
+        if (inviteeReward > 0) {
+          const inviteeRewardDetails: BankTransactionDetails = {
+            timestamp: null,
+            address: null,
+            type: "transfer",
+            reason: "invitee-reward",
+            amount: inviteeReward,
+            toRecipients: [grantRecipient]
+          };
+          await networkEntity.performBankTransaction(inviteeRewardDetails);
+        }
       }
       await this.returnUserStatus(userRecord, response);
     } catch (err) {

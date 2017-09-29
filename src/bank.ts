@@ -94,7 +94,9 @@ export class Bank {
     if (remainders === 0 && details.amount !== totalNonRemainder) {
       throw new Error("Recipient amounts do not add up to total");
     }
-    console.log("Bank.performTransaction: Debiting user account", user.id, details.amount);
+    if (user.type === 'normal') {
+      console.log("Bank.performTransaction: Debiting user account", user.id, details.amount);
+    }
     await db.incrementUserBalance(user, -details.amount, user.balance > 0 ? -details.amount : 0, user.balance > 0 ? user.balance - details.amount < user.targetBalance : false, now);
     const record = await db.insertBankTransaction(now, user.id, participantIds, details, signature);
     for (const recipient of details.toRecipients) {

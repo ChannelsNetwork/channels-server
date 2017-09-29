@@ -260,7 +260,7 @@ export interface BankTransactionDetails extends Signable {
 }
 
 export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
-export type BankTransactionReason = "card-promotion" | "card-open" | "card-coupon-redemption" | "interest" | "subsidy" | "grant" | "invitation-reward";
+export type BankTransactionReason = "card-promotion" | "card-open" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
 
 export interface BankTransactionRecipientDirective {
   address: string;
