@@ -31,7 +31,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_article.jpg")
+          iconUrl: this.getPreviewUrl("icon-news.png")
         },
         pricing: {
           promotionFee: 0,
@@ -65,7 +65,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_game.png")
+          iconUrl: this.getPreviewUrl("icon-game.png")
         },
         pricing: {
           promotionFee: 0,
@@ -99,7 +99,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_play.png")
+          iconUrl: this.getPreviewUrl("icon-play.png")
         },
         pricing: {
           promotionFee: 0,
@@ -133,7 +133,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_article.jpg")
+          iconUrl: this.getPreviewUrl("icon-news.png")
         },
         pricing: {
           promotionFee: 0,
@@ -167,7 +167,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_crossword.jpg")
+          iconUrl: this.getPreviewUrl("icon-crossword.png")
         },
         pricing: {
           promotionFee: 0,
@@ -201,7 +201,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_play.png")
+          iconUrl: this.getPreviewUrl("icon-play.png")
         },
         pricing: {
           promotionFee: 0.11,
@@ -235,7 +235,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_play.png")
+          iconUrl: this.getPreviewUrl("icon-play.png")
         },
         pricing: {
           promotionFee: 0,
@@ -269,7 +269,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_play.png")
+          iconUrl: this.getPreviewUrl("icon-play.png")
         },
         pricing: {
           promotionFee: 0,
@@ -303,7 +303,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_photos.png")
+          iconUrl: this.getPreviewUrl("icon-photos.png")
         },
         pricing: {
           promotionFee: 0,
@@ -337,7 +337,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_book.png")
+          iconUrl: this.getPreviewUrl("icon-book.png")
         },
         pricing: {
           promotionFee: 0,
@@ -371,7 +371,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_article.jpg")
+          iconUrl: this.getPreviewUrl("icon-news.png")
         },
         pricing: {
           promotionFee: 0,
@@ -405,7 +405,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_link.png")
+          iconUrl: this.getPreviewUrl("icon-link.png")
         },
         pricing: {
           promotionFee: 0.10,
@@ -439,7 +439,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_interactive.png")
+          iconUrl: this.getPreviewUrl("icon-touch.png")
         },
         pricing: {
           promotionFee: 0,
@@ -473,7 +473,7 @@ class DummyService {
         },
         cardType: {
           project: null,
-          iconUrl: this.getPreviewUrl("icon_interactive.png")
+          iconUrl: this.getPreviewUrl("icon-audio.png")
         },
         pricing: {
           promotionFee: 0,
