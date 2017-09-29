@@ -60,7 +60,7 @@ export class PriceRegulator implements Initializable {
     const now = Date.now();
     if (now - this.lastSubsidyRateAt > SUBSIDY_CACHE_LIFETIME) {
       const balance = await db.getSubsidyBalance();
-      const usersBelowTarget = await db.countUsersBelowTargetBalance();
+      const usersBelowTarget = await db.countUsersbalanceBelowTarget();
       this.lastSubsidyRate = Math.min(MAXIMUM_SUBSIDY_RATE, balance.balance / (Math.max(usersBelowTarget, 1) * SUBSIDY_PERIOD));
       console.log("PriceRegulator.getUserSubsidyRate: user subsidy rate updated", this.lastSubsidyRate * 1000 * 60);
       this.lastSubsidyRateAt = now;

@@ -27,6 +27,7 @@ import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/expres
 import { socketServer } from "./socket-server";
 import { mediumManager } from "./medium-manager";
 import { priceRegulator } from "./price-regulator";
+import { networkEntity } from "./network-entity";
 
 const VERSION = 9;
 const INITIAL_NETWORK_BALANCE = 25000;
@@ -35,7 +36,7 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private initializables: Initializable[] = [awsManager, cardManager, feedManager, priceRegulator];
+  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager];
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
@@ -49,7 +50,6 @@ class ChannelsNetworkWebClient {
     this.setupExceptionHandling();
     await this.setupConfiguration();
     await db.initialize();
-    await this.ensureNetwork();
     for (const initializable of this.initializables) {
       await initializable.initialize(this.urlManager);
     }
@@ -205,12 +205,6 @@ class ChannelsNetworkWebClient {
     });
   }
 
-  private async ensureNetwork(): Promise<void> {
-    const network = await db.getNetwork();
-    if (!network) {
-      await db.insertNetwork(INITIAL_NETWORK_BALANCE);
-    }
-  }
 }
 
 const server = new ChannelsNetworkWebClient();

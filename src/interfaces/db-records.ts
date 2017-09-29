@@ -1,6 +1,9 @@
 
+import { Signable } from "./rest-services";
+
 export interface UserRecord {
   id: string;
+  type: UserAccountType;
   keys: UserKey[];
   address?: string;  // deprecated
   publicKey?: string; // deprecated
@@ -12,8 +15,6 @@ export interface UserRecord {
   targetBalance: number;
   balanceLastUpdated: number;
   balanceBelowTarget: boolean;
-  inviteeReward: number;
-  inviterRewards: number;
   invitationsRemaining: number;
   invitationsAccepted: number;
   lastContact: number;
@@ -23,6 +24,8 @@ export interface UserRecord {
   syncCode?: string;
   syncCodeExpires?: number;
 }
+
+export type UserAccountType = "normal" | "network";
 
 export interface UserKey {
   address: string;
@@ -50,7 +53,7 @@ export interface UserIdentity {
 export interface NetworkRecord {
   id: string;
   created: number;
-  balance: number;
+  mutationIndex: number;
 }
 
 export interface CardRecord {
@@ -237,3 +240,32 @@ export interface CardOpensInfo {
   opens: number;
   units: number;
 }
+
+export interface BankTransactionRecord {
+  id: string;
+  at: number;
+  originatorUserId: string;
+  participantUserIds: string[];
+  details: BankTransactionDetails;
+  signature: string;
+}
+
+export interface BankTransactionDetails extends Signable {
+  type: BankTransactionType;
+  reason: BankTransactionReason;
+  relatedCardId?: string;
+  relatedCouponId?: string;
+  amount: number;  // ChannelCoin
+  toRecipients: BankTransactionRecipientDirective[];
+}
+
+export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
+export type BankTransactionReason = "card-promotion" | "card-open" | "card-coupon-redemption" | "interest" | "subsidy" | "grant" | "invitation-reward";
+
+export interface BankTransactionRecipientDirective {
+  address: string;
+  portion: BankTransactionRecipientPortion;
+  amount?: number;  // ChannelCoin or fraction (0 to 1) depending on portion
+}
+
+export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";

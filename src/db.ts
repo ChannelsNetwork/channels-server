@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BankTransactionRecord, BankTransactionDetails, UserAccountType } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
 
@@ -20,6 +20,7 @@ export class Database {
   private deviceTokens: Collection;
   private cardOpens: Collection;
   private subsidyBalance: Collection;
+  private bankTransactions: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -40,11 +41,21 @@ export class Database {
     await this.initializeDeviceTokens();
     await this.initializeCardOpens();
     await this.initializeSubsidyBalance();
+    await this.initializeBankTransactions();
   }
 
   private async initializeNetworks(): Promise<void> {
     this.networks = this.db.collection('networks');
     await this.networks.createIndex({ id: 1 }, { unique: true });
+    const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
+    if (!existing) {
+      const record: NetworkRecord = {
+        id: '1',
+        created: Date.now(),
+        mutationIndex: 1
+      };
+      await this.networks.insert(record);
+    }
   }
 
   private async initializeUsers(): Promise<void> {
@@ -73,17 +84,18 @@ export class Database {
     await this.users.createIndex({ "keys.address": 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 });
-    await this.users.createIndex({ balanceLastUpdated: -1 });
-    await this.users.createIndex({ lastContact: -1 });
-    await this.users.createIndex({ belowTargetBalance: 1 });
+    await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
+    await this.users.createIndex({ type: 1, lastContact: -1 });
+    await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
 
+    await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
-    await this.users.updateMany({ belowTargetBalance: { $exists: false } }, { $set: { belowTargetBalance: false } });
+    await this.users.updateMany({ balanceBelowTarget: { $exists: false } }, { $set: { balanceBelowTarget: false } });
     await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
-    await this.users.updateMany({ widthdrawableBalance: { $exists: false } }, { $set: { widthdrawableBalance: 0 } });
+    await this.users.updateMany({ withdrawableBalance: { $exists: false } }, { $set: { withdrawableBalance: 0 } });
     await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
 
-    const noTarget = await this.users.find<UserRecord>({ targetBalance: 0 }).toArray();
+    const noTarget = await this.users.find<UserRecord>({ type: "normal", targetBalance: 0 }).toArray();
     for (const u of noTarget) {
       await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
     }
@@ -183,11 +195,18 @@ export class Database {
     }
   }
 
-  async insertNetwork(balance: number): Promise<NetworkRecord> {
+  private async initializeBankTransactions(): Promise<void> {
+    this.bankTransactions = this.db.collection('bankTransactions');
+    await this.bankTransactions.createIndex({ id: 1 }, { unique: true });
+    await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
+    await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
+  }
+
+  async ensureNetwork(balance: number): Promise<NetworkRecord> {
     const record: NetworkRecord = {
       id: '1',
       created: Date.now(),
-      balance: balance
+      mutationIndex: 1
     };
     await this.networks.insert(record);
     return record;
@@ -201,29 +220,32 @@ export class Database {
     await this.networks.updateOne({ id: '1' }, { $inc: { balance: incrementBy } });
   }
 
-  async insertUser(address: string, publicKey: string, inviteeCode: string, inviterCode: string, balance: number, inviteeReward: number, inviterRewards: number, invitationsRemaining: number, invitationsAccepted: number): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
-      id: uuid.v4(),
+      id: id ? id : uuid.v4(),
+      type: type,
       keys: [{ address: address, publicKey: publicKey, added: now }],
       added: now,
       inviteeCode: inviteeCode,
       inviterCode: inviterCode,
-      balance: balance,
       balanceLastUpdated: now,
-      inviteeReward: inviteeReward,
-      inviterRewards: inviterRewards,
+      balance: 0,
+      targetBalance: 0,
+      balanceBelowTarget: false,
+      withdrawableBalance: 0,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
       storage: 0,
-      admin: false,
-      targetBalance: balance,
-      withdrawableBalance: 0,
-      balanceBelowTarget: false
+      admin: false
     };
     await this.users.insert(record);
     return record;
+  }
+
+  async updateUserBalance(userId: string, value: number): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { balance: value } });
   }
 
   async updateUserAddAddress(user: UserRecord, newAddress: string, newPublicKey: string): Promise<void> {
@@ -250,6 +272,14 @@ export class Database {
       return null;
     }
     return await this.users.findOne<UserRecord>({ inviterCode: code.toLowerCase() });
+  }
+
+  async findUsersByType(type: UserAccountType): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ type: type }).toArray();
+  }
+
+  async findNetworkUser(): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ type: "network" });
   }
 
   async findUserByHandle(handle: string): Promise<UserRecord> {
@@ -306,14 +336,10 @@ export class Database {
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
     await this.users.updateOne({ id: user.id }, {
       $inc: {
-        balance: reward,
-        inviterRewards: reward,
         invitationsRemaining: -1,
         invitationsAccepted: 1
       }
     });
-    user.balance += reward;
-    user.inviterRewards += reward;
     user.invitationsRemaining--;
     user.invitationsAccepted++;
   }
@@ -328,11 +354,17 @@ export class Database {
   }
 
   async findUsersForBalanceUpdates(before: number): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ balanceLastUpdated: { $lt: before } }).toArray();
+    return await this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
   }
 
-  async incrementUserBalance(user: UserRecord, lastBalanceUpdated: number, incrementBalanceBy: number, incrementTargetBy: number, balanceBelowTarget: boolean, now: number): Promise<void> {
-    const result = await this.users.updateOne({ id: user.id, balanceLastUpdated: lastBalanceUpdated }, {
+  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
+    const query: any = {
+      id: user.id
+    };
+    if (onlyIfLastBalanceUpdated) {
+      query.balanceLastUpdated = onlyIfLastBalanceUpdated;
+    }
+    const result = await this.users.updateOne(query, {
       $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy },
       $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
     });
@@ -352,8 +384,8 @@ export class Database {
     }
   }
 
-  async countUsersBelowTargetBalance(): Promise<number> {
-    return await this.users.count({ belowTargetBalance: true });
+  async countUsersbalanceBelowTarget(): Promise<number> {
+    return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
   async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
@@ -828,6 +860,31 @@ export class Database {
         totalPayments: amount
       }
     });
+  }
+
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signature: string): Promise<BankTransactionRecord> {
+    const record: BankTransactionRecord = {
+      id: uuid.v4(),
+      at: at,
+      originatorUserId: originatorUserId,
+      participantUserIds: participantUserIds,
+      details: details,
+      signature: signature
+    };
+    await this.bankTransactions.insert(record);
+    return record;
+  }
+
+  async findBankTransactionById(id: string): Promise<BankTransactionRecord> {
+    return await db.bankTransactions.findOne<BankTransactionRecord>({ id: id });
+  }
+
+  async findBankTransactionByParticipant(participantUserId: string, limit = 500): Promise<BankTransactionRecord[]> {
+    return await db.bankTransactions.find<BankTransactionRecord>({ participantUserIds: participantUserId }).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+  }
+
+  async countBankTransactions(): Promise<number> {
+    return await db.bankTransactions.count({});
   }
 }
 

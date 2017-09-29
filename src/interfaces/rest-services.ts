@@ -32,17 +32,16 @@ export interface UserStatusResponse extends RestResponse {
   appUpdateUrl: string;
   socketUrl: string;
   interestRatePerMillisecond: number;
+  cardBasePrice: number;
+  subsidyRate: number;
 }
 
 export interface UserStatus {
   goLive: number;
   userBalance: number;
-  networkBalance: number;
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
-  inviterRewards: number;
-  inviteeReward: number;
 }
 
 export interface RegisterDeviceDetails extends Signable {

@@ -6,15 +6,17 @@ import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, GetSyncCodeDetails, GetSyncCodeResponse, SyncIdentityDetails, SyncIdentityResponse } from "./interfaces/rest-services";
 import { db } from "./db";
-import { UserRecord } from "./interfaces/db-records";
+import { UserRecord, BankTransactionRecipientDirective, BankTransactionDetails } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
-import { KeyUtils } from "./key-utils";
+import { KeyUtils, KeyInfo } from "./key-utils";
 import { RestHelper } from "./rest-helper";
 import * as url from 'url';
 import { UserHelper } from "./user-helper";
 import { socketServer, UserSocketHandler } from "./socket-server";
 import { priceRegulator } from "./price-regulator";
+import { networkEntity } from "./network-entity";
+import { Initializable } from "./interfaces/initializable";
 
 const INITIAL_BALANCE = 10;
 const INVITER_REWARD = 2;
@@ -29,17 +31,23 @@ const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (36
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 5;
 const SYNC_CODE_LIFETIME = 1000 * 60 * 5;
 
-export class UserManager implements RestServer, UserSocketHandler {
+export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
 
-  async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
+  async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
-    this.app = app;
-    this.registerHandlers();
     socketServer.setUserHandler(this);
     this.goLiveDate = new Date(2017, 11, 15, 12, 0, 0, 0).getTime();
+  }
+
+  async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
+    this.app = app;
+    this.registerHandlers();
+  }
+
+  async initialize2(): Promise<void> {
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
@@ -90,20 +98,40 @@ export class UserManager implements RestServer, UserSocketHandler {
       console.log("UserManager.register-user", requestBody.detailsObject.address);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (!userRecord) {
-        let networkBalanceIncrease = 0;
         const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
         let inviteeReward = 0;
         if (inviter && inviter.invitationsRemaining > 0) {
-          const inviterReward = INVITER_REWARD;
-          await db.incrementInvitationsAccepted(inviter, inviterReward);
+          await db.incrementInvitationsAccepted(inviter, INVITER_REWARD);
+          const rewardRecipient: BankTransactionRecipientDirective = {
+            address: inviter.keys[0].address,
+            portion: "remainder"
+          };
+          const reward: BankTransactionDetails = {
+            timestamp: null,
+            address: null,
+            type: "transfer",
+            reason: "invitation-reward",
+            amount: INVITER_REWARD,
+            toRecipients: [rewardRecipient]
+          };
+          await networkEntity.performBankTransaction(reward);
           inviteeReward = INVITEE_REWARD;
-          networkBalanceIncrease += inviterReward;
         }
         const inviteCode = await this.generateInviteCode();
-        const newBalance = INITIAL_BALANCE + inviteeReward;
-        userRecord = await db.insertUser(requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, newBalance, inviteeReward, 0, INVITATIONS_ALLOWED, 0);
-        networkBalanceIncrease += newBalance * (1 + (Math.random() * NETWORK_BALANCE_RANDOM_PRODUCT));
-        await db.incrementNetworkBalance(networkBalanceIncrease);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0);
+        const grantRecipient: BankTransactionRecipientDirective = {
+          address: requestBody.detailsObject.address,
+          portion: "remainder"
+        };
+        const grant: BankTransactionDetails = {
+          timestamp: null,
+          address: null,
+          type: "transfer",
+          reason: "grant",
+          amount: INITIAL_BALANCE,
+          toRecipients: [grantRecipient]
+        };
+        await networkEntity.performBankTransaction(grant);
       }
       await this.returnUserStatus(userRecord, response);
     } catch (err) {
@@ -324,16 +352,15 @@ export class UserManager implements RestServer, UserSocketHandler {
       status: {
         goLive: this.goLiveDate,
         userBalance: user.balance,
-        networkBalance: Math.floor(network.balance),
         inviteCode: user.inviterCode.toUpperCase(),
         invitationsUsed: user.invitationsAccepted,
-        invitationsRemaining: user.invitationsRemaining,
-        inviterRewards: user.inviterRewards,
-        inviteeReward: user.inviteeReward,
+        invitationsRemaining: user.invitationsRemaining
       },
       socketUrl: this.urlManager.getSocketUrl('socket'),
       appUpdateUrl: null,
-      interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND
+      interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
+      cardBasePrice: await priceRegulator.getBaseCardFee(),
+      subsidyRate: await priceRegulator.getUserSubsidyRate()
     };
     response.json(result);
   }
@@ -389,11 +416,38 @@ export class UserManager implements RestServer, UserSocketHandler {
         subsidy = Math.min(subsidy, user.targetBalance - user.balance);
       }
       if (subsidy > 0) {
+        const subsidyRecipient: BankTransactionRecipientDirective = {
+          address: user.keys[0].address,
+          portion: "remainder"
+        };
+        const subsidyDetails: BankTransactionDetails = {
+          timestamp: null,
+          address: null,
+          type: "transfer",
+          reason: "subsidy",
+          amount: subsidy,
+          toRecipients: [subsidyRecipient]
+        };
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
     const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
-    await db.incrementUserBalance(user, user.balanceLastUpdated, interest + subsidy, interest, balanceBelowTarget, now);
+    if (interest > 0) {
+      const interestRecipient: BankTransactionRecipientDirective = {
+        address: user.keys[0].address,
+        portion: "remainder"
+      };
+      const grant: BankTransactionDetails = {
+        timestamp: null,
+        address: null,
+        type: "transfer",
+        reason: "interest",
+        amount: interest,
+        toRecipients: [interestRecipient]
+      };
+      await networkEntity.performBankTransaction(grant);
+    }
+    // await db.incrementUserBalance(user, interest + subsidy, interest, balanceBelowTarget, now, user.balanceLastUpdated);
   }
 
   private calculateInterestBetween(from: number, to: number, balance: number): number {
