@@ -6,6 +6,7 @@ import { Signable } from "./interfaces/rest-services";
 import { BankTransactionDetails, BankTransactionRecord, BankTransactionRecipientDirective } from "./interfaces/db-records";
 import { db } from "./db";
 import { bank } from "./bank";
+import { BankTransactionResult } from "./interfaces/socket-messages";
 
 export class NetworkEntity implements Initializable {
   private keyInfo: KeyInfo;
@@ -63,7 +64,7 @@ export class NetworkEntity implements Initializable {
     }
   }
 
-  async performBankTransaction(details: BankTransactionDetails): Promise<BankTransactionRecord> {
+  async performBankTransaction(details: BankTransactionDetails): Promise<BankTransactionResult> {
     details.address = this.keyInfo.address;
     details.timestamp = Date.now();
     const detailsString = JSON.stringify(details);

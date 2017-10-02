@@ -1,8 +1,8 @@
 
 import { CardDescriptor } from "./rest-services";
-import { Mutation, CardStateGroup } from "./db-records";
+import { Mutation, CardStateGroup, BankTransactionDetails, BankTransactionRecord } from "./db-records";
 
-export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'open-reply' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'mutate-card' | 'mutate-card-reply' | 'notify-card-posted' | 'notify-mutation';
+export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'open-reply' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'mutate-card' | 'mutate-card-reply' | 'notify-card-posted' | 'notify-mutation' | 'card-opened';
 export interface SocketMessage<T> {
   type: SocketMessageType;
   requestId?: string;
@@ -86,4 +86,24 @@ export interface GetFeedDetails {
 
 export interface GetFeedReplyDetails extends ReplyDetails {
   cards: CardDescriptor[];
+}
+
+export interface CardOpenedDetails {
+  cardId: string;
+  openedAt: number;
+  closedAt?: number;
+  bankTransferDetails?: string;
+  transferSignature?: string;
+}
+
+export interface CardOpenedReply extends ReplyDetails {
+  bankTransactionId?: string;
+  updatedBalance?: number;
+  balanceAt?: number;
+}
+
+export interface BankTransactionResult {
+  record: BankTransactionRecord;
+  updatedBalance: number;
+  balanceAt: number;
 }

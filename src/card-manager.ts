@@ -6,7 +6,7 @@ import * as AWS from 'aws-sdk';
 import { awsManager, NotificationHandler, ChannelsServerNotification } from "./aws-manager";
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
-import { NotifyCardPostedDetails, PostCardDetails, NotifyCardMutationDetails } from "./interfaces/socket-messages";
+import { NotifyCardPostedDetails, PostCardDetails, NotifyCardMutationDetails, CardOpenedDetails } from "./interfaces/socket-messages";
 import { CardDescriptor } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 const promiseLimit = require('promise-limit');
@@ -337,6 +337,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  async cardOpened(user: UserRecord, details: CardOpenedDetails): Promise<void> {
+    // TODO
+  }
 }
 
 const cardManager = new CardManager();

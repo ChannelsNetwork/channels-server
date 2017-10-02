@@ -28,6 +28,7 @@ import { socketServer } from "./socket-server";
 import { mediumManager } from "./medium-manager";
 import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
+import { bank } from "./bank";
 
 const VERSION = 12;
 const INITIAL_NETWORK_BALANCE = 25000;
