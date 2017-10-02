@@ -357,9 +357,9 @@
 
       window.addEventListener("scroll", _onScroll);
       window._goingDown = true;
-      (document.documentElement || document.body.parentNode || document.body).scrollTop = 0;
+      _setScrollTop(0);
       requestAnimationFrame(function () {
-        (document.documentElement || document.body.parentNode || document.body).scrollTop = 0;
+        _setScrollTop(0);
       });
       $.fabImge.setAttribute("src", '/s/icons/expand-more.png');
       $.fabImge.src = '/s/icons/expand-more.png';
@@ -367,6 +367,11 @@
       $.fab.addEventListener("click", _more);
 
       _loadAnalytics();
+    };
+
+    var _setScrollTop = function (value) {
+      (document.documentElement || document.body.parentNode || document.body).scrollTop = value;
+      document.body.scrollTop = value;
     };
 
     var _more = function () {
@@ -400,7 +405,7 @@
     };
 
     var _animateScroll = function (offset) {
-      var iv = (document.documentElement || document.body.parentNode || document.body).scrollTop;
+      var iv = (document.documentElement || document.body.parentNode || document.body).scrollTop || document.body.scrollTop;
       var diff = offset;
       window._animStart = 0;
       window._step = (timestamp) => {
@@ -408,7 +413,7 @@
           window._animStart = timestamp;
         }
         let progress = Math.min(1, Math.max(0, (timestamp - window._animStart) / 400));
-        (document.documentElement || document.body.parentNode || document.body).scrollTop = iv + (diff * progress);
+        _setScrollTop(iv + (diff * progress));
         if (progress < 1) {
           window.requestAnimationFrame(window._step);
         }
