@@ -9,6 +9,7 @@ import { UrlManager } from '../url-manager';
 
 export class RootPageHandler implements RestServer {
   private indexContent: string;
+  private appContent: string;
   private urlManager: UrlManager;
   async initializeRestServices(urlManager: UrlManager, app: Application): Promise<void> {
     this.urlManager = urlManager;
@@ -16,20 +17,35 @@ export class RootPageHandler implements RestServer {
       const indexPath = path.join(__dirname, '../../public/index.html');
       this.indexContent = fs.readFileSync(indexPath, 'utf8');
     }
-    app.get('/', this.handleRootPage.bind(this));
-    app.get('/index.html', this.handleRootPage.bind(this));
-    app.get('/index.htm', this.handleRootPage.bind(this));
+    if (!this.appContent) {
+      const appPath = path.join(__dirname, '../../public/app.html');
+      this.appContent = fs.readFileSync(appPath, 'utf8');
+    }
+    app.get('/', this.handleHomePage.bind(this));
+    app.get('/index.html', this.handleHomePage.bind(this));
+    app.get('/index.htm', this.handleHomePage.bind(this));
+    app.get('/app', this.handleRootPage.bind(this));
+    app.get('/app/index.html', this.handleRootPage.bind(this));
+    app.get('/app/index.htm', this.handleRootPage.bind(this));
   }
 
   private handleRootPage(request: Request, response: Response) {
+    this.handlePage(this.appContent, request, response);
+  }
+
+  private handleHomePage(request: Request, response: Response) {
+    this.handlePage(this.indexContent, request, response);
+  }
+
+  private handlePage(content: string, request: Request, response: Response) {
     const ogUrl = configuration.get('baseClientUri');
     const metadata = {
       title: "Channels",
       description: "A content network fueled by cryptocurrency. The place to get absorbed in a mix of information and entertainment where the presentation is as engaging as the content.",
       url: ogUrl,
       image: url.resolve(ogUrl, '/s/images/logo700.png'),
-      imageWidth: 180,
-      imageHeight: 180
+      imageWidth: 700,
+      imageHeight: 700
     };
     const view = {
       public_base: this.urlManager.getPublicBaseUrl(),
@@ -41,7 +57,8 @@ export class RootPageHandler implements RestServer {
       og_imagewidth: metadata.imageWidth,
       og_imageheight: metadata.imageHeight
     };
-    const output = Mustache.render(this.indexContent, view);
+    const output = Mustache.render(content, view);
+    response.setHeader("Cache-Control", 'public, max-age=' + 60);
     response.contentType('text/html');
     response.status(200);
     response.send(output);
