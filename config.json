@@ -36,5 +36,6 @@
     "clientTester": {
       "enabled": true
     }
-  }
+  },
+  "components": {}
 }

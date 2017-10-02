@@ -3,3 +3,4 @@ public/bower_components
 dist
 dev.config.json
 npm-debug.log
+shadow-public

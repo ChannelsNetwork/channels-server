@@ -186,3 +186,43 @@ export interface NewsItem {
   imageUrl: string;
   linkUrl: string;
 }
+
+export interface EnsureChannelComponentDetails extends Signable {
+  package: string;  // appropriate to be passed to bower install <package>
+}
+
+export interface ChannelComponentResponse extends RestResponse {
+  source: string;
+  importHref: string;
+  package: BowerInstallResult;
+  channelComponent: ChannelComponentDescriptor;
+}
+
+export interface BowerInstallResult {
+  endpoint: {
+    name: string;
+    source: string;
+    target: string;
+  };
+  pkgMeta: BowerPackageMeta;
+}
+
+export interface BowerPackageMeta {
+  name: string;
+  homepage: string;
+  version: string;
+  main?: string;
+  _release: string;
+  _resolution: {
+    type: string;
+    tag: string;
+    commit: string;
+  };
+  _source: string;
+  _target: string;
+}
+
+export interface ChannelComponentDescriptor {
+  composerTag: string;
+  viewerTag: string;
+}
