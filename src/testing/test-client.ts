@@ -7,7 +7,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, RegisterDeviceDetails, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse, EnsureChannelComponentDetails, ChannelComponentResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
@@ -51,11 +51,12 @@ class TestClient implements RestServer {
     await this.getIdentity();
     await this.getNews();
     await this.getStatus();
-    await this.uploadFile();
-    await this.openSocket();
-    await this.sendOpen();
-    await this.postCard();
-    await this.getFeed();
+    await this.installCard();
+    // await this.uploadFile();
+    // await this.openSocket();
+    // await this.sendOpen();
+    // await this.postCard();
+    // await this.getFeed();
     response.end();
   }
 
@@ -141,6 +142,37 @@ class TestClient implements RestServer {
           resolve();
         } else {
           reject(message);
+        }
+      });
+    });
+  }
+
+  private async installCard(): Promise<void> {
+    const details: EnsureChannelComponentDetails = {
+      address: this.keyInfo.address,
+      timestamp: Date.now(),
+      package: "ChannelElementsTeam/card-sample-hello-world"
+    };
+    const detailsString = JSON.stringify(details);
+    const request: RestRequest<EnsureChannelComponentDetails> = {
+      version: 1,
+      details: detailsString,
+      signature: KeyUtils.signString(detailsString, this.keyInfo)
+    };
+    const args: PostArgs = {
+      data: request,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    };
+    console.log("ensure-component: tx:", JSON.stringify(request, null, 2));
+    return new Promise<void>((resolve, reject) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/ensure-component"), args, (data: ChannelComponentResponse, serviceResponse: Response) => {
+        if (serviceResponse.statusCode === 200) {
+          console.log("ensure-component: rx:", JSON.stringify(data, null, 2));
+          resolve();
+        } else {
+          reject(serviceResponse.statusCode);
         }
       });
     });

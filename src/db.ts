@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
 
@@ -20,6 +20,7 @@ export class Database {
   private deviceTokens: Collection;
   private cardOpens: Collection;
   private subsidyBalance: Collection;
+  private bowerManagement: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -40,6 +41,7 @@ export class Database {
     await this.initializeDeviceTokens();
     await this.initializeCardOpens();
     await this.initializeSubsidyBalance();
+    await this.initializeBowerManagement();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -180,6 +182,22 @@ export class Database {
       } catch (err) {
         console.error("Db.initializeSubsidyBalance: collision adding initial record");
       }
+    }
+  }
+
+  private async initializeBowerManagement(): Promise<void> {
+    this.bowerManagement = this.db.collection('bowerManagement');
+    await this.bowerManagement.createIndex({ id: 1 }, { unique: true });
+    try {
+      const record: BowerManagementRecord = {
+        id: 'main',
+        serverId: null,
+        status: 'available',
+        timestamp: Date.now()
+      };
+      await this.bowerManagement.insert(record);
+    } catch (_) {
+      // noop
     }
   }
 
@@ -829,6 +847,30 @@ export class Database {
       }
     });
   }
+
+  async updateBowerManagement(id: string, serverId: string, status: string, timestamp: number, whereStatus?: string, whereTimestamp?: number): Promise<boolean> {
+    const update: any = {
+      serverId: serverId,
+      status: status,
+      timestamp: timestamp
+    };
+    const query: any = {
+      id: id
+    };
+    if (whereStatus) {
+      query.status = whereStatus;
+    }
+    if (typeof whereTimestamp === 'number') {
+      query.timestamp = whereTimestamp;
+    }
+    const writeResult = await this.bowerManagement.updateOne(query, { $set: update });
+    return writeResult.modifiedCount === 1;
+  }
+
+  async findBowerManagement(id: string): Promise<BowerManagementRecord> {
+    return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
+  }
+
 }
 
 const db = new Database();

@@ -237,3 +237,10 @@ export interface CardOpensInfo {
   opens: number;
   units: number;
 }
+
+export interface BowerManagementRecord {
+  id: string;
+  serverId: string;
+  status: string;
+  timestamp: number;
+}
