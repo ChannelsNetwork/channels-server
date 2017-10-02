@@ -58,6 +58,7 @@ export class RootPageHandler implements RestServer {
       og_imageheight: metadata.imageHeight
     };
     const output = Mustache.render(content, view);
+    response.setHeader("Cache-Control", 'public, max-age=' + (1000 * 60));
     response.contentType('text/html');
     response.status(200);
     response.send(output);
