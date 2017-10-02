@@ -44,8 +44,8 @@ export class RootPageHandler implements RestServer {
       description: "A content network fueled by cryptocurrency. The place to get absorbed in a mix of information and entertainment where the presentation is as engaging as the content.",
       url: ogUrl,
       image: url.resolve(ogUrl, '/s/images/logo700.png'),
-      imageWidth: 180,
-      imageHeight: 180
+      imageWidth: 700,
+      imageHeight: 700
     };
     const view = {
       public_base: this.urlManager.getPublicBaseUrl(),
