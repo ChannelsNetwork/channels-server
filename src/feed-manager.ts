@@ -214,7 +214,7 @@ export class FeedManager implements Initializable, FeedHandler {
           imageUrl: this.getPreviewUrl("galaga.png"),
           linkUrl: null,
           title: "Play Galaga",
-          text: "The free online classic 80's arcade game"
+          text: "The online classic 80's arcade game"
         },
         cardType: {
           project: null,
