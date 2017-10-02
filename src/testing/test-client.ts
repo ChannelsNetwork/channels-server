@@ -51,12 +51,12 @@ class TestClient implements RestServer {
     await this.getIdentity();
     await this.getNews();
     await this.getStatus();
-    await this.uploadFile();
-    await this.openSocket();
-    await this.sendOpen();
     await this.installCard();
-    await this.postCard();
-    await this.getFeed();
+    // await this.uploadFile();
+    // await this.openSocket();
+    // await this.sendOpen();
+    // await this.postCard();
+    // await this.getFeed();
     response.end();
   }
 
