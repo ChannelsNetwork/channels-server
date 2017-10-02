@@ -36,6 +36,7 @@
       position: relative;
       background: #213034;
       color: white;
+      font-display: fallback;
     }
 
     h1,
@@ -45,6 +46,7 @@
       margin: 0;
       font-weight: 400;
       line-height: 1.3;
+      font-display: fallback;
     }
 
     h1 {
@@ -363,6 +365,8 @@
       $.fabImge.src = '/s/icons/expand-more.png';
 
       $.fab.addEventListener("click", _more);
+
+      _loadAnalytics();
     };
 
     var _more = function () {
@@ -395,7 +399,7 @@
       }
     };
 
-    _animateScroll = function (offset) {
+    var _animateScroll = function (offset) {
       var iv = (document.documentElement || document.body.parentNode || document.body).scrollTop;
       var diff = offset;
       window._animStart = 0;
@@ -410,27 +414,26 @@
         }
       };
       window.requestAnimationFrame(window._step);
-    }
+    };
+
+    var _loadAnalytics = function () {
+      setTimeout(() => {
+        (function (i, s, o, g, r, a, m) {
+          i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+            (i[r].q = i[r].q || []).push(arguments)
+          }, i[r].l = 1 * new Date(); a = s.createElement(o),
+            m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+        })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+        ga('create', 'UA-52117709-8', 'auto');
+        ga('send', 'pageview', '/app');
+      }, 500);
+    };
 
     if (document.readyState === 'complete') {
       onLoad();
     } else {
       window.addEventListener("load", onLoad);
     }
-  </script>
-
-  <!-- Google Analytics -->
-  <script>
-    setTimeout(function () {
-      (function (i, s, o, g, r, a, m) {
-        i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
-          (i[r].q = i[r].q || []).push(arguments)
-        }, i[r].l = 1 * new Date(); a = s.createElement(o),
-          m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
-      })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
-      ga('create', 'UA-52117709-8', 'auto');
-      ga('send', 'pageview', '/app');
-    }, 500);
   </script>
 </head>
 
