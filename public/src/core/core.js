@@ -11,9 +11,13 @@ class CoreService extends Polymer.Element {
     window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
+
+    // child services
     this.storage = new StorageService();
     this.rest = new RestService();
     this.dummy = new DummyService(this);
+    this.cardManager = new CardManager(this);
+
     this._keys = this.storage.getLocal(_CKeys.KEYS, true);
     this._profile = null;
     if (this._keys && this._keys.privateKey) {
@@ -130,6 +134,15 @@ class CoreService extends Polymer.Element {
         };
       }
       const url = this.restBase + "/check-handle";
+      return this.rest.post(url, request);
+    });
+  }
+
+  ensureComponent(packageName) {
+    return this.ensureKey().then(() => {
+      const details = RestUtils.EnsureChannelComponentDetails(this._keys.address, packageName);
+      const request = this._createRequest(details);
+      const url = this.restBase + '/ensure-component';
       return this.rest.post(url, request);
     });
   }

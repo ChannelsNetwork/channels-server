@@ -88,4 +88,12 @@ class RestUtils {
       timestamp: RestUtils.now()
     };
   }
+
+  static EnsureChannelComponentDetails(address, packageName) {
+    return {
+      package: packageName,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
 }

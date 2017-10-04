@@ -64,12 +64,17 @@
         padding: 10px;
         font-size: 20px;
         color: #212121;
+        text-align: center;
       }
 
       em {
         color: #1E88E5;
         font-style: normal;
         font-weight: bold;
+      }
+
+      .hidden {
+        display: none;
       }
 
       @media (max-width: 600px) {
@@ -82,18 +87,9 @@
       <div id="headerBuffer"></div>
       <div class="content flex">
         <div id="dummyContent">
-          <p>
-            This is where you will interact with the content in this card.
-          </p>
-          <p>
-            Each card presents its content in the most appropriate way: a <em>video</em>, a <em>photo array</em>, an <em>article</em>,
-            a <em>game</em>, or just about <em>anything you can imagine</em> on the web.
-          </p>
-          <p>
-            For now, your balance is not affected by opening this card. When we go live, you will pay or be paid the price shown on the
-            card when you open it, and your balance will go down or up accordingly.
-          </p>
+          <p>Loading...</p>
         </div>
+        <div id="cardView" class="hidden"></div>
       </div>
     </div>
     <open-card-header id="header" data="[[data]]"></open-card-header>
@@ -126,6 +122,8 @@
             this.style.left = (nodeRect.left - cardRect.left) + "px";
             this.style.width = nodeRect.width + "px"
             this.style.height = nodeRect.height + "px";
+
+            this._loadCard();
           });
         });
       }
@@ -152,6 +150,44 @@
           this.style.width = nodeRect.width + "px"
           this.style.height = nodeRect.height + "px";
         }
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+
+      _loadCard() {
+        if (this._loading) {
+          return;
+        }
+        this._loading = true;
+        this.$.dummyContent.classList.remove("hidden");
+        this.$.cardView.classList.add("hidden");
+        this._clearNode(this.$.cardView);
+        let onLoaded = () => {
+          this._loading = false;
+          this.$.dummyContent.classList.add("hidden");
+          this.$.cardView.classList.remove("hidden");
+        };
+
+        let packageName = this.data.cardType.package;
+        $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+          Polymer.importHref(packageInfo.importHref, () => {
+            onLoaded();
+            let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
+            cardNode.data = this.data.summary;
+            this.$.cardView.appendChild(cardNode);
+            // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
+          }, (err) => {
+            onLoaded();
+            console.error("Failed to load package '" + packageName + "'", err);
+          });
+        }).catch((err) => {
+          onLoaded();
+          console.error("Failed to load package '" + packageName + "'", err);
+        });
       }
     }
     window.customElements.define(OpenCard.is, OpenCard);
