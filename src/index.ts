@@ -37,7 +37,7 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private started: number;
   private initializables: Initializable[] = [awsManager, cardManager, feedManager, priceRegulator];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;

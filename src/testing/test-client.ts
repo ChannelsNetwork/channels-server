@@ -13,7 +13,7 @@ import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
 import * as fs from 'fs';
 import * as path from "path";
-import { PingReplyDetails, SocketMessage, PingRequestDetails, OpenRequestDetails, OpenReplyDetails, PostCardReplyDetails, PostCardDetails, GetFeedDetails, GetFeedReplyDetails } from "../interfaces/socket-messages";
+import { PingReplyDetails, SocketMessage, PingRequestDetails, OpenRequestDetails, OpenReplyDetails, GetFeedDetails, GetFeedReplyDetails } from "../interfaces/socket-messages";
 import { IRestClient, PostArgs } from "../interfaces/irest-client";
 
 const RestClient = require('node-rest-client').Client;
@@ -173,29 +173,6 @@ class TestClient implements RestServer {
           resolve();
         } else {
           reject(serviceResponse.statusCode);
-        }
-      });
-    });
-  }
-
-  private async postCard(): Promise<void> {
-    const request: SocketMessage<PostCardDetails> = {
-      type: "post-card",
-      requestId: (this.requestId++).toString(),
-      details: {
-        text: "Hello world " + new Date().toString(),
-        promotionFee: 0,
-        openFeeUnits: 1
-      }
-    };
-    this.socket.send(JSON.stringify(request));
-    return new Promise<void>((resolve, reject) => {
-      this.registerCallback(request.requestId, (message: any): void => {
-        const reply = message as SocketMessage<PostCardReplyDetails>;
-        if (reply.details.success) {
-          resolve();
-        } else {
-          reject(message);
         }
       });
     });

@@ -32,16 +32,45 @@ const SCORE_CARD_LIKES_DOUBLING = 25;
 const SCORE_CARD_WEIGHT_CONTROVERSY = 6;
 const SCORE_CARD_CONTROVERSY_DOUBLING = 100;
 
-export class FeedManager implements Initializable, FeedHandler {
+export class FeedManager implements Initializable, RestServer {
+  private app: express.Application;
   private urlManager: UrlManager;
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
-    socketServer.registerFeedHandler(this);
   }
+  async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
+    this.urlManager = urlManager;
+    this.app = app;
+    this.registerHandlers();
+  }
+
+  private registerHandlers(): void {
+    this.app.post(this.urlManager.getDynamicUrl('get-feed'), (request: Request, response: Response) => {
+      void this.handleGetFeed(request, response);
+    });
+  }
+
   async initialize2(): Promise<void> {
     setInterval(() => {
       void this.poll();
     }, POLLING_INTERVAL);
+  }
+
+  private async handleGetFeed(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetFeedDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("FeedManager.get-feed", requestBody.detailsObject);
+      const reply: GetFeedResponse = {
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleGetFeed: Failure", err);
+      response.status(500).send(err);
+    }
   }
 
   async getUserFeed(userId: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]> {

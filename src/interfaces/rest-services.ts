@@ -99,18 +99,6 @@ export interface CheckHandleResponse extends RestResponse {
   inUse: boolean;
 }
 
-export interface PostCardDetails extends Signable {
-  imageUrl: string;
-  linkUrl: string;
-  title: string;
-  text: string;
-  cardType: string;
-  state: {
-    user: CardState;
-    shared: CardState;
-  };
-}
-
 export interface CardState {
   mutationId: string;
   properties: { [name: string]: any };
@@ -122,12 +110,22 @@ export interface PostCardResponse extends RestResponse {
 }
 
 export interface GetFeedDetails extends Signable {
-  beforeCardId?: string;
-  afterCardId?: string;
+  feeds: RequestedFeedDescriptor[];
+}
+
+export interface RequestedFeedDescriptor {
+  type: CardFeedType;
   maxCount: number;
 }
 
+export type CardFeedType = 'recommended' | 'recently_added' | 'recently_posted' | 'recently_opened';
+
 export interface GetFeedResponse extends RestResponse {
+  feeds: CardFeedSet[];
+}
+
+export interface CardFeedSet {
+  type: CardFeedType;
   cards: CardDescriptor[];
 }
 
@@ -226,3 +224,64 @@ export interface ChannelComponentDescriptor {
   composerTag: string;
   viewerTag: string;
 }
+
+export interface GetCardDetails extends Signable {
+  cardId: string;
+}
+
+export interface GetCardResponse extends RestResponse {
+  card: CardDescriptor;
+}
+
+export interface PostCardDetails extends Signable {
+  imageUrl?: string;
+  linkUrl?: string;
+  title?: string;
+  text: string;
+  cardType?: string;
+  cardTypeIconUrl?: string;
+  promotionFee: number;
+  openPayment?: number; // for ads, in ChannelCoin
+  openFeeUnits?: number; // for content, 1..10
+  state: {
+    user: CardState;
+    shared: CardState;
+  };
+}
+
+export interface PostCardResponse extends RestResponse {
+  cardId: string;
+}
+
+export interface CardImpressionDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardImpressionResponse extends RestResponse { }
+
+export interface CardOpenedDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardOpenedResponse extends RestResponse { }
+
+export interface CardPayDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardPayResponse extends RestResponse { }
+
+export interface CardClosedDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardClosedResponse extends RestResponse { }
+
+export interface UpdateCardLikeDetails extends Signable {
+  cardId: string;
+  selection: CardLikeState;
+}
+
+export type CardLikeState = "none" | "like" | "dislike";
+
+export interface UpdateCardLikeResponse extends RestResponse { }

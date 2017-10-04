@@ -7,7 +7,7 @@ import { UrlManager } from "./url-manager";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
 import * as uuid from 'uuid';
 import { configuration } from "./configuration";
-import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, OpenReplyDetails, PostCardDetails, PostCardReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails, MutateCardDetails, MutateCardReplyDetails } from "./interfaces/socket-messages";
+import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, OpenReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails, MutateCardDetails, MutateCardReplyDetails } from "./interfaces/socket-messages";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { CardRecord, UserRecord, Mutation, CardMutationRecord } from "./interfaces/db-records";
@@ -56,14 +56,6 @@ export class SocketServer implements SocketConnectionHandler {
       });
       void this.handleSocketConnectRequest(socketId, ws, request);
     });
-  }
-
-  registerCardHandler(handler: CardHandler): void {
-    this.cardHandler = handler;
-  }
-
-  registerFeedHandler(handler: FeedHandler): void {
-    this.feedHandler = handler;
   }
 
   getOpenSocketAddresses(): string[] {
@@ -118,9 +110,6 @@ export class SocketServer implements SocketConnectionHandler {
           break;
         case 'open':
           await this.handleOpenRequest(msg as SocketMessage<OpenRequestDetails>, socketInfo);
-          break;
-        case 'post-card':
-          await this.handlePostCardRequest(msg as SocketMessage<PostCardDetails>, socketInfo);
           break;
         case 'mutate-card':
           await this.handleMutateCardRequest(msg as SocketMessage<MutateCardDetails>, socketInfo);
@@ -191,33 +180,6 @@ export class SocketServer implements SocketConnectionHandler {
     this.socketsByAddress[msg.details.address] = socket;
     const details: OpenReplyDetails = { success: true };
     socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
-  }
-
-  private async handlePostCardRequest(msg: SocketMessage<PostCardDetails>, socket: SocketInfo): Promise<void> {
-    const user = await this.userHandler.onUserSocketMessage(socket.address);
-    if (!user) {
-      console.warn("SocketServer.handlePostCardRequest: missing user");
-      const errDetails: PostCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cardId: null };
-      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
-      return;
-    }
-    if (!msg.details || !msg.details.text) {
-      const errDetails: PostCardReplyDetails = { success: false, error: { code: 400, message: "Invalid card: text is mandatory" }, cardId: null };
-      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
-      return;
-    }
-    try {
-      const card = await this.cardHandler.postCard(user, msg.details, socket.address);
-      const details: PostCardReplyDetails = {
-        success: true,
-        cardId: card.id
-      };
-      socket.socket.send(JSON.stringify({ type: "post-card-reply", requestId: msg.requestId, details: details }));
-    } catch (err) {
-      console.warn("SocketServer.handlePostCardRequest: failure", err);
-      const errDetails: PostCardReplyDetails = { success: false, error: { code: 500, message: "Internal error" }, cardId: null };
-      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
-    }
   }
 
   private async handleMutateCardRequest(msg: SocketMessage<MutateCardDetails>, socket: SocketInfo): Promise<void> {
@@ -319,7 +281,6 @@ interface ChannelSocket {
 }
 
 export interface CardHandler {
-  postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord>;
   mutateCard(user: UserRecord, cardId: string, mutation: Mutation): Promise<CardMutationRecord>;
 }
 

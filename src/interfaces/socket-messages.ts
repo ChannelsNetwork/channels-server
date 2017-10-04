@@ -34,26 +34,6 @@ export interface OpenRequestDetails {
 
 export interface OpenReplyDetails extends ReplyDetails { }
 
-export interface PostCardDetails {
-  imageUrl?: string;
-  linkUrl?: string;
-  title?: string;
-  text: string;
-  cardType?: string;
-  cardTypeIconUrl?: string;
-  promotionFee: number;
-  openPayment?: number; // for ads, in ChannelCoin
-  openFeeUnits?: number; // for content, 1..10
-  state?: {
-    user: CardState;
-    shared: CardState;
-  };
-}
-
-export interface PostCardReplyDetails extends ReplyDetails {
-  cardId: string;
-}
-
 export interface CardState {
   mutationId: string;
   properties: { [name: string]: any };
