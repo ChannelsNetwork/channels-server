@@ -149,7 +149,7 @@ export interface CardDescriptor {
     text: string;
   };
   cardType: {
-    project: string;
+    package: string;
     iconUrl: string;
   };
   pricing: {

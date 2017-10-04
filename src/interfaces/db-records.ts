@@ -70,7 +70,7 @@ export interface CardRecord {
     text: string;
   };
   cardType: {
-    project: string;
+    package: string;
     iconUrl: string;
   };
   pricing: {

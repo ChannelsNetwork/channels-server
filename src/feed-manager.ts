@@ -183,7 +183,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power."
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_article.jpg")
         },
         pricing: {
@@ -217,7 +217,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "The online classic 80's arcade game"
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_game.png")
         },
         pricing: {
@@ -251,7 +251,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Learn how to make this delicious treat"
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_play.png")
         },
         pricing: {
@@ -285,7 +285,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure."
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_article.jpg")
         },
         pricing: {
@@ -319,7 +319,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Solve this mini-crossword in one minute"
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_crossword.jpg")
         },
         pricing: {
@@ -353,7 +353,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Alicia Vikander is Lara Croft.  Coming soon in 3D."
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_play.png")
         },
         pricing: {
@@ -387,7 +387,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "An emerging life form must respond to the unstable and unforgiving terrain of a new home."
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_play.png")
         },
         pricing: {
@@ -421,7 +421,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: ""
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_play.png")
         },
         pricing: {
@@ -455,7 +455,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "According to BrightSide.me"
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_photos.png")
         },
         pricing: {
@@ -489,7 +489,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth."
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_book.png")
         },
         pricing: {
@@ -523,7 +523,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "How to Fail at the Future"
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_article.jpg")
         },
         pricing: {
@@ -557,7 +557,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Find the most beautiful diamonds in the world and build your own ring."
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_link.png")
         },
         pricing: {
@@ -591,7 +591,7 @@ export class FeedManager implements Initializable, FeedHandler {
           text: "Explore news from around the world that are outside the mainstream media"
         },
         cardType: {
-          project: null,
+          package: null,
           iconUrl: this.getPreviewUrl("icon_interactive.png")
         },
         pricing: {
@@ -626,7 +626,7 @@ export class FeedManager implements Initializable, FeedHandler {
       //     text: ""
       //   },
       //   cardType: {
-      //     project: null,
+      //     package: null,
       //     iconUrl: this.getPreviewUrl("")
       //   },
       //   pricing: {

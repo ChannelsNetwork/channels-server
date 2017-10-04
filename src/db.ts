@@ -393,7 +393,7 @@ export class Database {
         text: text,
       },
       cardType: {
-        project: cardType,
+        package: cardType,
         iconUrl: cardTypeIconUrl
       },
       pricing: {
