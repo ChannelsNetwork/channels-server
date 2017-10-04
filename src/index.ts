@@ -29,7 +29,7 @@ import { mediumManager } from "./medium-manager";
 import { priceRegulator } from "./price-regulator";
 import { channelsComponentManager } from "./channels-component-manager";
 
-const VERSION = 14;
+const VERSION = 15;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
