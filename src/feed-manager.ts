@@ -12,6 +12,7 @@ import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeed
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
+import { UserHelper } from "./user-helper";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -32,9 +33,15 @@ const SCORE_CARD_LIKES_DOUBLING = 25;
 const SCORE_CARD_WEIGHT_CONTROVERSY = 6;
 const SCORE_CARD_CONTROVERSY_DOUBLING = 100;
 
+const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
+const HIGH_SCORE_CARD_COUNT = 100;
+const CARD_SCORE_RANDOM_WEIGHT = 0.5;
+
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
+  private highScoreCards: CardDescriptor[] = [];
+  private lastHighScoreCardsAt = 0;
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
   }
@@ -104,8 +111,57 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getRecommendedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
-    // TODO
-    return [];
+    // The recommended feed consists of cards we think the user will be most interested in.  This can get
+    // more sophisticated over time.  For now, it works by using a cached set of the cards that have
+    // the highest overall scores (determined independent of any one user).  For each of these cards, we
+    // adjust the scores based on factors that are specific to this user.  And we add a random variable
+    // resulting in some churn across the set.  Then we take the top N based on how many were requested.
+    const highScores = await this.getCardsWithHighestScores();
+    const promises: Array<Promise<CardWithUserScore>> = [];
+    for (const highScore of highScores) {
+      if (!UserHelper.isUsersAddress(user, highScore.by.address)) {
+        const candidate: CardWithUserScore = {
+          card: highScore,
+          fullScore: highScore.score
+        };
+        promises.push(this.scoreCandidateCard(user, candidate));
+      }
+    }
+    const candidates = await Promise.all(promises);
+    candidates.sort((a, b) => {
+      return b.fullScore - a.fullScore;
+    });
+    const result: CardDescriptor[] = [];
+    for (const candidate of candidates) {
+      result.push(candidate.card);
+      if (result.length >= limit) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  private async getCardsWithHighestScores(): Promise<CardDescriptor[]> {
+    const now = Date.now();
+    if (now - this.lastHighScoreCardsAt < HIGH_SCORE_CARD_CACHE_LIFE) {
+      return this.highScoreCards;
+    }
+    this.lastHighScoreCardsAt = now;
+    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT);
+    this.highScoreCards = await this.populateCards(cards);
+    return this.highScoreCards;
+  }
+
+  private async scoreCandidateCard(user: UserRecord, candidate: CardWithUserScore): Promise<CardWithUserScore> {
+    const userCardInfo = await db.findUserCardInfo(user.id, candidate.card.id);
+    if (userCardInfo) {
+      const since = Date.now() - userCardInfo.lastOpened;
+      if (since < 1000 * 60 * 60 * 24) {
+        candidate.fullScore = 0;
+      }
+    }
+    candidate.fullScore += (Math.random() - 0.5) * CARD_SCORE_RANDOM_WEIGHT;
+    return candidate;
   }
 
   private async getRecentlyAddedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
@@ -127,10 +183,10 @@ export class FeedManager implements Initializable, RestServer {
     return await this.populateCards(cards, user);
   }
 
-  private async populateCards(cards: CardRecord[], user: UserRecord): Promise<CardDescriptor[]> {
+  private async populateCards(cards: CardRecord[], user?: UserRecord): Promise<CardDescriptor[]> {
     const promises: Array<Promise<CardDescriptor>> = [];
     for (const card of cards) {
-      promises.push(cardManager.populateCardState(card.id, user, false));
+      promises.push(cardManager.populateCardState(card.id, false, user));
     }
     return await Promise.all(promises);
   }
@@ -725,3 +781,8 @@ export class FeedManager implements Initializable, RestServer {
 const feedManager = new FeedManager();
 
 export { feedManager };
+
+export interface CardWithUserScore {
+  card: CardDescriptor;
+  fullScore: number;
+}

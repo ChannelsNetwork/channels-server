@@ -161,6 +161,7 @@ export interface CardDescriptor {
     likes: number;
     dislikes: number;
   };
+  score: number;
   userSpecific: {
     isPoster: boolean;
     lastImpression: number;

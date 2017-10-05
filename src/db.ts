@@ -113,6 +113,7 @@ export class Database {
     await this.cards.createIndex({ postedAt: -1, "by.address": -1 });
     await this.cards.createIndex({ "by.address": 1, at: -1 });
     await this.cards.createIndex({ postedAt: 1, lastScored: -1 });
+    await this.cards.createIndex({ "score.value": -1 });
 
     // Migrate cards that don't have stats set up yet...
     const existing = await this.cards.find<CardRecord>({ opens: { $exists: false } }).toArray();
@@ -552,6 +553,10 @@ export class Database {
       query.after = { $gt: after };
     }
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
+  }
+
+  async findCardsByScore(limit: number): Promise<CardRecord[]> {
+    return await this.cards.find({}).sort({ "score.value": -1 }).limit(limit).toArray();
   }
 
   async incrementCardLikes(cardId: string, incrementLikesBy: number, incrementDislikesBy: number): Promise<void> {

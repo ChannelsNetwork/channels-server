@@ -80,7 +80,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("UserManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(card.id, user, true);
+      const cardState = await this.populateCardState(card.id, true, user);
       const reply: GetCardResponse = {
         card: cardState
       };
@@ -500,7 +500,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(cardId, user, false);
+    const cardDescriptor = await this.populateCardState(cardId, false, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -525,13 +525,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, user: UserRecord, includeInitialState: boolean): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, includeInitialState: boolean, user?: UserRecord): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
     }
     const basePrice = await priceRegulator.getBaseCardFee();
-    const userInfo = await db.findUserCardInfo(user.id, cardId);
+    const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
     try {
       const card: CardDescriptor = {
         id: record.id,
@@ -563,6 +563,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           opens: record.opens.value,
           impressions: 0
         },
+        score: record.score.value,
         userSpecific: {
           isPoster: UserHelper.isUsersAddress(user, record.by.address),
           lastImpression: userInfo ? userInfo.lastImpression : 0,
