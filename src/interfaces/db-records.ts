@@ -288,7 +288,7 @@ export interface UserCardActionRecord {
   };
 }
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "close-and-pay";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike";
 
 export interface UserCardInfoRecord {
   userId: string;

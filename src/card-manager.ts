@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankTransactionDetails } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -14,6 +14,9 @@ import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
+import { UserHelper } from "./user-helper";
+import { KeyUtils } from "./key-utils";
+import { bank } from "./bank";
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -77,7 +80,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("UserManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(card.id, user.address, true);
+      const cardState = await this.populateCardState(card.id, user, true);
       const reply: GetCardResponse = {
         card: cardState
       };
@@ -125,19 +128,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("UserManager.card-impression", requestBody.detailsObject);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "impression");
-      while (true) {
-        const cardInfo = await db.findUserCardInfo(user.id, card.id);
-        if (cardInfo) {
-          await db.updateUserCardLastImpression(user.id, card.id, now);
-          break;
-        } else {
-          try {
-            await db.insertUserCardInfo(user.id, card.id, now, 0, 0, 0, []);
-          } catch (err) {
-            console.warn("Card.handleCardImpression: race condition inserting card info");
-          }
-        }
-      }
+      await db.updateUserCardLastImpression(user.id, card.id, now);
       const reply: CardImpressionResponse = {};
       response.json(reply);
     } catch (err) {
@@ -160,19 +151,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("UserManager.card-opened", requestBody.detailsObject);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "open");
-      while (true) {
-        const cardInfo = await db.findUserCardInfo(user.id, card.id);
-        if (cardInfo) {
-          await db.updateUserCardLastOpened(user.id, card.id, now);
-          break;
-        } else {
-          try {
-            await db.insertUserCardInfo(user.id, card.id, 0, now, 0, 0, []);
-          } catch (err) {
-            console.warn("Card.handleCardOpened: race condition inserting card info");
-          }
-        }
-      }
+      await db.updateUserCardLastOpened(user.id, card.id, now);
       const reply: CardOpenedResponse = {};
       response.json(reply);
     } catch (err) {
@@ -188,30 +167,44 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!user) {
         return;
       }
-      const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
+      const transaction = JSON.parse(requestBody.detailsObject.transactionString) as BankTransactionDetails;
+      if (!UserHelper.isUsersAddress(user, transaction.address)) {
+        response.status(403).send("You do not own the address in the transaction");
+        return;
+      }
+      if (transaction.type !== "transfer" || transaction.reason !== "card-open") {
+        response.status(400).send("The transaction must be 'transfer' with reason 'card-open'");
+        return;
+      }
+      const card = await this.getRequestedCard(user, transaction.relatedCardId, response);
       if (!card) {
         return;
       }
-      console.log("UserManager.card-pay", requestBody.detailsObject);
-      const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null);
-      const paymentAmount = 0; // TODO
-      const transactionId = ""; // TODO
-      while (true) {
-        const cardInfo = await db.findUserCardInfo(user.id, card.id);
-        if (cardInfo) {
-          await db.updateUserCardIncrementPayment(user.id, card.id, paymentAmount, transactionId);
+      if (transaction.relatedCouponId) {
+        response.status(400).send("No coupon is allowed on the transaction");
+        return;
+      }
+      let authorRecipient = false;
+      for (const recipient of transaction.toRecipients) {
+        if (recipient.address === card.by.address && recipient.portion === 'remainder') {
+          authorRecipient = true;
           break;
-        } else {
-          try {
-            await db.insertUserCardInfo(user.id, card.id, 0, 0, 0, 0, []);
-          } catch (err) {
-            console.warn("Card.handleCardOpened: race condition inserting card info");
-          }
         }
       }
-
-      const reply: CardPayResponse = {};
+      if (!authorRecipient) {
+        response.status(400).send("The card's author is missing as a recipient with 'remainder'.");
+        return;
+      }
+      console.log("UserManager.card-pay", requestBody.detailsObject);
+      const transactionResult = await bank.performTransaction(user, requestBody.detailsObject.address, requestBody.detailsObject.transactionString, requestBody.detailsObject.transactionSignature);
+      const now = Date.now();
+      await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null);
+      await db.updateUserCardIncrementPayment(user.id, card.id, transaction.amount, transactionResult.record.id);
+      const reply: CardPayResponse = {
+        transactionId: transactionResult.record.id,
+        updatedBalance: transactionResult.updatedBalance,
+        balanceAt: transactionResult.balanceAt
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardPay: Failure", err);
@@ -234,19 +227,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "close", 0, null);
-      while (true) {
-        const cardInfo = await db.findUserCardInfo(user.id, card.id);
-        if (cardInfo) {
-          await db.updateUserCardLastClosed(user.id, card.id, now);
-          break;
-        } else {
-          try {
-            await db.insertUserCardInfo(user.id, card.id, 0, 0, now, 0, []);
-          } catch (err) {
-            console.warn("Card.handleCardOpened: race condition inserting card info");
-          }
-        }
-      }
+      await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {};
       response.json(reply);
     } catch (err) {
@@ -267,24 +248,29 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("UserManager.update-card-like", requestBody.detailsObject);
-      const cardInfo = await db.findUserCardInfo(user.id, card.id);
+      const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (cardInfo && cardInfo.like !== requestBody.detailsObject.selection) {
         if (cardInfo.like !== requestBody.detailsObject.selection) {
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
           let existingLikes = 0;
           let existingDislikes = 0;
+          let action: CardActionType;
           switch (cardInfo.like) {
             case "like":
               existingLikes++;
+              action = "like";
               break;
             case "dislike":
               existingDislikes++;
+              action = "dislike";
               break;
             case "none":
+              action = "reset-like";
               break;
             default:
               throw new Error("Unhandled card info like state " + cardInfo.like);
           }
+          await db.insertUserCardAction(user.id, card.id, Date.now(), action);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -507,16 +493,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const promises: Array<Promise<void>> = [];
     for (const address of addresses) {
       // TODO: only send to users based on their feed configuration
-      promises.push(this.sendCardPostedNotification(card.id, address));
+      // promises.push(this.sendCardPostedNotification(card.id, address));
     }
     console.log("CardManager.handleCardPostedNotification: Notifying " + addresses.length + " clients");
     await Promise.all(promises);
   }
 
-  private async sendCardPostedNotification(cardId: string, userAddress: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(cardId, userAddress, false);
+  private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
+    const cardDescriptor = await this.populateCardState(cardId, user, false);
     const details: NotifyCardPostedDetails = cardDescriptor;
-    await socketServer.sendEvent([userAddress], { type: 'notify-card-posted', details: details });
+    // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
 
   private async handleMutationNotification(notification: ChannelsServerNotification): Promise<void> {
@@ -539,12 +525,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, userId: string, includeInitialState: boolean): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, user: UserRecord, includeInitialState: boolean): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
     }
     const basePrice = await priceRegulator.getBaseCardFee();
+    const userInfo = await db.findUserCardInfo(user.id, cardId);
     try {
       const card: CardDescriptor = {
         id: record.id,
@@ -576,6 +563,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           opens: record.opens.value,
           impressions: 0
         },
+        userSpecific: {
+          isPoster: UserHelper.isUsersAddress(user, record.by.address),
+          lastImpression: userInfo ? userInfo.lastImpression : 0,
+          lastOpened: userInfo ? userInfo.lastOpened : 0,
+          lastClosed: userInfo ? userInfo.lastClosed : 0,
+          likeState: userInfo ? userInfo.like : "none",
+          paid: userInfo ? userInfo.payment : 0
+        },
         state: {
           user: {
             mutationId: null,
@@ -589,19 +584,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
         }
       };
-      if (userId) {
+      if (user) {
         const lastUserMutation = await db.findLastMutation(card.id, "user");
         if (lastUserMutation) {
           card.state.user.mutationId = lastUserMutation.mutationId;
         }
         if (includeInitialState) {
-          const userProperties = await db.findCardProperties(card.id, "user", userId);
+          const userProperties = await db.findCardProperties(card.id, "user", user.id);
           for (const property of userProperties) {
             card.state.user.properties[property.name] = property.value;
           }
           // TODO: if a lot of state information, omit it and let client ask if it
           // needs it
-          const userCollectionRecords = await db.findCardCollectionItems(card.id, "user", userId);
+          const userCollectionRecords = await db.findCardCollectionItems(card.id, "user", user.id);
           for (const item of userCollectionRecords) {
             if (!card.state.user.collections[item.collectionName]) {
               card.state.user.collections[item.collectionName] = {};

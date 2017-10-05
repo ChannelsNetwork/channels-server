@@ -978,19 +978,26 @@ export class Database {
     return await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: -1 }).limit(limit).toArray();
   }
 
-  async insertUserCardInfo(userId: string, cardId: string, lastImpression: number, lastOpened: number, lastClosed: number, payment: number, transactionIds: string[]): Promise<UserCardInfoRecord> {
-    const record: UserCardInfoRecord = {
-      userId: userId,
-      cardId: cardId,
-      created: Date.now(),
-      lastImpression: lastImpression,
-      lastOpened: lastOpened,
-      lastClosed: lastClosed,
-      payment: payment,
-      transactionsIds: transactionIds,
-      like: "none"
-    };
-    await this.userCardInfo.insert(record);
+  async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
+    let record = await this.findUserCardInfo(userId, cardId);
+    if (!record) {
+      try {
+        record = {
+          userId: userId,
+          cardId: cardId,
+          created: Date.now(),
+          lastImpression: 0,
+          lastOpened: 0,
+          lastClosed: 0,
+          payment: 0,
+          transactionsIds: [],
+          like: "none"
+        };
+        await this.userCardInfo.insert(record);
+      } catch (err) {
+        record = await this.findUserCardInfo(userId, cardId);
+      }
+    }
     return record;
   }
 
@@ -1003,22 +1010,27 @@ export class Database {
   }
 
   async updateUserCardLastImpression(userId: string, cardId: string, value: number): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastImpression: value } });
   }
 
   async updateUserCardLastOpened(userId: string, cardId: string, value: number): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value } });
   }
 
   async updateUserCardLastClosed(userId: string, cardId: string, value: number): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastClosed: value } });
   }
 
   async updateUserCardIncrementPayment(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { payment: amount }, $push: { transactionIds: transactionId } });
   }
 
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { like: state } });
   }
 }

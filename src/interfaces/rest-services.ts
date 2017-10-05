@@ -161,6 +161,14 @@ export interface CardDescriptor {
     likes: number;
     dislikes: number;
   };
+  userSpecific: {
+    isPoster: boolean;
+    lastImpression: number;
+    lastOpened: number;
+    lastClosed: number;
+    likeState: CardLikeState;
+    paid: number;
+  };
   state?: {
     user: CardState;
     shared: CardState;
@@ -265,10 +273,15 @@ export interface CardOpenedDetails extends Signable {
 export interface CardOpenedResponse extends RestResponse { }
 
 export interface CardPayDetails extends Signable {
-  cardId: string;
+  transactionString: string;
+  transactionSignature: string;
 }
 
-export interface CardPayResponse extends RestResponse { }
+export interface CardPayResponse extends RestResponse {
+  transactionId: string;
+  updatedBalance: number;
+  balanceAt: number;
+}
 
 export interface CardClosedDetails extends Signable {
   cardId: string;
