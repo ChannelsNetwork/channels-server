@@ -8,7 +8,7 @@ import { db } from "./db";
 import { UserRecord, CardRecord } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -65,7 +65,11 @@ export class FeedManager implements Initializable, RestServer {
       }
       console.log("FeedManager.get-feed", requestBody.detailsObject);
       const reply: GetFeedResponse = {
+        feeds: []
       };
+      for (const requestedFeed of requestBody.detailsObject.feeds) {
+        reply.feeds.push(await this.getUserFeed(user, requestedFeed));
+      }
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetFeed: Failure", err);
@@ -73,24 +77,59 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  async getUserFeed(userId: string, maxCount: number, before?: number, after?: number): Promise<CardDescriptor[]> {
-    const result: CardDescriptor[] = this.getPreviewCards();
-    // const cardRecords = await db.findCardsByTime(before, after, Math.min(maxCount, 25));
-    // const promises: Array<Promise<CardDescriptor>> = [];
-    // for (const record of cardRecords) {
-    //   promises.push(cardManager.populateCardState(record.id, userAddress));
-    // }
-    // const cardReplies = await Promise.all(promises);
-    // const cards: CardDescriptor[] = [];
-    // for (const card of cardReplies) {
-    //   if (card) {
-    //     cards.push(card);
-    //   }
-    // }
-    // cards.sort((a: CardDescriptor, b: CardDescriptor) => {
-    //   return a.postedAt - b.postedAt;
-    // });
+  async getUserFeed(user: UserRecord, feed: RequestedFeedDescriptor): Promise<CardFeedSet> {
+    const result: CardFeedSet = {
+      type: feed.type,
+      cards: []
+    };
+    switch (feed.type) {
+      case "recommended":
+        result.cards.concat(await this.getRecommendedFeed(user, feed.maxCount));
+        break;
+      case 'recently_added':
+        result.cards.concat(await this.getRecentlyAddedFeed(user, feed.maxCount));
+        break;
+      case 'recently_posted':
+        result.cards.concat(await this.getRecentlyPostedFeed(user, feed.maxCount));
+        break;
+      case 'recently_opened':
+        result.cards.concat(await this.getRecentlyOpenedFeed(user, feed.maxCount));
+        break;
+      default:
+        throw new Error("Unhandled feed type " + feed.type);
+    }
     return result;
+  }
+
+  private async getRecommendedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+    return [];
+  }
+
+  private async getRecentlyAddedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+    const cards = await db.findCardsByTime(Date.now(), 0, limit);
+    return await this.populateCards(cards, user);
+  }
+
+  private async getRecentlyPostedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+    const cards = await db.findCardsByTime(Date.now(), 0, limit, user.id);
+    return await this.populateCards(cards, user);
+  }
+
+  private async getRecentlyOpenedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+    const infos = await db.findRecentCardOpens(user.id, limit);
+    const cards: CardRecord[] = [];
+    for (const info of infos) {
+      cards.push(await db.findCardById(info.cardId));
+    }
+    return await this.populateCards(cards, user);
+  }
+
+  private async populateCards(cards: CardRecord[], user: UserRecord): Promise<CardDescriptor[]> {
+    const promises: Array<Promise<CardDescriptor>> = [];
+    for (const card of cards) {
+      promises.push(cardManager.populateCardState(card.id, user.id, false));
+    }
+    return await Promise.all(promises);
   }
 
   private async poll(): Promise<void> {

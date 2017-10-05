@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState } from "./db-records";
 
 export interface RestRequest<T extends Signable> {
   version: number;
@@ -32,17 +32,16 @@ export interface UserStatusResponse extends RestResponse {
   appUpdateUrl: string;
   socketUrl: string;
   interestRatePerMillisecond: number;
+  cardBasePrice: number;
+  subsidyRate: number;
 }
 
 export interface UserStatus {
   goLive: number;
   userBalance: number;
-  networkBalance: number;
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
-  inviterRewards: number;
-  inviteeReward: number;
 }
 
 export interface RegisterDeviceDetails extends Signable {
@@ -282,6 +281,14 @@ export interface UpdateCardLikeDetails extends Signable {
   selection: CardLikeState;
 }
 
-export type CardLikeState = "none" | "like" | "dislike";
-
 export interface UpdateCardLikeResponse extends RestResponse { }
+
+export interface BankWithdrawDetails extends Signable {
+}
+
+export interface BankWithdrawResponse extends RestResponse { }
+
+export interface BankStatementDetails extends Signable {
+}
+
+export interface BankStatementResponse extends RestResponse { }
