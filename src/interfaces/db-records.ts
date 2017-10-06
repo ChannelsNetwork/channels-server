@@ -1,5 +1,5 @@
 
-import { Signable } from "./rest-services";
+import { Signable, BankTransactionDetails } from "./rest-services";
 
 export interface UserRecord {
   id: string;
@@ -256,26 +256,6 @@ export interface BankTransactionRecord {
   signature: string;
 }
 
-export interface BankTransactionDetails extends Signable {
-  type: BankTransactionType;
-  reason: BankTransactionReason;
-  relatedCardId?: string;
-  relatedCouponId?: string;
-  amount: number;  // ChannelCoin
-  toRecipients: BankTransactionRecipientDirective[];
-}
-
-export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
-export type BankTransactionReason = "card-promotion" | "card-open" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
-
-export interface BankTransactionRecipientDirective {
-  address: string;
-  portion: BankTransactionRecipientPortion;
-  amount?: number;  // ChannelCoin or fraction (0 to 1) depending on portion
-}
-
-export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
-
 export interface UserCardActionRecord {
   id: string;
   userId: string;
@@ -298,7 +278,7 @@ export interface UserCardInfoRecord {
   lastOpened: number;
   lastClosed: number;
   payment: number;
-  transactionsIds: string[];
+  transactionIds: string[];
   like: CardLikeState;
 }
 

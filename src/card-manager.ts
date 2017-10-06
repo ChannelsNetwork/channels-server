@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankTransactionDetails } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -107,6 +107,42 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const reply: PostCardResponse = {
         cardId: card.id
       };
+      if (requestBody.detailsObject.state) {
+        if (requestBody.detailsObject.state.user) {
+          if (requestBody.detailsObject.state.user.properties) {
+            for (const key of Object.keys(requestBody.detailsObject.state.user.properties)) {
+              await db.upsertCardProperty(card.id, "user", user.id, key, requestBody.detailsObject.state.user.properties[key]);
+            }
+          }
+          if (requestBody.detailsObject.state.user.collections) {
+            for (const key of Object.keys(requestBody.detailsObject.state.user.collections)) {
+              const collection = requestBody.detailsObject.state.user.collections[key];
+              let index = 0;
+              for (const itemKey of Object.keys(collection)) {
+                await db.insertCardCollectionItem(card.id, "user", user.id, key, itemKey, index, collection[itemKey]);
+                index++;
+              }
+            }
+          }
+        }
+        if (requestBody.detailsObject.state.shared) {
+          if (requestBody.detailsObject.state.shared.properties) {
+            for (const key of Object.keys(requestBody.detailsObject.state.shared.properties)) {
+              await db.upsertCardProperty(card.id, "shared", '', key, requestBody.detailsObject.state.shared.properties[key]);
+            }
+          }
+          if (requestBody.detailsObject.state.shared.collections) {
+            for (const key of Object.keys(requestBody.detailsObject.state.shared.collections)) {
+              const collection = requestBody.detailsObject.state.shared.collections[key];
+              let index = 0;
+              for (const itemKey of Object.keys(collection)) {
+                await db.insertCardCollectionItem(card.id, "shared", '', key, itemKey, index, collection[itemKey]);
+                index++;
+              }
+            }
+          }
+        }
+      }
       response.json(reply);
     } catch (err) {
       console.error("User.handlePostCard: Failure", err);
@@ -129,6 +165,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "impression");
       await db.updateUserCardLastImpression(user.id, card.id, now);
+      await db.incrementCardImpressions(card.id, 1);
       const reply: CardImpressionResponse = {};
       response.json(reply);
     } catch (err) {
@@ -152,6 +189,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "open");
       await db.updateUserCardLastOpened(user.id, card.id, now);
+      await db.incrementCardOpens(card.id, 1);
       const reply: CardOpenedResponse = {};
       response.json(reply);
     } catch (err) {
@@ -200,6 +238,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null);
       await db.updateUserCardIncrementPayment(user.id, card.id, transaction.amount, transactionResult.record.id);
+      await db.incrementCardRevenue(card.id, transaction.amount);
       const reply: CardPayResponse = {
         transactionId: transactionResult.record.id,
         updatedBalance: transactionResult.updatedBalance,
@@ -561,18 +600,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           likes: record.likes.value,
           dislikes: record.dislikes.value,
           opens: record.opens.value,
-          impressions: 0
+          impressions: record.impressions.value
         },
         score: record.score.value,
         userSpecific: {
-          isPoster: UserHelper.isUsersAddress(user, record.by.address),
+          isPoster: user ? UserHelper.isUsersAddress(user, record.by.address) : false,
           lastImpression: userInfo ? userInfo.lastImpression : 0,
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,
           likeState: userInfo ? userInfo.like : "none",
           paid: userInfo ? userInfo.payment : 0
-        },
-        state: {
+        }
+      };
+      if (includeInitialState) {
+        card.state = {
           user: {
             mutationId: null,
             properties: {},
@@ -583,8 +624,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             properties: {},
             collections: {}
           }
-        }
-      };
+        };
+      }
       if (user) {
         const lastUserMutation = await db.findLastMutation(card.id, "user");
         if (lastUserMutation) {
@@ -627,10 +668,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
-  }
-
-  async cardOpened(user: UserRecord, details: CardOpenedDetails): Promise<void> {
-    // TODO
   }
 }
 

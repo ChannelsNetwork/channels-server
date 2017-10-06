@@ -2,14 +2,14 @@ import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
 import { UrlManager } from "./url-manager";
-import { BankTransactionReason, BankTransactionRecipientDirective, BankTransactionRecord, UserRecord, BankTransactionDetails } from "./interfaces/db-records";
+import { BankTransactionRecord, UserRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { UserHelper } from "./user-helper";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
@@ -114,7 +114,6 @@ export class Bank implements RestServer {
     let totalNonRemainder = 0;
     let remainders = 0;
     const participantIds: string[] = [];
-    participantIds.push(user.id);
     for (const recipient of details.toRecipients) {
       if (!recipient.address || !recipient.portion) {
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
@@ -124,7 +123,7 @@ export class Bank implements RestServer {
         throw new ErrorWithStatusCode(404, "Unknown recipient address " + recipient.address);
       }
       if (participantIds.indexOf(recipientUser.id) >= 0) {
-        throw new ErrorWithStatusCode(400, "Duplicate participant (originator and/or recipients)");
+        throw new ErrorWithStatusCode(400, "Duplicate transaction recipient");
       }
       participantIds.push(recipientUser.id);
       switch (recipient.portion) {

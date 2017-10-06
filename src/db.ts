@@ -2,9 +2,10 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionDetails, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
+import { BankTransactionDetails } from "./interfaces/rest-services";
 
 export class Database {
   private db: Db;
@@ -66,14 +67,14 @@ export class Database {
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    try {
-      const exists = await this.users.indexExists("address_1");
-      if (exists) {
-        await this.users.dropIndex("address_1");
-      }
-    } catch (err) {
-      console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
-    }
+    // try {
+    //   const exists = await this.users.indexExists("address_1");
+    //   if (exists) {
+    //     await this.users.dropIndex("address_1");
+    //   }
+    // } catch (err) {
+    //   console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
+    // }
 
     // Migrate old users with single address/publicKey to new collection
     const existing = await this.users.find<UserRecord>({ address: { $exists: true } }).toArray();
@@ -546,11 +547,12 @@ export class Database {
     if (byUserId) {
       query["by.id"] = byUserId;
     }
-    if (before) {
-      query.before = { $lt: before };
-    }
-    if (after) {
-      query.after = { $gt: after };
+    if (before && after) {
+      query.postedAt = { $lt: before, $gt: after };
+    } else if (before) {
+      query.postedAt = { $lt: before };
+    } else if (after) {
+      query.postedAt = { $gt: after };
     }
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
@@ -560,12 +562,24 @@ export class Database {
   }
 
   async incrementCardLikes(cardId: string, incrementLikesBy: number, incrementDislikesBy: number): Promise<void> {
-    this.cards.updateOne({ id: cardId }, {
+    await this.cards.updateOne({ id: cardId }, {
       $inc: {
         "likes.value": incrementLikesBy,
         "dislikes.value": incrementDislikesBy
       }
     });
+  }
+
+  async incrementCardImpressions(cardId: string, incrementBy: number): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $inc: { "impressions.value": incrementBy } });
+  }
+
+  async incrementCardOpens(cardId: string, incrementBy: number): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $inc: { "opens.value": incrementBy } });
+  }
+
+  async incrementCardRevenue(cardId: string, incrementBy: number): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $inc: { "revenue.value": incrementBy } });
   }
 
   async ensureMutationIndex(): Promise<void> {
@@ -995,7 +1009,7 @@ export class Database {
           lastOpened: 0,
           lastClosed: 0,
           payment: 0,
-          transactionsIds: [],
+          transactionIds: [],
           like: "none"
         };
         await this.userCardInfo.insert(record);

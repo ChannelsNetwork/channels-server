@@ -99,13 +99,9 @@ export interface CheckHandleResponse extends RestResponse {
 }
 
 export interface CardState {
-  mutationId: string;
+  mutationId?: string;
   properties: { [name: string]: any };
   collections: { [name: string]: { [key: string]: any } };
-}
-
-export interface PostCardResponse extends RestResponse {
-  cardId: string;
 }
 
 export interface GetFeedDetails extends Signable {
@@ -248,7 +244,7 @@ export interface PostCardDetails extends Signable {
   text: string;
   cardType?: string;
   cardTypeIconUrl?: string;
-  promotionFee: number;
+  promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
   openFeeUnits?: number; // for content, 1..10
   state: {
@@ -306,3 +302,23 @@ export interface BankStatementDetails extends Signable {
 }
 
 export interface BankStatementResponse extends RestResponse { }
+
+export interface BankTransactionDetails extends Signable {
+  type: BankTransactionType;
+  reason: BankTransactionReason;
+  relatedCardId?: string;
+  relatedCouponId?: string;
+  amount: number;  // ChannelCoin
+  toRecipients: BankTransactionRecipientDirective[];
+}
+
+export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
+export type BankTransactionReason = "card-promotion" | "card-open" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+
+export interface BankTransactionRecipientDirective {
+  address: string;
+  portion: BankTransactionRecipientPortion;
+  amount?: number;  // ChannelCoin or fraction (0 to 1) depending on portion
+}
+
+export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";

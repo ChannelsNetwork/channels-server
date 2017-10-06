@@ -93,16 +93,16 @@ export class FeedManager implements Initializable, RestServer {
     };
     switch (feed.type) {
       case "recommended":
-        result.cards.concat(await this.getRecommendedFeed(user, feed.maxCount));
+        result.cards = await this.getRecommendedFeed(user, feed.maxCount);
         break;
       case 'recently_added':
-        result.cards.concat(await this.getRecentlyAddedFeed(user, feed.maxCount));
+        result.cards = await this.getRecentlyAddedFeed(user, feed.maxCount);
         break;
       case 'recently_posted':
-        result.cards.concat(await this.getRecentlyPostedFeed(user, feed.maxCount));
+        result.cards = await this.getRecentlyPostedFeed(user, feed.maxCount);
         break;
       case 'recently_opened':
-        result.cards.concat(await this.getRecentlyOpenedFeed(user, feed.maxCount));
+        result.cards = await this.getRecentlyOpenedFeed(user, feed.maxCount);
         break;
       default:
         throw new Error("Unhandled feed type " + feed.type);
@@ -188,7 +188,8 @@ export class FeedManager implements Initializable, RestServer {
     for (const card of cards) {
       promises.push(cardManager.populateCardState(card.id, false, user));
     }
-    return await Promise.all(promises);
+    const result = await Promise.all(promises);
+    return result;
   }
 
   private async poll(): Promise<void> {
