@@ -397,9 +397,9 @@ class TestClient implements RestServer {
       address: this.keyInfo.address,
       timestamp: Date.now(),
       feeds: [{ type: 'recommended', maxCount: 5 },
-      { type: 'recently_added', maxCount: 5 },
-      { type: 'recently_posted', maxCount: 5 },
-      { type: 'recently_opened', maxCount: 5 }]
+      { type: 'new', maxCount: 5 },
+      { type: 'mine', maxCount: 5 },
+      { type: 'opened', maxCount: 5 }]
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<GetFeedDetails> = {

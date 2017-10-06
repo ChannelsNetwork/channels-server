@@ -134,6 +134,122 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  getSyncCode() {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.getSyncCodeDetails(this._keys.address);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/get-sync-code";
+      return this.rest.post(url, request);
+    });
+  }
+
+  syncIdentity(handle, syncCode) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.syncIdentityDetails(this._keys.address, handle, syncCode);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/sync-identity";
+      return this.rest.post(url, request);
+    });
+  }
+
+  getFeeds(maxCardsPerFeed) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.getFeedDetails(this._keys.address, maxCardsPerFeed);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/get-feed";
+      return this.rest.post(url, request);
+    });
+  }
+
+  getFeed(type, maxCards) {  // type = "recommended" | "new" | "mine" | "opened"
+    return this.ensureKey().then(() => {
+      let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/get-feed";
+      return this.rest.post(url, request);
+    });
+  }
+
+  ensureComponent(package) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.ensureComponentDetails(this._keys.address, package);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/ensure-component";
+      return this.rest.post(url, request);
+    });
+  }
+
+  postCard(imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/post-card";
+      return this.rest.post(url, request);
+    });
+  }
+
+  cardImpression(cardId) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/card-impression";
+      return this.rest.post(url, request);
+    });
+  }
+
+  cardOpened(cardId) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.cardOpenedDetails(this._keys.address, cardId);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/card-opened";
+      return this.rest.post(url, request);
+    });
+  }
+
+  cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, networkAddress, royaltyAddress, referrerAddress) {
+    return this.ensureKey().then(() => {
+      const recipients = [];
+      recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder"));
+      if (cardDeveloperAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", cardDeveloperFraction));
+      }
+      if (networkAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(networkAddress, "fraction", 0.03));
+      }
+      if (royaltyAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(royaltyAddress, "fraction", 0.05));
+      }
+      if (referrerAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", 0.02));
+      }
+      const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open", cardId, null, amount, recipients);
+      const transactionString = JSON.stringify(transaction);
+      const transactionSignature = this._sign(transactionString);
+      let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/card-opened";
+      return this.rest.post(url, request);
+    });
+  }
+
+  cardClosed(cardId) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.cardClosedDetails(this._keys.address, cardId);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/card-closed";
+      return this.rest.post(url, request);
+    });
+  }
+
+  updateCardLike(cardId, selection) {  // "like" | "none" | "dislike"
+    return this.ensureKey().then(() => {
+      let details = RestUtils.updateCardLikeDetails(this._keys.address, cardId, selection);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/update-card-like";
+      return this.rest.post(url, request);
+    });
+  }
+
   get profile() {
     return this._profile;
   }

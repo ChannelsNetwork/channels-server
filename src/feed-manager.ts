@@ -95,13 +95,13 @@ export class FeedManager implements Initializable, RestServer {
       case "recommended":
         result.cards = await this.getRecommendedFeed(user, feed.maxCount);
         break;
-      case 'recently_added':
+      case 'new':
         result.cards = await this.getRecentlyAddedFeed(user, feed.maxCount);
         break;
-      case 'recently_posted':
+      case 'mine':
         result.cards = await this.getRecentlyPostedFeed(user, feed.maxCount);
         break;
-      case 'recently_opened':
+      case 'opened':
         result.cards = await this.getRecentlyOpenedFeed(user, feed.maxCount);
         break;
       default:
