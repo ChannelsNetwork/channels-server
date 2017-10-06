@@ -22,6 +22,7 @@ const CARD_OPENED_UPDATE_INTERVAL = 1000 * 60 * 60;
 const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24;
 const SUBSIDY_PERIOD = 1000 * 60 * 60 * 24;
 const MAXIMUM_BASE_CARD_FEE = 0.20;
+const MINIMUM_BASE_CARD_FEE = 0.001;
 const MAXIMUM_SUBSIDY_RATE = 10 / (1000 * 60 * 60 * 24);
 
 export class PriceRegulator implements Initializable {
@@ -60,7 +61,7 @@ export class PriceRegulator implements Initializable {
     const now = Date.now();
     if (now - this.lastSubsidyRateAt > SUBSIDY_CACHE_LIFETIME) {
       const balance = await db.getSubsidyBalance();
-      const usersBelowTarget = await db.countUsersBelowTargetBalance();
+      const usersBelowTarget = await db.countUsersbalanceBelowTarget();
       this.lastSubsidyRate = Math.min(MAXIMUM_SUBSIDY_RATE, balance.balance / (Math.max(usersBelowTarget, 1) * SUBSIDY_PERIOD));
       console.log("PriceRegulator.getUserSubsidyRate: user subsidy rate updated", this.lastSubsidyRate * 1000 * 60);
       this.lastSubsidyRateAt = now;
@@ -81,12 +82,12 @@ export class PriceRegulator implements Initializable {
       if (currentCardOpens) {
         const pastCardOpens = await db.findFirstCardOpensBefore(now - BASE_CARD_FEE_PERIOD);
         const previousTotal = pastCardOpens ? pastCardOpens.total.units : 0;
-        this.lastBaseCardFee = Math.min(MAXIMUM_BASE_CARD_FEE, balance.balance / (Math.max(1, currentCardOpens.total.units - previousTotal)));
+        this.lastBaseCardFee = Math.max(MINIMUM_BASE_CARD_FEE, Math.min(MAXIMUM_BASE_CARD_FEE, balance.balance / (Math.max(1, currentCardOpens.total.units - previousTotal))));
+        this.lastBaseCardFeeAt = now;
         console.log("PriceRegulator.getBaseCardFee: baseCardFee updated", this.lastBaseCardFee);
       } else {
-        this.lastBaseCardFee = 0;
+        this.lastBaseCardFee = MINIMUM_BASE_CARD_FEE;
       }
-      this.lastBaseCardFeeAt = now;
     }
     return this.lastBaseCardFee;
   }

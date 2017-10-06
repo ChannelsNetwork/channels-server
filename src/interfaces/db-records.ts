@@ -1,6 +1,9 @@
 
+import { Signable, BankTransactionDetails } from "./rest-services";
+
 export interface UserRecord {
   id: string;
+  type: UserAccountType;
   keys: UserKey[];
   address?: string;  // deprecated
   publicKey?: string; // deprecated
@@ -12,8 +15,6 @@ export interface UserRecord {
   targetBalance: number;
   balanceLastUpdated: number;
   balanceBelowTarget: boolean;
-  inviteeReward: number;
-  inviterRewards: number;
   invitationsRemaining: number;
   invitationsAccepted: number;
   lastContact: number;
@@ -23,6 +24,8 @@ export interface UserRecord {
   syncCode?: string;
   syncCodeExpires?: number;
 }
+
+export type UserAccountType = "normal" | "network";
 
 export interface UserKey {
   address: string;
@@ -50,7 +53,7 @@ export interface UserIdentity {
 export interface NetworkRecord {
   id: string;
   created: number;
-  balance: number;
+  mutationIndex: number;
 }
 
 export interface CardRecord {
@@ -244,3 +247,39 @@ export interface BowerManagementRecord {
   status: string;
   timestamp: number;
 }
+export interface BankTransactionRecord {
+  id: string;
+  at: number;
+  originatorUserId: string;
+  participantUserIds: string[];
+  details: BankTransactionDetails;
+  signature: string;
+}
+
+export interface UserCardActionRecord {
+  id: string;
+  userId: string;
+  cardId: string;
+  at: number;
+  action: CardActionType;
+  payment?: {
+    amount: number;
+    transactionId: string;
+  };
+}
+
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike";
+
+export interface UserCardInfoRecord {
+  userId: string;
+  cardId: string;
+  created: number;
+  lastImpression: number;
+  lastOpened: number;
+  lastClosed: number;
+  payment: number;
+  transactionIds: string[];
+  like: CardLikeState;
+}
+
+export type CardLikeState = "none" | "like" | "dislike";

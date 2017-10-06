@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState } from "./db-records";
 
 export interface RestRequest<T extends Signable> {
   version: number;
@@ -32,17 +32,16 @@ export interface UserStatusResponse extends RestResponse {
   appUpdateUrl: string;
   socketUrl: string;
   interestRatePerMillisecond: number;
+  cardBasePrice: number;
+  subsidyRate: number;
 }
 
 export interface UserStatus {
   goLive: number;
   userBalance: number;
-  networkBalance: number;
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
-  inviterRewards: number;
-  inviteeReward: number;
 }
 
 export interface RegisterDeviceDetails extends Signable {
@@ -99,35 +98,29 @@ export interface CheckHandleResponse extends RestResponse {
   inUse: boolean;
 }
 
-export interface PostCardDetails extends Signable {
-  imageUrl: string;
-  linkUrl: string;
-  title: string;
-  text: string;
-  cardType: string;
-  state: {
-    user: CardState;
-    shared: CardState;
-  };
-}
-
 export interface CardState {
-  mutationId: string;
+  mutationId?: string;
   properties: { [name: string]: any };
   collections: { [name: string]: { [key: string]: any } };
 }
 
-export interface PostCardResponse extends RestResponse {
-  cardId: string;
+export interface GetFeedDetails extends Signable {
+  feeds: RequestedFeedDescriptor[];
 }
 
-export interface GetFeedDetails extends Signable {
-  beforeCardId?: string;
-  afterCardId?: string;
+export interface RequestedFeedDescriptor {
+  type: CardFeedType;
   maxCount: number;
 }
 
+export type CardFeedType = 'recommended' | 'recently_added' | 'recently_posted' | 'recently_opened';
+
 export interface GetFeedResponse extends RestResponse {
+  feeds: CardFeedSet[];
+}
+
+export interface CardFeedSet {
+  type: CardFeedType;
   cards: CardDescriptor[];
 }
 
@@ -163,6 +156,15 @@ export interface CardDescriptor {
     opens: number;
     likes: number;
     dislikes: number;
+  };
+  score: number;
+  userSpecific: {
+    isPoster: boolean;
+    lastImpression: number;
+    lastOpened: number;
+    lastClosed: number;
+    likeState: CardLikeState;
+    paid: number;
   };
   state?: {
     user: CardState;
@@ -226,3 +228,97 @@ export interface ChannelComponentDescriptor {
   composerTag: string;
   viewerTag: string;
 }
+
+export interface GetCardDetails extends Signable {
+  cardId: string;
+}
+
+export interface GetCardResponse extends RestResponse {
+  card: CardDescriptor;
+}
+
+export interface PostCardDetails extends Signable {
+  imageUrl?: string;
+  linkUrl?: string;
+  title?: string;
+  text: string;
+  cardType?: string;
+  cardTypeIconUrl?: string;
+  promotionFee?: number;
+  openPayment?: number; // for ads, in ChannelCoin
+  openFeeUnits?: number; // for content, 1..10
+  state: {
+    user: CardState;
+    shared: CardState;
+  };
+}
+
+export interface PostCardResponse extends RestResponse {
+  cardId: string;
+}
+
+export interface CardImpressionDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardImpressionResponse extends RestResponse { }
+
+export interface CardOpenedDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardOpenedResponse extends RestResponse { }
+
+export interface CardPayDetails extends Signable {
+  transactionString: string;
+  transactionSignature: string;
+}
+
+export interface CardPayResponse extends RestResponse {
+  transactionId: string;
+  updatedBalance: number;
+  balanceAt: number;
+}
+
+export interface CardClosedDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardClosedResponse extends RestResponse { }
+
+export interface UpdateCardLikeDetails extends Signable {
+  cardId: string;
+  selection: CardLikeState;
+}
+
+export interface UpdateCardLikeResponse extends RestResponse { }
+
+export interface BankWithdrawDetails extends Signable {
+}
+
+export interface BankWithdrawResponse extends RestResponse { }
+
+export interface BankStatementDetails extends Signable {
+}
+
+export interface BankStatementResponse extends RestResponse { }
+
+export interface BankTransactionDetails extends Signable {
+  type: BankTransactionType;
+  reason: BankTransactionReason;
+  relatedCardId?: string;
+  relatedCouponId?: string;
+  amount: number;  // ChannelCoin
+  toRecipients: BankTransactionRecipientDirective[];
+}
+
+export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
+export type BankTransactionReason = "card-promotion" | "card-open" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+
+export interface BankTransactionRecipientDirective {
+  address: string;
+  portion: BankTransactionRecipientPortion;
+  amount?: number;  // ChannelCoin or fraction (0 to 1) depending on portion
+}
+
+export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
