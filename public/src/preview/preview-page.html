@@ -3,7 +3,7 @@
 <dom-module id="preview-page">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
         background: #fafafa;
         color: #000;
@@ -64,8 +64,24 @@
 
       connectedCallback() {
         super.connectedCallback();
-        let items = $core.dummy.getPreviewCards();
-        this.items = items;
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        $core.register().then((info) => {
+          return $core.getFeed('new', 25).then((cards) => {
+            this.set('items', cards);
+          });
+          // let items = $core.dummy.getPreviewCards();
+          // this.items = items;
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
       }
 
       onActivate() {

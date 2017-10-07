@@ -299,12 +299,12 @@ export class FeedManager implements Initializable, RestServer {
     const now = Date.now();
     let card = await db.insertCard('nytimes', 'nytimes', 'nytimes', 'New York Times',
       this.getPreviewUrl("nytimes.jpg"),
-      this.getPreviewUrl("peurto_rico.jpg"),
+      this.getPreviewUrl("puerto_rico.jpg"),
       null,
       "The Devastation in Puerto Rico, as Seen From Above",
       "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
       null,
-      this.getPreviewUrl("icon_article.jpg"),
+      this.getPreviewUrl("icon-news.png"),
       0,
       0,
       5);
@@ -316,7 +316,7 @@ export class FeedManager implements Initializable, RestServer {
       "Play Galaga",
       "The online classic 80's arcade game",
       null,
-      this.getPreviewUrl("icon_game.png"),
+      this.getPreviewUrl("icon-game.png"),
       0,
       0,
       1);
@@ -328,7 +328,7 @@ export class FeedManager implements Initializable, RestServer {
       "Puff Pizza Ring",
       "Learn how to make this delicious treat",
       null,
-      this.getPreviewUrl("icon_play.png"),
+      this.getPreviewUrl("icon-play2.png"),
       0,
       0,
       3);
@@ -340,19 +340,19 @@ export class FeedManager implements Initializable, RestServer {
       "The National doesn't rest on the excellent Sleep Well Beast",
       "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
       null,
-      this.getPreviewUrl("icon_article.jpg"),
+      this.getPreviewUrl("icon-news.png"),
       0,
       0,
       2);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5);
     card = await db.insertCard('nytimescw', 'nytimescw', 'nytimescw', 'NY Times Crosswords',
       this.getPreviewUrl("nytimes.jpg"),
-      this.getPreviewUrl("mini_crossword.jpg"),
+      this.getPreviewUrl("crossword1.jpg"),
       null,
       "Solemn Promise",
       "Solve this mini-crossword in one minute",
       null,
-      this.getPreviewUrl("icon_crossword.jpg"),
+      this.getPreviewUrl("icon-crossword.png"),
       0,
       0,
       2);
@@ -364,7 +364,7 @@ export class FeedManager implements Initializable, RestServer {
       "Tomb Raider",
       "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
       null,
-      this.getPreviewUrl("icon_play.png"),
+      this.getPreviewUrl("icon-play2.png"),
       0.11,
       1,
       0);
@@ -376,7 +376,7 @@ export class FeedManager implements Initializable, RestServer {
       "Ascension",
       "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
       null,
-      this.getPreviewUrl("icon_play.png"),
+      this.getPreviewUrl("icon-play2.png"),
       0,
       0,
       8);
@@ -388,7 +388,7 @@ export class FeedManager implements Initializable, RestServer {
       "My Drive on the Most Dangerous Road in the World",
       null,
       null,
-      this.getPreviewUrl("icon_play.jpg"),
+      this.getPreviewUrl("icon-play2.png"),
       0,
       0,
       2);
@@ -400,7 +400,7 @@ export class FeedManager implements Initializable, RestServer {
       "The 100 best photographs ever taken without photoshop",
       "According to BrightSide.me",
       null,
-      this.getPreviewUrl("icon_photos.png"),
+      this.getPreviewUrl("icon-photos.png"),
       0,
       0,
       3);
@@ -412,7 +412,7 @@ export class FeedManager implements Initializable, RestServer {
       "Rage Against the Current",
       "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
       null,
-      this.getPreviewUrl("icon_book.png"),
+      this.getPreviewUrl("icon-book.png"),
       0,
       0,
       6);
@@ -424,7 +424,7 @@ export class FeedManager implements Initializable, RestServer {
       "Five Things to Learn From Uber's Implosion",
       "How to Fail at the Future",
       null,
-      this.getPreviewUrl("icon_article.jpg"),
+      this.getPreviewUrl("icon-news.png"),
       0,
       0,
       2);
@@ -436,7 +436,7 @@ export class FeedManager implements Initializable, RestServer {
       "New. Brilliant. Astor by Blue Nile",
       "Find the most beautiful diamonds in the world and build your own ring.",
       null,
-      this.getPreviewUrl("icon_link.jpg"),
+      this.getPreviewUrl("icon-link.png"),
       0.1,
       0.5,
       0);
@@ -448,7 +448,7 @@ export class FeedManager implements Initializable, RestServer {
       "The Latest Unfiltered News",
       "Explore news from around the world that are outside the mainstream media",
       null,
-      this.getPreviewUrl("icon_interactive.png"),
+      this.getPreviewUrl("icon-touch.png"),
       0,
       0,
       4);
@@ -460,7 +460,7 @@ export class FeedManager implements Initializable, RestServer {
       "Pyro Podcast Show 285",
       "Foreshadowing Week 4",
       null,
-      this.getPreviewUrl("icon_audio.png"),
+      this.getPreviewUrl("icon-audio.png"),
       0,
       0,
       5);

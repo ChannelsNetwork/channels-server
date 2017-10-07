@@ -166,22 +166,24 @@ class CoreService extends Polymer.Element {
       let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type);
       let request = this._createRequest(details);
       const url = this.restBase + "/get-feed";
-      return this.rest.post(url, request);
+      return this.rest.post(url, request).then((response) => {
+        return response.feeds[0].cards;
+      });
     });
   }
 
-  ensureComponent(package) {
+  ensureComponent(packageName) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.ensureComponentDetails(this._keys.address, package);
+      let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
       let request = this._createRequest(details);
       const url = this.restBase + "/ensure-component";
       return this.rest.post(url, request);
     });
   }
 
-  postCard(imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+  postCard(imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState);
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState);
       let request = this._createRequest(details);
       const url = this.restBase + "/post-card";
       return this.rest.post(url, request);
