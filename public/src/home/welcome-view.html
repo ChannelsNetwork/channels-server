@@ -1,0 +1,128 @@
+<link rel="import" href="../../bower_components/paper-progress/paper-progress.html">
+<link rel="import" href="../../bower_components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../logo/channels-logo.html">
+
+
+<dom-module id="welcome-view">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+      :host {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: block;
+        background: #213034;
+        color: white;
+      }
+
+      .shell {
+        @apply --layout-horizontal;
+        @apply --layout-center-center;
+        min-height: 100vh;
+        max-width: 800px;
+        padding: 50px 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 850px) {
+        h2 {
+          margin-top: 32px;
+          font-size: 32px;
+        }
+        .shell {
+          @apply --layout-vertical;
+        }
+      }
+
+      .infoPanel {
+        height: 150px;
+        text-align: center;
+      }
+
+      paper-progress {
+        width: 100%;
+        --paper-progress-transition-duration: 0.1s;
+        --paper-progress-transition-timing-function: ease;
+        --paper-progress-transition-transition-delay: 0s;
+      }
+
+      paper-checkbox {
+        margin-top: 20px;
+        font-size: 16px;
+        text-align: left;
+        --paper-checkbox-checked-color: white;
+        --paper-checkbox-checked-ink-color: white;
+        --paper-checkbox-unchecked-color: white;
+        --paper-checkbox-unchecked-ink-color: white;
+        --paper-checkbox-label-color: white;
+        --paper-checkbox-size: 32px;
+        --paper-checkbox-margin: 8px;
+      }
+
+      .subtitle {
+        font-size: 12px;
+      }
+    </style>
+    <div class="shell">
+      <channels-logo></channels-logo>
+      <div style="width:50px;"></div>
+      <div class="infoPanel">
+        <h2>Welcome to Channels</h2>
+        <div id="progressPanel">
+          <p>Give us a moment to set up your account...</p>
+          <paper-progress value="[[progressValue]]"></paper-progress>
+        </div>
+        <div id="catchaPanel" style="display:none;">
+          <paper-checkbox id="agreed" class="styled" on-checked-changed="onAgreed">
+            I agree to your
+            <a href="tcs.html" on-click="onTsnCsClick" target="_blank">terms &amp; conditions</a>
+            <div class="subtitle">
+              I'm not a robot
+            </div>
+          </paper-checkbox>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class WelcomeView extends Polymer.Element {
+      static get is() { return 'welcome-view'; }
+      static get properties() {
+        return {
+          progressValue: Number
+        };
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this._progress();
+      }
+      _progress() {
+        this.set('progressValue', 0);
+        const timer = setInterval(() => {
+          if (this.progressValue < 100) {
+            this.set('progressValue', this.progressValue + 1);
+          } else {
+            clearInterval(timer);
+            this.$.progressPanel.style.display = "none";
+            this.$.catchaPanel.style.display = "";
+          }
+        }, 50);
+      }
+
+      onTsnCsClick(event) {
+        event.stopPropagation();
+      }
+
+      onAgreed() {
+        if (this.$.agreed.checked) {
+          this.dispatchEvent(new CustomEvent('tncs-agreed', { bubbles: true, composed: true, detail: {} }));
+        }
+      }
+    }
+    window.customElements.define(WelcomeView.is, WelcomeView);
+  </script>
+</dom-module>

@@ -122,11 +122,11 @@ class RestUtils {
     };
   }
 
-  static ensureComponentDetails(address, package) {
+  static ensureComponentDetails(address, packageName) {
     return {
       address: address,
       timestamp: RestUtils.now(),
-      package: package                 // e.g., "ChannelsNetwork/card-hello-world"
+      package: packageName                 // e.g., "ChannelsNetwork/card-hello-world"
     };
   }
 
@@ -138,7 +138,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -146,7 +146,7 @@ class RestUtils {
       linkUrl: linkUrl,
       title: title,
       text: text,
-      cardType: package,                // same as sent to ensure-component
+      cardType: packageName,                // same as sent to ensure-component
       cardTypeIconUrl: packageIconUrl,  // from card definition
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads

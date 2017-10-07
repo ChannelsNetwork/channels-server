@@ -4,13 +4,15 @@
 <link rel="import" href="app-bar.html">
 <link rel="import" href="core/core.html">
 <link rel="import" href="controls/timed-toast.html">
+<link rel="import" href="home/welcome-view.html">
 
 
 <dom-module id="main-app">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
+        position: relative;
       }
 
       .shell {
@@ -43,7 +45,7 @@
       <app-bar id="toolbar"></app-bar>
       <div id="pageContainer" class="flex">
         <home-view id="home" class="home page" data-href="home/home-view.html" data-dir="down"></home-view>
-        <register-view class="register page" data-href="account/register-view.html" data-dir="up"></register-view>
+        <!-- <register-view class="register page" data-href="account/register-view.html" data-dir="up"></register-view> -->
         <launch-view class="launch page" data-toolbar="true" data-href="launch/launch-view.html"></launch-view>
         <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
         <edit-account-view class="edit-profile page" data-href="account/edit-account-view.html" data-dir="up"></edit-account-view>
@@ -53,6 +55,7 @@
         <preview-page class="preview page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
       </div>
     </div>
+    <welcome-view id="welcome" on-tncs-agreed="onWelcomeCompleted" style="display:none;"></welcome-view>
     <timed-toast id="toast"></timed-toast>
   </template>
 
@@ -77,9 +80,24 @@
         return this.$.shell;
       }
 
+      onWelcomeCompleted() {
+        this.$.welcome.style.display = "none";
+        $core.agreeToTnCs();
+        this._handleRouteChange(this._originalRoute);
+      }
+
       onRouteChange(event) {
-        const route = event.detail.route;
-        let pageName = route.segments[0] || "home";
+        if ($core.hasKeys() && $core.isAgreedToTnCs()) {
+          this._handleRouteChange(event.detail.route);
+        } else {
+          this.$.welcome.style.display = "";
+          this._originalRoute = event.detail.route;
+          $core.register();
+        }
+      }
+
+      _handleRouteChange(route) {
+        let pageName = route.segments[0] || "preview";
         const pages = this.shadowRoot.querySelectorAll(".page");
         if (pages) {
           for (let i = 0; i < pages.length; i++) {

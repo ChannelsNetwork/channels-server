@@ -9,7 +9,9 @@
     "iron-icon": "PolymerElements/iron-icon#^2.0.1",
     "iron-iconset-svg": "PolymerElements/iron-iconset-svg#^2.1.0",
     "soso-truncated-text": "pshihn/soso-truncated-text#^1.0.2",
-    "moment": "^2.18.1"
+    "moment": "^2.18.1",
+    "paper-progress": "PolymerElements/paper-progress#^2.0.1",
+    "paper-checkbox": "^2.0.1"
   },
   "devDependencies": {
     "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",

@@ -143,6 +143,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           };
           await networkEntity.performBankTransaction(inviteeRewardDetails);
         }
+        userRecord.balance += INITIAL_BALANCE;
       }
       await this.returnUserStatus(userRecord, response);
     } catch (err) {
