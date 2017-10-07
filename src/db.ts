@@ -467,6 +467,10 @@ export class Database {
     return record;
   }
 
+  async countCards(): Promise<number> {
+    return await this.cards.count({});
+  }
+
   async lockCard(cardId: string, timeout: number, serverId: string): Promise<CardRecord> {
     const count = 0;
     while (count < 300) {
@@ -514,6 +518,10 @@ export class Database {
     return await this.cards.find<CardRecord>({ postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
   }
 
+  async findAllCards(): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({}).toArray();
+  }
+
   async updateCardScore(card: CardRecord, score: number, addHistory: boolean): Promise<void> {
     const now = Date.now();
     const update: any = { $set: { "score.value": score, lastScored: now } };
@@ -523,6 +531,18 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, update);
     card.score.value = score;
     card.lastScored = now;
+  }
+
+  async updateCardStats_Preview(cardId: string, postedAgo: number, revenue: number, likes: number, dislikes: number): Promise<void> {
+    const now = Date.now();
+    await this.cards.updateOne({ id: cardId }, {
+      $set: {
+        postedAt: now - postedAgo,
+        "revenue.value": revenue,
+        "likes.value": likes,
+        "dislikes.value": dislikes
+      }
+    });
   }
 
   async clearCardScoreHistoryBefore(card: CardRecord, before: number): Promise<void> {

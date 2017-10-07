@@ -476,6 +476,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     await db.updateLastUserContact(user, Date.now());
     return user;
   }
+
+  async insertUser(id: string, address: string, publicKey: string, name: string, imageUrl: string): Promise<UserRecord> {
+    const inviteCode = await this.generateInviteCode();
+    return await db.insertUser("normal", address, publicKey, null, inviteCode, 0, 0, id);
+  }
 }
 
 const BAD_WORDS: string[] = ["4r5e",

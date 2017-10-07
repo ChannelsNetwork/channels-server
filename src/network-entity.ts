@@ -43,7 +43,7 @@ export class NetworkEntity implements Initializable {
           address: null,
           type: "transfer",
           reason: "grant",
-          amount: Math.min(10, user.balance),
+          amount: Math.max(10, user.balance),
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
