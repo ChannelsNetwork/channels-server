@@ -114,7 +114,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: INVITER_REWARD,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(reward);
+          await networkEntity.performBankTransaction(reward, true);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -131,7 +131,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: INITIAL_BALANCE,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(grant);
+        await networkEntity.performBankTransaction(grant, true);
+        userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
             timestamp: null,
@@ -141,7 +142,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: inviteeReward,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(inviteeRewardDetails);
+          await networkEntity.performBankTransaction(inviteeRewardDetails, true);
+          userRecord.balance += inviteeReward;
         }
       }
       await this.returnUserStatus(userRecord, response);
@@ -359,10 +361,18 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
     const network = await db.getNetwork();
     await this.updateUserBalance(user);
+    const result = await this.getUserStatus(user);
+    response.json(result);
+  }
+
+  async getUserStatus(user: UserRecord): Promise<UserStatusResponse> {
     const result: UserStatusResponse = {
       status: {
         goLive: this.goLiveDate,
         userBalance: user.balance,
+        userBalanceAt: user.balanceLastUpdated,
+        withdrawableBalance: user.withdrawableBalance,
+        targetBalance: user.targetBalance,
         inviteCode: user.inviterCode.toUpperCase(),
         invitationsUsed: user.invitationsAccepted,
         invitationsRemaining: user.invitationsRemaining
@@ -373,7 +383,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       subsidyRate: await priceRegulator.getUserSubsidyRate()
     };
-    response.json(result);
+    return result;
   }
 
   private async generateInviteCode(): Promise<string> {
@@ -439,6 +449,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: subsidy,
           toRecipients: [subsidyRecipient]
         };
+        await networkEntity.performBankTransaction(subsidyDetails, false);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -456,9 +467,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         amount: interest,
         toRecipients: [interestRecipient]
       };
-      await networkEntity.performBankTransaction(grant);
+      await networkEntity.performBankTransaction(grant, true);
     }
-    // await db.incrementUserBalance(user, interest + subsidy, interest, balanceBelowTarget, now, user.balanceLastUpdated);
   }
 
   private calculateInterestBetween(from: number, to: number, balance: number): number {

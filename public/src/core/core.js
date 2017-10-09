@@ -74,9 +74,24 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
-        this._lastRegistrationAt = Date.now();
+        this._statusResponse = result;
         this._fire("channels-registration", this._registration);
         this.getUserProfile();
+        setInterval(() => {
+          this._updateBalance();
+        }, 1000 * 60);
+        return result;
+      });
+    });
+  }
+
+  getAccountStatus() {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.accountStatusDetails(this._keys.address);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/account-status";
+      return this.rest.post(url, request).then((result) => {
+        this._accountStatus = result;
         return result;
       });
     });
@@ -229,8 +244,10 @@ class CoreService extends Polymer.Element {
       const transactionSignature = this._sign(transactionString);
       let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
       let request = this._createRequest(details);
-      const url = this.restBase + "/card-opened";
-      return this.rest.post(url, request);
+      const url = this.restBase + "/card-pay";
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+      });
     });
   }
 
@@ -265,15 +282,26 @@ class CoreService extends Polymer.Element {
   }
 
   get balance() {
-    if (!this._registration) {
+    if (!this._statusResponse) {
       return 0;
     }
-    return this._registration.status.userBalance * (1 + (Date.now() - this._lastRegistrationAt) * this._registration.interestRatePerMillisecond);
+    let result = this._statusResponse.status.userBalance * (1 + (Date.now() - this._statusResponse.status.userBalanceAt) * this._statusResponse.interestRatePerMillisecond);
+    if (result < this._statusResponse.status.targetBalance) {
+      result += (Date.now() - this._statusResponse.status.userBalanceAt) * this._statusResponse.subsidyRate;
+      result = Math.min(result, this._statusResponse.status.targetBalance);
+    }
+    return result;
   }
 
   _fire(name, detail) {
     let ce = new CustomEvent(name, { bubbles: true, composed: true, detail: (detail || {}) });
     window.dispatchEvent(ce);
+  }
+
+  _updateBalance() {
+    this.getAccountStatus().then((status) => {
+      this._statusResponse = status;
+    });
   }
 
 }

@@ -62,6 +62,13 @@ class RestUtils {
     };
   }
 
+  static accountStatusDetails(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static getSyncCodeDetails(address) {
     return {
       address: address,

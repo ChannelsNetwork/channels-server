@@ -190,7 +190,7 @@ export class Database {
     if (count < 1) {
       const record: SubsidyBalanceRecord = {
         id: "1",
-        balance: 0,
+        balance: 10,
         totalContributions: 0,
         totalPayments: 0,
         lastContribution: Date.now()

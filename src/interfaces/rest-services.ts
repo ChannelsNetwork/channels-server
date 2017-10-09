@@ -39,6 +39,9 @@ export interface UserStatusResponse extends RestResponse {
 export interface UserStatus {
   goLive: number;
   userBalance: number;
+  userBalanceAt: number;
+  withdrawableBalance: number;
+  targetBalance: number;
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
@@ -274,10 +277,8 @@ export interface CardPayDetails extends Signable {
   transactionSignature: string;
 }
 
-export interface CardPayResponse extends RestResponse {
+export interface CardPayResponse extends UserStatusResponse {
   transactionId: string;
-  updatedBalance: number;
-  balanceAt: number;
 }
 
 export interface CardClosedDetails extends Signable {

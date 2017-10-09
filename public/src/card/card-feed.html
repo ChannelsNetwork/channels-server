@@ -5,7 +5,7 @@
 <dom-module id="card-feed">
   <template>
     <style is="custom-style" include="iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
       }
 
@@ -30,7 +30,8 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClose"></card-view>
+          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" on-card-payment-due="_onCardPaymentDue"
+            intersection-observer="[[intersectionObserver]]"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -44,7 +45,8 @@
             type: Number,
             value: 300
           },
-          items: Array
+          items: Array,
+          intersectionObserver: Object
         };
       }
 
@@ -103,8 +105,13 @@
         this.dispatchEvent(new CustomEvent('card-click', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
       }
 
-      _onCardClose(event) {
+      _onCardPaymentDue(event) {
+        this.dispatchEvent(new CustomEvent('card-pay', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
+      }
+
+      _onCardClosed(event) {
         this.closeCard();
+        this.dispatchEvent(new CustomEvent('card-closed', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
       }
 
       closeCard() {

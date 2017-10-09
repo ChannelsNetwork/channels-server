@@ -7,7 +7,7 @@
 <dom-module id="card-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
         opacity: 0;
         transition: opacity 0.2s ease;
@@ -237,7 +237,8 @@
           <card-header id="cardHeader" data="[[data]]"></card-header>
         </div>
       </div>
-      <div id="price"><label>Pays</label>[[price]]</div>
+      <div id="price">
+        <label>Pays</label>[[price]]</div>
     </div>
     <open-card id="openCard" data="[[data]]" on-click="opeCardClick"></open-card>
   </template>
@@ -251,12 +252,15 @@
             type: Object,
             observer: '_onData'
           },
-          price: String
+          price: String,
+          intersectionObserver: Object
         };
       }
 
       connectedCallback() {
         super.connectedCallback();
+        this.previouslyOpenedDuration = 0;
+        this.openedAt = Date.now();
         Polymer.RenderStatus.beforeNextRender(this, function () {
           setTimeout(() => {
             if (this.offsetWidth > 600) {
@@ -265,6 +269,18 @@
             this.style.opacity = 1;
           }, 50);
         });
+        if (this.intersectionObserver) {
+          this.intersectionObserver.observe(this);
+        }
+      }
+
+      disconnectedCallback() {
+        if (this.paymentTimer) {
+          clearInterval(this.paymentTimer);
+        }
+        if (this.intersectionObserver) {
+          this.intersectionObserver.unobserve(this);
+        }
       }
 
       _onData() {
@@ -303,6 +319,12 @@
         this.$.rating.style.opacity = 0;
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
+        this.openedAt = Date.now();
+        if (this.data.userSpecific.paid === 0) {
+          this.paymentTimer = setInterval(() => {
+            this._checkPaymentDue();
+          }, 100);
+        }
         return this.$.openCard.open(node);
       }
 
@@ -313,6 +335,9 @@
         this.$.cardShell.style.opacity = 1;
         this.$.openCard.close(animate);
         this.style.pointerEvents = "";
+        this.previouslyOpenedDuration += Date.now() - this.openedAt;
+        clearInterval(this.paymentTimer);
+        this.paymentTimer = null;
       }
 
       opeCardClick(event) {
@@ -322,6 +347,14 @@
       refreshLayout() {
         if (this._cardOpen) {
           this.$.openCard.refreshLayout(this);
+        }
+      }
+
+      _checkPaymentDue() {
+        if (Date.now() - this.openedAt + this.previouslyOpenedDuration > 10000) {
+          this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
+          clearInterval(this.paymentTimer);
+          this.paymentTimer = null;
         }
       }
     }

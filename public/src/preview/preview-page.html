@@ -50,7 +50,8 @@
       </div>
     </div>
     <div class="main">
-      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-close="onCardClose"></card-feed>
+      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-pay="onCardPay"
+        intersection-observer="[[intersectionObserver]]"></card-feed>
     </div>
   </template>
   <script>
@@ -58,12 +59,14 @@
       static get is() { return "preview-page"; }
       static get properties() {
         return {
-          items: Array
+          items: Array,
+          intersectionObserver: Object
         }
       }
 
       connectedCallback() {
         super.connectedCallback();
+        this._visibleCards = {};
         if (!$core.hasKey) {
           setTimeout(() => {
             $router.goto("");
@@ -71,17 +74,36 @@
           return;
         }
         $core.register().then((info) => {
+          const options = {
+            root: $app.shell,
+            rootMargin: "0px",
+            threshold: 1.0
+          };
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              this.onCardObserved(entry);
+            });
+          }, options);
+          this.set('intersectionObserver', observer);
+          this._timer = setInterval(() => {
+            this._onTimer();
+          }, 100);
           return $core.getFeed('new', 25).then((cards) => {
-            this.set('items', cards);
+            this.items = cards;
           });
-          // let items = $core.dummy.getPreviewCards();
-          // this.items = items;
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
             $router.goto("");
           }, 600);
         });
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._timer) {
+          clearInterval(this._timer);
+        }
       }
 
       onActivate() {
@@ -146,9 +168,13 @@
         }
       }
 
-      onCardClose() {
+      onCardClosed(event) {
         this._barShowing = true;
         $app.setBarVisible(true);
+        let cardItem = event.detail.item;
+        if (cardItem) {
+          $core.cardClosed(cardItem.id);
+        }
       }
 
       onCardClick(event) {
@@ -157,11 +183,45 @@
           this._barShowing = false;
           $app.setBarVisible(false);
           this._preventScroll = true;
+          let cardItem = event.detail.item;
+          if (cardItem) {
+            $core.cardOpened(cardItem.id);
+          }
           this.$.feed.openCard(card).then(() => {
             this._preventScroll = false;
           }).catch((err) => {
             this._preventScroll = false;
           });
+        }
+      }
+
+      onCardPay(event) {
+        const card = event.detail.item;
+        if (card.pricing.openFee && !card.userSpecific.paid) {
+          card.userSpecific.paid = card.pricing.openFee;
+          $core.cardPay(card.id, card.pricing.openFee, card.by.address, null, 0, null, null, null);
+        }
+      }
+
+      onCardObserved(entry) {
+        if (entry.intersectionRatio > 0.9) {
+          if (!this._visibleCards[entry.target.data.id]) {
+            this._visibleCards[entry.target.data.id] = entry.target;
+            entry.target.impressionStarted = Date.now();
+          }
+        } else {
+          delete entry.target.impressionStarted;
+          delete this._visibleCards[entry.target.data.id];
+        }
+      }
+
+      _onTimer() {
+        for (const id of Object.keys(this._visibleCards)) {
+          const card = this._visibleCards[id];
+          if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
+            card.impressionSent = true;
+            $core.cardImpression(id);
+          }
         }
       }
     }

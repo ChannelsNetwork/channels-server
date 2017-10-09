@@ -17,6 +17,7 @@ import { RestHelper } from "./rest-helper";
 import { UserHelper } from "./user-helper";
 import { KeyUtils } from "./key-utils";
 import { bank } from "./bank";
+import { userManager } from "./user-manager";
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -79,7 +80,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      console.log("UserManager.get-card", requestBody.detailsObject);
+      console.log("CardManager.get-card", requestBody.detailsObject);
       const cardState = await this.populateCardState(card.id, true, user);
       const reply: GetCardResponse = {
         card: cardState
@@ -98,7 +99,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!user) {
         return;
       }
-      console.log("UserManager.post-card", requestBody.detailsObject);
+      console.log("CardManager.post-card", requestBody.detailsObject);
       if (!requestBody.detailsObject.text) {
         response.status(400).send("Invalid request: missing text");
         return;
@@ -161,7 +162,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      console.log("UserManager.card-impression", requestBody.detailsObject);
+      console.log("CardManager.card-impression", requestBody.detailsObject);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "impression");
       await db.updateUserCardLastImpression(user.id, card.id, now);
@@ -185,7 +186,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      console.log("UserManager.card-opened", requestBody.detailsObject);
+      console.log("CardManager.card-opened", requestBody.detailsObject);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "open");
       await db.updateUserCardLastOpened(user.id, card.id, now);
@@ -233,16 +234,21 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("The card's author is missing as a recipient with 'remainder'.");
         return;
       }
-      console.log("UserManager.card-pay", requestBody.detailsObject);
+      console.log("CardManager.card-pay", requestBody.detailsObject);
       const transactionResult = await bank.performTransaction(user, requestBody.detailsObject.address, requestBody.detailsObject.transactionString, requestBody.detailsObject.transactionSignature);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null);
       await db.updateUserCardIncrementPayment(user.id, card.id, transaction.amount, transactionResult.record.id);
       await db.incrementCardRevenue(card.id, transaction.amount);
+      const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         transactionId: transactionResult.record.id,
-        updatedBalance: transactionResult.updatedBalance,
-        balanceAt: transactionResult.balanceAt
+        status: userStatus.status,
+        socketUrl: userStatus.socketUrl,
+        appUpdateUrl: userStatus.appUpdateUrl,
+        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
+        cardBasePrice: userStatus.cardBasePrice,
+        subsidyRate: userStatus.subsidyRate
       };
       response.json(reply);
     } catch (err) {
@@ -262,7 +268,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      console.log("UserManager.card-closed", requestBody.detailsObject);
+      console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "close", 0, null);
@@ -286,7 +292,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      console.log("UserManager.update-card-like", requestBody.detailsObject);
+      console.log("CardManager.update-card-like", requestBody.detailsObject);
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (cardInfo && cardInfo.like !== requestBody.detailsObject.selection) {
         if (cardInfo.like !== requestBody.detailsObject.selection) {

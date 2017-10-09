@@ -67,7 +67,7 @@ export class Bank implements RestServer {
     }
   }
 
-  async performTransaction(user: UserRecord, address: string, detailsJson: string, signature: string, networkInitiated = false): Promise<BankTransactionResult> {
+  async performTransaction(user: UserRecord, address: string, detailsJson: string, signature: string, networkInitiated = false, increaseTargetBalance = false): Promise<BankTransactionResult> {
     if (!UserHelper.isUsersAddress(user, address)) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -157,8 +157,8 @@ export class Bank implements RestServer {
     if (user.type === 'normal') {
       console.log("Bank.performTransaction: Debiting user account", user.id, details.amount);
     }
-    await db.incrementUserBalance(user, -details.amount, user.balance > 0 ? -details.amount : 0, user.balance > 0 ? user.balance - details.amount < user.targetBalance : false, now);
-    user.balance -= details.amount;
+    const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
+    await db.incrementUserBalance(user, -details.amount, 0, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, user.id, participantIds, details, signature);
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
@@ -177,7 +177,7 @@ export class Bank implements RestServer {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
       console.log("Bank.performTransaction: Crediting user account", recipientUser.id, creditAmount);
-      await db.incrementUserBalance(recipientUser, creditAmount, creditAmount, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
+      await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
     }
     const result: BankTransactionResult = {
       record: record,
