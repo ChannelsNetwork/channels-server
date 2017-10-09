@@ -9,7 +9,7 @@ import { UserHelper } from "./user-helper";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankCouponDetails, BankTransactionRecipientDirective } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
@@ -67,7 +67,7 @@ export class Bank implements RestServer {
     }
   }
 
-  async performTransaction(user: UserRecord, address: string, detailsJson: string, signature: string, networkInitiated = false, increaseTargetBalance = false): Promise<BankTransactionResult> {
+  async performTransfer(user: UserRecord, address: string, detailsJson: string, signature: string, networkInitiated = false, increaseTargetBalance = false): Promise<BankTransactionResult> {
     if (!UserHelper.isUsersAddress(user, address)) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -90,12 +90,11 @@ export class Bank implements RestServer {
     if (["transfer"].indexOf(details.type) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction type");
     }
-    if (["card-promotion", "card-open", "card-coupon-redemption", "interest", "subsidy", "grant"].indexOf(details.reason) < 0) {
+    if (["card-open-fee", "interest", "subsidy", "grant"].indexOf(details.reason) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction reasons");
     }
     switch (details.reason) {
-      case "card-promotion":
-      case "card-open":
+      case "card-open-fee":
         if (!details.relatedCardId) {
           throw new ErrorWithStatusCode(400, "relatedCardId is required and missing");
         }
@@ -182,6 +181,40 @@ export class Bank implements RestServer {
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,
+      balanceAt: now
+    };
+    return result;
+  }
+
+  async performRedemption(from: UserRecord, to: UserRecord, toAddress: string, coupon: BankCouponDetails, networkInitiated = false): Promise<BankTransactionResult> {
+    const now = Date.now();
+    if (!networkInitiated && from.balance < coupon.amount) {
+      throw new ErrorWithStatusCode(402, "Insufficient funds");
+    }
+    if (!UserHelper.isUsersAddress(to, toAddress)) {
+      throw new ErrorWithStatusCode(401, "This address is not owned by the recipient");
+    }
+    const transactionDetails: BankTransactionDetails = {
+      address: from.address,
+      timestamp: now,
+      type: "coupon-redemption",
+      reason: coupon.reason,
+      amount: coupon.amount,
+      toRecipients: []
+    };
+    const recipient: BankTransactionRecipientDirective = {
+      address: toAddress,
+      portion: "remainder"
+    };
+    transactionDetails.toRecipients.push(recipient);
+    const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
+    await db.incrementUserBalance(from, -coupon.amount, 0, balanceBelowTarget, now);
+    const record = await db.insertBankTransaction(now, from.id, [to.id], transactionDetails, null);
+    console.log("Bank.performRedemption: Crediting user account", to.id, coupon.reason, coupon.amount);
+    await db.incrementUserBalance(to, coupon.amount, 0, to.balance + coupon.amount < to.targetBalance, now);
+    const result: BankTransactionResult = {
+      record: record,
+      updatedBalance: to.balance,
       balanceAt: now
     };
     return result;

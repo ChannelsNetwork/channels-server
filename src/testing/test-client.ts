@@ -592,7 +592,7 @@ class TestClient implements RestServer {
       address: this.keyInfo.address,
       timestamp: Date.now(),
       type: "transfer",
-      reason: "card-open",
+      reason: "card-open-fee",
       relatedCardId: card.id,
       amount: card.pricing.openFee,
       toRecipients: [{

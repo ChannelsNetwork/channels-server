@@ -197,9 +197,12 @@
 
       onCardPay(event) {
         const card = event.detail.item;
-        if (card.pricing.openFee && !card.userSpecific.paid) {
+        if (card.pricing.openFee > 0 && !card.userSpecific.paid) {
           card.userSpecific.paid = card.pricing.openFee;
           $core.cardPay(card.id, card.pricing.openFee, card.by.address, null, 0, null, null, null);
+        } else if (card.pricing.openFee < 0 && !card.userSpecific.openEarned && card.pricing.openCoupon) {
+          card.userSpecific.openEarned = -card.pricing.openFee;
+          $core.cardOpenPaymentRedeem(card.id, card.pricing.openCoupon);
         }
       }
 
@@ -220,7 +223,12 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            $core.cardImpression(id);
+            if (card.data.pricing.promotionFee && card.data.userSpecific.promotionEarned === 0) {
+              $core.cardImpression(id, card.data.pricing.promotionCoupon);
+              card.data.userSpecific.promotionEarned = card.data.pricing.promotionFee;
+            } else {
+              $core.cardImpression(id);
+            }
           }
         }
       }

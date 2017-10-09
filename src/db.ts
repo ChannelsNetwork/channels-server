@@ -424,10 +424,10 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, promotionCoupon: string, openPayment: number, openCoupon: string, openFeeUnits: number, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
-      id: uuid.v4(),
+      id: id ? id : uuid.v4(),
       postedAt: now,
       by: {
         id: byUserId,
@@ -448,10 +448,14 @@ export class Database {
       },
       pricing: {
         promotionFee: promotionFee,
+        promotionCoupon: promotionCoupon,
         openPayment: openPayment,
+        openCoupon: openCoupon,
         openFeeUnits: openFeeUnits
       },
       revenue: { value: 0, history: [] },
+      promotionsPaid: { value: 0, history: [] },
+      openFeesPaid: { value: 0, history: [] },
       opens: { value: 0, history: [] },
       impressions: { value: 0, history: [] },
       likes: { value: 0, history: [] },
@@ -600,6 +604,14 @@ export class Database {
 
   async incrementCardRevenue(cardId: string, incrementBy: number): Promise<void> {
     await this.cards.updateOne({ id: cardId }, { $inc: { "revenue.value": incrementBy } });
+  }
+
+  async incrementCardPromotionsPaid(cardId: string, incrementBy: number): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $inc: { "promotionsPaid.value": incrementBy } });
+  }
+
+  async incrementCardOpenFeesPaid(cardId: string, incrementBy: number): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $inc: { "openFeesPaid.value": incrementBy } });
   }
 
   async ensureMutationIndex(): Promise<void> {
@@ -995,7 +1007,7 @@ export class Database {
     return await db.bankTransactions.count({});
   }
 
-  async insertUserCardAction(userId: string, cardId: string, at: number, action: CardActionType, payment?: number, paymentTransactionId?: string): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
@@ -1007,6 +1019,18 @@ export class Database {
       record.payment = {
         amount: payment,
         transactionId: paymentTransactionId
+      };
+    }
+    if (redeemPromotion || redeemPromotionTransactionId) {
+      record.redeemPromotion = {
+        amount: redeemPromotion,
+        transactionId: redeemPromotionTransactionId
+      };
+    }
+    if (redeemOpen || redeemOpenTransactionId) {
+      record.redeemOpen = {
+        amount: redeemOpen,
+        transactionId: redeemOpenTransactionId
       };
     }
     await this.userCardActions.insert(record);
@@ -1029,6 +1053,8 @@ export class Database {
           lastOpened: 0,
           lastClosed: 0,
           payment: 0,
+          promotionEarned: 0,
+          openEarned: 0,
           transactionIds: [],
           like: "none"
         };
@@ -1066,6 +1092,16 @@ export class Database {
   async updateUserCardIncrementPayment(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { payment: amount }, $push: { transactionIds: transactionId } });
+  }
+
+  async updateUserCardIncrementPromotionEarned(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { promotionEarned: amount }, $push: { transactionIds: transactionId } });
+  }
+
+  async updateUserCardIncrementOpenEarned(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { openEarned: amount }, $push: { transactionIds: transactionId } });
   }
 
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {

@@ -78,10 +78,14 @@ export interface CardRecord {
   };
   pricing: {
     promotionFee: number;
+    promotionCoupon: string;
     openPayment: number; // in ChannelCoin
+    openCoupon: string;
     openFeeUnits: number; // 1 - 10
   };
   revenue: CardStatistic;
+  promotionsPaid: CardStatistic;
+  openFeesPaid: CardStatistic;
   impressions: CardStatistic;
   opens: CardStatistic;
   likes: CardStatistic;
@@ -266,9 +270,17 @@ export interface UserCardActionRecord {
     amount: number;
     transactionId: string;
   };
+  redeemPromotion?: {
+    amount: number;
+    transactionId: string;
+  };
+  redeemOpen?: {
+    amount: number;
+    transactionId: string;
+  };
 }
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment";
 
 export interface UserCardInfoRecord {
   userId: string;
@@ -278,6 +290,8 @@ export interface UserCardInfoRecord {
   lastOpened: number;
   lastClosed: number;
   payment: number;
+  promotionEarned: number;
+  openEarned: number;
   transactionIds: string[];
   like: CardLikeState;
 }

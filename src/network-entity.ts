@@ -70,7 +70,7 @@ export class NetworkEntity implements Initializable {
     const detailsString = JSON.stringify(details);
     const signature = KeyUtils.signString(detailsString, this.keyInfo);
     const networkUser = await db.findNetworkUser();
-    return await bank.performTransaction(networkUser, this.keyInfo.address, detailsString, signature, true, increaseTargetBalance);
+    return await bank.performTransfer(networkUser, this.keyInfo.address, detailsString, signature, true, increaseTargetBalance);
   }
 }
 

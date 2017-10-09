@@ -320,7 +320,7 @@
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
         this.openedAt = Date.now();
-        if (this.data.userSpecific.paid === 0) {
+        if (this.data.pricing.openFee > 0 && this.data.userSpecific.paid === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.openEarned == 0) {
           this.paymentTimer = setInterval(() => {
             this._checkPaymentDue();
           }, 100);

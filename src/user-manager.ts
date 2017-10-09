@@ -377,8 +377,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         invitationsUsed: user.invitationsAccepted,
         invitationsRemaining: user.invitationsRemaining
       },
-      socketUrl: this.urlManager.getSocketUrl('socket'),
-      appUpdateUrl: null,
       interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       subsidyRate: await priceRegulator.getUserSubsidyRate()
@@ -386,7 +384,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return result;
   }
 
-  private async generateInviteCode(): Promise<string> {
+  async generateInviteCode(): Promise<string> {
     while (true) {
       let result = '';
       result += DIGITS[Math.floor(Math.random() * DIGITS.length)];

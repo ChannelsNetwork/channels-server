@@ -29,8 +29,6 @@ export interface UserStatusDetails extends Signable {
 
 export interface UserStatusResponse extends RestResponse {
   status: UserStatus;
-  appUpdateUrl: string;
-  socketUrl: string;
   interestRatePerMillisecond: number;
   cardBasePrice: number;
   subsidyRate: number;
@@ -150,7 +148,9 @@ export interface CardDescriptor {
   };
   pricing: {
     promotionFee: number;
+    promotionCoupon?: string;
     openFee: number;  // in ChannelCoin, -ve for ads
+    openCoupon?: string;
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   history: {
@@ -168,6 +168,8 @@ export interface CardDescriptor {
     lastClosed: number;
     likeState: CardLikeState;
     paid: number;
+    promotionEarned: number;
+    openEarned: number;
   };
   state?: {
     user: CardState;
@@ -248,7 +250,9 @@ export interface PostCardDetails extends Signable {
   cardType?: string;
   cardTypeIconUrl?: string;
   promotionFee?: number;
+  promotionCoupon?: string;
   openPayment?: number; // for ads, in ChannelCoin
+  openCoupon?: string;
   openFeeUnits?: number; // for content, 1..10
   state: {
     user: CardState;
@@ -262,9 +266,12 @@ export interface PostCardResponse extends RestResponse {
 
 export interface CardImpressionDetails extends Signable {
   cardId: string;
+  promotionCoupon?: string;
 }
 
-export interface CardImpressionResponse extends RestResponse { }
+export interface CardImpressionResponse extends UserStatusResponse {
+  transactionId?: string;
+}
 
 export interface CardOpenedDetails extends Signable {
   cardId: string;
@@ -278,6 +285,15 @@ export interface CardPayDetails extends Signable {
 }
 
 export interface CardPayResponse extends UserStatusResponse {
+  transactionId: string;
+}
+
+export interface CardRedeemOpenDetails extends Signable {
+  cardId: string;
+  coupon: string;
+}
+
+export interface CardRedeemOpenResponse extends UserStatusResponse {
   transactionId: string;
 }
 
@@ -313,8 +329,8 @@ export interface BankTransactionDetails extends Signable {
   toRecipients: BankTransactionRecipientDirective[];
 }
 
-export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
-export type BankTransactionReason = "card-promotion" | "card-open" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+export type BankTransactionType = "transfer" | "coupon-redemption";  // others to come such as "coupon-create"
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
 
 export interface BankTransactionRecipientDirective {
   address: string;
@@ -323,3 +339,16 @@ export interface BankTransactionRecipientDirective {
 }
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
+
+export interface BankCouponDetails extends Signable {
+  cardId: string;
+  reason: BankTransactionReason;
+  amount: number;
+}
+
+export type BankCouponType = "card-promotion" | "card-open-payment";
+
+export interface SignedObject {
+  objectString: string;
+  signature: string;
+}

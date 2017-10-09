@@ -8,8 +8,8 @@ import * as AWS from 'aws-sdk';
 import { awsManager, NotificationHandler, ChannelsServerNotification } from "./aws-manager";
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
-import { NotifyCardPostedDetails, NotifyCardMutationDetails } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails } from "./interfaces/rest-services";
+import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, SignedObject, BankCouponDetails, CardRedeemOpenDetails } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -53,6 +53,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('card-pay'), (request: Request, response: Response) => {
       void this.handleCardPay(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('card-redeem-open'), (request: Request, response: Response) => {
+      void this.handleRedeemCardOpen(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('card-closed'), (request: Request, response: Response) => {
       void this.handleCardClosed(request, response);
@@ -159,15 +162,73 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
+      let coupon: BankCouponDetails;
+      let author: UserRecord;
       if (!card) {
         return;
       }
+      if (requestBody.detailsObject.promotionCoupon) {
+        if (card.pricing.promotionFee <= 0) {
+          response.status(400).send("No promotion fee paid on this card");
+          return;
+        }
+        const info = await db.ensureUserCardInfo(user.id, card.id);
+        if (info.promotionEarned > 0) {
+          response.status(400).send("You have already been paid a promotion on this card");
+          return;
+        }
+        author = await db.findUserById(card.by.id);
+        if (!author) {
+          response.status(404).send("The author no longer has an account.");
+          return;
+        }
+        if (author.balance < card.pricing.promotionFee) {
+          response.status(402).send("The author does not have sufficient funds.");
+          return;
+        }
+        const signed = JSON.parse(requestBody.detailsObject.promotionCoupon) as SignedObject;
+        if (!KeyUtils.verifyString(signed.objectString, UserHelper.getPublicKeyForAddress(author, card.by.address), signed.signature)) {
+          response.status(400).send("Invalid coupon: corrupt signature");
+          return;
+        }
+        coupon = JSON.parse(signed.objectString) as BankCouponDetails;
+        if (coupon.cardId !== card.id) {
+          response.status(400).send("Invalid coupon: card mismatch");
+          return;
+        }
+        if (!UserHelper.isUsersAddress(author, coupon.address)) {
+          response.status(400).send("Invalid coupon: author mismatch");
+          return;
+        }
+        if (coupon.amount !== card.pricing.promotionFee) {
+          response.status(400).send("Invalid coupon: promotion fee mismatch");
+          return;
+        }
+        if (coupon.reason !== 'card-promotion') {
+          response.status(400).send("Invalid coupon: invalid type");
+          return;
+        }
+      }
       console.log("CardManager.card-impression", requestBody.detailsObject);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "impression");
+      await db.insertUserCardAction(user.id, card.id, now, "impression", 0, null, 0, null, 0, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       await db.incrementCardImpressions(card.id, 1);
-      const reply: CardImpressionResponse = {};
+      let transactionResult: BankTransactionResult;
+      if (coupon) {
+        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon);
+        await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, coupon.amount, transactionResult.record.id, 0, null);
+        await db.updateUserCardIncrementPromotionEarned(user.id, card.id, coupon.amount, transactionResult.record.id);
+        await db.incrementCardPromotionsPaid(card.id, coupon.amount);
+      }
+      const userStatus = await userManager.getUserStatus(user);
+      const reply: CardImpressionResponse = {
+        transactionId: transactionResult ? transactionResult.record.id : null,
+        status: userStatus.status,
+        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
+        cardBasePrice: userStatus.cardBasePrice,
+        subsidyRate: userStatus.subsidyRate
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardImpression: Failure", err);
@@ -188,7 +249,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-opened", requestBody.detailsObject);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "open");
+      await db.insertUserCardAction(user.id, card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       await db.incrementCardOpens(card.id, 1);
       const reply: CardOpenedResponse = {};
@@ -211,8 +272,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(403).send("You do not own the address in the transaction");
         return;
       }
-      if (transaction.type !== "transfer" || transaction.reason !== "card-open") {
-        response.status(400).send("The transaction must be 'transfer' with reason 'card-open'");
+      if (transaction.type !== "transfer" || transaction.reason !== "card-open-fee") {
+        response.status(400).send("The transaction must be 'transfer' with reason 'card-open-fee'");
         return;
       }
       const card = await this.getRequestedCard(user, transaction.relatedCardId, response);
@@ -235,17 +296,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-pay", requestBody.detailsObject);
-      const transactionResult = await bank.performTransaction(user, requestBody.detailsObject.address, requestBody.detailsObject.transactionString, requestBody.detailsObject.transactionSignature);
+      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transactionString, requestBody.detailsObject.transactionSignature);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null);
+      await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
       await db.updateUserCardIncrementPayment(user.id, card.id, transaction.amount, transactionResult.record.id);
       await db.incrementCardRevenue(card.id, transaction.amount);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         transactionId: transactionResult.record.id,
         status: userStatus.status,
-        socketUrl: userStatus.socketUrl,
-        appUpdateUrl: userStatus.appUpdateUrl,
         interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
         cardBasePrice: userStatus.cardBasePrice,
         subsidyRate: userStatus.subsidyRate
@@ -253,6 +312,78 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardPay: Failure", err);
+      response.status(500).send(err);
+    }
+  }
+
+  private async handleRedeemCardOpen(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<CardRedeemOpenDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
+      if (!card) {
+        return;
+      }
+      if (card.pricing.openPayment <= 0) {
+        response.status(400).send("No open payment on this card");
+        return;
+      }
+      const info = await db.ensureUserCardInfo(user.id, card.id);
+      if (info.openEarned > 0) {
+        response.status(400).send("You have already been paid for opening this card");
+        return;
+      }
+      const author = await db.findUserById(card.by.id);
+      if (!author) {
+        response.status(404).send("The author no longer has an account.");
+        return;
+      }
+      if (author.balance < card.pricing.openPayment) {
+        response.status(402).send("The author does not have sufficient funds.");
+        return;
+      }
+      const signed = JSON.parse(requestBody.detailsObject.coupon) as SignedObject;
+      if (!KeyUtils.verifyString(signed.objectString, UserHelper.getPublicKeyForAddress(author, card.by.address), signed.signature)) {
+        response.status(400).send("Invalid coupon: corrupt signature");
+        return;
+      }
+      const coupon = JSON.parse(signed.objectString) as BankCouponDetails;
+      if (coupon.cardId !== card.id) {
+        response.status(400).send("Invalid coupon: card mismatch");
+        return;
+      }
+      if (!UserHelper.isUsersAddress(author, coupon.address)) {
+        response.status(400).send("Invalid coupon: author mismatch");
+        return;
+      }
+      if (coupon.amount !== card.pricing.openPayment) {
+        response.status(400).send("Invalid coupon: open fee mismatch");
+        return;
+      }
+      if (coupon.reason !== 'card-open-payment') {
+        response.status(400).send("Invalid coupon: invalid type");
+        return;
+      }
+      console.log("CardManager.card-redeem-open-fee", requestBody.detailsObject);
+      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon);
+      const now = Date.now();
+      await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
+      await db.updateUserCardIncrementOpenEarned(user.id, card.id, coupon.amount, transactionResult.record.id);
+      await db.incrementCardOpenFeesPaid(card.id, coupon.amount);
+      const userStatus = await userManager.getUserStatus(user);
+      const reply: CardPayResponse = {
+        transactionId: transactionResult.record.id,
+        status: userStatus.status,
+        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
+        cardBasePrice: userStatus.cardBasePrice,
+        subsidyRate: userStatus.subsidyRate
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleRedeemCardOpen: Failure", err);
       response.status(500).send(err);
     }
   }
@@ -271,7 +402,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "close", 0, null);
+      await db.insertUserCardAction(user.id, card.id, now, "close", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {};
       response.json(reply);
@@ -315,7 +446,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             default:
               throw new Error("Unhandled card info like state " + cardInfo.like);
           }
-          await db.insertUserCardAction(user.id, card.id, Date.now(), action);
+          await db.insertUserCardAction(user.id, card.id, Date.now(), action, 0, null, 0, null, 0, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -356,7 +487,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!details.text) {
       throw new Error("Invalid card: missing text");
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.openPayment, details.openFeeUnits);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.promotionCoupon, details.openPayment, details.openCoupon, details.openFeeUnits);
     await this.announceCard(card, user);
     return card;
   }
@@ -598,7 +729,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         cardType: record.cardType,
         pricing: {
           promotionFee: record.pricing.promotionFee,
+          promotionCoupon: record.pricing.promotionCoupon,
           openFeeUnits: record.pricing.openFeeUnits,
+          openCoupon: record.pricing.openCoupon,
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
         history: {
@@ -615,7 +748,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,
           likeState: userInfo ? userInfo.like : "none",
-          paid: userInfo ? userInfo.payment : 0
+          paid: userInfo ? userInfo.payment : 0,
+          promotionEarned: userInfo ? userInfo.promotionEarned : 0,
+          openEarned: userInfo ? userInfo.openEarned : 0
         }
       };
       if (includeInitialState) {

@@ -205,12 +205,14 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  cardImpression(cardId) {
+  cardImpression(cardId, promotionCoupon) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId);
+      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, promotionCoupon);
       let request = this._createRequest(details);
       const url = this.restBase + "/card-impression";
-      return this.rest.post(url, request);
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+      });
     });
   }
 
@@ -239,12 +241,23 @@ class CoreService extends Polymer.Element {
       if (referrerAddress) {
         recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", 0.02));
       }
-      const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open", cardId, null, amount, recipients);
+      const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
       let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
       let request = this._createRequest(details);
       const url = this.restBase + "/card-pay";
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+      });
+    });
+  }
+
+  cardOpenPaymentRedeem(cardId, coupon) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, coupon);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/card-redeem-open";
       return this.rest.post(url, request).then((response) => {
         this._statusResponse = response;
       });

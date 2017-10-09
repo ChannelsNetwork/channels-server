@@ -162,12 +162,16 @@ class RestUtils {
     };
   }
 
-  static cardImpressionDetails(address, cardId) {
-    return {
+  static cardImpressionDetails(address, cardId, promotionCoupon) {
+    const result = {
       address: address,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
+    if (promotionCoupon) {
+      result.promotionCoupon = promotionCoupon;
+    }
+    return result;
   }
 
   static cardOpenedDetails(address, cardId) {
@@ -184,6 +188,15 @@ class RestUtils {
       timestamp: RestUtils.now(),
       transactionString: transactionString,  // serialized bankTransaction
       transactionSignature: transactionSignature
+    };
+  }
+
+  static cardRedeemOpenDetails(address, cardId, coupon) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      coupon: coupon
     };
   }
 
