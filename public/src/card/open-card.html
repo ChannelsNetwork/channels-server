@@ -3,7 +3,7 @@
 <dom-module id="open-card">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: none;
         position: absolute;
         top: 0;
@@ -86,8 +86,12 @@
             This is where you will interact with the content in this card.
           </p>
           <p>
-            Each card presents its content in the most appropriate way: a <em>video</em>, a <em>photo array</em>, an <em>article</em>,
-            a <em>game</em>, or just about <em>anything you can imagine</em> on the web.
+            Each card presents its content in the most appropriate way: a
+            <em>video</em>, a
+            <em>photo array</em>, an
+            <em>article</em>, a
+            <em>game</em>, or just about
+            <em>anything you can imagine</em> on the web.
           </p>
           <p>
             For now, your balance is not affected by opening this card. When we go live, you will pay or be paid the price shown on the
@@ -143,6 +147,10 @@
         this.style.height = "100%";
       }
 
+      onPayment() {
+        this.$.header.onPayment();
+      }
+
       refreshLayout(cardNode) {
         if (this._refNode) {
           let nodeRect = this._refNode.getBoundingClientRect();
@@ -153,6 +161,11 @@
           this.style.height = nodeRect.height + "px";
         }
       }
+
+      setPaymentStatus(value, negative) {
+        this.$.header.setPaymentStatus(value, negative);
+      }
+
     }
     window.customElements.define(OpenCard.is, OpenCard);
   </script>

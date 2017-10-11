@@ -50,7 +50,7 @@
       </div>
     </div>
     <div class="main">
-      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-pay="onCardPay"
+      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"
         intersection-observer="[[intersectionObserver]]"></card-feed>
     </div>
   </template>
@@ -197,12 +197,15 @@
 
       onCardPay(event) {
         const card = event.detail.item;
+        const cardView = event.detail.card;
         if (card.pricing.openFee > 0 && !card.userSpecific.paid) {
           card.userSpecific.paid = card.pricing.openFee;
           $core.cardPay(card.id, card.pricing.openFee, card.by.address, null, 0, null, null, null);
+          cardView.onPayment();
         } else if (card.pricing.openFee < 0 && !card.userSpecific.openEarned && card.pricing.openCoupon) {
           card.userSpecific.openEarned = -card.pricing.openFee;
           $core.cardOpenPaymentRedeem(card.id, card.pricing.openCoupon);
+          cardView.onPayment();
         }
       }
 

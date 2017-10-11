@@ -339,7 +339,7 @@ export class FeedManager implements Initializable, RestServer {
       "Learn how to make this delicious treat",
       null,
       this.getPreviewUrl("icon-play2.png"),
-      0.10, couponPromo1,
+      0.01, couponPromo1,
       0, null,
       3,
       cardId1);

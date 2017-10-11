@@ -30,8 +30,7 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" on-card-payment-due="_onCardPaymentDue"
-            intersection-observer="[[intersectionObserver]]"></card-view>
+          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -103,10 +102,6 @@
 
       _onCardClick(event) {
         this.dispatchEvent(new CustomEvent('card-click', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
-      }
-
-      _onCardPaymentDue(event) {
-        this.dispatchEvent(new CustomEvent('card-pay', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
       }
 
       _onCardClosed(event) {

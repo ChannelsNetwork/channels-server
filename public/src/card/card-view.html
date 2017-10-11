@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
 <link rel="import" href="card-header.html">
 <link rel="import" href="open-card.html">
 
@@ -214,6 +215,11 @@
       .container.wide #description {
         font-size: 16px;
       }
+
+      .paidCheck {
+        width: 12px;
+        height: 12px;
+      }
     </style>
     <div id="cardShell">
       <div id="container" class="container">
@@ -238,9 +244,11 @@
         </div>
       </div>
       <div id="price">
-        <label>Pays</label>[[price]]</div>
+        <label>Pays</label>[[price]]
+        <iron-icon id="paidCheck" style="display:none;" class="paidCheck" icon="check"></iron-icon>
+      </div>
     </div>
-    <open-card id="openCard" data="[[data]]" on-click="opeCardClick"></open-card>
+    <open-card id="openCard" data="[[data]]" on-click="openCardClick"></open-card>
   </template>
   <script src="../../bower_components/moment/moment.js"></script>
   <script>
@@ -250,7 +258,7 @@
         return {
           data: {
             type: Object,
-            observer: '_onData'
+            observer: "_onData"
           },
           price: String,
           intersectionObserver: Object
@@ -283,6 +291,11 @@
         }
       }
 
+      onPayment() {
+        this._refreshPaidCheck();
+        this.$.openCard.onPayment();
+      }
+
       _onData() {
         if (!this.data) {
           return;
@@ -311,6 +324,7 @@
 
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
+        this._refreshPaidCheck();
       }
 
       open(node) {
@@ -340,7 +354,7 @@
         this.paymentTimer = null;
       }
 
-      opeCardClick(event) {
+      openCardClick(event) {
         event.stopPropagation();
       }
 
@@ -351,10 +365,22 @@
       }
 
       _checkPaymentDue() {
-        if (Date.now() - this.openedAt + this.previouslyOpenedDuration > 10000) {
-          this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
-          clearInterval(this.paymentTimer);
-          this.paymentTimer = null;
+        if (this.data.userSpecific.paid === 0 && this.data.userSpecific.openEarned === 0) {
+          const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
+          this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
+          if (openDuration > 10000) {
+            this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
+            clearInterval(this.paymentTimer);
+            this.paymentTimer = null;
+          }
+        }
+      }
+
+      _refreshPaidCheck() {
+        if (this.data.userSpecific.paid > 0 || this.data.userSpecific.openEarned > 0) {
+          this.$.paidCheck.style.display = "";
+        } else {
+          this.$.paidCheck.style.display = "none";
         }
       }
     }
