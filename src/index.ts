@@ -31,7 +31,7 @@ import { channelsComponentManager } from "./channels-component-manager";
 import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
 
-const VERSION = 18;
+const VERSION = 19;
 const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
