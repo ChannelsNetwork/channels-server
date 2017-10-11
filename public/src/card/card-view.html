@@ -294,6 +294,7 @@
       onPayment() {
         this._refreshPaidCheck();
         this.$.openCard.onPayment();
+        this.$.cardHeader.onPayment();
       }
 
       _onData() {

@@ -286,6 +286,7 @@ export interface CardPayDetails extends Signable {
 
 export interface CardPayResponse extends UserStatusResponse {
   transactionId: string;
+  totalCardRevenue: number;
 }
 
 export interface CardRedeemOpenDetails extends Signable {

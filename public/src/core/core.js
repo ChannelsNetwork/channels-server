@@ -249,6 +249,7 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/card-pay";
       return this.rest.post(url, request).then((response) => {
         this._statusResponse = response;
+        return response;
       });
     });
   }

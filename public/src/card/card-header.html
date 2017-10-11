@@ -1,7 +1,7 @@
 <dom-module id="card-header">
   <template>
     <style is="custom-style" include="iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
       }
 
@@ -65,6 +65,10 @@
         };
       }
 
+      onPayment() {
+        this._refreshRevenue();
+      }
+
       _onData() {
         if (!this.data) {
           return;
@@ -79,6 +83,10 @@
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
+        this._refreshRevenue();
+      }
+
+      _refreshRevenue() {
         this.set("data.history.revenueDisplay", this.data.history.revenue.toFixed(2));
       }
     }

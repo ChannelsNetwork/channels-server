@@ -307,7 +307,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         status: userStatus.status,
         interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
         cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate
+        subsidyRate: userStatus.subsidyRate,
+        totalCardRevenue: card.revenue.value + transaction.amount
       };
       response.json(reply);
     } catch (err) {
@@ -379,7 +380,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         status: userStatus.status,
         interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
         cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate
+        subsidyRate: userStatus.subsidyRate,
+        totalCardRevenue: card.revenue.value
       };
       response.json(reply);
     } catch (err) {
