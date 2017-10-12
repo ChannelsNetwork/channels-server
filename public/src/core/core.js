@@ -283,6 +283,21 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  uploadFile(file) {
+    return this.ensureKey().then(() => {
+      var formData = new FormData();
+
+      formData.append("address", this._keys.address);
+      const signatureTimestamp = Date.now().toString();
+      formData.append("signatureTimestamp", signatureTimestamp);
+      formData.append("signature", this._sign(signatureTimestamp));
+      formData.append("userFile", file);
+
+      const url = this.restBase + "/upload";
+      return this.rest.postFile(url, formData);
+    });
+  }
+
   get profile() {
     return this._profile;
   }

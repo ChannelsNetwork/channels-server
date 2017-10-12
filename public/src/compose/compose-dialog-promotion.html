@@ -1,0 +1,156 @@
+<link rel="import" href="../controls/text-input.html">
+<link rel="import" href="../../bower_components/paper-radio-button/paper-radio-button.html">
+<link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
+
+
+<dom-module id="compose-dialog-promotion">
+  <template>
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+        background: #212121;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      #container {
+        max-width: 500px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #progressPanel {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        text-align: right;
+        padding: 30px 0 5px;
+      }
+
+      .imageArea {
+        margin-top: 75px;
+        text-align: center;
+      }
+
+      paper-radio-button {
+        display: block;
+        margin: 15px 0;
+        --paper-radio-button-label-color: white;
+        --paper-radio-button-unchecked-color: white;
+        --paper-radio-button-checked-color: white;
+        --paper-radio-button-size: 24px;
+        font-size: 20px;
+      }
+
+      paper-slider {
+        width: 100%;
+      }
+
+      .contents {
+        margin-top: 20px;
+      }
+
+      .sub {
+        margin: 0 0 25px 50px;
+      }
+
+      #keywords {
+        margin-bottom: 15px;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div id="container">
+        <h2>Compose</h2>
+        <h4>Step 5 of 5</h4>
+        <p>Do you want to pay readers (other than your followers) to see this card in their feed?</p>
+        <div class="contents">
+          <paper-radio-button id="no" on-checked-changed="_onNoChanged" checked>No thanks</paper-radio-button>
+          <paper-radio-button id="yes" on-checked-changed="_onYesChanged">Yes, please</paper-radio-button>
+          <div id="yesSub" class="sub" style="display:none;">
+            <div>Per impression (ℂ):
+              <paper-slider min="0.01" max="0.25" snaps step="0.01" pin value="0.01"></paper-slider>
+            </div>
+            <div>Total Budget (ℂ):
+              <paper-slider min="1" max="100" snaps step="1" pin value="5"></paper-slider>
+            </div>
+            <text-input id="keywords" label="Enter keywords" placeholder="Target based on interests" on-input="_onKeywordInput"></text-input>
+          </div>
+          <div class="buttons">
+            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+            <button id="btnBack" on-click="_onBack">Back</button>
+            <button id="btnPost" on-click="_onPost">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeDialogPromotion extends Polymer.Element {
+      static get is() { return "compose-dialog-promotion"; }
+      static get properties() {
+        return {};
+      }
+
+      onActivate() {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+      }
+
+      _onDataInput() {
+      }
+
+      _onKeywordInput() {
+      }
+
+      _onNoChanged() {
+        if (this.$.no.checked) {
+          this.$.yes.checked = false;
+          this.$.yesSub.style.display = "none";
+        }
+        this._refreshButtons();
+      }
+
+      _onYesChanged() {
+        if (this.$.yes.checked) {
+          this.$.no.checked = false;
+          this.$.yesSub.style.display = "";
+        }
+        this._refreshButtons();
+      }
+
+      _refreshButtons() {
+        this.$.btnPost.disabled = false;
+      }
+
+      _onBack() {
+        $router.goto("compose-pricing");
+      }
+
+      _onCancel() {
+        $router.goto("preview");
+      }
+
+      _onNext() {
+      }
+    }
+    window.customElements.define(ComposeDialogPromotion.is, ComposeDialogPromotion);
+  </script>
+</dom-module>
