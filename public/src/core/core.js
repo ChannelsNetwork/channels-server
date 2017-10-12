@@ -11,9 +11,13 @@ class CoreService extends Polymer.Element {
     window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
+
+    // child services
     this.storage = new StorageService();
     this.rest = new RestService();
     this.dummy = new DummyService(this);
+    this.cardManager = new CardManager(this);
+
     this._keys = this.storage.getLocal(_CKeys.KEYS, true);
     this._profile = null;
     if (this._keys && this._keys.privateKey) {
@@ -170,18 +174,18 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  ensureComponent(package) {
+  ensureComponent(packageName) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.ensureComponentDetails(this._keys.address, package);
+      let details = RestUtils.EnsureChannelComponentDetails(this._keys.address, packageName);
       let request = this._createRequest(details);
       const url = this.restBase + "/ensure-component";
       return this.rest.post(url, request);
     });
   }
 
-  postCard(imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+  postCard(imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, package, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState);
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState);
       let request = this._createRequest(details);
       const url = this.restBase + "/post-card";
       return this.rest.post(url, request);
