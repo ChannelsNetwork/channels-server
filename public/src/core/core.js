@@ -11,9 +11,13 @@ class CoreService extends Polymer.Element {
     window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
+
+    // child services
     this.storage = new StorageService();
     this.rest = new RestService();
     this.dummy = new DummyService(this);
+    this.cardManager = new CardManager(this);
+
     this._keys = this.storage.getLocal(_CKeys.KEYS, true);
     this._profile = null;
     if (this._keys && this._keys.privateKey) {
@@ -189,7 +193,7 @@ class CoreService extends Polymer.Element {
 
   ensureComponent(packageName) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
+      let details = RestUtils.EnsureChannelComponentDetails(this._keys.address, packageName);
       let request = this._createRequest(details);
       const url = this.restBase + "/ensure-component";
       return this.rest.post(url, request);

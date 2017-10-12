@@ -140,6 +140,14 @@ class RestUtils {
     };
   }
 
+  static EnsureChannelComponentDetails(address, packageName) {
+    return {
+      package: packageName,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static getFeedDetails(address, maxCount, type) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
@@ -154,14 +162,6 @@ class RestUtils {
       address: address,
       timestamp: RestUtils.now(),
       feeds: feeds
-    };
-  }
-
-  static ensureComponentDetails(address, packageName) {
-    return {
-      address: address,
-      timestamp: RestUtils.now(),
-      package: packageName                 // e.g., "ChannelsNetwork/card-hello-world"
     };
   }
 
@@ -181,7 +181,7 @@ class RestUtils {
       linkUrl: linkUrl,
       title: title,
       text: text,
-      cardType: packageName,                // same as sent to ensure-component
+      cardType: packageName,            // same as sent to ensure-component
       cardTypeIconUrl: packageIconUrl,  // from card definition
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
@@ -264,5 +264,4 @@ class RestUtils {
       selection: selection    // "like" | "none" | "dislike"
     };
   }
-
 }
