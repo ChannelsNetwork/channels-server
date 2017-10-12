@@ -62,6 +62,22 @@ class RestUtils {
     };
   }
 
+  static getSyncCodeDetails(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static syncIdentityDetails(address, handle, syncCode) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      handle: handle,
+      syncCode: syncCode
+    };
+  }
+
   static updateIdentityDetails(address, name, handle, location, imageUrl, emailAddress) {
     return {
       name: name,
@@ -94,6 +110,110 @@ class RestUtils {
       package: packageName,
       address: address,
       timestamp: RestUtils.now()
+    };
+  }
+
+  static getFeedDetails(address, maxCount, type) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
+    const feeds = [];
+    if (type) {
+      feeds.push({ type: type, maxCount: maxCount });
+    } else {
+      feeds.push({ type: 'recommended', maxCount: maxCount });
+      feeds.push({ type: 'new', maxCount: maxCount });
+      feeds.push({ type: 'mine', maxCount: maxCount });
+      feeds.push({ type: 'opened', maxCount: maxCount });
+    }
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      feeds: feeds
+    };
+  }
+
+  static getCardDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+  }
+
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      imageUrl: imageUrl,
+      linkUrl: linkUrl,
+      title: title,
+      text: text,
+      cardType: packageName,            // same as sent to ensure-component
+      cardTypeIconUrl: packageIconUrl,  // from card definition
+      promotionFee: promotionFee,
+      openPayment: openPayment,         // only for ads
+      openFeeUnits: openFeeUnits,       // 1..10
+      state: initialState               // { user: {properties: {...}, collections: {...}}, shared: {properties: {...}, collections: {...}}}
+    };
+  }
+
+  static cardImpressionDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+  }
+
+  static cardOpenedDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+  }
+
+  static cardPayDetails(address, cardId, transactionString, transactionSignature) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      transactionString: transactionString,  // serialized bankTransaction
+      transactionSignature: transactionSignature
+    };
+  }
+
+  static bankTransaction(address, type, reason, cardId, couponId, amount, recipients) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      type: type,                 // "transfer"
+      reason: reason,             // "card-promotion" | "card-open"
+      relatedCardId: cardId,
+      amount: amount,             // ChannelCoins
+      toRecipients: recipients    // bankTransactionRecipient[]
+    };
+  }
+
+  static bankTransactionRecipient(address, portion, amount) {
+    return {
+      address: address,
+      portion: portion,    // "remainder" | "fraction" | "absolute"
+      amount: amount       // null | 0..1 | amount
+    };
+  }
+
+  static cardClosedDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+  }
+
+  static updateCardLikeDetails(address, cardId, selection) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      selection: selection    // "like" | "none" | "dislike"
     };
   }
 }

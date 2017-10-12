@@ -7,12 +7,13 @@ import { UrlManager } from "./url-manager";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
 import * as uuid from 'uuid';
 import { configuration } from "./configuration";
-import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, OpenReplyDetails, PostCardDetails, PostCardReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails, MutateCardDetails, MutateCardReplyDetails } from "./interfaces/socket-messages";
+import { PingRequestDetails, SocketMessage, PingReplyDetails, OpenRequestDetails, OpenReplyDetails, SocketMessageType, GetFeedDetails, GetFeedReplyDetails, MutateCardDetails, MutateCardReplyDetails } from "./interfaces/socket-messages";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
-import { CardRecord, UserRecord, Mutation, CardMutationRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, Mutation, CardMutationRecord, BankTransactionRecord } from "./interfaces/db-records";
 import { CardDescriptor } from "./interfaces/rest-services";
 import { UserHelper } from "./user-helper";
+import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 
@@ -26,7 +27,6 @@ export class SocketServer implements SocketConnectionHandler {
   private pingInterval: number;
   private pingTimeout: number;
   private cardHandler: CardHandler;
-  private feedHandler: FeedHandler;
   private userHandler: UserSocketHandler;
 
   private async start(): Promise<void> {
@@ -56,14 +56,6 @@ export class SocketServer implements SocketConnectionHandler {
       });
       void this.handleSocketConnectRequest(socketId, ws, request);
     });
-  }
-
-  registerCardHandler(handler: CardHandler): void {
-    this.cardHandler = handler;
-  }
-
-  registerFeedHandler(handler: FeedHandler): void {
-    this.feedHandler = handler;
   }
 
   getOpenSocketAddresses(): string[] {
@@ -119,14 +111,8 @@ export class SocketServer implements SocketConnectionHandler {
         case 'open':
           await this.handleOpenRequest(msg as SocketMessage<OpenRequestDetails>, socketInfo);
           break;
-        case 'post-card':
-          await this.handlePostCardRequest(msg as SocketMessage<PostCardDetails>, socketInfo);
-          break;
         case 'mutate-card':
           await this.handleMutateCardRequest(msg as SocketMessage<MutateCardDetails>, socketInfo);
-          break;
-        case 'get-feed':
-          await this.handleGetFeed(msg as SocketMessage<GetFeedDetails>, socketInfo);
           break;
         default:
           console.warn("SocketServer: received unexpected message type " + msg.type);
@@ -186,36 +172,15 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    socket.address = msg.details.address;
-    socket.userId = user.id;
-    this.socketsByAddress[msg.details.address] = socket;
-    const details: OpenReplyDetails = { success: true };
-    socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
-  }
-
-  private async handlePostCardRequest(msg: SocketMessage<PostCardDetails>, socket: SocketInfo): Promise<void> {
-    const user = await this.userHandler.onUserSocketMessage(socket.address);
-    if (!user) {
-      console.warn("SocketServer.handlePostCardRequest: missing user");
-      const errDetails: PostCardReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cardId: null };
-      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
-      return;
-    }
-    if (!msg.details || !msg.details.text) {
-      const errDetails: PostCardReplyDetails = { success: false, error: { code: 400, message: "Invalid card: text is mandatory" }, cardId: null };
-      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
-      return;
-    }
     try {
-      const card = await this.cardHandler.postCard(user, msg.details, socket.address);
-      const details: PostCardReplyDetails = {
-        success: true,
-        cardId: card.id
-      };
-      socket.socket.send(JSON.stringify({ type: "post-card-reply", requestId: msg.requestId, details: details }));
+      socket.address = msg.details.address;
+      socket.userId = user.id;
+      this.socketsByAddress[msg.details.address] = socket;
+      const details: OpenReplyDetails = { success: true };
+      socket.socket.send(JSON.stringify({ type: "open-reply", requestId: msg.requestId, details: details }));
     } catch (err) {
-      console.warn("SocketServer.handlePostCardRequest: failure", err);
-      const errDetails: PostCardReplyDetails = { success: false, error: { code: 500, message: "Internal error" }, cardId: null };
+      console.warn("SocketServer.handleOpenRequest: failure", err);
+      const errDetails: OpenReplyDetails = { success: false, error: { code: err.code ? err.code : 500, message: "Internal error" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
     }
   }
@@ -233,26 +198,41 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    const mutation = await this.cardHandler.mutateCard(user, msg.details.cardId, msg.details.mutation);
-    const details: MutateCardReplyDetails = { success: true };
-    socket.socket.send(JSON.stringify({ type: "mutate-card-reply", requestId: msg.requestId, details: details }));
+    try {
+      const mutation = await this.cardHandler.mutateCard(user, msg.details.cardId, msg.details.mutation);
+      const details: MutateCardReplyDetails = { success: true };
+      socket.socket.send(JSON.stringify({ type: "mutate-card-reply", requestId: msg.requestId, details: details }));
+    } catch (err) {
+      console.warn("SocketServer.handleMutateCardRequest: failure", err);
+      const errDetails: MutateCardReplyDetails = { success: false, error: { code: err.code ? err.code : 500, message: err.message } };
+      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+    }
   }
 
-  private async handleGetFeed(msg: SocketMessage<GetFeedDetails>, socket: SocketInfo): Promise<void> {
-    const user = await this.userHandler.onUserSocketMessage(socket.address);
-    if (!user) {
-      console.warn("SocketServer.handleGetFeed: missing user");
-      const errDetails: GetFeedReplyDetails = { success: false, error: { code: 401, message: "User is missing" }, cards: [] };
-      socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
-      return;
-    }
-    const cards = await this.feedHandler.getUserFeed(user.id, msg.details.maxCount, msg.details.before, msg.details.after);
-    const details: GetFeedReplyDetails = {
-      success: true,
-      cards: cards
-    };
-    socket.socket.send(JSON.stringify({ type: "get-feed-reply", requestId: msg.requestId, details: details }));
-  }
+  // private async handleCardOpened(msg: SocketMessage<CardOpenedDetails>, socket: SocketInfo): Promise<void> {
+  //   const user = await this.userHandler.onUserSocketMessage(socket.address);
+  //   if (!user) {
+  //     console.warn("SocketServer.handleCardOpened: missing user");
+  //     const errDetails: CardOpenedReply = { success: false, error: { code: 401, message: "User is missing" } };
+  //     socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+  //     return;
+  //   }
+  //   try {
+  //     await this.cardHandler.cardOpened(user, msg.details);
+  //     const replyDetails: CardOpenedReply = { success: true };
+  //     if (msg.details.bankTransferDetails) {
+  //       const transactionResult = await this.bankHandler.performTransaction(user, socket.address, msg.details.bankTransferDetails, msg.details.transferSignature);
+  //       replyDetails.bankTransactionId = transactionResult.record.id;
+  //       replyDetails.updatedBalance = transactionResult.updatedBalance;
+  //       replyDetails.balanceAt = transactionResult.balanceAt;
+  //     }
+  //     socket.socket.send(JSON.stringify({ type: "bank-transaction-reply", requestId: msg.requestId, details: replyDetails }));
+  //   } catch (err) {
+  //     console.warn("SocketServer.handleCardOpened: failure", err);
+  //     const errDetails: CardOpenedReply = { success: false, error: { code: err.code ? err.code : 500, message: err.message } };
+  //     socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
+  //   }
+  // }
 
   private processPings(): void {
     const now = Date.now();
@@ -319,7 +299,6 @@ interface ChannelSocket {
 }
 
 export interface CardHandler {
-  postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord>;
   mutateCard(user: UserRecord, cardId: string, mutation: Mutation): Promise<CardMutationRecord>;
 }
 

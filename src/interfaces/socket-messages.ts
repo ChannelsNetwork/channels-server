@@ -1,8 +1,8 @@
 
 import { CardDescriptor } from "./rest-services";
-import { Mutation, CardStateGroup } from "./db-records";
+import { Mutation, CardStateGroup, BankTransactionRecord } from "./db-records";
 
-export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'open-reply' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'mutate-card' | 'mutate-card-reply' | 'notify-card-posted' | 'notify-mutation';
+export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'open-reply' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'mutate-card' | 'mutate-card-reply' | 'notify-card-posted' | 'notify-mutation' | 'card-opened';
 export interface SocketMessage<T> {
   type: SocketMessageType;
   requestId?: string;
@@ -33,26 +33,6 @@ export interface OpenRequestDetails {
 }
 
 export interface OpenReplyDetails extends ReplyDetails { }
-
-export interface PostCardDetails {
-  imageUrl?: string;
-  linkUrl?: string;
-  title?: string;
-  text: string;
-  cardType?: string;
-  cardTypeIconUrl?: string;
-  promotionFee: number;
-  openPayment?: number; // for ads, in ChannelCoin
-  openFeeUnits?: number; // for content, 1..10
-  state?: {
-    user: CardState;
-    shared: CardState;
-  };
-}
-
-export interface PostCardReplyDetails extends ReplyDetails {
-  cardId: string;
-}
 
 export interface CardState {
   mutationId: string;
@@ -86,4 +66,24 @@ export interface GetFeedDetails {
 
 export interface GetFeedReplyDetails extends ReplyDetails {
   cards: CardDescriptor[];
+}
+
+export interface CardOpenedDetails {
+  cardId: string;
+  openedAt: number;
+  closedAt?: number;
+  bankTransferDetails?: string;
+  transferSignature?: string;
+}
+
+export interface CardOpenedReply extends ReplyDetails {
+  bankTransactionId?: string;
+  updatedBalance?: number;
+  balanceAt?: number;
+}
+
+export interface BankTransactionResult {
+  record: BankTransactionRecord;
+  updatedBalance: number;
+  balanceAt: number;
 }
