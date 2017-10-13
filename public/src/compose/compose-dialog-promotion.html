@@ -5,17 +5,16 @@
 
 <dom-module id="compose-dialog-promotion">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
       :host {
         display: block;
-        background: #212121;
       }
 
       .shell {
         min-height: 100vh;
       }
 
-      #container {
+      .container {
         max-width: 500px;
         padding: 16px;
         margin: 0 auto;
@@ -49,9 +48,6 @@
       paper-radio-button {
         display: block;
         margin: 15px 0;
-        --paper-radio-button-label-color: white;
-        --paper-radio-button-unchecked-color: white;
-        --paper-radio-button-checked-color: white;
         --paper-radio-button-size: 24px;
         font-size: 20px;
       }
@@ -73,7 +69,7 @@
       }
     </style>
     <div class="shell horizontal layout center">
-      <div id="container">
+      <div class="container">
         <h2>Compose</h2>
         <h4>Step 5 of 5</h4>
         <p>Do you want to pay readers (other than your followers) to see this card in their feed?</p>
@@ -82,12 +78,11 @@
           <paper-radio-button id="yes" on-checked-changed="_onYesChanged">Yes, please</paper-radio-button>
           <div id="yesSub" class="sub" style="display:none;">
             <div>Per impression (ℂ):
-              <paper-slider min="0.01" max="0.25" snaps step="0.01" pin value="0.01"></paper-slider>
+              <paper-slider id="perImpression" min="0.01" max="0.25" snaps step="0.01" pin value="0.01"></paper-slider>
             </div>
-            <div>Total Budget (ℂ):
-              <paper-slider min="1" max="100" snaps step="1" pin value="5"></paper-slider>
+            <div>Budget (ℂ):
+              <paper-slider id="budget" min="1" max="100" snaps step="1" pin value="5"></paper-slider>
             </div>
-            <text-input id="keywords" label="Enter keywords" placeholder="Target based on interests" on-input="_onKeywordInput"></text-input>
           </div>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
@@ -105,19 +100,22 @@
         return {};
       }
 
-      onActivate() {
+      onActivate(context) {
         if (!$core.hasKey) {
           setTimeout(() => {
             $router.goto("");
           }, 600);
           return;
         }
-      }
-
-      _onDataInput() {
-      }
-
-      _onKeywordInput() {
+        this.$.no.checked = false;
+        this.$.yes.checked = false;
+        this.$.yesSub.style.display = "none";
+        this.$.perImpression.value = 0.01;
+        this.$.budget.value = 5;
+        if (context.pricing.fee) {
+          this.$.no.checked = true;
+        }
+        this._refreshButtons();
       }
 
       _onNoChanged() {
@@ -140,15 +138,27 @@
         this.$.btnPost.disabled = false;
       }
 
-      _onBack() {
-        $router.goto("compose-pricing");
-      }
-
       _onCancel() {
-        $router.goto("preview");
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
       }
 
-      _onNext() {
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onPost() {
+        const details = {
+          context: {
+            promotion: {}
+          }
+        };
+        if (this.$.yes.checked) {
+          details.context.promotion = {
+            perImpression: this.$.perImpression.value,
+            budget: this.$.budget.value
+          };
+        }
+        this.dispatchEvent(new CustomEvent('compose-post', { bubbles: true, composed: true, detail: details }));
       }
     }
     window.customElements.define(ComposeDialogPromotion.is, ComposeDialogPromotion);

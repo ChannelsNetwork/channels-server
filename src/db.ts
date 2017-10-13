@@ -252,10 +252,6 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async incrementNetworkBalance(incrementBy: number): Promise<void> {
-    await this.networks.updateOne({ id: '1' }, { $inc: { balance: incrementBy } });
-  }
-
   async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {

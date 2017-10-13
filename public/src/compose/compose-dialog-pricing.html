@@ -4,18 +4,17 @@
 
 <dom-module id="compose-dialog-pricing">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
       :host {
         display: block;
-        background: #212121;
       }
 
       .shell {
         min-height: 100vh;
       }
 
-      #container {
-        max-width: 500px;
+      .container {
+        max-width: 600px;
         padding: 16px;
         margin: 0 auto;
         width: 100%;
@@ -48,9 +47,6 @@
       paper-radio-button {
         display: block;
         margin: 15px 0;
-        --paper-radio-button-label-color: white;
-        --paper-radio-button-unchecked-color: white;
-        --paper-radio-button-checked-color: white;
         --paper-radio-button-size: 24px;
         font-size: 20px;
       }
@@ -68,7 +64,7 @@
       }
     </style>
     <div class="shell horizontal layout center">
-      <div id="container">
+      <div class="container">
         <h2>Compose</h2>
         <h4>Step 4 of 5</h4>
         <p>Ten seconds after this card is kept open by a reader:</p>
@@ -76,13 +72,13 @@
           <paper-radio-button id="fee" on-checked-changed="_onFeeChanged" checked>Reader will pay me</paper-radio-button>
           <div id="positive" class="sub">
             <div>Network pricing level (1-10):
-              <paper-slider min="1" max="10" snaps pin></paper-slider>
+              <paper-slider id="priceLevel" min="1" max="10" snaps pin></paper-slider>
             </div>
           </div>
           <paper-radio-button id="pay" on-checked-changed="_onPayChanged">I will pay reader</paper-radio-button>
           <div id="negative" class="sub" style="display:none;">
             <div>Amount (ℂ):
-              <paper-slider min="0.01" max="5" snaps step="0.01" pin value="0.75"></paper-slider>
+              <paper-slider id="paymentAmount" min="0.01" max="5" snaps step="0.01" pin value="0.75"></paper-slider>
             </div>
           </div>
           <div class="buttons">
@@ -108,6 +104,13 @@
           }, 600);
           return;
         }
+        this.$.fee.checked = false;
+        this.$.pay.checked = false;
+        this.$.positive.style.display = "none";
+        this.$.negative.style.display = "none";
+        this.$.priceLevel.value = 1;
+        this.$.paymentAmount.value = 0.75;
+        this._refreshButtons();
       }
 
       _onDataInput() {
@@ -135,16 +138,30 @@
         this.$.btnNext.disabled = !this.$.pay.checked && !this.$.fee.checked;
       }
 
-      _onBack() {
-        $router.goto("compose-data");
+      _onCancel() {
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
       }
 
-      _onCancel() {
-        $router.goto("preview");
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
       }
 
       _onNext() {
-        $router.goto("compose-promotion");
+        const details = {
+          context: {
+            pricing: {}
+          }
+        };
+        if (this.$.fee.checked) {
+          details.context.pricing.fee = {
+            priceLevel: this.$.priceLevel.value
+          };
+        } else if (this.$.pay.checked) {
+          details.context.pricing.pay = {
+            paymentAmount: this.$.paymentAmount.value
+          };
+        }
+        this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
       }
     }
     window.customElements.define(ComposeDialogPricing.is, ComposeDialogPricing);

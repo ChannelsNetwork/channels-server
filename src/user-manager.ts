@@ -309,9 +309,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         imageUrl: user.identity ? user.identity.imageUrl : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
-        settings: {
-          displayNetworkBalance: user.admin
-        }
+        settings: {}
       };
       response.json(reply);
     } catch (err) {

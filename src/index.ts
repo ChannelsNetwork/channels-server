@@ -32,7 +32,6 @@ import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
 
 const VERSION = 19;
-const INITIAL_NETWORK_BALANCE = 25000;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;

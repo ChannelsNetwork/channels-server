@@ -86,9 +86,7 @@ export interface GetUserIdentityResponse extends RestResponse {
   settings: UserSettings;
 }
 
-export interface UserSettings {
-  displayNetworkBalance: boolean;
-}
+export interface UserSettings { }
 
 export interface CheckHandleDetails extends Signable {
   handle: string;

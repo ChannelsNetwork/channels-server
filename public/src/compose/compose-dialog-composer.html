@@ -1,0 +1,127 @@
+<link rel="import" href="../controls/text-input.html">
+
+<dom-module id="compose-dialog-composer">
+  <template>
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #progressPanel {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        text-align: right;
+        padding: 30px 0 5px;
+      }
+
+      #composerContainer {
+        margin: 15px 0;
+        min-height: 100px;
+        text-align: center;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div class="flex">
+        <div class="container">
+          <h2>Compose</h2>
+          <h4>Step 2 of 5</h4>
+          <p>Compose your card</p>
+        </div>
+        <div id="composerContainer"></div>
+        <div class="container">
+          <div>
+            <div class="buttons">
+              <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+              <button id="btnBack" on-click="_onBack">Back</button>
+              <button id="btnNext" on-click="_onNext">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeDialogComposer extends Polymer.Element {
+      static get is() { return "compose-dialog-composer"; }
+      static get properties() {
+        return {};
+      }
+
+      onActivate(context) {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        while (this.$.composerContainer.firstChild) {
+          this.$.composerContainer.removeChild(this.$.composerContainer.firstChild);
+        }
+        this.composer = null;
+        this._refreshNext();
+        Polymer.importHref(context.componentResponse.importHref, () => {
+          this.composer = document.createElement(context.componentResponse.channelComponent.composerTag);
+          this.composer.addEventListener('card-composer-ready-changed', (event) => {
+            this._refreshNext();
+          });
+          this.$.composerContainer.appendChild(this.composer);
+          this._refreshNext();
+        });
+      }
+
+      _onCancel() {
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _refreshNext() {
+        if (this.composer) {
+          this.$.btnNext.disabled = false; // !this.composer.ready;
+        } else {
+          this.$.btnNext.disabled = true;
+        }
+      }
+
+      _onNext() {
+        const details = {
+          context: {
+            initialCardState: this.composer.data,
+            cardImage: this.composer.cardImage,
+            cardTitle: this.composer.cardTitle,
+            cardText: this.composer.cardText,
+            cardLink: this.composer.cardLink
+          }
+        };
+
+        this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
+      }
+    }
+    window.customElements.define(ComposeDialogComposer.is, ComposeDialogComposer);
+  </script>
+</dom-module>

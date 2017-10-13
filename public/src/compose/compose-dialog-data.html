@@ -1,21 +1,20 @@
-<link rel="import" href="../controls/text-input.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
 <link rel="import" href="../../bower_components/file-uploader/file-uploader.html">
 
 
 <dom-module id="compose-dialog-data">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
       :host {
         display: block;
-        background: #212121;
       }
 
       .shell {
         min-height: 100vh;
       }
 
-      #container {
-        max-width: 500px;
+      .container {
+        max-width: 600px;
         padding: 16px;
         margin: 0 auto;
         width: 100%;
@@ -31,7 +30,7 @@
         font-size: 20px;
       }
 
-      text-input {
+      paper-input {
         margin-top: 20px;
       }
 
@@ -46,7 +45,7 @@
       }
     </style>
     <div class="shell horizontal layout center">
-      <div id="container">
+      <div class="container">
         <h2>Compose</h2>
         <h4>Step 3 of 5</h4>
         <p>Describe how your card should appear in a reader's feed:</p>
@@ -54,8 +53,8 @@
           <div class="imageArea">
             <file-uploader accept="image/*">Select image</file-uploader>
           </div>
-          <text-input id="cardTitle" label="Title" placeholder="Title" on-input="_onDataInput"></text-input>
-          <text-input id="cardText" label="Description" placeholder="Description" on-input="_onDataInput"></text-input>
+          <paper-input id="cardTitle" label="Title" on-input="_onDataInput"></paper-input>
+          <paper-input id="cardText" label="Description" on-input="_onDataInput"></paper-input>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnBack" on-click="_onBack">Back</button>
@@ -72,29 +71,42 @@
         return {};
       }
 
-      onActivate() {
+      onActivate(context) {
         if (!$core.hasKey) {
           setTimeout(() => {
             $router.goto("");
           }, 600);
           return;
         }
+        this.$.cardTitle.value = context.cardTitle || '';
+        this.$.cardText.value = context.cardText || '';
+        this._refreshButtons();
       }
 
       _onDataInput() {
+        this._refreshButtons();
+      }
+
+      _refreshButtons() {
         this.$.btnNext.disabled = this.$.cardTitle.value.trim().length === 0 || this.$.cardText.value.trim().length === 0;
       }
 
-      _onBack() {
-        $router.goto("compose-card");
+      _onCancel() {
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
       }
 
-      _onCancel() {
-        $router.goto("preview");
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
       }
 
       _onNext() {
-        $router.goto("compose-pricing");
+        const details = {
+          context: {
+            cardTitle: this.$.cardTitle.value,
+            cardText: this.$.cardText.value
+          }
+        };
+        this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
       }
     }
     window.customElements.define(ComposeDialogData.is, ComposeDialogData);

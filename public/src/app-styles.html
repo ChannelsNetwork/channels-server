@@ -1,7 +1,7 @@
 <dom-module id="app-styles">
   <template>
     <style>
-       :host {
+      :host {
         --button-yellow: #f9ed00;
         --highlight-blue: #81D4FA;
         --bg-yellow: #ffeb3b;
@@ -76,6 +76,94 @@
 
       .barspace {
         height: 60px;
+      }
+
+      .error {
+        color: red;
+        font-weight: 400;
+      }
+    </style>
+  </template>
+</dom-module>
+
+<dom-module id="app-styles-light">
+  <template>
+    <style>
+      h1,
+      h2,
+      h3 {
+        font-family: 'Raleway', sans-serif;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.3;
+      }
+
+      h1 {
+        font-size: 50px;
+      }
+
+      h2 {
+        font-size: 41px;
+      }
+
+      h3 {
+        font-size: 31px;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: black;
+        outline: none;
+        letter-spacing: 0.05em;
+        text-decoration: none;
+        text-transform: uppercase;
+      }
+
+      a:hover {
+        box-shadow: 0 1px 0px 0;
+      }
+
+      .floatingPage {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        transition: transform 0.5s ease-out;
+      }
+
+      button {
+        color: black;
+        outline: none;
+        letter-spacing: 0.03em;
+        text-decoration: none;
+        text-transform: uppercase;
+        background: none;
+        border: none;
+        font-size: 20px;
+        padding: 10px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+
+      button:active {
+        color: var(--highlight-blue);
+        background: none;
+      }
+
+      button:disabled {
+        cursor: inherit;
+        color: #808080;
+      }
+
+      .barspace {
+        height: 60px;
+      }
+
+      .error {
+        margin: 10px 0;
+        color: red;
+        font-weight: 400;
       }
     </style>
   </template>
