@@ -489,7 +489,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!details.text) {
       throw new Error("Invalid card: missing text");
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.promotionCoupon, details.openPayment, details.openCoupon, details.openFeeUnits);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.promotionCoupon, details.openPayment, details.openCoupon, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0);
     await this.announceCard(card, user);
     return card;
   }
@@ -728,7 +728,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           title: record.summary.title,
           text: record.summary.text,
         },
-        cardType: record.cardType,
+        cardType: {
+          package: record.cardType.package,
+          iconUrl: null
+        },
         pricing: {
           promotionFee: record.pricing.promotionFee,
           promotionCoupon: record.pricing.promotionCoupon,

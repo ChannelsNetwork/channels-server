@@ -254,6 +254,10 @@ export interface PostCardDetails extends Signable {
   openPayment?: number; // for ads, in ChannelCoin
   openCoupon?: string;
   openFeeUnits?: number; // for content, 1..10
+  budget?: {
+    amount: number;
+    plusPercent: number;
+  };
   state: {
     user: CardState;
     shared: CardState;

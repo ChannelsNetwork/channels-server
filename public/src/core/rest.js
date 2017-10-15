@@ -173,7 +173,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -186,6 +186,8 @@ class RestUtils {
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10
+      budgetAmount: budgetAmount,
+      budgetPlusPercent: budgetPlusPercent,
       state: initialState               // { user: {properties: {...}, collections: {...}}, shared: {properties: {...}, collections: {...}}}
     };
   }

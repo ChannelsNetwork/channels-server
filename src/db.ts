@@ -420,7 +420,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, promotionCoupon: string, openPayment: number, openCoupon: string, openFeeUnits: number, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, promotionCoupon: string, openPayment: number, openCoupon: string, openFeeUnits: number, budgetAmount = 0, budgetPlusPercent = 0, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -448,6 +448,11 @@ export class Database {
         openPayment: openPayment,
         openCoupon: openCoupon,
         openFeeUnits: openFeeUnits
+      },
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent,
+        spent: 0
       },
       revenue: { value: 0, history: [] },
       promotionsPaid: { value: 0, history: [] },

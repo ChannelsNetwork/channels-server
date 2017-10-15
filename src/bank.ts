@@ -159,6 +159,7 @@ export class Bank implements RestServer {
     const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
     await db.incrementUserBalance(user, -details.amount, 0, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, user.id, participantIds, details, signature);
+    let newBalance = user.balance;
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
       let creditAmount = 0;
@@ -177,10 +178,13 @@ export class Bank implements RestServer {
       }
       console.log("Bank.performTransaction: Crediting user account", recipientUser.id, creditAmount);
       await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
+      if (recipientUser.id === user.id) {
+        newBalance += creditAmount;
+      }
     }
     const result: BankTransactionResult = {
       record: record,
-      updatedBalance: user.balance,
+      updatedBalance: newBalance,
       balanceAt: now
     };
     return result;
@@ -206,6 +210,7 @@ export class Bank implements RestServer {
       address: toAddress,
       portion: "remainder"
     };
+    const originalBalance = to.balance;
     transactionDetails.toRecipients.push(recipient);
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     await db.incrementUserBalance(from, -coupon.amount, 0, balanceBelowTarget, now);
@@ -214,7 +219,7 @@ export class Bank implements RestServer {
     await db.incrementUserBalance(to, coupon.amount, 0, to.balance + coupon.amount < to.targetBalance, now);
     const result: BankTransactionResult = {
       record: record,
-      updatedBalance: to.balance,
+      updatedBalance: from.id === to.id ? originalBalance : to.balance,
       balanceAt: now
     };
     return result;

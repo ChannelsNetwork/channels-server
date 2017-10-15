@@ -342,6 +342,7 @@ export class FeedManager implements Initializable, RestServer {
       0.01, couponPromo1,
       0, null,
       3,
+      0, 0,
       cardId1);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25);
 
@@ -388,6 +389,7 @@ export class FeedManager implements Initializable, RestServer {
       0.01, couponPromo2,
       1, couponOpen2,
       0,
+      0, 0,
       cardId2);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245);
 
@@ -476,6 +478,7 @@ export class FeedManager implements Initializable, RestServer {
       0.02, couponPromo3,
       0.55, couponOpen3,
       0,
+      0, 0,
       cardId3);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3);
 
@@ -507,6 +510,7 @@ export class FeedManager implements Initializable, RestServer {
       0.01, couponPromo4,
       0, null,
       5,
+      0, 0,
       cardId4);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 2, 201.24, 99, 4);
   }

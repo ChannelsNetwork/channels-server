@@ -49,6 +49,10 @@
             }, 600);
             return;
           }
+          if (!$core.profile || !$core.profile.handle) {
+            $router.goto("edit-profile");
+            return;
+          }
           this.pages = [this.$.card, this.$.composer, this.$.pricing, this.$.promotion, this.$.finish];
           for (const page of this.pages) {
             page.style.display = "none";
@@ -114,6 +118,8 @@
           this.pageContext.promotion ? this.pageContext.promotion.amount : 0,
           this.pageContext.pricing.pay ? this.pageContext.promotion.amount : 0,
           this.pageContext.pricing.fee ? this.pageContext.pricing.fee.priceLevel : 0,
+          this.pageContext.promotion ? this.pageContext.promotion.budgetCoins : 0,
+          this.pageContext.promotion && this.pageContext.promotion.budgetPercent ? this.pageContext.promotion.budgetPercent : 0,
           this.pageContext.sharedState).then(() => {
             $router.goto("preview");
           });

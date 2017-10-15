@@ -83,6 +83,11 @@ export interface CardRecord {
     openCoupon: string;
     openFeeUnits: number; // 1 - 10
   };
+  budget: {
+    amount: number;
+    plusPercent: number;
+    spent: number;
+  };
   revenue: CardStatistic;
   promotionsPaid: CardStatistic;
   openFeesPaid: CardStatistic;
