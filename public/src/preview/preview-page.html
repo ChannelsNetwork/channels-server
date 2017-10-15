@@ -82,12 +82,6 @@
       connectedCallback() {
         super.connectedCallback();
         this._visibleCards = {};
-        if (!$core.hasKey) {
-          setTimeout(() => {
-            $router.goto("");
-          }, 600);
-          return;
-        }
         $core.register().then((info) => {
           const options = {
             root: $app.shell,

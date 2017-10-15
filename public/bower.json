@@ -14,7 +14,8 @@
     "file-uploader": "AlessioGiambrone/file-uploader#^0.0.1",
     "paper-radio-button": "PolymerElements/paper-radio-button#^2.0.0",
     "paper-slider": "PolymerElements/paper-slider#^2.0.2",
-    "iron-image": "PolymerElements/iron-image#^2.1.2"
+    "iron-image": "PolymerElements/iron-image#^2.1.2",
+    "paper-checkbox": "PolymerElements/paper-checkbox#^2.0.1"
   },
   "devDependencies": {
     "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",

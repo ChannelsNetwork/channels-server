@@ -16,6 +16,7 @@ import { ChannelComponentDescriptor, ChannelComponentResponse, EnsureChannelComp
 import { RestHelper } from "./rest-helper";
 import * as mkdirp from 'mkdirp';
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
+import * as url from 'url';
 
 const bower = require('bower');
 
@@ -333,7 +334,8 @@ export class ChannelsComponentManager implements RestServer {
         source: pkgInfo.endpoint.source,
         importHref: this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/' + pkgInfo.pkgMeta.main,
         package: pkgInfo,
-        channelComponent: descriptor
+        channelComponent: descriptor,
+        iconUrl: descriptor.iconUrl ? url.resolve(this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/', descriptor.iconUrl) : null
       };
       response.json(componentResponse);
     } catch (err) {

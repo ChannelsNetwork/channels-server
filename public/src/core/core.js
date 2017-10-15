@@ -326,6 +326,13 @@ class CoreService extends Polymer.Element {
     return result;
   }
 
+  get baseCardPrice() {
+    if (!this._statusResponse) {
+      return 0;
+    }
+    return this._statusResponse.cardBasePrice;
+  }
+
   _fire(name, detail) {
     let ce = new CustomEvent(name, { bubbles: true, composed: true, detail: (detail || {}) });
     window.dispatchEvent(ce);

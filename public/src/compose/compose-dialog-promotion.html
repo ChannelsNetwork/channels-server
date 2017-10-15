@@ -1,8 +1,3 @@
-<link rel="import" href="../controls/text-input.html">
-<link rel="import" href="../../bower_components/paper-radio-button/paper-radio-button.html">
-<link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
-
-
 <dom-module id="compose-dialog-promotion">
   <template>
     <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
@@ -12,10 +7,11 @@
 
       .shell {
         min-height: 100vh;
+        padding: 80px 5px;
       }
 
       .container {
-        max-width: 500px;
+        max-width: 800px;
         padding: 16px;
         margin: 0 auto;
         width: 100%;
@@ -36,7 +32,7 @@
       }
 
       .buttons {
-        text-align: right;
+        text-align: center;
         padding: 30px 0 5px;
       }
 
@@ -48,8 +44,8 @@
       paper-radio-button {
         display: block;
         margin: 15px 0;
-        --paper-radio-button-size: 24px;
-        font-size: 20px;
+        --paper-radio-button-size: 20px;
+        font-size: 16px;
       }
 
       paper-slider {
@@ -67,37 +63,70 @@
       #keywords {
         margin-bottom: 15px;
       }
+
+      input {
+        font-size: 20px;
+      }
+
+      #amount {
+        width: 80px;
+      }
+
+      #budgetCoins {
+        width: 60px;
+        margin-right: 10px;
+      }
+
+      #budgetPercent {
+        margin: 0 3px 0 10px;
+        width: 45px;
+        text-align: right;
+      }
+
+      .recommendation {
+        font-size: 12px;
+        margin-left: 10px;
+      }
+
+      p {
+        margin: 50px 0 10px;
+      }
     </style>
-    <div class="shell horizontal layout center">
+    <div class="shell horizontal layout">
       <div class="container">
-        <h2>Compose</h2>
-        <h4>Step 5 of 5</h4>
-        <p>Do you want to pay readers (other than your followers) to see this card in their feed?</p>
-        <div class="contents">
-          <paper-radio-button id="no" on-checked-changed="_onNoChanged" checked>No thanks</paper-radio-button>
-          <paper-radio-button id="yes" on-checked-changed="_onYesChanged">Yes, please</paper-radio-button>
-          <div id="yesSub" class="sub" style="display:none;">
-            <div>Per impression (ℂ):
-              <paper-slider id="perImpression" min="0.01" max="0.25" snaps step="0.01" pin value="0.01"></paper-slider>
-            </div>
-            <div>Budget (ℂ):
-              <paper-slider id="budget" min="1" max="100" snaps step="1" pin value="5"></paper-slider>
-            </div>
-          </div>
-          <div class="buttons">
-            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
-            <button id="btnBack" on-click="_onBack">Back</button>
-            <button id="btnPost" on-click="_onPost">Post</button>
-          </div>
+        <h3>Step 4: Promotion</h3>
+        <p>How much are you willing to pay each reader
+          <span>[[paymentAction]]</span>?</p>
+        <div>
+          ℂ
+          <input type="number" id="amount" value="0.010" step="0.001" min="0.001" max="1">
+          <span class="recommendation">(Recommended: ℂ
+            <span>[[minimumRecommendation]]</span> to ℂ[[maximumRecommendation]])</span>
+        </div>
+        <p>What is your budget for this card?</p>
+        <div>
+          ℂ
+          <input type="number" id="budgetCoins" value="10" step="1" min="1" max="[[maxBudget]]">
+          <span id="budgetPlus">plus
+            <input type="number" id="budgetPercent" value="15" step="1" min="0" max="90">% of earnings from this card</span>
+        </div>
+        <div class="buttons">
+          <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+          <button id="btnBack" on-click="_onBack">Back</button>
+          <button id="btnNext" on-click="_onNext">Next</button>
         </div>
       </div>
-    </div>
   </template>
   <script>
     class ComposeDialogPromotion extends Polymer.Element {
       static get is() { return "compose-dialog-promotion"; }
       static get properties() {
-        return {};
+        return {
+          minimumRecommendation: Number,
+          maximumRecommendation: Number,
+          paymentAction: String,
+          maxBudget: Number
+        };
       }
 
       onActivate(context) {
@@ -107,32 +136,43 @@
           }, 600);
           return;
         }
-        this.$.no.checked = false;
-        this.$.yes.checked = false;
-        this.$.yesSub.style.display = "none";
-        this.$.perImpression.value = 0.01;
-        this.$.budget.value = 5;
-        if (context.pricing.fee) {
-          this.$.no.checked = true;
+        this.context = context;
+        if (context.pricing.pay && context.pricing.pay.basedOn === 'clicks') {
+          this.set('minimumRecommendation', 0.35);
+          this.set('maximumRecommendation', 0.74);
+          this.set('paymentAction', "to keep this card open for 10 seconds");
+        } else {
+          this.set('minimumRecommendation', 0.008);
+          this.set('maximumRecommendation', 0.015);
+          this.set('paymentAction', "to see this card in his or her feed");
         }
-        this._refreshButtons();
+        if (Number(this.$.amount.value) < this.minimumRecommendation || Number(this.$.amount.value) > this.maximumRecommendation) {
+          this.$.amount.value = (this.minimumRecommendation + (this.maximumRecommendation - this.minimumRecommendation) / 2).toFixed(3);
+        }
+        this.set('maxBudget', Math.floor($core.balance * 0.9));
+        this.$.budgetCoins.value = Math.min(15, $core.balance * 0.5).toFixed(0);
+        this.$.budgetPlus.style.display = context.pricing.fee && context.pricing.fee.expandReach ? "" : "none";
       }
 
-      _onNoChanged() {
-        if (this.$.no.checked) {
-          this.$.yes.checked = false;
-          this.$.yesSub.style.display = "none";
-        }
-        this._refreshButtons();
+      isSkippable(context) {
+        return context.pricing && context.pricing.fee && !context.pricing.fee.expandReach;
       }
 
-      _onYesChanged() {
-        if (this.$.yes.checked) {
-          this.$.no.checked = false;
-          this.$.yesSub.style.display = "";
-        }
-        this._refreshButtons();
-      }
+      // _onNoChanged() {
+      //   if (this.$.no.checked) {
+      //     this.$.yes.checked = false;
+      //     this.$.yesSub.style.display = "none";
+      //   }
+      //   this._refreshButtons();
+      // }
+
+      // _onYesChanged() {
+      //   if (this.$.yes.checked) {
+      //     this.$.no.checked = false;
+      //     this.$.yesSub.style.display = "";
+      //   }
+      //   this._refreshButtons();
+      // }
 
       _refreshButtons() {
         this.$.btnPost.disabled = false;
@@ -146,19 +186,19 @@
         this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
       }
 
-      _onPost() {
+      _onNext() {
         const details = {
           context: {
-            promotion: {}
+            promotion: {
+              amount: Number(this.$.amount.value),
+              budgetCoins: Number(this.$.budgetCoins.value),
+            }
           }
         };
-        if (this.$.yes.checked) {
-          details.context.promotion = {
-            perImpression: this.$.perImpression.value,
-            budget: this.$.budget.value
-          };
+        if (this.context.pricing.fee) {
+          details.context.promotion.budgetPercent = Number(this.$.budgetPercent.value);
         }
-        this.dispatchEvent(new CustomEvent('compose-post', { bubbles: true, composed: true, detail: details }));
+        this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
       }
     }
     window.customElements.define(ComposeDialogPromotion.is, ComposeDialogPromotion);

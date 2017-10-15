@@ -201,6 +201,7 @@ export interface ChannelComponentResponse extends RestResponse {
   importHref: string;
   package: BowerInstallResult;
   channelComponent: ChannelComponentDescriptor;
+  iconUrl: string;
 }
 
 export interface BowerInstallResult {
@@ -230,6 +231,7 @@ export interface BowerPackageMeta {
 export interface ChannelComponentDescriptor {
   composerTag: string;
   viewerTag: string;
+  iconUrl: string;   // relative to channels-component.json file
 }
 
 export interface GetCardDetails extends Signable {

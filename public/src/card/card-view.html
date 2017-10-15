@@ -260,6 +260,7 @@
             type: Object,
             observer: "_onData"
           },
+          preview: Boolean,
           price: String,
           intersectionObserver: Object
         };
@@ -323,6 +324,7 @@
         this.$.posBar.style.width = rating + "%";
         this.$.negBar.style.width = (100 - rating) + "%";
 
+        this.$.description.text = this.data.summary.text;
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
         this._refreshPaidCheck();

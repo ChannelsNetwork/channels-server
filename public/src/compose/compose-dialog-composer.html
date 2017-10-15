@@ -9,11 +9,12 @@
 
       .shell {
         min-height: 100vh;
+        padding: 80px 5px;
       }
 
       .container {
-        max-width: 600px;
-        padding: 16px;
+        max-width: 800px;
+        padding: 16px 0;
         margin: 0 auto;
         width: 100%;
         box-sizing: border-box;
@@ -33,7 +34,7 @@
       }
 
       .buttons {
-        text-align: right;
+        text-align: center;
         padding: 30px 0 5px;
       }
 
@@ -43,21 +44,17 @@
         text-align: center;
       }
     </style>
-    <div class="shell horizontal layout center">
+    <div class="shell horizontal layout">
       <div class="flex">
         <div class="container">
-          <h2>Compose</h2>
-          <h4>Step 2 of 5</h4>
-          <p>Compose your card</p>
+          <h3>Step 2: Compose</h3>
         </div>
         <div id="composerContainer"></div>
         <div class="container">
-          <div>
-            <div class="buttons">
-              <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
-              <button id="btnBack" on-click="_onBack">Back</button>
-              <button id="btnNext" on-click="_onNext">Next</button>
-            </div>
+          <div class="buttons">
+            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+            <button id="btnBack" on-click="_onBack">Back</button>
+            <button id="btnNext" on-click="_onNext">Next</button>
           </div>
         </div>
       </div>
@@ -84,7 +81,7 @@
         this._refreshNext();
         Polymer.importHref(context.componentResponse.importHref, () => {
           this.composer = document.createElement(context.componentResponse.channelComponent.composerTag);
-          this.composer.addEventListener('card-composer-ready-changed', (event) => {
+          this.composer.addEventListener('state-ready-changed', (event) => {
             this._refreshNext();
           });
           this.$.composerContainer.appendChild(this.composer);
@@ -102,7 +99,7 @@
 
       _refreshNext() {
         if (this.composer) {
-          this.$.btnNext.disabled = false; // !this.composer.ready;
+          this.$.btnNext.disabled = this.composer.stateReady !== true;
         } else {
           this.$.btnNext.disabled = true;
         }
@@ -111,14 +108,13 @@
       _onNext() {
         const details = {
           context: {
-            initialCardState: this.composer.data,
-            cardImage: this.composer.cardImage,
-            cardTitle: this.composer.cardTitle,
-            cardText: this.composer.cardText,
-            cardLink: this.composer.cardLink
+            initialCardState: this.composer.getSharedState(),
+            cardImage: this.composer.recommendedImageUrl,
+            cardTitle: this.composer.recommendedTitle,
+            cardText: this.composer.recommendedText,
+            cardLink: this.composer.recommendedLinkUrl
           }
         };
-
         this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
       }
     }

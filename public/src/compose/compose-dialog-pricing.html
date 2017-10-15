@@ -1,5 +1,6 @@
 <link rel="import" href="../../bower_components/paper-radio-button/paper-radio-button.html">
 <link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
+<link rel="import" href="../../bower_components/paper-checkbox/paper-checkbox.html">
 
 
 <dom-module id="compose-dialog-pricing">
@@ -11,10 +12,11 @@
 
       .shell {
         min-height: 100vh;
+        padding: 80px 5px;
       }
 
       .container {
-        max-width: 600px;
+        max-width: 800px;
         padding: 16px;
         margin: 0 auto;
         width: 100%;
@@ -35,7 +37,7 @@
       }
 
       .buttons {
-        text-align: right;
+        text-align: center;
         padding: 30px 0 5px;
       }
 
@@ -47,8 +49,16 @@
       paper-radio-button {
         display: block;
         margin: 15px 0;
-        --paper-radio-button-size: 24px;
-        font-size: 20px;
+      }
+
+      .bigRadio {
+        --paper-radio-button-size: 20px;
+        font-size: 16px;
+      }
+
+      .littleRadio {
+        --paper-radio-button-size: 16px;
+        font-size: 14px;
       }
 
       paper-slider {
@@ -61,25 +71,54 @@
 
       .sub {
         margin: 0 0 25px 50px;
+        padding: 8px;
+        background-color: #f8f8f8;
+      }
+
+      #expandReach {
+        font-size: 14px;
+        margin-top: 8px;
+      }
+
+      .explanation {
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      input {
+        font-size: 20px;
+      }
+
+      #priceLevel {
+        width: 35px;
+        text-align: right;
+      }
+
+      .recommendation {
+        font-size: 12px;
+        margin-left: 10px;
       }
     </style>
-    <div class="shell horizontal layout center">
+    <div class="shell horizontal layout">
       <div class="container">
-        <h2>Compose</h2>
-        <h4>Step 4 of 5</h4>
-        <p>Ten seconds after this card is kept open by a reader:</p>
+        <h3>Step 3: Pricing</h3>
         <div class="contents">
-          <paper-radio-button id="fee" on-checked-changed="_onFeeChanged" checked>Reader will pay me</paper-radio-button>
+          <paper-radio-button id="fee" class="bigRadio" on-checked-changed="_onFeeChanged" checked>I want to earn money with this card</paper-radio-button>
           <div id="positive" class="sub">
-            <div>Network pricing level (1-10):
-              <paper-slider id="priceLevel" min="1" max="10" snaps pin></paper-slider>
+            <div>Price level</div>
+            <div class="explanation">Readers pay me after card is open for 10 seconds</div>
+            <div>
+              <input type="number" id="priceLevel" value="1" step="1" min="1" max="10" on-input="_onPriceLevelChanged">
+              <span class="recommendation">(Currently ℂ
+                <span>[[cardPrice]]</span>)</span>
             </div>
+            <paper-checkbox id="expandReach">I want to expand the reach of this card to those other than my followers</paper-checkbox>
           </div>
-          <paper-radio-button id="pay" on-checked-changed="_onPayChanged">I will pay reader</paper-radio-button>
+          <paper-radio-button id="pay" class="bigRadio" on-checked-changed="_onPayChanged">I am willing to pay readers to see this card</paper-radio-button>
           <div id="negative" class="sub" style="display:none;">
-            <div>Amount (ℂ):
-              <paper-slider id="paymentAmount" min="0.01" max="5" snaps step="0.01" pin value="0.75"></paper-slider>
-            </div>
+            <div>I will pay readers who:</div>
+            <paper-radio-button id="impressions" class="littleRadio" checked on-checked-changed="_onImpressionsChanged">See this card in their feed for at least 2 seconds (impressions)</paper-radio-button>
+            <paper-radio-button id="clicks" class="littleRadio" on-checked-changed="_onClicksChanged">Open this card for at least 10 seconds (clicks)</paper-radio-button>
           </div>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
@@ -94,7 +133,9 @@
     class ComposeDialogPricing extends Polymer.Element {
       static get is() { return "compose-dialog-pricing"; }
       static get properties() {
-        return {};
+        return {
+          cardPrice: String
+        };
       }
 
       onActivate() {
@@ -104,18 +145,19 @@
           }, 600);
           return;
         }
-        this.$.fee.checked = false;
-        this.$.pay.checked = false;
-        this.$.positive.style.display = "none";
-        this.$.negative.style.display = "none";
-        this.$.priceLevel.value = 1;
-        this.$.paymentAmount.value = 0.75;
+        this._refreshCardPrice();
         this._refreshButtons();
       }
 
       _onDataInput() {
       }
 
+      _onPriceLevelChanged() {
+        this._refreshCardPrice();
+      }
+      _refreshCardPrice() {
+        this.set('cardPrice', ($core.baseCardPrice * Number(this.$.priceLevel.value)).toFixed(3));
+      }
       _onFeeChanged() {
         if (this.$.fee.checked) {
           this.$.pay.checked = false;
@@ -132,6 +174,18 @@
           this.$.negative.style.display = "";
         }
         this._refreshButtons();
+      }
+
+      _onImpressionsChanged() {
+        if (this.$.impressions.checked) {
+          this.$.clicks.checked = false;
+        }
+      }
+
+      _onClicksChanged() {
+        if (this.$.clicks.checked) {
+          this.$.impressions.checked = false;
+        }
       }
 
       _refreshButtons() {
@@ -154,11 +208,12 @@
         };
         if (this.$.fee.checked) {
           details.context.pricing.fee = {
-            priceLevel: this.$.priceLevel.value
+            priceLevel: Number(this.$.priceLevel.value),
+            expandReach: this.$.expandReach.checked
           };
         } else if (this.$.pay.checked) {
           details.context.pricing.pay = {
-            paymentAmount: this.$.paymentAmount.value
+            basedOn: this.$.impressions.checked ? "impressions" : "clicks"
           };
         }
         this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
