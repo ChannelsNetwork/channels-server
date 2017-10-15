@@ -138,7 +138,17 @@
         };
       }
 
-      onActivate() {
+      reset() {
+        this.$.fee.checked = true;
+        this.$.positive.style.display = "";
+        this.$.pay.checked = false;
+        this.$.negative.style.display = "none";
+        this.$.priceLevel.value = 1;
+        this.$.impressions.checked = true;
+        this.$.clicks.checked = false;
+      }
+
+      onActivate(context) {
         if (!$core.hasKey) {
           setTimeout(() => {
             $router.goto("");

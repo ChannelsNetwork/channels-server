@@ -1,7 +1,6 @@
 <link rel="import" href="../app-styles.html">
 <link rel="import" href="./compose-dialog-card.html">
 <link rel="import" href="./compose-dialog-composer.html">
-<!-- <link rel="import" href="./compose-dialog-data.html"> -->
 <link rel="import" href="./compose-dialog-pricing.html">
 <link rel="import" href="./compose-dialog-promotion.html">
 <link rel="import" href="./compose-dialog-finish.html">
@@ -29,7 +28,6 @@
       <div id="container">
         <compose-dialog-card id="card" class="page" on-compose-cancel="_onPageCancel" on-compose-next="_onPageNext"></compose-dialog-card>
         <compose-dialog-composer id="composer" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-composer>
-        <!-- <compose-dialog-data id="data" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-data> -->
         <compose-dialog-pricing id="pricing" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-pricing>
         <compose-dialog-promotion id="promotion" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-promotion>
         <compose-dialog-finish id="finish" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-post="_onPost"></compose-dialog-finish>
@@ -54,6 +52,7 @@
           this.pages = [this.$.card, this.$.composer, this.$.pricing, this.$.promotion, this.$.finish];
           for (const page of this.pages) {
             page.style.display = "none";
+            page.reset();
           }
           this.currentPage = 0;
           this.pageContext = {};
@@ -112,9 +111,9 @@
           this.pageContext.cardText,
           this.pageContext.componentResponse.source,
           this.pageContext.componentResponse.iconUrl,
-          this.pageContext.promotion,
+          this.pageContext.promotion ? this.pageContext.promotion.amount : 0,
           this.pageContext.pricing.pay ? this.pageContext.promotion.amount : 0,
-          this.pageContext.pricing.fee ? this.pageContext.promotion.amount : 0,
+          this.pageContext.pricing.fee ? this.pageContext.pricing.fee.priceLevel : 0,
           this.pageContext.sharedState).then(() => {
             $router.goto("preview");
           });
