@@ -7,6 +7,7 @@ import { BankTransactionRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { bank } from "./bank";
 import { BankTransactionResult } from "./interfaces/socket-messages";
+import { SignedObject } from "./interfaces/signed-object";
 
 export class NetworkEntity implements Initializable {
   private keyInfo: KeyInfo;
@@ -44,6 +45,8 @@ export class NetworkEntity implements Initializable {
           type: "transfer",
           reason: "grant",
           amount: Math.max(10, user.balance),
+          relatedCardId: null,
+          relatedCouponId: null,
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
@@ -56,6 +59,8 @@ export class NetworkEntity implements Initializable {
             type: "transfer",
             reason: "interest",
             amount: interest,
+            relatedCardId: null,
+            relatedCouponId: null,
             toRecipients: [recipient]
           };
           await this.performBankTransaction(interestPayment, true);
@@ -70,13 +75,12 @@ export class NetworkEntity implements Initializable {
     const detailsString = JSON.stringify(details);
     const signature = KeyUtils.signString(detailsString, this.keyInfo);
     const networkUser = await db.findNetworkUser();
-    return await bank.performTransfer(networkUser, this.keyInfo.address, detailsString, signature, true, increaseTargetBalance);
+    const signedObject: SignedObject = {
+      objectString: detailsString,
+      signature: signature
+    };
+    return await bank.performTransfer(networkUser, this.keyInfo.address, signedObject, true, increaseTargetBalance);
   }
-}
-
-export interface SignedResults {
-  stringified: string;
-  signature: string;
 }
 
 const networkEntity = new NetworkEntity();

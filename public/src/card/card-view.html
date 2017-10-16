@@ -298,6 +298,12 @@
         this.$.cardHeader.onPayment();
       }
 
+      onImpressionPaid() {
+        this._refreshPaidCheck();
+        this.$.openCard.onImpressionPaid();
+        this.$.cardHeader.onImpressionPaid();
+      }
+
       _onData() {
         if (!this.data) {
           return;
@@ -310,7 +316,7 @@
         } else {
           this.$.imagePanel.style.display = "none";
         }
-        if (cost < 0) {
+        if (cost <= 0) {
           this.$.container.classList.add("negative");
           this.$.price.classList.add("negative");
         } else {
@@ -326,6 +332,9 @@
 
         this.$.description.text = this.data.summary.text;
         let absCost = Math.abs(cost).toFixed(2);
+        if (cost === 0) {
+          absCost = this.data.pricing.promotionFee.toFixed(2);
+        }
         this.price = 'ℂ' + absCost;
         this._refreshPaidCheck();
       }
@@ -337,7 +346,7 @@
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
         this.openedAt = Date.now();
-        if (this.data.pricing.openFee > 0 && this.data.userSpecific.paid === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.openEarned == 0) {
+        if (this.data.pricing.openFee > 0 && this.data.userSpecific.paid === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earned == 0) {
           this.paymentTimer = setInterval(() => {
             this._checkPaymentDue();
           }, 100);
@@ -368,7 +377,7 @@
       }
 
       _checkPaymentDue() {
-        if (this.data.userSpecific.paid === 0 && this.data.userSpecific.openEarned === 0) {
+        if (this.data.userSpecific.paid === 0 && this.data.userSpecific.earned === 0) {
           const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
           this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
           if (openDuration > 10000) {
@@ -380,7 +389,7 @@
       }
 
       _refreshPaidCheck() {
-        if (this.data.userSpecific.paid > 0 || this.data.userSpecific.openEarned > 0) {
+        if (this.data.userSpecific.paid > 0 || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earned > 0)) {
           this.$.paidCheck.style.display = "";
         } else {
           this.$.paidCheck.style.display = "none";

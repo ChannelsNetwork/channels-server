@@ -2,10 +2,11 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
 import { BankTransactionDetails } from "./interfaces/rest-services";
+import { SignedObject } from "./interfaces/signed-object";
 
 export class Database {
   private db: Db;
@@ -25,6 +26,7 @@ export class Database {
   private bankTransactions: Collection;
   private userCardActions: Collection;
   private userCardInfo: Collection;
+  private bankCoupons: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -49,6 +51,7 @@ export class Database {
     await this.initializeBankTransactions();
     await this.initializeUserCardActions();
     await this.initializeUserCardInfo();
+    await this.initializeBankCoupons();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -238,6 +241,12 @@ export class Database {
     await this.userCardInfo.createIndex({ userId: 1, lastOpened: -1 });
   }
 
+  private async initializeBankCoupons(): Promise<void> {
+    this.bankCoupons = this.db.collection('bankCoupons');
+    await this.bankCoupons.createIndex({ id: 1 }, { unique: true });
+    await this.bankCoupons.createIndex({ cardId: 1 });
+  }
+
   async ensureNetwork(balance: number): Promise<NetworkRecord> {
     const record: NetworkRecord = {
       id: '1',
@@ -420,7 +429,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, promotionCoupon: string, openPayment: number, openCoupon: string, openFeeUnits: number, budgetAmount = 0, budgetPlusPercent = 0, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -444,9 +453,7 @@ export class Database {
       },
       pricing: {
         promotionFee: promotionFee,
-        promotionCoupon: promotionCoupon,
         openPayment: openPayment,
-        openCoupon: openCoupon,
         openFeeUnits: openFeeUnits
       },
       budget: {
@@ -454,6 +461,8 @@ export class Database {
         plusPercent: budgetPlusPercent,
         spent: 0
       },
+      coupon: coupon,
+      couponId: couponId,
       revenue: { value: 0, history: [] },
       promotionsPaid: { value: 0, history: [] },
       openFeesPaid: { value: 0, history: [] },
@@ -983,14 +992,14 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signature: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signedObject: SignedObject): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
       details: details,
-      signature: signature
+      signedObject: signedObject
     };
     await this.bankTransactions.insert(record);
     return record;
@@ -1053,9 +1062,8 @@ export class Database {
           lastImpression: 0,
           lastOpened: 0,
           lastClosed: 0,
-          payment: 0,
-          promotionEarned: 0,
-          openEarned: 0,
+          paid: 0,
+          earned: 0,
           transactionIds: [],
           like: "none"
         };
@@ -1090,24 +1098,49 @@ export class Database {
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastClosed: value } });
   }
 
-  async updateUserCardIncrementPayment(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+  async updateUserCardIncrementPaid(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { payment: amount }, $push: { transactionIds: transactionId } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { paid: amount }, $push: { transactionIds: transactionId } });
   }
 
-  async updateUserCardIncrementPromotionEarned(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+  async updateUserCardIncrementEarned(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { promotionEarned: amount }, $push: { transactionIds: transactionId } });
-  }
-
-  async updateUserCardIncrementOpenEarned(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
-    await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { openEarned: amount }, $push: { transactionIds: transactionId } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { earned: amount }, $push: { transactionIds: transactionId } });
   }
 
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { like: state } });
+  }
+
+  async insertBankCoupon(signedObject: SignedObject, byUserId: string, byAddress: string, timestamp: number, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason, cardId: string): Promise<BankCouponRecord> {
+    const record: BankCouponRecord = {
+      id: uuid.v4(),
+      signedObject: signedObject,
+      byUserId: byUserId,
+      byAddress: byAddress,
+      timestamp: timestamp,
+      amount: amount,
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent,
+        spent: 0
+      },
+      reason: reason,
+      cardId: cardId
+    };
+    await this.bankCoupons.insert(record);
+    return record;
+  }
+
+  async findBankCouponById(id: string): Promise<BankCouponRecord> {
+    return await this.bankCoupons.findOne<BankCouponRecord>({ id: id });
+  }
+
+  async incrementCouponSpent(couponId: string, amount: number): Promise<void> {
+    await this.bankCoupons.updateOne({ id: couponId }, {
+      $inc: { "budget.spent": amount }
+    });
   }
 }
 

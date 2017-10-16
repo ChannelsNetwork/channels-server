@@ -5,10 +5,10 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankCouponDetails, SignedObject, BankTransactionReason } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -16,6 +16,9 @@ import { UserHelper } from "./user-helper";
 import { userManager } from "./user-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
 import * as uuid from "uuid";
+import { SignedObject } from "./interfaces/signed-object";
+import { bank } from "./bank";
+import { networkEntity } from "./network-entity";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -47,10 +50,6 @@ export class FeedManager implements Initializable, RestServer {
   private lastHighScoreCardsAt = 0;
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
-    const cardCount = await db.countCards();
-    if (cardCount === 0) {
-      await this.addPreviewCards();
-    }
   }
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     this.urlManager = urlManager;
@@ -65,6 +64,10 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   async initialize2(): Promise<void> {
+    const cardCount = await db.countCards();
+    if (cardCount === 0) {
+      await this.addPreviewCards();
+    }
     setInterval(() => {
       void this.poll();
     }, POLLING_INTERVAL);
@@ -309,9 +312,8 @@ export class FeedManager implements Initializable, RestServer {
       "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
       null,
       this.getPreviewUrl("icon-news.png"),
-      0, null,
-      0, null,
-      5);
+      0, 0, 5,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31);
 
     user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"));
@@ -323,14 +325,13 @@ export class FeedManager implements Initializable, RestServer {
       "The online classic 80's arcade game",
       null,
       this.getPreviewUrl("icon-game.png"),
-      0, null,
-      0, null,
-      1);
+      0, 0, 1,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3);
 
     user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"));
     const cardId1 = uuid.v4();
-    const couponPromo1 = this.createPromotionCoupon(user, cardId1, 0.01);
+    const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
       this.getPreviewUrl("thrillist.jpg"),
       this.getPreviewUrl("pizza_ring.jpg"),
@@ -339,10 +340,8 @@ export class FeedManager implements Initializable, RestServer {
       "Learn how to make this delicious treat",
       null,
       this.getPreviewUrl("icon-play2.png"),
-      0.01, couponPromo1,
-      0, null,
-      3,
-      0, 0,
+      0.01, 0, 3,
+      5, 15, couponPromo1.signedObject, couponPromo1.id,
       cardId1);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25);
 
@@ -355,9 +354,8 @@ export class FeedManager implements Initializable, RestServer {
       "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
       null,
       this.getPreviewUrl("icon-news.png"),
-      0, null,
-      0, null,
-      2);
+      0, 0, 2,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5);
 
     user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"));
@@ -369,15 +367,13 @@ export class FeedManager implements Initializable, RestServer {
       "Solve this mini-crossword in one minute",
       null,
       this.getPreviewUrl("icon-crossword.png"),
-      0, null,
-      0, null,
-      2);
+      0, 0, 2,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2);
 
     user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"));
     const cardId2 = uuid.v4();
-    const couponPromo2 = this.createPromotionCoupon(user, cardId2, 0.01);
-    const couponOpen2 = this.createOpenCoupon(user, cardId2, 1.00);
+    const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
       this.getPreviewUrl("cbs.jpg"),
       this.getPreviewUrl("tomb_raider.jpg"),
@@ -386,10 +382,8 @@ export class FeedManager implements Initializable, RestServer {
       "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
       null,
       this.getPreviewUrl("icon-play2.png"),
-      0.01, couponPromo2,
-      1, couponOpen2,
-      0,
-      0, 0,
+      0, 1, 0,
+      10, 0, couponOpen2.signedObject, couponOpen2.id,
       cardId2);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245);
 
@@ -402,9 +396,8 @@ export class FeedManager implements Initializable, RestServer {
       "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
       null,
       this.getPreviewUrl("icon-play2.png"),
-      0, null,
-      0, null,
-      8);
+      0, 0, 8,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21);
 
     user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"));
@@ -416,9 +409,8 @@ export class FeedManager implements Initializable, RestServer {
       null,
       null,
       this.getPreviewUrl("icon-play2.png"),
-      0, null,
-      0, null,
-      2);
+      0, 0, 2,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11);
 
     user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"));
@@ -430,9 +422,8 @@ export class FeedManager implements Initializable, RestServer {
       "According to BrightSide.me",
       null,
       this.getPreviewUrl("icon-photos.png"),
-      0, null,
-      0, null,
-      3);
+      0, 0, 3,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3);
 
     user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"));
@@ -444,9 +435,8 @@ export class FeedManager implements Initializable, RestServer {
       "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
       null,
       this.getPreviewUrl("icon-book.png"),
-      0, null,
-      0, null,
-      6);
+      0, 0, 6,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21);
 
     user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"));
@@ -458,15 +448,13 @@ export class FeedManager implements Initializable, RestServer {
       "How to Fail at the Future",
       null,
       this.getPreviewUrl("icon-news.png"),
-      0, null,
-      0, null,
-      2);
+      0, 0, 2,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18);
 
     user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"));
     const cardId3 = uuid.v4();
-    const couponPromo3 = this.createPromotionCoupon(user, cardId3, 0.02);
-    const couponOpen3 = this.createOpenCoupon(user, cardId3, 0.55);
+    const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
       this.getPreviewUrl("blue_nile.jpg"),
       this.getPreviewUrl("blue_nile_diamonds.jpg"),
@@ -475,10 +463,8 @@ export class FeedManager implements Initializable, RestServer {
       "Find the most beautiful diamonds in the world and build your own ring.",
       null,
       this.getPreviewUrl("icon-link.png"),
-      0.02, couponPromo3,
-      0.55, couponOpen3,
-      0,
-      0, 0,
+      0.03, 0, 0,
+      8, 0, couponPromo3.signedObject, couponPromo3.id,
       cardId3);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3);
 
@@ -491,14 +477,13 @@ export class FeedManager implements Initializable, RestServer {
       "Explore news from around the world that are outside the mainstream media",
       null,
       this.getPreviewUrl("icon-touch.png"),
-      0, null,
-      0, null,
-      4);
+      0, 0, 4,
+      0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7);
 
     user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"));
     const cardId4 = uuid.v4();
-    const couponPromo4 = this.createPromotionCoupon(user, cardId4, 0.01);
+    const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
       this.getPreviewUrl("podcast_handle.jpg"),
       this.getPreviewUrl("football_podcast.jpg"),
@@ -507,36 +492,41 @@ export class FeedManager implements Initializable, RestServer {
       "Foreshadowing Week 4",
       null,
       this.getPreviewUrl("icon-audio.png"),
-      0.01, couponPromo4,
-      0, null,
-      5,
-      0, 0,
+      0.01, 0, 5,
+      3, 10, couponPromo4.signedObject, couponPromo4.id,
       cardId4);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 2, 201.24, 99, 4);
   }
 
-  private createPromotionCoupon(user: UserWithKeyUtils, cardId: string, amount: number): string {
-    return this.createCoupon(user, cardId, amount, "card-promotion");
+  private async createPromotionCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number): Promise<CouponInfo> {
+    return this.createCoupon(user, cardId, amount, budgetAmount, budgetAmount, "card-promotion");
   }
 
-  private createOpenCoupon(user: UserWithKeyUtils, cardId: string, amount: number): string {
-    return this.createCoupon(user, cardId, amount, "card-open-payment");
+  private async createOpenCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
+    return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-open-payment");
   }
 
-  private createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, reason: BankTransactionReason): string {
+  private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
     const details: BankCouponDetails = {
       address: user.user.keys[0].address,
       timestamp: Date.now(),
-      cardId: cardId,
       reason: reason,
-      amount: amount
+      amount: amount,
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent
+      }
     };
     const detailsString = JSON.stringify(details);
     const signed: SignedObject = {
       objectString: detailsString,
       signature: KeyUtils.signString(detailsString, user.keyInfo),
     };
-    return JSON.stringify(signed);
+    const couponRecord = await bank.registerCoupon(user.user, cardId, signed);
+    return {
+      signedObject: signed,
+      id: couponRecord.id
+    };
   }
 
   private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string): Promise<UserWithKeyUtils> {
@@ -544,6 +534,23 @@ export class FeedManager implements Initializable, RestServer {
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
     const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, id);
+    const grantDetails: BankTransactionDetails = {
+      address: null,
+      timestamp: null,
+      type: "transfer",
+      reason: "grant",
+      relatedCardId: null,
+      relatedCouponId: null,
+      amount: 10,
+      toRecipients: []
+    };
+    grantDetails.toRecipients.push({
+      address: user.keys[0].address,
+      portion: "remainder"
+    });
+    await networkEntity.performBankTransaction(grantDetails, true);
+    user.balance += 10;
+    user.targetBalance += 10;
     return {
       user: user,
       keyInfo: keyInfo
@@ -567,4 +574,9 @@ export interface CardWithUserScore {
 export interface UserWithKeyUtils {
   user: UserRecord;
   keyInfo: KeyInfo;
+}
+
+interface CouponInfo {
+  signedObject: SignedObject;
+  id: string;
 }

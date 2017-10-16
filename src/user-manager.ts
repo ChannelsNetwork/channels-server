@@ -111,6 +111,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             type: "transfer",
             reason: "inviter-reward",
             amount: INVITER_REWARD,
+            relatedCardId: null,
+            relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
           await networkEntity.performBankTransaction(reward, true);
@@ -128,6 +130,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           type: "transfer",
           reason: "grant",
           amount: INITIAL_BALANCE,
+          relatedCardId: null,
+          relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
         await networkEntity.performBankTransaction(grant, true);
@@ -139,6 +143,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             type: "transfer",
             reason: "invitee-reward",
             amount: inviteeReward,
+            relatedCardId: null,
+            relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
           await networkEntity.performBankTransaction(inviteeRewardDetails, true);
@@ -442,6 +448,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           type: "transfer",
           reason: "subsidy",
           amount: subsidy,
+          relatedCardId: null,
+          relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
         await networkEntity.performBankTransaction(subsidyDetails, false);
@@ -460,6 +468,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         type: "transfer",
         reason: "interest",
         amount: interest,
+        relatedCardId: null,
+        relatedCouponId: null,
         toRecipients: [interestRecipient]
       };
       await networkEntity.performBankTransaction(grant, true);

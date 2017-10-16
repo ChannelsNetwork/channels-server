@@ -202,16 +202,25 @@ class CoreService extends Polymer.Element {
 
   postCard(imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState);
+      let coupon;
+      if (promotionFee + openPayment > 0) {
+        const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+        const couponDetailsString = JSON.stringify(couponDetails);
+        const coupon = {
+          objectString: couponDetailsString,
+          signature: this._sign(couponDetailsString)
+        }
+      }
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
       let request = this._createRequest(details);
       const url = this.restBase + "/post-card";
       return this.rest.post(url, request);
     });
   }
 
-  cardImpression(cardId, promotionCoupon) {
+  cardImpression(cardId, coupon) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, promotionCoupon);
+      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, coupon);
       let request = this._createRequest(details);
       const url = this.restBase + "/card-impression";
       return this.rest.post(url, request).then((response) => {

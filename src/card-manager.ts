@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, SignedObject, BankCouponDetails, CardRedeemOpenDetails } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -18,6 +18,8 @@ import { UserHelper } from "./user-helper";
 import { KeyUtils } from "./key-utils";
 import { bank } from "./bank";
 import { userManager } from "./user-manager";
+import { SignedObject } from "./interfaces/signed-object";
+import * as uuid from "uuid";
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -107,6 +109,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid request: missing text");
         return;
       }
+      // TODO: validate other parts
       const card = await this.postCard(user, requestBody.detailsObject, requestBody.detailsObject.address);
       const reply: PostCardResponse = {
         cardId: card.id
@@ -162,18 +165,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
-      let coupon: BankCouponDetails;
       let author: UserRecord;
       if (!card) {
         return;
       }
-      if (requestBody.detailsObject.promotionCoupon) {
+      if (requestBody.detailsObject.couponId) {
         if (card.pricing.promotionFee <= 0) {
           response.status(400).send("No promotion fee paid on this card");
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (info.promotionEarned > 0) {
+        if (info.earned > 0) {
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
@@ -186,17 +188,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
-        const signed = JSON.parse(requestBody.detailsObject.promotionCoupon) as SignedObject;
-        if (!KeyUtils.verifyString(signed.objectString, UserHelper.getPublicKeyForAddress(author, card.by.address), signed.signature)) {
-          response.status(400).send("Invalid coupon: corrupt signature");
-          return;
-        }
-        coupon = JSON.parse(signed.objectString) as BankCouponDetails;
+        const coupon = await db.findBankCouponById(requestBody.detailsObject.couponId);
         if (coupon.cardId !== card.id) {
           response.status(400).send("Invalid coupon: card mismatch");
           return;
         }
-        if (!UserHelper.isUsersAddress(author, coupon.address)) {
+        if (!UserHelper.isUsersAddress(author, coupon.byAddress)) {
           response.status(400).send("Invalid coupon: author mismatch");
           return;
         }
@@ -215,11 +212,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserCardLastImpression(user.id, card.id, now);
       await db.incrementCardImpressions(card.id, 1);
       let transactionResult: BankTransactionResult;
-      if (coupon) {
-        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon);
-        await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, coupon.amount, transactionResult.record.id, 0, null);
-        await db.updateUserCardIncrementPromotionEarned(user.id, card.id, coupon.amount, transactionResult.record.id);
-        await db.incrementCardPromotionsPaid(card.id, coupon.amount);
+      if (requestBody.detailsObject.couponId) {
+        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
+        await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
+        await db.incrementCardPromotionsPaid(card.id, transactionResult.record.details.amount);
       }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardImpressionResponse = {
@@ -267,7 +263,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!user) {
         return;
       }
-      const transaction = JSON.parse(requestBody.detailsObject.transactionString) as BankTransactionDetails;
+      const transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
       if (!UserHelper.isUsersAddress(user, transaction.address)) {
         response.status(403).send("You do not own the address in the transaction");
         return;
@@ -284,6 +280,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("No coupon is allowed on the transaction");
         return;
       }
+      const author = await db.findUserByAddress(card.by.address);
+      if (!author) {
+        response.status(404).send("The author of this card is missing");
+        return;
+      }
       let authorRecipient = false;
       for (const recipient of transaction.toRecipients) {
         if (recipient.address === card.by.address && recipient.portion === 'remainder') {
@@ -296,10 +297,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
-      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transactionString, requestBody.detailsObject.transactionSignature);
+      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
-      await db.updateUserCardIncrementPayment(user.id, card.id, transaction.amount, transactionResult.record.id);
       await db.incrementCardRevenue(card.id, transaction.amount);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
@@ -333,7 +333,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const info = await db.ensureUserCardInfo(user.id, card.id);
-      if (info.openEarned > 0) {
+      if (info.earned > 0) {
         response.status(400).send("You have already been paid for opening this card");
         return;
       }
@@ -346,17 +346,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
-      const signed = JSON.parse(requestBody.detailsObject.coupon) as SignedObject;
-      if (!KeyUtils.verifyString(signed.objectString, UserHelper.getPublicKeyForAddress(author, card.by.address), signed.signature)) {
-        response.status(400).send("Invalid coupon: corrupt signature");
+      const coupon = await db.findBankCouponById(requestBody.detailsObject.couponId);
+      if (!coupon) {
+        response.status(404).send("No such coupon found");
         return;
       }
-      const coupon = JSON.parse(signed.objectString) as BankCouponDetails;
       if (coupon.cardId !== card.id) {
         response.status(400).send("Invalid coupon: card mismatch");
         return;
       }
-      if (!UserHelper.isUsersAddress(author, coupon.address)) {
+      if (!UserHelper.isUsersAddress(author, coupon.byAddress)) {
         response.status(400).send("Invalid coupon: author mismatch");
         return;
       }
@@ -368,11 +367,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid coupon: invalid type");
         return;
       }
-      console.log("CardManager.card-redeem-open-fee", requestBody.detailsObject);
-      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon);
+      console.log("CardManager.card-redeem-open-payment", requestBody.detailsObject);
+      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
-      await db.updateUserCardIncrementOpenEarned(user.id, card.id, coupon.amount, transactionResult.record.id);
       await db.incrementCardOpenFeesPaid(card.id, coupon.amount);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
@@ -489,7 +487,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!details.text) {
       throw new Error("Invalid card: missing text");
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.promotionCoupon, details.openPayment, details.openCoupon, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0);
+    let couponId: string;
+    const cardId = uuid.v4();
+    if (details.coupon) {
+      const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
+      couponId = couponRecord.id;
+    }
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
     await this.announceCard(card, user);
     return card;
   }
@@ -734,11 +738,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         pricing: {
           promotionFee: record.pricing.promotionFee,
-          promotionCoupon: record.pricing.promotionCoupon,
           openFeeUnits: record.pricing.openFeeUnits,
-          openCoupon: record.pricing.openCoupon,
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
+        couponId: record.couponId,
         history: {
           revenue: record.revenue.value,
           likes: record.likes.value,
@@ -753,9 +756,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,
           likeState: userInfo ? userInfo.like : "none",
-          paid: userInfo ? userInfo.payment : 0,
-          promotionEarned: userInfo ? userInfo.promotionEarned : 0,
-          openEarned: userInfo ? userInfo.openEarned : 0
+          paid: userInfo ? userInfo.paid : 0,
+          earned: userInfo ? userInfo.earned : 0
         }
       };
       if (includeInitialState) {

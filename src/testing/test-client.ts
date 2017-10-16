@@ -594,6 +594,7 @@ class TestClient implements RestServer {
       type: "transfer",
       reason: "card-open-fee",
       relatedCardId: card.id,
+      relatedCouponId: null,
       amount: card.pricing.openFee,
       toRecipients: [{
         address: card.by.address,
@@ -605,8 +606,10 @@ class TestClient implements RestServer {
     const details: CardPayDetails = {
       address: this.keyInfo.address,
       timestamp: Date.now(),
-      transactionString: transactionString,
-      transactionSignature: transactionSignature
+      transaction: {
+        objectString: transactionString,
+        signature: transactionSignature
+      }
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<CardPayDetails> = {

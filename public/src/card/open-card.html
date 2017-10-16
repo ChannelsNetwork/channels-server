@@ -145,6 +145,10 @@
         this.$.header.onPayment();
       }
 
+      onImpressionPaid() {
+        this.$.header.onImpressionPaid();
+      }
+
       refreshLayout(cardNode) {
         if (this._refNode) {
           let nodeRect = this._refNode.getBoundingClientRect();
@@ -181,21 +185,26 @@
         };
 
         let packageName = this.data.cardType.package;
-        $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
-          Polymer.importHref(packageInfo.importHref, () => {
-            onLoaded();
-            let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
-            cardNode.data = this.data.summary;
-            this.$.cardView.appendChild(cardNode);
-            // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
-          }, (err) => {
+        if (packageName) {
+          $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+            Polymer.importHref(packageInfo.importHref, () => {
+              onLoaded();
+              let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
+              cardNode.data = this.data.summary;
+              this.$.cardView.appendChild(cardNode);
+              // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
+            }, (err) => {
+              onLoaded();
+              console.error("Failed to load package '" + packageName + "'", err);
+            });
+          }).catch((err) => {
             onLoaded();
             console.error("Failed to load package '" + packageName + "'", err);
           });
-        }).catch((err) => {
-          onLoaded();
-          console.error("Failed to load package '" + packageName + "'", err);
-        });
+        } else {
+          this._loading = false;
+          this.$.dummyContent.classList.add("hidden");
+        }
       }
     }
     window.customElements.define(OpenCard.is, OpenCard);

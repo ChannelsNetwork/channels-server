@@ -173,7 +173,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -188,18 +188,19 @@ class RestUtils {
       openFeeUnits: openFeeUnits,       // 1..10
       budgetAmount: budgetAmount,
       budgetPlusPercent: budgetPlusPercent,
+      coupon: coupon,                   // signed BankCouponDetails
       state: initialState               // { user: {properties: {...}, collections: {...}}, shared: {properties: {...}, collections: {...}}}
     };
   }
 
-  static cardImpressionDetails(address, cardId, promotionCoupon) {
+  static cardImpressionDetails(address, cardId, couponId) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
-    if (promotionCoupon) {
-      result.promotionCoupon = promotionCoupon;
+    if (couponId) {
+      result.couponId = couponId;
     }
     return result;
   }
@@ -216,17 +217,32 @@ class RestUtils {
     return {
       address: address,
       timestamp: RestUtils.now(),
-      transactionString: transactionString,  // serialized bankTransaction
-      transactionSignature: transactionSignature
+      transaction: {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      }
     };
   }
 
-  static cardRedeemOpenDetails(address, cardId, coupon) {
+  static cardRedeemOpenDetails(address, cardId, couponId) {
     return {
       address: address,
       timestamp: RestUtils.now(),
       cardId: cardId,
-      coupon: coupon
+      couponId: couponId
+    };
+  }
+
+  static getCouponDetails(address, reason, amount, budgetAmount, budgetPlusPercent) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      reason: reason,
+      amount: amount,
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent
+      }
     };
   }
 

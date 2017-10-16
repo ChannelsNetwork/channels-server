@@ -213,9 +213,9 @@
             card.history.revenue = response.totalCardRevenue;
             cardView.onPayment();
           });
-        } else if (card.pricing.openFee < 0 && !card.userSpecific.openEarned && card.pricing.openCoupon) {
-          card.userSpecific.openEarned = -card.pricing.openFee;
-          $core.cardOpenPaymentRedeem(card.id, card.pricing.openCoupon);
+        } else if (card.pricing.openFee < 0 && !card.userSpecific.earned && card.couponId) {
+          card.userSpecific.earned = -card.pricing.openFee;
+          $core.cardOpenPaymentRedeem(card.id, card.couponId);
           cardView.onPayment();
         }
       }
@@ -241,9 +241,10 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (card.data.pricing.promotionFee && card.data.userSpecific.promotionEarned === 0) {
-              $core.cardImpression(id, card.data.pricing.promotionCoupon);
-              card.data.userSpecific.promotionEarned = card.data.pricing.promotionFee;
+            if (card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
+              $core.cardImpression(id, card.data.couponId);
+              card.data.userSpecific.earned = card.data.pricing.promotionFee;
+              card.onImpressionPaid();
             } else {
               $core.cardImpression(id);
             }
