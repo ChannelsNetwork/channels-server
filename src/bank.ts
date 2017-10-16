@@ -157,9 +157,9 @@ export class Bank implements RestServer {
       console.log("Bank.performTransaction: Debiting user account", user.id, details.amount);
     }
     const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
+    console.log("Bank.performTransfer", user.id, user.balance, details.amount);
     await db.incrementUserBalance(user, -details.amount, 0, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, user.id, participantIds, details, signature);
-    let newBalance = user.balance;
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
       let creditAmount = 0;
@@ -176,15 +176,15 @@ export class Bank implements RestServer {
         default:
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
-      console.log("Bank.performTransaction: Crediting user account", recipientUser.id, creditAmount);
+      console.log("Bank.performTransaction: Crediting user account as recipient", recipientUser.id, creditAmount);
       await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
       if (recipientUser.id === user.id) {
-        newBalance += creditAmount;
+        user.balance += creditAmount;
       }
     }
     const result: BankTransactionResult = {
       record: record,
-      updatedBalance: newBalance,
+      updatedBalance: user.balance,
       balanceAt: now
     };
     return result;

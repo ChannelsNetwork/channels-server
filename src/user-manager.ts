@@ -18,14 +18,13 @@ import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
 
-const INITIAL_BALANCE = 10;
-const INVITER_REWARD = 2;
-const INVITEE_REWARD = 2;
+const INITIAL_BALANCE = 5;
+const INVITER_REWARD = 1;
+const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
 const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
-const NETWORK_BALANCE_RANDOM_PRODUCT = 1.5;
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;

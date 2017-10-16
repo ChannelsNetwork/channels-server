@@ -31,7 +31,7 @@ import { channelsComponentManager } from "./channels-component-manager";
 import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
 
-const VERSION = 20;
+const VERSION = 21;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;

@@ -295,7 +295,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("The card's author is missing as a recipient with 'remainder'.");
         return;
       }
-      console.log("CardManager.card-pay", requestBody.detailsObject);
+      console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transactionString, requestBody.detailsObject.transactionSignature);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
