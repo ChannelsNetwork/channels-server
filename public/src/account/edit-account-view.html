@@ -1,9 +1,10 @@
 <link rel="import" href="../controls/text-input.html">
+<link rel="import" href="../../bower_components/iron-image/iron-image.html">
 
 <dom-module id="edit-account-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
         background: #212121;
       }
@@ -37,11 +38,63 @@
         text-align: right;
         padding: 30px 0 5px;
       }
+
+      #photoContainer {
+        width: 64px;
+        height: 64px;
+        border-radius: 32px;
+        border: 1px solid white;
+        text-align: center;
+        font-size: 12px;
+        margin-top: 50px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .photoForeground {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        overflow: hidden;
+      }
+
+      #photoInput {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      #userPhoto {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
         <h2>Edit Profile</h2>
         <div>
+          <div>
+            <div id="photoContainer" class="vertical layout center">
+              <div class="flex"></div>
+              <div id="noPhoto">upload photo</div>
+              <div class="flex"></div>
+              <iron-image sizing="cover" id="userPhoto" style="display:none"></iron-image>
+              <div class="photoForeground">
+                <input id="photoInput" type="file" accept="image/*" , on-change="_onFilesLoaded">
+              </div>
+            </div>
+          </div>
           <text-input id="handle" label="Handle" placeholder="Handle" on-input="_onHandleInput"></text-input>
           <text-input id="name" label="Full name" placeholder="Full name" on-input="_onInput"></text-input>
           <text-input id="location" label="Location" placeholder="Location (optional)" on-input="_onInput"></text-input>
@@ -54,7 +107,9 @@
       </div>
       <div id="progressPanel" style="display: none;">
         <p>[[progress]]</p>
-        <p id="errorPanel" style="display: none;"><button on-click="_onOk">OK</button></p>
+        <p id="errorPanel" style="display: none;">
+          <button on-click="_onOk">OK</button>
+        </p>
       </div>
     </div>
   </template>
@@ -87,6 +142,11 @@
           this.$.name.value = p.name || "";
           this.$.location.value = p.location || "";
           this.$.email.value = p.emailAddress || "";
+          if (p.imageUrl) {
+            this.$.userPhoto.src = p.imageUrl;
+            this.$.userPhoto.style.display = "";
+            this.$.photoContainer.style.border = "0";
+          }
         }
         this.$.handle.input.focus();
         this._onInput();
@@ -94,6 +154,21 @@
 
       _onCancel() {
         $router.goto("account");
+      }
+
+      _onFilesLoaded() {
+        this.$.userPhoto.src = "/s/images/spinner.gif";
+        this.$.userPhoto.style.display = "";
+        this.$.photoContainer.style.border = "0";
+        this.$.noPhoto.style.display = "none";
+        var files = this.$.photoInput.files;
+        if (files.length > 0) {
+          $core.uploadFile(files[0]).then((response) => {
+            this.$.userPhoto.src = response.url;
+            this.$.userPhoto.style.display = "";
+            console.log("Upload complete", response);
+          });
+        }
       }
 
       _onSave() {
@@ -108,7 +183,7 @@
 
         this._progress("Updating profile...");
 
-        $core.updateUserProfile(name, handle, location, null, email).then(() => {
+        $core.updateUserProfile(name, handle, location, this.$.userPhoto.src, email).then(() => {
           $router.goto("account");
         }).catch((err) => {
           console.error(err);

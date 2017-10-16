@@ -18,14 +18,13 @@ import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
 
-const INITIAL_BALANCE = 10;
-const INVITER_REWARD = 2;
-const INVITEE_REWARD = 2;
+const INITIAL_BALANCE = 5;
+const INVITER_REWARD = 1;
+const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
 const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
-const NETWORK_BALANCE_RANDOM_PRODUCT = 1.5;
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
@@ -112,9 +111,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             type: "transfer",
             reason: "inviter-reward",
             amount: INVITER_REWARD,
+            relatedCardId: null,
+            relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(reward);
+          await networkEntity.performBankTransaction(reward, true);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -129,9 +130,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           type: "transfer",
           reason: "grant",
           amount: INITIAL_BALANCE,
+          relatedCardId: null,
+          relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(grant);
+        await networkEntity.performBankTransaction(grant, true);
+        userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
             timestamp: null,
@@ -139,9 +143,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             type: "transfer",
             reason: "invitee-reward",
             amount: inviteeReward,
+            relatedCardId: null,
+            relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(inviteeRewardDetails);
+          await networkEntity.performBankTransaction(inviteeRewardDetails, true);
+          userRecord.balance += inviteeReward;
         }
       }
       await this.returnUserStatus(userRecord, response);
@@ -307,9 +314,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         imageUrl: user.identity ? user.identity.imageUrl : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
-        settings: {
-          displayNetworkBalance: user.admin
-        }
+        settings: {}
       };
       response.json(reply);
     } catch (err) {
@@ -359,24 +364,30 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
     const network = await db.getNetwork();
     await this.updateUserBalance(user);
+    const result = await this.getUserStatus(user);
+    response.json(result);
+  }
+
+  async getUserStatus(user: UserRecord): Promise<UserStatusResponse> {
     const result: UserStatusResponse = {
       status: {
         goLive: this.goLiveDate,
         userBalance: user.balance,
+        userBalanceAt: user.balanceLastUpdated,
+        withdrawableBalance: user.withdrawableBalance,
+        targetBalance: user.targetBalance,
         inviteCode: user.inviterCode.toUpperCase(),
         invitationsUsed: user.invitationsAccepted,
         invitationsRemaining: user.invitationsRemaining
       },
-      socketUrl: this.urlManager.getSocketUrl('socket'),
-      appUpdateUrl: null,
       interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       subsidyRate: await priceRegulator.getUserSubsidyRate()
     };
-    response.json(result);
+    return result;
   }
 
-  private async generateInviteCode(): Promise<string> {
+  async generateInviteCode(): Promise<string> {
     while (true) {
       let result = '';
       result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
@@ -437,8 +448,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           type: "transfer",
           reason: "subsidy",
           amount: subsidy,
+          relatedCardId: null,
+          relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
+        await networkEntity.performBankTransaction(subsidyDetails, false);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -454,11 +468,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         type: "transfer",
         reason: "interest",
         amount: interest,
+        relatedCardId: null,
+        relatedCouponId: null,
         toRecipients: [interestRecipient]
       };
-      await networkEntity.performBankTransaction(grant);
+      await networkEntity.performBankTransaction(grant, true);
     }
-    // await db.incrementUserBalance(user, interest + subsidy, interest, balanceBelowTarget, now, user.balanceLastUpdated);
   }
 
   private calculateInterestBetween(from: number, to: number, balance: number): number {
@@ -475,6 +490,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     await db.updateLastUserContact(user, Date.now());
     return user;
+  }
+
+  async insertUser(id: string, address: string, publicKey: string, name: string, imageUrl: string): Promise<UserRecord> {
+    const inviteCode = await this.generateInviteCode();
+    return await db.insertUser("normal", address, publicKey, null, inviteCode, 0, 0, id);
   }
 }
 

@@ -1,0 +1,130 @@
+<link rel="import" href="../app-styles.html">
+<link rel="import" href="./compose-dialog-card.html">
+<link rel="import" href="./compose-dialog-composer.html">
+<link rel="import" href="./compose-dialog-pricing.html">
+<link rel="import" href="./compose-dialog-promotion.html">
+<link rel="import" href="./compose-dialog-finish.html">
+
+<dom-module id="compose-wizard">
+  <template>
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+        background: white;
+        color: black;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      #container {
+        padding: 16px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div id="container">
+        <compose-dialog-card id="card" class="page" on-compose-cancel="_onPageCancel" on-compose-next="_onPageNext"></compose-dialog-card>
+        <compose-dialog-composer id="composer" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-composer>
+        <compose-dialog-pricing id="pricing" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-pricing>
+        <compose-dialog-promotion id="promotion" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-next="_onPageNext"></compose-dialog-promotion>
+        <compose-dialog-finish id="finish" class="page" on-compose-cancel="_onPageCancel" on-compose-back="_onPageBack" on-compose-post="_onPost"></compose-dialog-finish>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeWizard extends Polymer.Element {
+      static get is() { return "compose-wizard"; }
+      static get properties() {
+        return {};
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.hasKey) {
+            setTimeout(() => {
+              $router.goto(" ");
+            }, 600);
+            return;
+          }
+          if (!$core.profile || !$core.profile.handle) {
+            $router.goto("edit-profile");
+            return;
+          }
+          this.pages = [this.$.card, this.$.composer, this.$.pricing, this.$.promotion, this.$.finish];
+          for (const page of this.pages) {
+            page.style.display = "none";
+            page.reset();
+          }
+          this.currentPage = 0;
+          this.pageContext = {};
+          this.pages[this.currentPage].onActivate(this.pageContext);
+          this.pages[this.currentPage].style.display = "";
+        });
+      }
+
+      _onPageCancel(event) {
+        $router.goto("preview ");
+      }
+
+      _onPageBack(event) {
+        this.pages[this.currentPage--].style.display = "none ";
+        while (true) {
+          if (!this.pages[this.currentPage].isSkippable) {
+            break;
+          }
+          if (!this.pages[this.currentPage].isSkippable(this.pageContext)) {
+            break;
+          }
+          this.currentPage--;
+        }
+        this.pages[this.currentPage].style.display = "";
+      }
+
+      _onPageNext(event) {
+        if (event.detail.context) {
+          for (const key of Object.keys(event.detail.context)) {
+            this.pageContext[key] = event.detail.context[key];
+          }
+        }
+        this.pages[this.currentPage++].style.display = "none ";
+        while (true) {
+          if (!this.pages[this.currentPage].isSkippable) {
+            break;
+          }
+          if (!this.pages[this.currentPage].isSkippable(this.pageContext)) {
+            break;
+          }
+          this.currentPage++;
+        }
+        this.pages[this.currentPage].onActivate(this.pageContext);
+        this.pages[this.currentPage].style.display = "";
+      }
+
+      _onPost(event) {
+        if (event.detail.context) {
+          for (const key of Object.keys(event.detail.context)) {
+            this.pageContext[key] = event.detail.context[key];
+          }
+        }
+        $core.postCard(this.pageContext.cardImage,
+          this.pageContext.cardLink,
+          this.pageContext.cardTitle,
+          this.pageContext.cardText,
+          this.pageContext.componentResponse.source,
+          this.pageContext.componentResponse.iconUrl,
+          this.pageContext.promotion ? this.pageContext.promotion.amount : 0,
+          this.pageContext.pricing.pay ? this.pageContext.promotion.amount : 0,
+          this.pageContext.pricing.fee ? this.pageContext.pricing.fee.priceLevel : 0,
+          this.pageContext.promotion ? this.pageContext.promotion.budgetCoins : 0,
+          this.pageContext.promotion && this.pageContext.promotion.budgetPercent ? this.pageContext.promotion.budgetPercent : 0,
+          this.pageContext.sharedState).then(() => {
+            $router.goto("preview");
+          });
+      }
+    }
+    window.customElements.define(ComposeWizard.is, ComposeWizard);
+  </script>
+</dom-module>

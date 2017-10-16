@@ -3,7 +3,7 @@
 <dom-module id="open-card">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: none;
         position: absolute;
         top: 0;
@@ -141,6 +141,14 @@
         this.style.height = "100%";
       }
 
+      onPayment() {
+        this.$.header.onPayment();
+      }
+
+      onImpressionPaid() {
+        this.$.header.onImpressionPaid();
+      }
+
       refreshLayout(cardNode) {
         if (this._refNode) {
           let nodeRect = this._refNode.getBoundingClientRect();
@@ -150,6 +158,10 @@
           this.style.width = nodeRect.width + "px"
           this.style.height = nodeRect.height + "px";
         }
+      }
+
+      setPaymentStatus(value, negative) {
+        this.$.header.setPaymentStatus(value, negative);
       }
 
       _clearNode(node) {
@@ -173,21 +185,26 @@
         };
 
         let packageName = this.data.cardType.package;
-        $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
-          Polymer.importHref(packageInfo.importHref, () => {
-            onLoaded();
-            let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
-            cardNode.data = this.data.summary;
-            this.$.cardView.appendChild(cardNode);
-            // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
-          }, (err) => {
+        if (packageName) {
+          $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+            Polymer.importHref(packageInfo.importHref, () => {
+              onLoaded();
+              let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
+              cardNode.data = this.data.summary;
+              this.$.cardView.appendChild(cardNode);
+              // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
+            }, (err) => {
+              onLoaded();
+              console.error("Failed to load package '" + packageName + "'", err);
+            });
+          }).catch((err) => {
             onLoaded();
             console.error("Failed to load package '" + packageName + "'", err);
           });
-        }).catch((err) => {
-          onLoaded();
-          console.error("Failed to load package '" + packageName + "'", err);
-        });
+        } else {
+          this._loading = false;
+          this.$.dummyContent.classList.add("hidden");
+        }
       }
     }
     window.customElements.define(OpenCard.is, OpenCard);

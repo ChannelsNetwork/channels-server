@@ -1,0 +1,234 @@
+<link rel="import" href="../../bower_components/paper-radio-button/paper-radio-button.html">
+<link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
+<link rel="import" href="../../bower_components/paper-checkbox/paper-checkbox.html">
+
+
+<dom-module id="compose-dialog-pricing">
+  <template>
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+      }
+
+      .shell {
+        min-height: 100vh;
+        padding: 80px 5px;
+      }
+
+      .container {
+        max-width: 800px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #progressPanel {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        text-align: center;
+        padding: 30px 0 5px;
+      }
+
+      .imageArea {
+        margin-top: 75px;
+        text-align: center;
+      }
+
+      paper-radio-button {
+        display: block;
+        margin: 15px 0;
+      }
+
+      .bigRadio {
+        --paper-radio-button-size: 20px;
+        font-size: 16px;
+      }
+
+      .littleRadio {
+        --paper-radio-button-size: 16px;
+        font-size: 14px;
+      }
+
+      paper-slider {
+        width: 100%;
+      }
+
+      .contents {
+        margin-top: 20px;
+      }
+
+      .sub {
+        margin: 0 0 25px 50px;
+        padding: 8px;
+        background-color: #f8f8f8;
+      }
+
+      #expandReach {
+        font-size: 14px;
+        margin-top: 8px;
+      }
+
+      .explanation {
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      input {
+        font-size: 20px;
+      }
+
+      #priceLevel {
+        width: 35px;
+        text-align: right;
+      }
+
+      .recommendation {
+        font-size: 12px;
+        margin-left: 10px;
+      }
+    </style>
+    <div class="shell horizontal layout">
+      <div class="container">
+        <h3>Step 3: Pricing</h3>
+        <div class="contents">
+          <paper-radio-button id="fee" class="bigRadio" on-checked-changed="_onFeeChanged" checked>I want to earn money with this card</paper-radio-button>
+          <div id="positive" class="sub">
+            <div>Price level</div>
+            <div class="explanation">Readers pay me after card is open for 10 seconds</div>
+            <div>
+              <input type="number" id="priceLevel" value="1" step="1" min="1" max="10" on-input="_onPriceLevelChanged">
+              <span class="recommendation">(Currently ℂ
+                <span>[[cardPrice]]</span>)</span>
+            </div>
+            <paper-checkbox id="expandReach">I want to expand the reach of this card to those other than my followers</paper-checkbox>
+          </div>
+          <paper-radio-button id="pay" class="bigRadio" on-checked-changed="_onPayChanged">I am willing to pay readers to see this card</paper-radio-button>
+          <div id="negative" class="sub" style="display:none;">
+            <div>I will pay readers who:</div>
+            <paper-radio-button id="impressions" class="littleRadio" checked on-checked-changed="_onImpressionsChanged">See this card in their feed for at least 2 seconds (impressions)</paper-radio-button>
+            <paper-radio-button id="clicks" class="littleRadio" on-checked-changed="_onClicksChanged">Open this card for at least 10 seconds (clicks)</paper-radio-button>
+          </div>
+          <div class="buttons">
+            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+            <button id="btnBack" on-click="_onBack">Back</button>
+            <button id="btnNext" on-click="_onNext" disabled>Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeDialogPricing extends Polymer.Element {
+      static get is() { return "compose-dialog-pricing"; }
+      static get properties() {
+        return {
+          cardPrice: String
+        };
+      }
+
+      reset() {
+        this.$.fee.checked = true;
+        this.$.positive.style.display = "";
+        this.$.pay.checked = false;
+        this.$.negative.style.display = "none";
+        this.$.priceLevel.value = 1;
+        this.$.impressions.checked = true;
+        this.$.clicks.checked = false;
+      }
+
+      onActivate(context) {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        this._refreshCardPrice();
+        this._refreshButtons();
+      }
+
+      _onDataInput() {
+      }
+
+      _onPriceLevelChanged() {
+        this._refreshCardPrice();
+      }
+      _refreshCardPrice() {
+        this.set('cardPrice', ($core.baseCardPrice * Number(this.$.priceLevel.value)).toFixed(3));
+      }
+      _onFeeChanged() {
+        if (this.$.fee.checked) {
+          this.$.pay.checked = false;
+          this.$.positive.style.display = "";
+          this.$.negative.style.display = "none";
+        }
+        this._refreshButtons();
+      }
+
+      _onPayChanged() {
+        if (this.$.pay.checked) {
+          this.$.fee.checked = false;
+          this.$.positive.style.display = "none";
+          this.$.negative.style.display = "";
+        }
+        this._refreshButtons();
+      }
+
+      _onImpressionsChanged() {
+        if (this.$.impressions.checked) {
+          this.$.clicks.checked = false;
+        }
+      }
+
+      _onClicksChanged() {
+        if (this.$.clicks.checked) {
+          this.$.impressions.checked = false;
+        }
+      }
+
+      _refreshButtons() {
+        this.$.btnNext.disabled = !this.$.pay.checked && !this.$.fee.checked;
+      }
+
+      _onCancel() {
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onNext() {
+        const details = {
+          context: {
+            pricing: {}
+          }
+        };
+        if (this.$.fee.checked) {
+          details.context.pricing.fee = {
+            priceLevel: Number(this.$.priceLevel.value),
+            expandReach: this.$.expandReach.checked
+          };
+        } else if (this.$.pay.checked) {
+          details.context.pricing.pay = {
+            basedOn: this.$.impressions.checked ? "impressions" : "clicks"
+          };
+        }
+        this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
+      }
+    }
+    window.customElements.define(ComposeDialogPricing.is, ComposeDialogPricing);
+  </script>
+</dom-module>

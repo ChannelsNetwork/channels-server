@@ -7,6 +7,7 @@ import { BankTransactionRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { bank } from "./bank";
 import { BankTransactionResult } from "./interfaces/socket-messages";
+import { SignedObject } from "./interfaces/signed-object";
 
 export class NetworkEntity implements Initializable {
   private keyInfo: KeyInfo;
@@ -43,11 +44,13 @@ export class NetworkEntity implements Initializable {
           address: null,
           type: "transfer",
           reason: "grant",
-          amount: Math.min(10, user.balance),
+          amount: Math.max(10, user.balance),
+          relatedCardId: null,
+          relatedCouponId: null,
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
-        await this.performBankTransaction(grant);
+        await this.performBankTransaction(grant, true);
         const interest = Math.max(user.balance - grant.amount, 0);
         if (interest > 0) {
           const interestPayment: BankTransactionDetails = {
@@ -56,27 +59,28 @@ export class NetworkEntity implements Initializable {
             type: "transfer",
             reason: "interest",
             amount: interest,
+            relatedCardId: null,
+            relatedCouponId: null,
             toRecipients: [recipient]
           };
-          await this.performBankTransaction(interestPayment);
+          await this.performBankTransaction(interestPayment, true);
         }
       }
     }
   }
 
-  async performBankTransaction(details: BankTransactionDetails): Promise<BankTransactionResult> {
+  async performBankTransaction(details: BankTransactionDetails, increaseTargetBalance: boolean): Promise<BankTransactionResult> {
     details.address = this.keyInfo.address;
     details.timestamp = Date.now();
     const detailsString = JSON.stringify(details);
     const signature = KeyUtils.signString(detailsString, this.keyInfo);
     const networkUser = await db.findNetworkUser();
-    return await bank.performTransaction(networkUser, this.keyInfo.address, detailsString, signature, true);
+    const signedObject: SignedObject = {
+      objectString: detailsString,
+      signature: signature
+    };
+    return await bank.performTransfer(networkUser, this.keyInfo.address, signedObject, true, increaseTargetBalance);
   }
-}
-
-export interface SignedResults {
-  stringified: string;
-  signature: string;
 }
 
 const networkEntity = new NetworkEntity();

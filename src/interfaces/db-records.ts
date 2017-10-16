@@ -1,5 +1,6 @@
 
 import { Signable, BankTransactionDetails } from "./rest-services";
+import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
   id: string;
@@ -81,7 +82,16 @@ export interface CardRecord {
     openPayment: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10
   };
+  coupon: SignedObject;
+  couponId: string;
+  budget: {
+    amount: number;
+    plusPercent: number;
+    spent: number;
+  };
   revenue: CardStatistic;
+  promotionsPaid: CardStatistic;
+  openFeesPaid: CardStatistic;
   impressions: CardStatistic;
   opens: CardStatistic;
   likes: CardStatistic;
@@ -253,7 +263,7 @@ export interface BankTransactionRecord {
   originatorUserId: string;
   participantUserIds: string[];
   details: BankTransactionDetails;
-  signature: string;
+  signedObject: SignedObject;
 }
 
 export interface UserCardActionRecord {
@@ -266,9 +276,17 @@ export interface UserCardActionRecord {
     amount: number;
     transactionId: string;
   };
+  redeemPromotion?: {
+    amount: number;
+    transactionId: string;
+  };
+  redeemOpen?: {
+    amount: number;
+    transactionId: string;
+  };
 }
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment";
 
 export interface UserCardInfoRecord {
   userId: string;
@@ -277,9 +295,37 @@ export interface UserCardInfoRecord {
   lastImpression: number;
   lastOpened: number;
   lastClosed: number;
-  payment: number;
+  paid: number;
+  earned: number;
   transactionIds: string[];
   like: CardLikeState;
 }
 
 export type CardLikeState = "none" | "like" | "dislike";
+
+export interface BankCouponRecord {
+  id: string;
+  signedObject: SignedObject;
+  byUserId: string;
+  byAddress: string;
+  timestamp: number;
+  amount: number;
+  budget: {
+    amount: number;
+    plusPercent: number;
+    spent: number;
+  };
+  reason: BankTransactionReason;
+  cardId: string;
+}
+
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+
+export interface BankCouponDetails extends Signable {
+  reason: BankTransactionReason;
+  amount: number;
+  budget: {
+    amount: number;
+    plusPercent: number;
+  };
+}

@@ -15,6 +15,8 @@ import { RestServer } from "./interfaces/rest-server";
 import { ChannelComponentDescriptor, ChannelComponentResponse, EnsureChannelComponentDetails, RestRequest } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import * as mkdirp from 'mkdirp';
+import { ErrorWithStatusCode } from "./interfaces/error-with-code";
+import * as url from 'url';
 
 const bower = require('bower');
 
@@ -47,11 +49,12 @@ export class ChannelsComponentManager implements RestServer {
         versioned = await this._infoVersioned(pkg);
       }
       if (!versioned || !versioned.name || !versioned.version || !/^\d+\.\d+\.\d+$/.test(versioned.version)) {
-        throw new Error("Cannot install this package because it is not found or doesn't have an available release");
+        throw new ErrorWithStatusCode(404, "Cannot install this package because it is not found or doesn't have an available release");
       }
       return await this._installVersion(pkg, versioned);
     } catch (err) {
       console.error("Bower: install failed", err);
+      throw (err);
     } finally {
       await this.unlockBower();
     }
@@ -205,7 +208,7 @@ export class ChannelsComponentManager implements RestServer {
           this.infoUnversionedCache.set(pkg, data);
           resolve(data);
         }).on('error', (err: any) => {
-          reject(new Error("Error while getting package info: " + err.toString()));
+          reject(new ErrorWithStatusCode(404, "This does not appear to be a valid package location.  It must be accessible using 'bower install'."));
         });
     });
   }
@@ -295,43 +298,44 @@ export class ChannelsComponentManager implements RestServer {
             resolve();
           }).catch((err: any) => {
             console.error("Error processing component", pkg, err);
-            response.status(err.code ? err.code : 400).send("Unable to load component: " + err.toString());
+            response.status(err.code ? err.code : 400).send(err.message ? err.message : "Unable to load component: " + err.toString());
             resolve();
           });
         }).catch((err) => {
-          console.error(err.mesage || err);
-          response.status(err.code ? err.code : 503).send("Failure: " + (err.mesage || err));
+          console.error(err.message || err);
+          response.status(err.code ? err.code : 503).send(err.message ? err.message : err);
           resolve();
         });
       });
     } catch (err) {
       console.error("Bower.handleComponent: Failure", err);
-      response.status(err.code ? err.code : 500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
   private async processComponent(pkgInfo: BowerInstallResult, request: Request, response: Response): Promise<void> {
     if (!pkgInfo || !pkgInfo.pkgMeta) {
-      throw new Error("Package is invalid or incomplete");
+      throw new ErrorWithStatusCode(400, "This is not a valid package or is incomplete");
     }
     if (!pkgInfo.pkgMeta.main) {
-      throw new Error("Invalid package:  'main' is missing");
+      throw new ErrorWithStatusCode(400, "This package is invalid:  'main' is missing from bower.json.");
     }
     const componentPath = this.shadowComponentsDirectory + '/bower_components/' + pkgInfo.endpoint.name + '/' + 'channels-component.json';
     try {
       if (!fs.existsSync(componentPath)) {
-        throw new Error("Invalid component:  channels-component.json is missing");
+        throw new ErrorWithStatusCode(400, "This package does not appear to contain a Channels card definition.  Missing channels-component.json.");
       }
       const content = fs.readFileSync(componentPath, 'utf-8');
       const descriptor = JSON.parse(content) as ChannelComponentDescriptor;
       if (!descriptor || !descriptor.composerTag || !descriptor.viewerTag) {
-        throw new Error("Invalid component descriptor in channel-component.json");
+        throw new ErrorWithStatusCode(400, "The channel-component.json file in this package is invalid.");
       }
       const componentResponse: ChannelComponentResponse = {
         source: pkgInfo.endpoint.source,
         importHref: this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/' + pkgInfo.pkgMeta.main,
         package: pkgInfo,
-        channelComponent: descriptor
+        channelComponent: descriptor,
+        iconUrl: descriptor.iconUrl ? url.resolve(this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/', descriptor.iconUrl) : null
       };
       response.json(componentResponse);
     } catch (err) {

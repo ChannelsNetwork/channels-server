@@ -1,0 +1,208 @@
+<dom-module id="compose-dialog-promotion">
+  <template>
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+      }
+
+      .shell {
+        min-height: 100vh;
+        padding: 80px 5px;
+      }
+
+      .container {
+        max-width: 800px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #progressPanel {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      text-input {
+        margin-top: 20px;
+      }
+
+      .buttons {
+        text-align: center;
+        padding: 30px 0 5px;
+      }
+
+      .imageArea {
+        margin-top: 75px;
+        text-align: center;
+      }
+
+      paper-radio-button {
+        display: block;
+        margin: 15px 0;
+        --paper-radio-button-size: 20px;
+        font-size: 16px;
+      }
+
+      paper-slider {
+        width: 100%;
+      }
+
+      .contents {
+        margin-top: 20px;
+      }
+
+      .sub {
+        margin: 0 0 25px 50px;
+      }
+
+      #keywords {
+        margin-bottom: 15px;
+      }
+
+      input {
+        font-size: 20px;
+      }
+
+      #amount {
+        width: 80px;
+      }
+
+      #budgetCoins {
+        width: 60px;
+        margin-right: 10px;
+      }
+
+      #budgetPercent {
+        margin: 0 3px 0 10px;
+        width: 45px;
+        text-align: right;
+      }
+
+      .recommendation {
+        font-size: 12px;
+        margin-left: 10px;
+      }
+
+      p {
+        margin: 50px 0 10px;
+      }
+    </style>
+    <div class="shell horizontal layout">
+      <div class="container">
+        <h3>Step 4: Promotion</h3>
+        <p>How much are you willing to pay each reader
+          <span>[[paymentAction]]</span>?</p>
+        <div>
+          ℂ
+          <input type="number" id="amount" value="0.010" step="0.001" min="0.001" max="1">
+          <span class="recommendation">(Recommended: ℂ
+            <span>[[minimumRecommendation]]</span> to ℂ[[maximumRecommendation]])</span>
+        </div>
+        <p>What is your budget for this card?</p>
+        <div>
+          ℂ
+          <input type="number" id="budgetCoins" value="10" step="1" min="1" max="[[maxBudget]]">
+          <span id="budgetPlus">plus
+            <input type="number" id="budgetPercent" value="15" step="1" min="0" max="90">% of earnings from this card</span>
+        </div>
+        <div class="buttons">
+          <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+          <button id="btnBack" on-click="_onBack">Back</button>
+          <button id="btnNext" on-click="_onNext">Next</button>
+        </div>
+      </div>
+  </template>
+  <script>
+    class ComposeDialogPromotion extends Polymer.Element {
+      static get is() { return "compose-dialog-promotion"; }
+      static get properties() {
+        return {
+          minimumRecommendation: Number,
+          maximumRecommendation: Number,
+          paymentAction: String,
+          maxBudget: Number
+        };
+      }
+
+      reset() { }
+
+      onActivate(context) {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        this.context = context;
+        if (context.pricing.pay && context.pricing.pay.basedOn === 'clicks') {
+          this.set('minimumRecommendation', 0.35);
+          this.set('maximumRecommendation', 0.74);
+          this.set('paymentAction', "to keep this card open for 10 seconds");
+        } else {
+          this.set('minimumRecommendation', 0.008);
+          this.set('maximumRecommendation', 0.015);
+          this.set('paymentAction', "to see this card in his or her feed");
+        }
+        if (Number(this.$.amount.value) < this.minimumRecommendation || Number(this.$.amount.value) > this.maximumRecommendation) {
+          this.$.amount.value = (this.minimumRecommendation + (this.maximumRecommendation - this.minimumRecommendation) / 2).toFixed(3);
+        }
+        this.set('maxBudget', Math.floor($core.balance * 0.9));
+        this.$.budgetCoins.value = Math.min(15, $core.balance * 0.5).toFixed(0);
+        this.$.budgetPlus.style.display = context.pricing.fee && context.pricing.fee.expandReach ? "" : "none";
+      }
+
+      isSkippable(context) {
+        return context.pricing && context.pricing.fee && !context.pricing.fee.expandReach;
+      }
+
+      // _onNoChanged() {
+      //   if (this.$.no.checked) {
+      //     this.$.yes.checked = false;
+      //     this.$.yesSub.style.display = "none";
+      //   }
+      //   this._refreshButtons();
+      // }
+
+      // _onYesChanged() {
+      //   if (this.$.yes.checked) {
+      //     this.$.no.checked = false;
+      //     this.$.yesSub.style.display = "";
+      //   }
+      //   this._refreshButtons();
+      // }
+
+      _refreshButtons() {
+        this.$.btnPost.disabled = false;
+      }
+
+      _onCancel() {
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onNext() {
+        const details = {
+          context: {
+            promotion: {
+              amount: Number(this.$.amount.value),
+              budgetCoins: Number(this.$.budgetCoins.value),
+            }
+          }
+        };
+        if (this.context.pricing.fee) {
+          details.context.promotion.budgetPercent = Number(this.$.budgetPercent.value);
+        }
+        this.dispatchEvent(new CustomEvent('compose-next', { bubbles: true, composed: true, detail: details }));
+      }
+    }
+    window.customElements.define(ComposeDialogPromotion.is, ComposeDialogPromotion);
+  </script>
+</dom-module>

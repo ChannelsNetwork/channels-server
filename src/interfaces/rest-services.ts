@@ -1,5 +1,6 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason } from "./db-records";
+import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
   version: number;
@@ -29,8 +30,6 @@ export interface UserStatusDetails extends Signable {
 
 export interface UserStatusResponse extends RestResponse {
   status: UserStatus;
-  appUpdateUrl: string;
-  socketUrl: string;
   interestRatePerMillisecond: number;
   cardBasePrice: number;
   subsidyRate: number;
@@ -39,6 +38,9 @@ export interface UserStatusResponse extends RestResponse {
 export interface UserStatus {
   goLive: number;
   userBalance: number;
+  userBalanceAt: number;
+  withdrawableBalance: number;
+  targetBalance: number;
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
@@ -85,9 +87,7 @@ export interface GetUserIdentityResponse extends RestResponse {
   settings: UserSettings;
 }
 
-export interface UserSettings {
-  displayNetworkBalance: boolean;
-}
+export interface UserSettings { }
 
 export interface CheckHandleDetails extends Signable {
   handle: string;
@@ -150,6 +150,7 @@ export interface CardDescriptor {
     openFee: number;  // in ChannelCoin, -ve for ads
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
+  couponId: string;
   history: {
     revenue: number;
     impressions: number;
@@ -165,6 +166,7 @@ export interface CardDescriptor {
     lastClosed: number;
     likeState: CardLikeState;
     paid: number;
+    earned: number;
   };
   state?: {
     user: CardState;
@@ -198,6 +200,7 @@ export interface ChannelComponentResponse extends RestResponse {
   importHref: string;
   package: BowerInstallResult;
   channelComponent: ChannelComponentDescriptor;
+  iconUrl: string;
 }
 
 export interface BowerInstallResult {
@@ -227,6 +230,7 @@ export interface BowerPackageMeta {
 export interface ChannelComponentDescriptor {
   composerTag: string;
   viewerTag: string;
+  iconUrl: string;   // relative to channels-component.json file
 }
 
 export interface GetCardDetails extends Signable {
@@ -247,21 +251,30 @@ export interface PostCardDetails extends Signable {
   promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
   openFeeUnits?: number; // for content, 1..10
+  budget?: {
+    amount: number;
+    plusPercent: number;
+  };
   state: {
     user: CardState;
     shared: CardState;
   };
+  coupon?: SignedObject;   // BankCouponDetails
 }
 
 export interface PostCardResponse extends RestResponse {
   cardId: string;
+  couponId?: string;
 }
 
 export interface CardImpressionDetails extends Signable {
   cardId: string;
+  couponId?: string;
 }
 
-export interface CardImpressionResponse extends RestResponse { }
+export interface CardImpressionResponse extends UserStatusResponse {
+  transactionId?: string;
+}
 
 export interface CardOpenedDetails extends Signable {
   cardId: string;
@@ -270,14 +283,21 @@ export interface CardOpenedDetails extends Signable {
 export interface CardOpenedResponse extends RestResponse { }
 
 export interface CardPayDetails extends Signable {
-  transactionString: string;
-  transactionSignature: string;
+  transaction: SignedObject;
 }
 
-export interface CardPayResponse extends RestResponse {
+export interface CardPayResponse extends UserStatusResponse {
   transactionId: string;
-  updatedBalance: number;
-  balanceAt: number;
+  totalCardRevenue: number;
+}
+
+export interface CardRedeemOpenDetails extends Signable {
+  cardId: string;
+  couponId: string;
+}
+
+export interface CardRedeemOpenResponse extends UserStatusResponse {
+  transactionId: string;
 }
 
 export interface CardClosedDetails extends Signable {
@@ -306,14 +326,13 @@ export interface BankStatementResponse extends RestResponse { }
 export interface BankTransactionDetails extends Signable {
   type: BankTransactionType;
   reason: BankTransactionReason;
-  relatedCardId?: string;
-  relatedCouponId?: string;
+  relatedCardId: string;
+  relatedCouponId: string;
   amount: number;  // ChannelCoin
   toRecipients: BankTransactionRecipientDirective[];
 }
 
-export type BankTransactionType = "transfer";  // others to come such as "coupon-create"
-export type BankTransactionReason = "card-promotion" | "card-open" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+export type BankTransactionType = "transfer" | "coupon-redemption";  // others to come such as "coupon-create"
 
 export interface BankTransactionRecipientDirective {
   address: string;
@@ -322,3 +341,7 @@ export interface BankTransactionRecipientDirective {
 }
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
+
+export interface BankCouponRequestDetails extends Signable {
+  coupon: SignedObject;  // BankCouponDetails
+}

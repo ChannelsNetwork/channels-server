@@ -9,7 +9,13 @@
     "iron-icon": "PolymerElements/iron-icon#^2.0.1",
     "iron-iconset-svg": "PolymerElements/iron-iconset-svg#^2.1.0",
     "soso-truncated-text": "pshihn/soso-truncated-text#^1.0.2",
-    "moment": "^2.18.1"
+    "moment": "^2.18.1",
+    "paper-fab": "PolymerElements/paper-fab#^2.0.0",
+    "file-uploader": "AlessioGiambrone/file-uploader#^0.0.1",
+    "paper-radio-button": "PolymerElements/paper-radio-button#^2.0.0",
+    "paper-slider": "PolymerElements/paper-slider#^2.0.2",
+    "iron-image": "PolymerElements/iron-image#^2.1.2",
+    "paper-checkbox": "PolymerElements/paper-checkbox#^2.0.1"
   },
   "devDependencies": {
     "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",

@@ -1,0 +1,129 @@
+<link rel="import" href="../card/card-view.html">
+
+<dom-module id="compose-dialog-finish">
+  <template>
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+      }
+
+      .shell {
+        min-height: 100vh;
+        padding: 80px 5px;
+      }
+
+      .container {
+        max-width: 800px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .buttons {
+        text-align: center;
+        padding: 30px 0 5px;
+      }
+
+      .contents {
+        margin-top: 20px;
+      }
+
+      .cardContainer {
+        max-width: 400px;
+        width: 100%;
+        margin: 0 auto;
+        height: 450px;
+        border: 1px solid #aaa;
+      }
+
+      card-view {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+    <div class="shell horizontal layout">
+      <div class="container">
+        <h3>Step 5: Review</h3>
+        <p>This is how your card will look when you post it.</p>
+        <div class="cardContainer">
+          <card-view data="[[cardData]]" preview></card-view>
+        </div>
+        <div class="buttons">
+          <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+          <button id="btnBack" on-click="_onBack">Back</button>
+          <button id="btnPost" on-click="_onPost">Post</button>
+        </div>
+      </div>
+  </template>
+  <script>
+    class ComposeDialogFinish extends Polymer.Element {
+      static get is() { return "compose-dialog-finish"; }
+      static get properties() {
+        return {
+          cardData: Object
+        };
+      }
+
+      reset() { }
+
+      onActivate(context) {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        const data = {
+          summary: {
+            imageUrl: context.cardImage,
+            title: context.cardTitle,
+            text: context.cardText
+          },
+          history: {
+            likes: 0,
+            dislikes: 0,
+            revenue: 0,
+            revenueDisplay: null
+          },
+          pricing: {
+            openFee: 0,
+          },
+          userSpecific: {
+            paid: 0,
+            earned: 0
+          },
+          by: {
+            name: $core.profile ? $core.profile.name : null,
+            imageUrl: $core.profile ? $core.profile.imageUrl : null
+          },
+          postedAt: Date.now(),
+          postedAtDisplay: "now",
+          cardType: {
+            iconUrl: context.componentResponse.iconUrl
+          }
+        };
+        if (context.pricing.fee) {
+          data.pricing.openFee = context.pricing.fee.priceLevel * $core.baseCardPrice;
+        } else if (context.pricing.pay) {
+          data.pricing.openFee = -context.promotion.amount;
+        }
+        this.set('cardData', data);
+      }
+
+      _onCancel() {
+        this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onBack() {
+        this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true, detail: {} }));
+      }
+
+      _onPost() {
+        const details = {};
+        this.dispatchEvent(new CustomEvent('compose-post', { bubbles: true, composed: true, detail: details }));
+      }
+    }
+    window.customElements.define(ComposeDialogFinish.is, ComposeDialogFinish);
+  </script>
+</dom-module>
