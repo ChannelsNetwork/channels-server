@@ -52,7 +52,7 @@
       }
     </style>
     <div class="barspace"></div>
-    <div class="header">
+    <div class="header" style="display:none;">
       <div>
         <p>
           This is an example of what your feed will look like when we go live.
@@ -233,6 +233,10 @@
       }
 
       onCompose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("edit-profile", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
         $router.goto("compose");
       }
 

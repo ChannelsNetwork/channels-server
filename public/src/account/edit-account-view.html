@@ -83,6 +83,7 @@
     <div class="shell horizontal layout center">
       <div id="container">
         <h2>Edit Profile</h2>
+        <h4>[[subtitle]]</h4>
         <div>
           <div>
             <div id="photoContainer" class="vertical layout center">
@@ -118,11 +119,23 @@
       static get is() { return "edit-account-view"; }
       static get properties() {
         return {
-          progress: String
+          progress: String,
+          subtitle: String
         };
       }
 
-      onActivate() {
+      onActivate(route) {
+        if (route && route.context && route.context.message) {
+          this.set('subtitle', route.context.message);
+        }
+        if (route && route.context && route.context.returnRoute) {
+          this.returnRoute = route.context.returnRoute;
+        } else {
+          this.returnRoute = {
+            success: "account",
+            cancel: "account"
+          };
+        }
         this._handleValid = true;
         this._hideProgress();
         if (!$core.hasKey) {
@@ -146,6 +159,7 @@
             this.$.userPhoto.src = p.imageUrl;
             this.$.userPhoto.style.display = "";
             this.$.photoContainer.style.border = "0";
+            this.userPhoto = p.imageUrl;
           }
         }
         this.$.handle.input.focus();
@@ -153,7 +167,7 @@
       }
 
       _onCancel() {
-        $router.goto("preview");
+        $router.goto(this.returnRoute.cancel);
       }
 
       _onFilesLoaded() {
@@ -166,6 +180,8 @@
           $core.uploadFile(files[0]).then((response) => {
             this.$.userPhoto.src = response.url;
             this.$.userPhoto.style.display = "";
+            this.userPhoto = response.url;
+            this._onInput();
             console.log("Upload complete", response);
           });
         }
@@ -174,7 +190,8 @@
       _onSave() {
         let handle = this.$.handle.value.trim();
         let name = this.$.name.value.trim();
-        if (!(handle && name)) {
+        let photo = this.$.user
+        if (!handle || !name || !this.userPhoto) {
           this._onInput();
           return;
         }
@@ -183,8 +200,8 @@
 
         this._progress("Updating profile...");
 
-        $core.updateUserProfile(name, handle, location, this.$.userPhoto.src, email).then(() => {
-          $router.goto("preview");
+        $core.updateUserProfile(name, handle, location, this.userPhoto, email).then(() => {
+          $router.goto(this.returnRoute.success);
         }).catch((err) => {
           console.error(err);
           this._progress(err || "Oops. Something went wrong when registering your handle.", true);
@@ -192,7 +209,7 @@
       }
 
       _onInput() {
-        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this._handleValid;
+        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this._handleValid && this.userPhoto;
         this.$.btnSave.disabled = !valid;
       }
 

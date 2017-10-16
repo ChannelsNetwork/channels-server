@@ -329,7 +329,7 @@
     }
 
     var onLoad = function () {
-      loadIds(['textPanel', 'logo', 'sec1', 'sec2', 'bottomBalance', 'bottomReserve', 'fab', 'fabImge', 'p1', 'p2', 'p3', 'p4', 'p5', 'cu', 'cl', 'b1', 'b2', 'b3']);
+      loadIds(['textPanel', 'logo', 'sec2', 'bottomBalance', 'fab', 'fabImge', 'p1', 'p2', 'p3', 'p4', 'p5', 'cu', 'cl', 'b1', 'b2', 'b3']);
 
       setTimeout(function () {
         $.textPanel.style.opacity = 1;
@@ -342,18 +342,6 @@
         $.b2.classList.remove("hidden");
         $.b3.classList.remove("hidden");
       }, 100);
-
-      if (hasKeys()) {
-        $.sec2.style.display = "";
-        $.sec1.style.display = "none";
-        $.bottomBalance.style.display = "";
-        $.bottomReserve.style.display = "none";
-      } else {
-        $.sec2.style.display = "none";
-        $.sec1.style.display = "";
-        $.bottomBalance.style.display = "none";
-        $.bottomReserve.style.display = "";
-      }
 
       window.addEventListener("scroll", _onScroll);
       window._goingDown = true;
@@ -473,18 +461,9 @@
         <p>
           <a href="https://twitter.com/channelscc" target="_blank">Follow us on Twitter</a>
         </p>
-        <section id="sec1">
+        <section id="sec2">
           <p>
-            We'll be releasing shortly.
-          </p>
-          <p>
-            <a class="button" href="/app/#preview">Reserve your ChannelCoin</a>
-          </p>
-        </section>
-        <section id="sec2" style="display: none;">
-          <p>You're already registered with Channels!</p>
-          <p>
-            <a class="button" href="/app/#balance">View your balance</a>
+            <a class="button" href="/app/#feed">Try Channels Now</a>
           </p>
         </section>
       </div>
@@ -547,8 +526,7 @@
     <div class="flex cell">
       <div class="content centered" style="text-align: center;">
         <div style="padding: 0 0 60px;">
-          <a id="bottomReserve" class="button" href="/app/#preview">Reserve your ChannelCoin</a>
-          <a id="bottomBalance" style="display: none;" class="button" href="/app/#balance">View your balance</a>
+          <a id="bottomFeed" class="button" href="/app/#feed">Try Channels Now</a>
         </div>
         <h3>Want to learn even more?</h3>
         <p>

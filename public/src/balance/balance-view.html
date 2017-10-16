@@ -1,7 +1,7 @@
 <dom-module id="balance-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
         background: #37474F;
         min-height: 100vh;
@@ -62,8 +62,12 @@
     <div class="barspace"></div>
     <div class="content">
       <p>
-        You have ChannelCoins waiting for you when you get started. You'll be able to use these to pay for content, to promote your
-        own content, or to trade in for cash
+        This is your balance in ChannelCoins.
+      </p>
+      <p>Use these to open cards or to promote your own cards.</p>
+      <p>Earn these when others open cards you posted. You can also earn coins by viewing promoted content.</p>
+      <p>When we go live, you'll also be able to buy and sell coins using US dollars. Each ChannelCoin will be worth approximately
+        one US dollar.
       </p>
       <div class="balancePanel">
         <div id="balanceCard" class="balance">
@@ -71,7 +75,7 @@
           <div>[[balance]]</div>
         </div>
       </div>
-      <div class="footer">
+      <div class="footer" style="display:none;">
         <p>Want to earn extra coins for you and your friends?</p>
         <p>
           <a on-click="onInvite">Invite a friend</a>
