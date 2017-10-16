@@ -12,9 +12,13 @@ class CoreService extends Polymer.Element {
     window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
+
+    // child services
     this.storage = new StorageService();
     this.rest = new RestService();
     this.dummy = new DummyService(this);
+    this.cardManager = new CardManager(this);
+
     this._keys = this.storage.getLocal(_CKeys.KEYS, true);
     this._profile = null;
     if (this._keys && this._keys.privateKey) {
@@ -87,9 +91,24 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
-        this._lastRegistrationAt = Date.now();
+        this._statusResponse = result;
         this._fire("channels-registration", this._registration);
         this.getUserProfile();
+        setInterval(() => {
+          this._updateBalance();
+        }, 1000 * 60);
+        return result;
+      });
+    });
+  }
+
+  getAccountStatus() {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.accountStatusDetails(this._keys.address);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/account-status";
+      return this.rest.post(url, request).then((result) => {
+        this._accountStatus = result;
         return result;
       });
     });
@@ -179,7 +198,9 @@ class CoreService extends Polymer.Element {
       let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type);
       let request = this._createRequest(details);
       const url = this.restBase + "/get-feed";
-      return this.rest.post(url, request);
+      return this.rest.post(url, request).then((response) => {
+        return response.feeds[0].cards;
+      });
     });
   }
 
@@ -192,21 +213,32 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  postCard(imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+  postCard(imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState);
+      let coupon;
+      if (promotionFee + openPayment > 0) {
+        const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+        const couponDetailsString = JSON.stringify(couponDetails);
+        const coupon = {
+          objectString: couponDetailsString,
+          signature: this._sign(couponDetailsString)
+        }
+      }
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
       let request = this._createRequest(details);
       const url = this.restBase + "/post-card";
       return this.rest.post(url, request);
     });
   }
 
-  cardImpression(cardId) {
+  cardImpression(cardId, coupon) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId);
+      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, coupon);
       let request = this._createRequest(details);
       const url = this.restBase + "/card-impression";
-      return this.rest.post(url, request);
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+      });
     });
   }
 
@@ -235,13 +267,27 @@ class CoreService extends Polymer.Element {
       if (referrerAddress) {
         recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", 0.02));
       }
-      const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open", cardId, null, amount, recipients);
+      const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
       let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
       let request = this._createRequest(details);
-      const url = this.restBase + "/card-opened";
-      return this.rest.post(url, request);
+      const url = this.restBase + "/card-pay";
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+        return response;
+      });
+    });
+  }
+
+  cardOpenPaymentRedeem(cardId, coupon) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, coupon);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/card-redeem-open";
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+      });
     });
   }
 
@@ -263,6 +309,21 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  uploadFile(file) {
+    return this.ensureKey().then(() => {
+      var formData = new FormData();
+
+      formData.append("address", this._keys.address);
+      const signatureTimestamp = Date.now().toString();
+      formData.append("signatureTimestamp", signatureTimestamp);
+      formData.append("signature", this._sign(signatureTimestamp));
+      formData.append("userFile", file);
+
+      const url = this.restBase + "/upload";
+      return this.rest.postFile(url, formData);
+    });
+  }
+
   get profile() {
     return this._profile;
   }
@@ -276,15 +337,33 @@ class CoreService extends Polymer.Element {
   }
 
   get balance() {
-    if (!this._registration) {
+    if (!this._statusResponse) {
       return 0;
     }
-    return this._registration.status.userBalance * (1 + (Date.now() - this._lastRegistrationAt) * this._registration.interestRatePerMillisecond);
+    let result = this._statusResponse.status.userBalance * (1 + (Date.now() - this._statusResponse.status.userBalanceAt) * this._statusResponse.interestRatePerMillisecond);
+    if (result < this._statusResponse.status.targetBalance) {
+      result += (Date.now() - this._statusResponse.status.userBalanceAt) * this._statusResponse.subsidyRate;
+      result = Math.min(result, this._statusResponse.status.targetBalance);
+    }
+    return result;
+  }
+
+  get baseCardPrice() {
+    if (!this._statusResponse) {
+      return 0;
+    }
+    return this._statusResponse.cardBasePrice;
   }
 
   _fire(name, detail) {
     let ce = new CustomEvent(name, { bubbles: true, composed: true, detail: (detail || {}) });
     window.dispatchEvent(ce);
+  }
+
+  _updateBalance() {
+    this.getAccountStatus().then((status) => {
+      this._statusResponse = status;
+    });
   }
 
 }

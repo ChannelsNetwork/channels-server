@@ -1,13 +1,14 @@
 <link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
 <link rel="import" href="card-header.html">
 <link rel="import" href="open-card.html">
 
 <dom-module id="card-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
         opacity: 0;
         transition: opacity 0.2s ease;
@@ -214,6 +215,11 @@
       .container.wide #description {
         font-size: 16px;
       }
+
+      .paidCheck {
+        width: 12px;
+        height: 12px;
+      }
     </style>
     <div id="cardShell">
       <div id="container" class="container">
@@ -237,9 +243,12 @@
           <card-header id="cardHeader" data="[[data]]"></card-header>
         </div>
       </div>
-      <div id="price"><label>Pays</label>[[price]]</div>
+      <div id="price">
+        <label>Pays</label>[[price]]
+        <iron-icon id="paidCheck" style="display:none;" class="paidCheck" icon="check"></iron-icon>
+      </div>
     </div>
-    <open-card id="openCard" data="[[data]]" on-click="opeCardClick"></open-card>
+    <open-card id="openCard" data="[[data]]" on-click="openCardClick"></open-card>
   </template>
   <script src="../../bower_components/moment/moment.js"></script>
   <script>
@@ -249,14 +258,18 @@
         return {
           data: {
             type: Object,
-            observer: '_onData'
+            observer: "_onData"
           },
-          price: String
+          preview: Boolean,
+          price: String,
+          intersectionObserver: Object
         };
       }
 
       connectedCallback() {
         super.connectedCallback();
+        this.previouslyOpenedDuration = 0;
+        this.openedAt = Date.now();
         Polymer.RenderStatus.beforeNextRender(this, function () {
           setTimeout(() => {
             if (this.offsetWidth > 600) {
@@ -265,6 +278,30 @@
             this.style.opacity = 1;
           }, 50);
         });
+        if (this.intersectionObserver) {
+          this.intersectionObserver.observe(this);
+        }
+      }
+
+      disconnectedCallback() {
+        if (this.paymentTimer) {
+          clearInterval(this.paymentTimer);
+        }
+        if (this.intersectionObserver) {
+          this.intersectionObserver.unobserve(this);
+        }
+      }
+
+      onPayment() {
+        this._refreshPaidCheck();
+        this.$.openCard.onPayment();
+        this.$.cardHeader.onPayment();
+      }
+
+      onImpressionPaid() {
+        this._refreshPaidCheck();
+        this.$.openCard.onImpressionPaid();
+        this.$.cardHeader.onImpressionPaid();
       }
 
       _onData() {
@@ -279,7 +316,7 @@
         } else {
           this.$.imagePanel.style.display = "none";
         }
-        if (cost < 0) {
+        if (cost <= 0) {
           this.$.container.classList.add("negative");
           this.$.price.classList.add("negative");
         } else {
@@ -293,8 +330,13 @@
         this.$.posBar.style.width = rating + "%";
         this.$.negBar.style.width = (100 - rating) + "%";
 
+        this.$.description.text = this.data.summary.text;
         let absCost = Math.abs(cost).toFixed(2);
+        if (cost === 0) {
+          absCost = this.data.pricing.promotionFee.toFixed(2);
+        }
         this.price = 'ℂ' + absCost;
+        this._refreshPaidCheck();
       }
 
       open(node) {
@@ -303,6 +345,12 @@
         this.$.rating.style.opacity = 0;
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
+        this.openedAt = Date.now();
+        if (this.data.pricing.openFee > 0 && this.data.userSpecific.paid === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earned == 0) {
+          this.paymentTimer = setInterval(() => {
+            this._checkPaymentDue();
+          }, 100);
+        }
         return this.$.openCard.open(node);
       }
 
@@ -313,15 +361,38 @@
         this.$.cardShell.style.opacity = 1;
         this.$.openCard.close(animate);
         this.style.pointerEvents = "";
+        this.previouslyOpenedDuration += Date.now() - this.openedAt;
+        clearInterval(this.paymentTimer);
+        this.paymentTimer = null;
       }
 
-      opeCardClick(event) {
+      openCardClick(event) {
         event.stopPropagation();
       }
 
       refreshLayout() {
         if (this._cardOpen) {
           this.$.openCard.refreshLayout(this);
+        }
+      }
+
+      _checkPaymentDue() {
+        if (this.data.userSpecific.paid === 0 && this.data.userSpecific.earned === 0) {
+          const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
+          this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
+          if (openDuration > 10000) {
+            this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
+            clearInterval(this.paymentTimer);
+            this.paymentTimer = null;
+          }
+        }
+      }
+
+      _refreshPaidCheck() {
+        if (this.data.userSpecific.paid > 0 || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earned > 0)) {
+          this.$.paidCheck.style.display = "";
+        } else {
+          this.$.paidCheck.style.display = "none";
         }
       }
     }

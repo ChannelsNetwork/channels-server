@@ -1,9 +1,10 @@
 <link rel="import" href="../controls/progress-icon.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
 
 <dom-module id="open-card-header">
   <template>
     <style is="custom-style" include="iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
       }
 
@@ -50,7 +51,7 @@
         box-sizing: border-box;
       }
 
-      #price label {
+      #price .pays {
         display: none;
       }
 
@@ -58,7 +59,7 @@
         background: #69F0AE;
       }
 
-      #price.negative label {
+      #price.negative .pays {
         text-transform: uppercase;
         font-size: 11px;
         line-height: 14px;
@@ -79,10 +80,37 @@
           display: none;
         }
       }
+
+      .paidCheck {
+        display: none;
+        width: 12px;
+        height: 12px;
+        margin: 4px auto 0;
+      }
+
+      .payProgressOuter {
+        width: 2px;
+        height: 100%;
+      }
+
+      #payProgressInner {
+        width: 100%;
+        height: 0%;
+        background-color: #aaa;
+      }
     </style>
     <div class="horizontal layout center bar">
       <div id="price" class="horizontal layout center">
-        <div><label>Pays</label>[[price]]</div>
+        <div>
+          <label class="pays">Pays</label>[[price]]
+          <label>
+            <iron-icon id="paidCheck" class="paidCheck" icon="check"></iron-icon>
+          </label>
+        </div>
+      </div>
+      <div class="payProgressOuter vertical layout">
+        <div id="payProgressPad" class="flex"></div>
+        <div id="payProgressInner"></div>
       </div>
       <img id="authorImage">
       <div class="flex vertical layout">
@@ -129,6 +157,12 @@
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
+        this.$.payProgressPad.style.display = cost < 0 ? "" : "none";
+        this._refreshPaidCheck();
+      }
+
+      setPaymentStatus(value, negative) {
+        this.$.payProgressInner.style.height = value + "%";
       }
 
       onCloseCard(event) {
@@ -136,8 +170,24 @@
         this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true, detail: {} }));
       }
 
+      onPayment() {
+        this._refreshPaidCheck();
+      }
+
+      onImpressionPaid() {
+        this._refreshPaidCheck();
+      }
+
       showToast() {
         $app.toast("This action is not enabled in preview mode.");
+      }
+
+      _refreshPaidCheck() {
+        if (this.data.userSpecific.paid > 0 || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earned > 0)) {
+          this.$.paidCheck.style.display = "block";
+        } else {
+          this.$.paidCheck.style.display = "none";
+        }
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);

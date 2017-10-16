@@ -1,7 +1,9 @@
+<link rel="import" href="../../bower_components/iron-image/iron-image.html">
+
 <dom-module id="account-view">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+      :host {
         display: block;
         background: #424242;
         min-height: 100vh;
@@ -38,28 +40,89 @@
       .value {
         color: white;
       }
+
+      .leftSide {
+        margin-right: 10px;
+      }
+
+      #photoContainer {
+        width: 64px;
+        height: 64px;
+        border-radius: 32px;
+        border: 1px solid white;
+        text-align: center;
+        font-size: 12px;
+        margin-top: 50px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .photoForeground {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        overflow: hidden;
+      }
+
+      #photoInput {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      #userPhoto {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
     </style>
     <div class="barspace"></div>
-    <div class="content">
-      <h3>My Account</h3>
-      <div class="row">
-        <label>Handle</label>
-        <div class="value">[[profile.handle]]</div>
+    <div class="content horizontal layout">
+      <div>
+        <div class="leftSide">
+          <div id="photoContainer" class="vertical layout center" on-click="_onEdit">
+            <div class="flex"></div>
+            <div>no photo</div>
+            <div class="flex"></div>
+            <iron-image sizing="cover" id="userPhoto" src="[[imageUrl]]" style="display:none"></iron-image>
+          </div>
+        </div>
       </div>
-      <div class="row">
-        <label>Name</label>
-        <div class="value">[[profile.name]]</div>
-      </div>
-      <div class="row">
-        <label>Location</label>
-        <div class="value">[[profile.location]]</div>
-      </div>
-      <div class="row">
-        <label>Email</label>
-        <div class="value">[[profile.emailAddress]]</div>
-      </div>
-      <div class="buttons">
-        <button on-click="_onEdit">Edit profile</button>
+      <div class="flex">
+        <h3>My Account</h3>
+        <div class="row">
+          <label>Handle</label>
+          <div class="value">[[profile.handle]]</div>
+        </div>
+        <div class="row">
+          <label>Handle</label>
+          <div class="value">[[profile.handle]]</div>
+        </div>
+        <div class="row">
+          <label>Name</label>
+          <div class="value">[[profile.name]]</div>
+        </div>
+        <div class="row">
+          <label>Location</label>
+          <div class="value">[[profile.location]]</div>
+        </div>
+        <div class="row">
+          <label>Email</label>
+          <div class="value">[[profile.emailAddress]]</div>
+        </div>
+        <div class="buttons">
+          <button on-click="_onEdit">Edit profile</button>
+        </div>
       </div>
     </div>
   </template>
@@ -68,7 +131,8 @@
       static get is() { return "account-view"; }
       static get properties() {
         return {
-          profile: Object
+          profile: Object,
+          imageUrl: String
         };
       }
 
@@ -99,6 +163,11 @@
             }
             if (p.emailAddress) {
               profile.emailAddress = p.emailAddress;
+            }
+            if (p.imageUrl) {
+              this.set('imageUrl', p.imageUrl);
+              this.$.userPhoto.style.display = "";
+              this.$.photoContainer.style.border = "0";
             }
           }
           this.profile = profile;

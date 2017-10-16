@@ -6,7 +6,6 @@
 <link rel="import" href="controls/timed-toast.html">
 <link rel="import" href="home/welcome-view.html">
 
-
 <dom-module id="main-app">
   <template>
     <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
@@ -53,6 +52,7 @@
         <invite-view class="invite page" data-href="account/invite-view.html"></invite-view>
         <notifications-view class="notifications page" data-href="notifications/notifications-view.html"></notifications-view>
         <preview-page class="preview page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
+        <compose-wizard class="compose page" data-href="compose/compose-wizard.html"></compose-wizard>
       </div>
     </div>
     <welcome-view id="welcome" on-tncs-agreed="onWelcomeCompleted" style="display:none;"></welcome-view>

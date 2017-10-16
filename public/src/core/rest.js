@@ -32,6 +32,34 @@ class RestService {
     });
   }
 
+  postFile(url, formData) {
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.withCredentials = true;
+      request.open("POST", url);
+      request.onload = () => {
+        const status = request.status;
+        if (status === 0 || status >= 400) {
+          if (request.responseText) {
+            this.onError(reject, status, request.responseText);
+          } else {
+            this.onError(reject, status, 'Upload request failed with code: ' + status);
+          }
+        } else {
+          if (request.responseText) {
+            resolve(JSON.parse(request.responseText));
+          } else {
+            resolve(null);
+          }
+        }
+      };
+      request.onerror = (err) => {
+        this.onError(reject, 0, "There was a network error on file upload: " + err);
+      };
+      request.send(formData);
+    });
+  }
+
   onError(reject, code, message) {
     const e = new Error(message);
     e.code = code;
@@ -57,6 +85,13 @@ class RestUtils {
     return {
       token: deviceToken,
       type: "web",
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static accountStatusDetails(address) {
+    return {
       address: address,
       timestamp: RestUtils.now()
     };
@@ -105,6 +140,14 @@ class RestUtils {
     };
   }
 
+  static EnsureChannelComponentDetails(address, packageName) {
+    return {
+      package: packageName,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static getFeedDetails(address, maxCount, type) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
@@ -138,7 +181,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -146,21 +189,28 @@ class RestUtils {
       linkUrl: linkUrl,
       title: title,
       text: text,
-      cardType: packageName,                // same as sent to ensure-component
+      cardType: packageName,            // same as sent to ensure-component
       cardTypeIconUrl: packageIconUrl,  // from card definition
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10
+      budgetAmount: budgetAmount,
+      budgetPlusPercent: budgetPlusPercent,
+      coupon: coupon,                   // signed BankCouponDetails
       state: initialState               // { user: {properties: {...}, collections: {...}}, shared: {properties: {...}, collections: {...}}}
     };
   }
 
-  static cardImpressionDetails(address, cardId) {
-    return {
+  static cardImpressionDetails(address, cardId, couponId) {
+    const result = {
       address: address,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
+    if (couponId) {
+      result.couponId = couponId;
+    }
+    return result;
   }
 
   static cardOpenedDetails(address, cardId) {
@@ -175,8 +225,32 @@ class RestUtils {
     return {
       address: address,
       timestamp: RestUtils.now(),
-      transactionString: transactionString,  // serialized bankTransaction
-      transactionSignature: transactionSignature
+      transaction: {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      }
+    };
+  }
+
+  static cardRedeemOpenDetails(address, cardId, couponId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      couponId: couponId
+    };
+  }
+
+  static getCouponDetails(address, reason, amount, budgetAmount, budgetPlusPercent) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      reason: reason,
+      amount: amount,
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent
+      }
     };
   }
 
@@ -216,5 +290,4 @@ class RestUtils {
       selection: selection    // "like" | "none" | "dislike"
     };
   }
-
 }

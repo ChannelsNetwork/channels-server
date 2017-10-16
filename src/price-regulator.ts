@@ -15,13 +15,13 @@ import { SubsidyBalanceRecord, CardOpensInfo, CardOpensRecord } from "./interfac
 
 const POLL_INTERVAL = 1000 * 15;
 const SUBSIDY_CONTRIBUTION_INTERVAL = 1000 * 60;
-const SUBSIDY_CONTRIBUTION_RATE = 1.00 / (1000 * 60 * 60 * 24);  // ℂ1/day for now
+const SUBSIDY_CONTRIBUTION_RATE = 10.00 / (1000 * 60 * 60 * 24);  // ℂ10/day for now
 const SUBSIDY_CACHE_LIFETIME = 1000 * 60 * 60;
 const BASE_CARD_FEE_CACHE_LIFETIME = 1000 * 60 * 60;
 const CARD_OPENED_UPDATE_INTERVAL = 1000 * 60 * 60;
 const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24;
 const SUBSIDY_PERIOD = 1000 * 60 * 60 * 24;
-const MAXIMUM_BASE_CARD_FEE = 0.20;
+const MAXIMUM_BASE_CARD_FEE = 0.05;
 const MINIMUM_BASE_CARD_FEE = 0.001;
 const MAXIMUM_SUBSIDY_RATE = 10 / (1000 * 60 * 60 * 24);
 

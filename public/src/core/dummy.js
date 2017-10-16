@@ -11,6 +11,7 @@ class DummyService {
 
   getPreviewCards() {
     const now = (new Date()).getTime();
+    const previewPackage = 'ChannelsNetwork/card-preview';
     const result = [
       {
         id: 'p1',
@@ -30,7 +31,7 @@ class DummyService {
           text: "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power."
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-news.png")
         },
         pricing: {
@@ -64,7 +65,7 @@ class DummyService {
           text: "The online classic 80's arcade game"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-game.png")
         },
         pricing: {
@@ -98,7 +99,7 @@ class DummyService {
           text: "Learn how to make this delicious treat"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
@@ -132,7 +133,7 @@ class DummyService {
           text: "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure."
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-news.png")
         },
         pricing: {
@@ -166,7 +167,7 @@ class DummyService {
           text: "Solve this mini-crossword in one minute"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-crossword.png")
         },
         pricing: {
@@ -200,7 +201,7 @@ class DummyService {
           text: "Alicia Vikander is Lara Croft.  Coming soon in 3D."
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
@@ -234,7 +235,7 @@ class DummyService {
           text: "An emerging life form must respond to the unstable and unforgiving terrain of a new home."
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
@@ -268,7 +269,7 @@ class DummyService {
           text: ""
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-play2.png")
         },
         pricing: {
@@ -302,7 +303,7 @@ class DummyService {
           text: "According to BrightSide.me"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-photos.png")
         },
         pricing: {
@@ -336,7 +337,7 @@ class DummyService {
           text: "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth."
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-book.png")
         },
         pricing: {
@@ -370,7 +371,7 @@ class DummyService {
           text: "How to Fail at the Future"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-news.png")
         },
         pricing: {
@@ -404,7 +405,7 @@ class DummyService {
           text: "Find the most beautiful diamonds in the world and build your own ring."
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-link.png")
         },
         pricing: {
@@ -438,7 +439,7 @@ class DummyService {
           text: "Explore news from around the world that are outside the mainstream media"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-touch.png")
         },
         pricing: {
@@ -472,7 +473,7 @@ class DummyService {
           text: "Foreshadowing Week 4"
         },
         cardType: {
-          project: null,
+          package: previewPackage,
           iconUrl: this.getPreviewUrl("icon-audio.png")
         },
         pricing: {

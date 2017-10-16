@@ -5,14 +5,20 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
 import { UserHelper } from "./user-helper";
+import { userManager } from "./user-manager";
+import { KeyUtils, KeyInfo } from "./key-utils";
+import * as uuid from "uuid";
+import { SignedObject } from "./interfaces/signed-object";
+import { bank } from "./bank";
+import { networkEntity } from "./network-entity";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -58,6 +64,10 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   async initialize2(): Promise<void> {
+    const cardCount = await db.countCards();
+    if (cardCount === 0) {
+      await this.addPreviewCards();
+    }
     setInterval(() => {
       void this.poll();
     }, POLLING_INTERVAL);
@@ -220,6 +230,7 @@ export class FeedManager implements Initializable, RestServer {
         if (card.score.value !== score) {
           console.log("Feed.rescoreCard: Updating card score", card.id, score, addHistory);
           await db.updateCardScore(card, score, addHistory);
+          // TODO: also copy other stats into history
         }
         if (card.score.history.length > 10) {
           await db.clearCardScoreHistoryBefore(card, card.score.history[card.score.history.length - 11].at);
@@ -290,492 +301,264 @@ export class FeedManager implements Initializable, RestServer {
     return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
   }
 
-  // private getPreviewCards(): CardDescriptor[] {
-  //   const now = Date.now();
-  //   const result: CardDescriptor[] = [
-  //     {
-  //       id: 'p1',
-  //       postedAt: now - 1000 * 60 * 5,
-  //       by: {
-  //         address: 'nyt',
-  //         handle: 'nytimes',
-  //         name: "New York Times",
-  //         imageUrl: this.getPreviewUrl("nytimes.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("peurto_rico.jpg"),
-  //         linkUrl: null,
-  //         title: "The Devastation in Puerto Rico, as Seen From Above",
-  //         text: "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power."
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_article.jpg")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.25,
-  //         openFeeUnits: 5
-  //       },
-  //       history: {
-  //         revenue: 30.33,
-  //         impressions: 0,
-  //         opens: 121,
-  //         likes: 1,
-  //         dislikes: 2
-  //       }
-  //     },
-  //     {
-  //       id: 'p2',
-  //       postedAt: now - 1000 * 60 * 34,
-  //       by: {
-  //         address: '80sgames',
-  //         handle: '80sgames',
-  //         name: "80's Games",
-  //         imageUrl: this.getPreviewUrl("80s_games.png"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("galaga.png"),
-  //         linkUrl: null,
-  //         title: "Play Galaga",
-  //         text: "The online classic 80's arcade game"
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_game.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.05,
-  //         openFeeUnits: 1
-  //       },
-  //       history: {
-  //         revenue: 4.67,
-  //         impressions: 0,
-  //         opens: 93,
-  //         likes: 8,
-  //         dislikes: 1
-  //       }
-  //     },
-  //     {
-  //       id: 'p3',
-  //       postedAt: now - 1000 * 60 * 4000,
-  //       by: {
-  //         address: 'thrillist',
-  //         handle: 'thrillist',
-  //         name: "Thrillist",
-  //         imageUrl: this.getPreviewUrl("thrillist.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("pizza_ring.jpg"),
-  //         linkUrl: null,
-  //         title: "Puff Pizza Ring",
-  //         text: "Learn how to make this delicious treat"
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_play.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.15,
-  //         openFeeUnits: 3
-  //       },
-  //       history: {
-  //         revenue: 3516.84,
-  //         impressions: 0,
-  //         opens: 23446,
-  //         likes: 445,
-  //         dislikes: 23
-  //       }
-  //     },
-  //     {
-  //       id: 'p4',
-  //       postedAt: now - 1000 * 60 * 189,
-  //       by: {
-  //         address: 'jmodell',
-  //         handle: 'jmodell',
-  //         name: "Josh Modell",
-  //         imageUrl: this.getPreviewUrl("josh_modell.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("the_national.png"),
-  //         linkUrl: null,
-  //         title: "The National doesn't rest on the excellent Sleep Well Beast",
-  //         text: "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure."
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_article.jpg")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.10,
-  //         openFeeUnits: 2
-  //       },
-  //       history: {
-  //         revenue: 36.90,
-  //         impressions: 0,
-  //         opens: 369,
-  //         likes: 7,
-  //         dislikes: 1
-  //       }
-  //     },
-  //     {
-  //       id: 'p5',
-  //       postedAt: now - 1000 * 60 * 265,
-  //       by: {
-  //         address: 'nyt',
-  //         handle: 'nytimes',
-  //         name: "NY Times Crosswords",
-  //         imageUrl: this.getPreviewUrl("nytimes.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("mini_crossword.jpg"),
-  //         linkUrl: null,
-  //         title: "Solemn Promise",
-  //         text: "Solve this mini-crossword in one minute"
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_crossword.jpg")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.10,
-  //         openFeeUnits: 2
-  //       },
-  //       history: {
-  //         revenue: 84.04,
-  //         impressions: 0,
-  //         opens: 840,
-  //         likes: 16,
-  //         dislikes: 1
-  //       }
-  //     },
-  //     {
-  //       id: 'a2',
-  //       postedAt: now - 1000 * 60 * 984,
-  //       by: {
-  //         address: 'cbs',
-  //         handle: 'cbs',
-  //         name: "CBS",
-  //         imageUrl: this.getPreviewUrl("cbs.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("tomb_raider.jpg"),
-  //         linkUrl: null,
-  //         title: "Tomb Raider",
-  //         text: "Alicia Vikander is Lara Croft.  Coming soon in 3D."
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_play.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0.11,
-  //         openFee: -1,
-  //         openFeeUnits: 0
-  //       },
-  //       history: {
-  //         revenue: 0,
-  //         impressions: 0,
-  //         opens: 0,
-  //         likes: 40,
-  //         dislikes: 5
-  //       }
-  //     },
-  //     {
-  //       id: 'p6',
-  //       postedAt: now - 1000 * 60 * 380,
-  //       by: {
-  //         address: 'tyler',
-  //         handle: 'tyler',
-  //         name: "Tyler McGrath",
-  //         imageUrl: this.getPreviewUrl("tyler.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("ascension.jpg"),
-  //         linkUrl: null,
-  //         title: "Ascension",
-  //         text: "An emerging life form must respond to the unstable and unforgiving terrain of a new home."
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_play.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.40,
-  //         openFeeUnits: 8
-  //       },
-  //       history: {
-  //         revenue: 278.33,
-  //         impressions: 0,
-  //         opens: 696,
-  //         likes: 13,
-  //         dislikes: 1
-  //       }
-  //     },
-  //     {
-  //       id: 'p7',
-  //       postedAt: now - 1000 * 60 * 2165,
-  //       by: {
-  //         address: '',
-  //         handle: '',
-  //         name: "",
-  //         imageUrl: this.getPreviewUrl(""),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("dangerous_road.png"),
-  //         linkUrl: null,
-  //         title: "My Drive on the Most Dangerous Road in the World",
-  //         text: ""
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_play.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.10,
-  //         openFeeUnits: 2
-  //       },
-  //       history: {
-  //         revenue: 77.76,
-  //         impressions: 0,
-  //         opens: 778,
-  //         likes: 12,
-  //         dislikes: 3
-  //       }
-  //     },
-  //     {
-  //       id: 'p8',
-  //       postedAt: now - 1000 * 60 * 2286,
-  //       by: {
-  //         address: 'brightside',
-  //         handle: 'brightside',
-  //         name: "Bright Side",
-  //         imageUrl: this.getPreviewUrl(""),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("amsterdam.jpg"),
-  //         linkUrl: null,
-  //         title: "The 100 best photographs ever taken without photoshop",
-  //         text: "According to BrightSide.me"
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_photos.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.15,
-  //         openFeeUnits: 3
-  //       },
-  //       history: {
-  //         revenue: 596.67,
-  //         impressions: 0,
-  //         opens: 3978,
-  //         likes: 76,
-  //         dislikes: 4
-  //       }
-  //     },
-  //     {
-  //       id: 'p9',
-  //       postedAt: now - 1000 * 60 * 3000,
-  //       by: {
-  //         address: 'aperrotta',
-  //         handle: 'aperrotta',
-  //         name: "Anthony Perrotta",
-  //         imageUrl: this.getPreviewUrl(""),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("rage_cover.jpg"),
-  //         linkUrl: null,
-  //         title: "Rage Against the Current",
-  //         text: "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth."
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_book.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.30,
-  //         openFeeUnits: 6
-  //       },
-  //       history: {
-  //         revenue: 262.65,
-  //         impressions: 0,
-  //         opens: 875,
-  //         likes: 15,
-  //         dislikes: 3
-  //       }
-  //     },
-  //     {
-  //       id: 'p10',
-  //       postedAt: now - 1000 * 60 * 54,
-  //       by: {
-  //         address: 'uhaque',
-  //         handle: 'uhaque',
-  //         name: "Umair Haque",
-  //         imageUrl: this.getPreviewUrl("umair.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("uber_explosion.jpg"),
-  //         linkUrl: null,
-  //         title: "Five Things to Learn From Uber's Implosion",
-  //         text: "How to Fail at the Future"
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_article.jpg")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.10,
-  //         openFeeUnits: 2
-  //       },
-  //       history: {
-  //         revenue: 22.08,
-  //         impressions: 0,
-  //         opens: 221,
-  //         likes: 3,
-  //         dislikes: 1
-  //       }
-  //     },
-  //     {
-  //       id: 'a1',
-  //       postedAt: now - 1000 * 60 * 137,
-  //       by: {
-  //         address: 'bluenile',
-  //         handle: 'bluenile',
-  //         name: "Blue Nile",
-  //         imageUrl: this.getPreviewUrl("blue_nile.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("blue_nile_diamonds.jpg"),
-  //         linkUrl: "https://www.bluenile.com",
-  //         title: "New. Brilliant. Astor by Blue Nile",
-  //         text: "Find the most beautiful diamonds in the world and build your own ring."
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_link.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0.10,
-  //         openFee: -0.50,
-  //         openFeeUnits: 0
-  //       },
-  //       history: {
-  //         revenue: 0,
-  //         impressions: 0,
-  //         opens: 85,
-  //         likes: 1,
-  //         dislikes: 4
-  //       }
-  //     },
-  //     {
-  //       id: 'p11',
-  //       postedAt: now - 1000 * 60 * 4650,
-  //       by: {
-  //         address: 'jigsaw',
-  //         handle: 'jigsaw',
-  //         name: "Jigsaw",
-  //         imageUrl: this.getPreviewUrl("jigsaw.jpg"),
-  //         isFollowing: false,
-  //         isBlocked: false
-  //       },
-  //       summary: {
-  //         imageUrl: this.getPreviewUrl("unfiltered_news.jpg"),
-  //         linkUrl: null,
-  //         title: "The Latest Unfiltered News",
-  //         text: "Explore news from around the world that are outside the mainstream media"
-  //       },
-  //       cardType: {
-  //         package: null,
-  //         iconUrl: this.getPreviewUrl("icon_interactive.png")
-  //       },
-  //       pricing: {
-  //         promotionFee: 0,
-  //         openFee: 0.20,
-  //         openFeeUnits: 4
-  //       },
-  //       history: {
-  //         revenue: 576.25,
-  //         impressions: 0,
-  //         opens: 2881,
-  //         likes: 50,
-  //         dislikes: 7
-  //       }
-  //     }
-  //     // ,
-  //     // {
-  //     //   id: 'p1',
-  //     //   postedAt: now - 1000 * 60 * ,
-  //     //   by: {
-  //     //     address: '',
-  //     //     handle: '',
-  //     //     name: "",
-  //     //     imageUrl: this.getPreviewUrl(""),
-  //     //     isFollowing: false,
-  //     //     isBlocked: false
-  //     //   },
-  //     //   summary: {
-  //     //     imageUrl: this.getPreviewUrl(""),
-  //     //     linkUrl: null,
-  //     //     title: "",
-  //     //     text: ""
-  //     //   },
-  //     //   cardType: {
-  //     //     package: null,
-  //     //     iconUrl: this.getPreviewUrl("")
-  //     //   },
-  //     //   pricing: {
-  //     //     promotionFee: 0,
-  //     //     openFee: 0,
-  //     //     openFeeUnits: 0
-  //     //   },
-  //     //   history: {
-  //     //     revenue: 0,
-  //     //     impressions: 0,
-  //     //     opens: 0,
-  //     //     likes: 0,
-  //     //     dislikes: 0
-  //     //   }
-  //     // },
-  //   ];
-  //   return result;
-  // }
+  private async addPreviewCards(): Promise<void> {
+    const now = Date.now();
+    let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"));
+    let card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimes', 'New York Times',
+      this.getPreviewUrl("nytimes.jpg"),
+      this.getPreviewUrl("puerto_rico.jpg"),
+      null,
+      "The Devastation in Puerto Rico, as Seen From Above",
+      "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
+      null,
+      this.getPreviewUrl("icon-news.png"),
+      0, 0, 5,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31);
+
+    user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, '80sgames', "80's Games",
+      this.getPreviewUrl("80s_games.png"),
+      this.getPreviewUrl("galaga.png"),
+      null,
+      "Play Galaga",
+      "The online classic 80's arcade game",
+      null,
+      this.getPreviewUrl("icon-game.png"),
+      0, 0, 1,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3);
+
+    user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"));
+    const cardId1 = uuid.v4();
+    const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
+      this.getPreviewUrl("thrillist.jpg"),
+      this.getPreviewUrl("pizza_ring.jpg"),
+      null,
+      "Puff Pizza Ring",
+      "Learn how to make this delicious treat",
+      null,
+      this.getPreviewUrl("icon-play2.png"),
+      0.01, 0, 3,
+      5, 15, couponPromo1.signedObject, couponPromo1.id,
+      cardId1);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25);
+
+    user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'jmodell', 'Josh Modell',
+      this.getPreviewUrl("josh_modell.jpg"),
+      this.getPreviewUrl("the_national.png"),
+      null,
+      "The National doesn't rest on the excellent Sleep Well Beast",
+      "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
+      null,
+      this.getPreviewUrl("icon-news.png"),
+      0, 0, 2,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5);
+
+    user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimescw', 'NY Times Crosswords',
+      this.getPreviewUrl("nytimes.jpg"),
+      this.getPreviewUrl("crossword1.jpg"),
+      null,
+      "Solemn Promise",
+      "Solve this mini-crossword in one minute",
+      null,
+      this.getPreviewUrl("icon-crossword.png"),
+      0, 0, 2,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2);
+
+    user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"));
+    const cardId2 = uuid.v4();
+    const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
+      this.getPreviewUrl("cbs.jpg"),
+      this.getPreviewUrl("tomb_raider.jpg"),
+      null,
+      "Tomb Raider",
+      "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
+      null,
+      this.getPreviewUrl("icon-play2.png"),
+      0, 1, 0,
+      10, 0, couponOpen2.signedObject, couponOpen2.id,
+      cardId2);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245);
+
+    user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'tyler', 'Tyler McGrath',
+      this.getPreviewUrl("tyler.jpg"),
+      this.getPreviewUrl("ascension.jpg"),
+      null,
+      "Ascension",
+      "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
+      null,
+      this.getPreviewUrl("icon-play2.png"),
+      0, 0, 8,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21);
+
+    user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'roadw', 'Road Warrior',
+      this.getPreviewUrl("road-warrior.jpg"),
+      this.getPreviewUrl("dangerous_road.png"),
+      null,
+      "My Drive on the Most Dangerous Road in the World",
+      null,
+      null,
+      this.getPreviewUrl("icon-play2.png"),
+      0, 0, 2,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11);
+
+    user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'brightside', 'Bright Side',
+      this.getPreviewUrl("brightside.png"),
+      this.getPreviewUrl("amsterdam.jpg"),
+      null,
+      "The 100 best photographs ever taken without photoshop",
+      "According to BrightSide.me",
+      null,
+      this.getPreviewUrl("icon-photos.png"),
+      0, 0, 3,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3);
+
+    user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'aperrotta', 'Anthony Perrotta',
+      this.getPreviewUrl("anthony.jpg"),
+      this.getPreviewUrl("rage_cover.jpg"),
+      null,
+      "Rage Against the Current",
+      "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
+      null,
+      this.getPreviewUrl("icon-book.png"),
+      0, 0, 6,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21);
+
+    user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'uhaque', 'Umair Haque',
+      this.getPreviewUrl("umair.jpg"),
+      this.getPreviewUrl("uber_explosion.jpg"),
+      null,
+      "Five Things to Learn From Uber's Implosion",
+      "How to Fail at the Future",
+      null,
+      this.getPreviewUrl("icon-news.png"),
+      0, 0, 2,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18);
+
+    user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"));
+    const cardId3 = uuid.v4();
+    const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
+      this.getPreviewUrl("blue_nile.jpg"),
+      this.getPreviewUrl("blue_nile_diamonds.jpg"),
+      "https://www.bluenile.com",
+      "New. Brilliant. Astor by Blue Nile",
+      "Find the most beautiful diamonds in the world and build your own ring.",
+      null,
+      this.getPreviewUrl("icon-link.png"),
+      0.03, 0, 0,
+      8, 0, couponPromo3.signedObject, couponPromo3.id,
+      cardId3);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3);
+
+    user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"));
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'jigsaw', 'Jigsaw',
+      this.getPreviewUrl("jigsaw.jpg"),
+      this.getPreviewUrl("unfiltered_news.jpg"),
+      null,
+      "The Latest Unfiltered News",
+      "Explore news from around the world that are outside the mainstream media",
+      null,
+      this.getPreviewUrl("icon-touch.png"),
+      0, 0, 4,
+      0, 0, null, null);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7);
+
+    user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"));
+    const cardId4 = uuid.v4();
+    const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
+    card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
+      this.getPreviewUrl("podcast_handle.jpg"),
+      this.getPreviewUrl("football_podcast.jpg"),
+      null,
+      "Pyro Podcast Show 285",
+      "Foreshadowing Week 4",
+      null,
+      this.getPreviewUrl("icon-audio.png"),
+      0.01, 0, 5,
+      3, 10, couponPromo4.signedObject, couponPromo4.id,
+      cardId4);
+    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 2, 201.24, 99, 4);
+  }
+
+  private async createPromotionCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number): Promise<CouponInfo> {
+    return this.createCoupon(user, cardId, amount, budgetAmount, budgetAmount, "card-promotion");
+  }
+
+  private async createOpenCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
+    return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-open-payment");
+  }
+
+  private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
+    const details: BankCouponDetails = {
+      address: user.user.keys[0].address,
+      timestamp: Date.now(),
+      reason: reason,
+      amount: amount,
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent
+      }
+    };
+    const detailsString = JSON.stringify(details);
+    const signed: SignedObject = {
+      objectString: detailsString,
+      signature: KeyUtils.signString(detailsString, user.keyInfo),
+    };
+    const couponRecord = await bank.registerCoupon(user.user, cardId, signed);
+    return {
+      signedObject: signed,
+      id: couponRecord.id
+    };
+  }
+
+  private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string): Promise<UserWithKeyUtils> {
+    const privateKey = KeyUtils.generatePrivateKey();
+    const keyInfo = KeyUtils.getKeyInfo(privateKey);
+    const inviteCode = await userManager.generateInviteCode();
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, id);
+    const grantDetails: BankTransactionDetails = {
+      address: null,
+      timestamp: null,
+      type: "transfer",
+      reason: "grant",
+      relatedCardId: null,
+      relatedCouponId: null,
+      amount: 10,
+      toRecipients: []
+    };
+    grantDetails.toRecipients.push({
+      address: user.keys[0].address,
+      portion: "remainder"
+    });
+    await networkEntity.performBankTransaction(grantDetails, true);
+    user.balance += 10;
+    user.targetBalance += 10;
+    return {
+      user: user,
+      keyInfo: keyInfo
+    };
+  }
 
   private getPreviewUrl(relative: string): string {
-    return this.urlManager.getPublicUrl("preview/" + relative, true);
+    return this.urlManager.getStaticUrl("preview/" + relative, true);
   }
 }
 
@@ -786,4 +569,14 @@ export { feedManager };
 export interface CardWithUserScore {
   card: CardDescriptor;
   fullScore: number;
+}
+
+export interface UserWithKeyUtils {
+  user: UserRecord;
+  keyInfo: KeyInfo;
+}
+
+interface CouponInfo {
+  signedObject: SignedObject;
+  id: string;
 }
