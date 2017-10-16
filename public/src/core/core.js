@@ -1,6 +1,7 @@
 const _CKeys = {
   KEYS: "channels-identity",
-  PROFILE: "channels-profile"
+  PROFILE: "channels-profile",
+  AGREED_TERMS: "channels-terms-agreed"
 };
 
 class CoreService extends Polymer.Element {
@@ -23,6 +24,18 @@ class CoreService extends Polymer.Element {
     if (this._keys && this._keys.privateKey) {
       this._profile = this.storage.getLocal(_CKeys.PROFILE, true);
     }
+  }
+
+  agreeToTnCs() {
+    this.storage.setLocal(_CKeys.AGREED_TERMS, true);
+  }
+
+  isAgreedToTnCs() {
+    return this.storage.getLocal(_CKeys.AGREED_TERMS) ? true : false;
+  }
+
+  hasKeys() {
+    return this._keys && this._keys.privateKey ? true : false;
   }
 
   _loadKeyLib() {
@@ -193,7 +206,7 @@ class CoreService extends Polymer.Element {
 
   ensureComponent(packageName) {
     return this.ensureKey().then(() => {
-      let details = RestUtils.EnsureChannelComponentDetails(this._keys.address, packageName);
+      let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
       let request = this._createRequest(details);
       const url = this.restBase + "/ensure-component";
       return this.rest.post(url, request);

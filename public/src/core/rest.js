@@ -165,6 +165,14 @@ class RestUtils {
     };
   }
 
+  static ensureComponentDetails(address, packageName) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      package: packageName                 // e.g., "ChannelsNetwork/card-hello-world"
+    };
+  }
+
   static getCardDetails(address, cardId) {
     return {
       address: address,
