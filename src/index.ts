@@ -135,15 +135,15 @@ class ChannelsNetworkWebClient {
     // });
     this.app.use(cookieParser());
 
-    for (const restServer of this.restServers) {
-      await restServer.initializeRestServices(this.urlManager, this.app);
-    }
-
-    this.app.use('/app/terms.html', express.static(path.join(__dirname, "../public/terms.html"), { maxAge: 1000 * 60 }));
+    this.app.use('/d/terms.html', express.static(path.join(__dirname, "../public/terms.html"), { maxAge: 1000 * 60 }));
     this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, "../public/whitepaper.pdf"), { maxAge: 1000 * 60 * 15 }));
     this.app.use('/manifest.json', express.static(path.join(__dirname, "../public/manifest.json"), { maxAge: 0 }));
     this.app.use('/OneSignalSDKWorker.js', express.static(path.join(__dirname, "../public/OneSignalSDKWorker.js"), { maxAge: 1000 * 60 * 60 * 24 }));
     this.app.use('/OneSignalSDKUpdaterWorker.js', express.static(path.join(__dirname, "../public/OneSignalSDKUpdaterWorker.js"), { maxAge: 1000 * 60 * 60 * 24 }));
+
+    for (const restServer of this.restServers) {
+      await restServer.initializeRestServices(this.urlManager, this.app);
+    }
 
     this.app.use('/v' + VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 }));

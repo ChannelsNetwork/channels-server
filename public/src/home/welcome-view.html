@@ -79,7 +79,7 @@
         <div id="catchaPanel" style="display:none;">
           <paper-checkbox id="agreed" class="styled" on-checked-changed="onAgreed">
             I agree to your
-            <a href="/app/terms.html" on-click="onTsnCsClick" target="_blank">terms &amp; conditions</a>
+            <a href="/d/terms.html" on-click="onTsnCsClick" target="_blank">terms &amp; conditions</a>
             <div class="subtitle">
               I'm not a robot
             </div>
@@ -110,7 +110,7 @@
             this.$.progressPanel.style.display = "none";
             this.$.catchaPanel.style.display = "";
           }
-        }, 50);
+        }, 100);
       }
 
       onTsnCsClick(event) {
