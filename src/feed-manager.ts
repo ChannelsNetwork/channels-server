@@ -312,6 +312,7 @@ export class FeedManager implements Initializable, RestServer {
       "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
       null,
       this.getPreviewUrl("icon-news.png"),
+      null, 0,
       0, 0, 5,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31);
@@ -325,6 +326,7 @@ export class FeedManager implements Initializable, RestServer {
       "The online classic 80's arcade game",
       null,
       this.getPreviewUrl("icon-game.png"),
+      null, 0,
       0, 0, 1,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3);
@@ -340,6 +342,7 @@ export class FeedManager implements Initializable, RestServer {
       "Learn how to make this delicious treat",
       null,
       this.getPreviewUrl("icon-play2.png"),
+      null, 0,
       0.01, 0, 3,
       5, 15, couponPromo1.signedObject, couponPromo1.id,
       cardId1);
@@ -354,6 +357,7 @@ export class FeedManager implements Initializable, RestServer {
       "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
       null,
       this.getPreviewUrl("icon-news.png"),
+      null, 0,
       0, 0, 2,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5);
@@ -367,6 +371,7 @@ export class FeedManager implements Initializable, RestServer {
       "Solve this mini-crossword in one minute",
       null,
       this.getPreviewUrl("icon-crossword.png"),
+      null, 0,
       0, 0, 2,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2);
@@ -382,6 +387,7 @@ export class FeedManager implements Initializable, RestServer {
       "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
       null,
       this.getPreviewUrl("icon-play2.png"),
+      null, 0,
       0, 1, 0,
       10, 0, couponOpen2.signedObject, couponOpen2.id,
       cardId2);
@@ -396,6 +402,7 @@ export class FeedManager implements Initializable, RestServer {
       "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
       null,
       this.getPreviewUrl("icon-play2.png"),
+      null, 0,
       0, 0, 8,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21);
@@ -409,6 +416,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       null,
       this.getPreviewUrl("icon-play2.png"),
+      null, 0,
       0, 0, 2,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11);
@@ -422,6 +430,7 @@ export class FeedManager implements Initializable, RestServer {
       "According to BrightSide.me",
       null,
       this.getPreviewUrl("icon-photos.png"),
+      null, 0,
       0, 0, 3,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3);
@@ -435,6 +444,7 @@ export class FeedManager implements Initializable, RestServer {
       "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
       null,
       this.getPreviewUrl("icon-book.png"),
+      null, 0,
       0, 0, 6,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21);
@@ -448,6 +458,7 @@ export class FeedManager implements Initializable, RestServer {
       "How to Fail at the Future",
       null,
       this.getPreviewUrl("icon-news.png"),
+      null, 0,
       0, 0, 2,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18);
@@ -463,6 +474,7 @@ export class FeedManager implements Initializable, RestServer {
       "Find the most beautiful diamonds in the world and build your own ring.",
       null,
       this.getPreviewUrl("icon-link.png"),
+      null, 0,
       0.03, 0, 0,
       8, 0, couponPromo3.signedObject, couponPromo3.id,
       cardId3);
@@ -477,6 +489,7 @@ export class FeedManager implements Initializable, RestServer {
       "Explore news from around the world that are outside the mainstream media",
       null,
       this.getPreviewUrl("icon-touch.png"),
+      null, 0,
       0, 0, 4,
       0, 0, null, null);
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7);
@@ -492,6 +505,7 @@ export class FeedManager implements Initializable, RestServer {
       "Foreshadowing Week 4",
       null,
       this.getPreviewUrl("icon-audio.png"),
+      null, 0,
       0.01, 0, 5,
       3, 10, couponPromo4.signedObject, couponPromo4.id,
       cardId4);

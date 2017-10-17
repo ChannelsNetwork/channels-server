@@ -33,6 +33,11 @@ export interface UserStatusResponse extends RestResponse {
   interestRatePerMillisecond: number;
   cardBasePrice: number;
   subsidyRate: number;
+  operatorTaxFraction: number;
+  operatorAddress: string;
+  networkDeveloperRoyaltyFraction: number;
+  networkDeveloperAddress: string;
+  referralFraction: number;
 }
 
 export interface UserStatus {
@@ -135,6 +140,12 @@ export interface CardDescriptor {
     isFollowing: boolean;
     isBlocked: boolean;
   };
+  referredBy?: {
+    address: string;
+    handle: string;
+    name: string;
+    imageUrl: string;
+  };
   summary: {
     imageUrl: string;
     linkUrl: string;
@@ -144,6 +155,8 @@ export interface CardDescriptor {
   cardType: {
     package: string;
     iconUrl: string;
+    royaltyFraction: number;
+    royaltyAddress: string;
   };
   pricing: {
     promotionFee: number;
@@ -231,6 +244,8 @@ export interface ChannelComponentDescriptor {
   composerTag: string;
   viewerTag: string;
   iconUrl: string;   // relative to channels-component.json file
+  developerFraction: number;
+  developerAddress: string;
 }
 
 export interface GetCardDetails extends Signable {
@@ -247,7 +262,6 @@ export interface PostCardDetails extends Signable {
   title?: string;
   text: string;
   cardType?: string;
-  cardTypeIconUrl?: string;
   promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
   openFeeUnits?: number; // for content, 1..10

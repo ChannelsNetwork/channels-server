@@ -10,24 +10,49 @@ import { BankTransactionResult } from "./interfaces/socket-messages";
 import { SignedObject } from "./interfaces/signed-object";
 
 export class NetworkEntity implements Initializable {
-  private keyInfo: KeyInfo;
+  private networkEntityKeyInfo: KeyInfo;
+  private networkDeveloperKeyInfo: KeyInfo;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     let privateKey: Uint8Array;
-    const privateKeyHex = configuration.get("privateKeyHex") as string;
+    let privateKeyHex = configuration.get("networkEntity.privateKeyHex") as string;
     if (privateKeyHex) {
       privateKey = new Buffer(privateKeyHex, 'hex');
     } else {
-      console.error("WARNING: No privateKey found in configuration, so generating one for testing purposes");
+      console.error("WARNING: No networkEntity.privateKey found in configuration, so generating one for testing purposes");
       privateKey = KeyUtils.generatePrivateKey();
     }
-    this.keyInfo = KeyUtils.getKeyInfo(privateKey);
+    this.networkEntityKeyInfo = KeyUtils.getKeyInfo(privateKey);
+    privateKeyHex = configuration.get("networkDeveloper.privateKeyHex") as string;
+    if (privateKeyHex) {
+      privateKey = new Buffer(privateKeyHex, 'hex');
+    } else {
+      console.error("WARNING: No networkDeveloper.privateKey found in configuration, so generating one for testing purposes");
+      privateKey = KeyUtils.generatePrivateKey();
+    }
+    this.networkDeveloperKeyInfo = KeyUtils.getKeyInfo(privateKey);
+  }
+
+  private getKeyInfo(entityName: string): KeyInfo {
+    let privateKey: Uint8Array;
+    const privateKeyHex = configuration.get(entityName + ".privateKeyHex") as string;
+    if (privateKeyHex) {
+      privateKey = new Buffer(privateKeyHex, 'hex');
+    } else {
+      console.error("WARNING: No " + entityName + " privateKey found in configuration, so generating one for testing purposes");
+      privateKey = KeyUtils.generatePrivateKey();
+    }
+    return KeyUtils.getKeyInfo(privateKey);
   }
 
   async initialize2(): Promise<void> {
-    const existing = await db.findNetworkUser();
-    if (!existing) {
-      await db.insertUser("network", this.keyInfo.address, this.keyInfo.publicKeyPem, null, "_network_", 0, 0, "network");
+    const existingNetwork = await db.findNetworkUser();
+    if (!existingNetwork) {
+      await db.insertUser("network", this.networkEntityKeyInfo.address, this.networkEntityKeyInfo.publicKeyPem, null, "_network_", 0, 0, "network");
+    }
+    const existingNetworkDeveloper = await db.findNetworkDeveloperUser();
+    if (!existingNetworkDeveloper) {
+      await db.insertUser("networkDeveloper", this.networkDeveloperKeyInfo.address, this.networkDeveloperKeyInfo.publicKeyPem, null, "_networkDeveloper_", 0, 0, "network developer");
     }
     // If there are no bank transactions in mongo yet, we need to retroactively add these
     // for the original grant and interest
@@ -69,17 +94,37 @@ export class NetworkEntity implements Initializable {
     }
   }
 
+  getOperatorTaxFraction(): number {
+    return 0.03;
+  }
+
+  getOperatorAddress(): string {
+    return this.networkEntityKeyInfo.address;
+  }
+
+  getNetworkDeveloperRoyaltyFraction(): number {
+    return 0.05;
+  }
+
+  getNetworkDevelopeAddress(): string {
+    return this.networkDeveloperKeyInfo.address;
+  }
+
+  getReferralFraction(): number {
+    return 0.02;
+  }
+
   async performBankTransaction(details: BankTransactionDetails, increaseTargetBalance: boolean): Promise<BankTransactionResult> {
-    details.address = this.keyInfo.address;
+    details.address = this.networkEntityKeyInfo.address;
     details.timestamp = Date.now();
     const detailsString = JSON.stringify(details);
-    const signature = KeyUtils.signString(detailsString, this.keyInfo);
+    const signature = KeyUtils.signString(detailsString, this.networkEntityKeyInfo);
     const networkUser = await db.findNetworkUser();
     const signedObject: SignedObject = {
       objectString: detailsString,
       signature: signature
     };
-    return await bank.performTransfer(networkUser, this.keyInfo.address, signedObject, true, increaseTargetBalance);
+    return await bank.performTransfer(networkUser, this.networkEntityKeyInfo.address, signedObject, true, increaseTargetBalance);
   }
 }
 

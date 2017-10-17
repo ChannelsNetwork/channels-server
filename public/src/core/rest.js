@@ -181,7 +181,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -190,7 +190,6 @@ class RestUtils {
       title: title,
       text: text,
       cardType: packageName,            // same as sent to ensure-component
-      cardTypeIconUrl: packageIconUrl,  // from card definition
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10

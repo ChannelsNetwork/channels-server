@@ -213,7 +213,7 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  postCard(imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
+  postCard(imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     return this.ensureKey().then(() => {
       let coupon;
       if (promotionFee + openPayment > 0) {
@@ -224,7 +224,7 @@ class CoreService extends Polymer.Element {
           signature: this._sign(couponDetailsString)
         }
       }
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
       let request = this._createRequest(details);
       const url = this.restBase + "/post-card";
       return this.rest.post(url, request);
@@ -251,21 +251,21 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, networkAddress, royaltyAddress, referrerAddress) {
+  cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, referrerAddress) {
     return this.ensureKey().then(() => {
       const recipients = [];
       recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder"));
-      if (cardDeveloperAddress) {
+      if (cardDeveloperAddress && cardDeveloperFraction && cardDeveloperFraction > 0) {
         recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", cardDeveloperFraction));
       }
-      if (networkAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(networkAddress, "fraction", 0.03));
+      if (this._statusResponse.operatorAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(this._statusResponse.operatorAddress, "fraction", this._statusResponse.operatorTaxFraction));
       }
-      if (royaltyAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(royaltyAddress, "fraction", 0.05));
+      if (this._statusResponse.networkDeveloperAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(this._statusResponse.networkDeveloperAddress, "fraction", this._statusResponse.networkDeveloperRoyaltyFraction));
       }
       if (referrerAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", 0.02));
+        recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", this._statusResponse.referralFraction));
       }
       const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
       const transactionString = JSON.stringify(transaction);
@@ -326,6 +326,10 @@ class CoreService extends Polymer.Element {
 
   get profile() {
     return this._profile;
+  }
+
+  get address() {
+    return this._keys ? this._keys.address : null;
   }
 
   get hasKey() {

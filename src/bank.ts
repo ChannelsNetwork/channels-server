@@ -155,19 +155,34 @@ export class Bank implements RestServer {
       throw new ErrorWithStatusCode(400, "Recipient amounts do not add up to total");
     }
     if (user.type === 'normal') {
-      console.log("Bank.performTransaction: Debiting user account", user.id, details.amount);
+      console.log("Bank.performTransfer: Debiting user account", details.reason, details.amount, user.id);
     }
     const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
-    console.log("Bank.performTransfer", user.id, user.balance, details.amount);
+    // console.log("Bank.performTransfer", details.reason, user.id, user.balance, details.amount);
     await db.incrementUserBalance(user, -details.amount, 0, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, user.id, participantIds, details, signedTransaction);
     await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
+    let deductions = 0;
+    for (const recipient of details.toRecipients) {
+      switch (recipient.portion) {
+        case "remainder":
+          break;
+        case "fraction":
+          deductions += details.amount * recipient.amount;
+          break;
+        case "absolute":
+          deductions += recipient.amount;
+          break;
+        default:
+          throw new Error("Unhandled recipient portion " + recipient.portion);
+      }
+    }
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
       let creditAmount = 0;
       switch (recipient.portion) {
         case "remainder":
-          creditAmount = details.amount / remainders;
+          creditAmount = (details.amount - deductions) / remainders;
           break;
         case "fraction":
           creditAmount = details.amount * recipient.amount;
@@ -178,7 +193,7 @@ export class Bank implements RestServer {
         default:
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
-      console.log("Bank.performTransaction: Crediting user account as recipient", recipientUser.id, creditAmount);
+      console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
       await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
       await db.updateUserCardIncrementEarned(recipientUser.id, details.relatedCardId, creditAmount, record.id);
       if (recipientUser.id === user.id) {
@@ -230,13 +245,14 @@ export class Bank implements RestServer {
     const originalBalance = to.balance;
     transactionDetails.toRecipients.push(recipient);
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
+    console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, 0, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, from.id, [to.id], transactionDetails, null);
     if (from.id !== to.id) {
       await db.updateUserCardIncrementPaid(from.id, card.id, coupon.amount, record.id);
       await db.updateUserCardIncrementEarned(to.id, card.id, coupon.amount, record.id);
     }
-    console.log("Bank.performRedemption: Crediting user account", to.id, coupon.reason, coupon.amount);
+    console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, 0, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
     const result: BankTransactionResult = {

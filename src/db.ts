@@ -323,6 +323,10 @@ export class Database {
     return await this.users.findOne<UserRecord>({ type: "network" });
   }
 
+  async findNetworkDeveloperUser(): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ type: "networkDeveloper" });
+  }
+
   async findUserByHandle(handle: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
   }
@@ -429,7 +433,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -449,7 +453,9 @@ export class Database {
       },
       cardType: {
         package: cardType,
-        iconUrl: cardTypeIconUrl
+        iconUrl: cardTypeIconUrl,
+        royaltyAddress: cardTypeRoyaltyAddress,
+        royaltyFraction: cardTypeRoyaltyFraction
       },
       pricing: {
         promotionFee: promotionFee,

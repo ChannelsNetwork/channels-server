@@ -37,5 +37,11 @@
       "enabled": true
     }
   },
-  "components": {}
+  "components": {},
+  "networkEntity": {
+    "privateKeyHex": "5db2646a157695777cbc5f097f271aff1121276f132c04524e9524b469ed2795"
+  },
+  "networkDeveloper": {
+    "privateKeyHex": "0e7d40baca3dd45c008d4870a89b1cf637f675ffb0081b04c9e4d27f202cfbf1"
+  }
 }

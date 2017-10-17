@@ -383,7 +383,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       },
       interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
       cardBasePrice: await priceRegulator.getBaseCardFee(),
-      subsidyRate: await priceRegulator.getUserSubsidyRate()
+      subsidyRate: await priceRegulator.getUserSubsidyRate(),
+      operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
+      operatorAddress: networkEntity.getOperatorAddress(),
+      networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
+      networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
+      referralFraction: networkEntity.getReferralFraction()
     };
     return result;
   }

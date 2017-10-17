@@ -20,6 +20,9 @@ import { bank } from "./bank";
 import { userManager } from "./user-manager";
 import { SignedObject } from "./interfaces/signed-object";
 import * as uuid from "uuid";
+import { networkEntity } from "./network-entity";
+import { channelsComponentManager } from "./channels-component-manager";
+import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -223,7 +226,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         status: userStatus.status,
         interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
         cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate
+        subsidyRate: userStatus.subsidyRate,
+        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
+        operatorAddress: networkEntity.getOperatorAddress(),
+        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
+        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
+        referralFraction: networkEntity.getReferralFraction()
       };
       response.json(reply);
     } catch (err) {
@@ -308,7 +316,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
         cardBasePrice: userStatus.cardBasePrice,
         subsidyRate: userStatus.subsidyRate,
-        totalCardRevenue: card.revenue.value + transaction.amount
+        totalCardRevenue: card.revenue.value + transaction.amount,
+        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
+        operatorAddress: networkEntity.getOperatorAddress(),
+        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
+        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
+        referralFraction: networkEntity.getReferralFraction()
       };
       response.json(reply);
     } catch (err) {
@@ -379,7 +392,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
         cardBasePrice: userStatus.cardBasePrice,
         subsidyRate: userStatus.subsidyRate,
-        totalCardRevenue: card.revenue.value
+        totalCardRevenue: card.revenue.value,
+        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
+        operatorAddress: networkEntity.getOperatorAddress(),
+        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
+        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
+        referralFraction: networkEntity.getReferralFraction()
       };
       response.json(reply);
     } catch (err) {
@@ -485,15 +503,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   async postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord> {
     if (!details.text) {
-      throw new Error("Invalid card: missing text");
+      throw new ErrorWithStatusCode(400, "Invalid card: missing text");
     }
+    const componentResponse = await channelsComponentManager.ensureComponent(details.cardType);
     let couponId: string;
     const cardId = uuid.v4();
     if (details.coupon) {
       const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
       couponId = couponRecord.id;
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, details.cardTypeIconUrl, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
     await this.announceCard(card, user);
     return card;
   }
@@ -734,7 +753,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         cardType: {
           package: record.cardType.package,
-          iconUrl: null
+          iconUrl: record.cardType.iconUrl,
+          royaltyAddress: record.cardType.royaltyAddress,
+          royaltyFraction: record.cardType.royaltyFraction
         },
         pricing: {
           promotionFee: record.pricing.promotionFee,
