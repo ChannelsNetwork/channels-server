@@ -97,9 +97,6 @@
           this._timer = setInterval(() => {
             this._onTimer();
           }, 100);
-          return $core.getFeed('new', 25).then((cards) => {
-            this.items = cards;
-          });
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -115,7 +112,7 @@
         }
       }
 
-      onActivate() {
+      onActivate(route) {
         this._barShowing = true;
         this._prevScrollValue = 0;
         this._preventScroll = false;
@@ -131,6 +128,9 @@
         }, 350);
         window.addEventListener("resize", this._resizeListener);
         this.onResize();
+        return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
+          this.items = cards;
+        });
       }
 
       onDeactivate() {

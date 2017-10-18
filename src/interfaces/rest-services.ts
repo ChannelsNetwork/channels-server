@@ -111,6 +111,7 @@ export interface CardState {
 
 export interface GetFeedDetails extends Signable {
   feeds: RequestedFeedDescriptor[];
+  startWithCardId?: string;
 }
 
 export interface RequestedFeedDescriptor {

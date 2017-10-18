@@ -148,7 +148,7 @@ class RestUtils {
     };
   }
 
-  static getFeedDetails(address, maxCount, type) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedDetails(address, maxCount, type, startWithCardId) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
       feeds.push({ type: type, maxCount: maxCount });
@@ -161,7 +161,8 @@ class RestUtils {
     return {
       address: address,
       timestamp: RestUtils.now(),
-      feeds: feeds
+      feeds: feeds,
+      startWithCardId: startWithCardId
     };
   }
 

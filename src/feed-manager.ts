@@ -86,7 +86,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       const promises: Array<Promise<CardFeedSet>> = [];
       for (const requestedFeed of requestBody.detailsObject.feeds) {
-        promises.push(this.getUserFeed(user, requestedFeed));
+        promises.push(this.getUserFeed(user, requestedFeed, requestBody.detailsObject.startWithCardId));
       }
       reply.feeds = await Promise.all(promises);
       response.json(reply);
@@ -96,23 +96,23 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  async getUserFeed(user: UserRecord, feed: RequestedFeedDescriptor): Promise<CardFeedSet> {
+  async getUserFeed(user: UserRecord, feed: RequestedFeedDescriptor, startWithCardId?: string): Promise<CardFeedSet> {
     const result: CardFeedSet = {
       type: feed.type,
       cards: []
     };
     switch (feed.type) {
       case "recommended":
-        result.cards = await this.getRecommendedFeed(user, feed.maxCount);
+        result.cards = await this.getRecommendedFeed(user, feed.maxCount, startWithCardId);
         break;
       case 'new':
-        result.cards = await this.getRecentlyAddedFeed(user, feed.maxCount);
+        result.cards = await this.getRecentlyAddedFeed(user, feed.maxCount, startWithCardId);
         break;
       case 'mine':
-        result.cards = await this.getRecentlyPostedFeed(user, feed.maxCount);
+        result.cards = await this.getRecentlyPostedFeed(user, feed.maxCount, startWithCardId);
         break;
       case 'opened':
-        result.cards = await this.getRecentlyOpenedFeed(user, feed.maxCount);
+        result.cards = await this.getRecentlyOpenedFeed(user, feed.maxCount, startWithCardId);
         break;
       default:
         throw new Error("Unhandled feed type " + feed.type);
@@ -120,13 +120,13 @@ export class FeedManager implements Initializable, RestServer {
     return result;
   }
 
-  private async getRecommendedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+  private async getRecommendedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     // The recommended feed consists of cards we think the user will be most interested in.  This can get
     // more sophisticated over time.  For now, it works by using a cached set of the cards that have
     // the highest overall scores (determined independent of any one user).  For each of these cards, we
     // adjust the scores based on factors that are specific to this user.  And we add a random variable
     // resulting in some churn across the set.  Then we take the top N based on how many were requested.
-    const highScores = await this.getCardsWithHighestScores();
+    const highScores = await this.getCardsWithHighestScores(user, startWithCardId);
     const promises: Array<Promise<CardWithUserScore>> = [];
     for (const highScore of highScores) {
       if (!UserHelper.isUsersAddress(user, highScore.by.address)) {
@@ -151,14 +151,14 @@ export class FeedManager implements Initializable, RestServer {
     return result;
   }
 
-  private async getCardsWithHighestScores(): Promise<CardDescriptor[]> {
+  private async getCardsWithHighestScores(user: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
     const now = Date.now();
     if (now - this.lastHighScoreCardsAt < HIGH_SCORE_CARD_CACHE_LIFE) {
       return this.highScoreCards;
     }
     this.lastHighScoreCardsAt = now;
     const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT);
-    this.highScoreCards = await this.populateCards(cards);
+    this.highScoreCards = await this.populateCards(cards, user, startWithCardId);
     return this.highScoreCards;
   }
 
@@ -174,28 +174,44 @@ export class FeedManager implements Initializable, RestServer {
     return candidate;
   }
 
-  private async getRecentlyAddedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+  private async getRecentlyAddedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const cards = await db.findCardsByTime(Date.now(), 0, limit);
-    return await this.populateCards(cards, user);
+    return await this.populateCards(cards, user, startWithCardId);
   }
 
-  private async getRecentlyPostedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+  private async getRecentlyPostedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const cards = await db.findCardsByTime(Date.now(), 0, limit, user.id);
-    return await this.populateCards(cards, user);
+    return await this.populateCards(cards, user, startWithCardId);
   }
 
-  private async getRecentlyOpenedFeed(user: UserRecord, limit: number): Promise<CardDescriptor[]> {
+  private async getRecentlyOpenedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const infos = await db.findRecentCardOpens(user.id, limit);
     const cards: CardRecord[] = [];
     for (const info of infos) {
       cards.push(await db.findCardById(info.cardId));
     }
-    return await this.populateCards(cards, user);
+    return await this.populateCards(cards, user, startWithCardId);
   }
 
-  private async populateCards(cards: CardRecord[], user?: UserRecord): Promise<CardDescriptor[]> {
+  private async populateCards(cards: CardRecord[], user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
     const promises: Array<Promise<CardDescriptor>> = [];
+    const orderedCards: CardRecord[] = [];
+    let found = false;
     for (const card of cards) {
+      if (startWithCardId && card.id === startWithCardId) {
+        orderedCards.unshift(card);
+        found = true;
+      } else {
+        orderedCards.push(card);
+      }
+    }
+    if (startWithCardId && !found) {
+      const card = await db.findCardById(startWithCardId);
+      if (card) {
+        orderedCards.unshift(card);
+      }
+    }
+    for (const card of orderedCards) {
       promises.push(cardManager.populateCardState(card.id, false, user));
     }
     const result = await Promise.all(promises);
