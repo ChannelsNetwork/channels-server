@@ -148,7 +148,7 @@ class RestUtils {
     };
   }
 
-  static getFeedDetails(address, maxCount, type) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedDetails(address, maxCount, type, startWithCardId) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
       feeds.push({ type: type, maxCount: maxCount });
@@ -161,7 +161,8 @@ class RestUtils {
     return {
       address: address,
       timestamp: RestUtils.now(),
-      feeds: feeds
+      feeds: feeds,
+      startWithCardId: startWithCardId
     };
   }
 
@@ -181,7 +182,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, packageIconUrl, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -190,7 +191,6 @@ class RestUtils {
       title: title,
       text: text,
       cardType: packageName,            // same as sent to ensure-component
-      cardTypeIconUrl: packageIconUrl,  // from card definition
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10
@@ -271,6 +271,14 @@ class RestUtils {
       address: address,
       portion: portion,    // "remainder" | "fraction" | "absolute"
       amount: amount       // null | 0..1 | amount
+    };
+  }
+
+  static bankStatementDetails(address, maxCount) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      maxCount: maxCount
     };
   }
 

@@ -38,6 +38,11 @@ export class ChannelsComponentManager implements RestServer {
   }
 
   private async install(pkg: string): Promise<BowerInstallResult> {
+    // Following code is to help those who might copy a hyperlink to a GitHub project, when bower
+    // requires that they point to ".git" for a GitHub project.
+    if (pkg.startsWith('https://github.com/') && pkg.lastIndexOf('/') > pkg.lastIndexOf('.')) {
+      pkg = pkg + '.git';
+    }
     await this.lockBower("Installing " + pkg);
     try {
       await this.ensureInit();
@@ -273,6 +278,15 @@ export class ChannelsComponentManager implements RestServer {
     });
   }
 
+  async ensureComponent(pkg: string): Promise<ChannelComponentResponse> {
+    console.log("ComponentManager.ensure-component", pkg);
+    if (!pkg) {
+      throw new ErrorWithStatusCode(400, "This is not a valid package reference for the card type");
+    }
+    const pkgInfo = await this.install(pkg);
+    return await this.processComponent(pkgInfo);
+  }
+
   private async handleComponent(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<EnsureChannelComponentDetails>;
@@ -284,36 +298,19 @@ export class ChannelsComponentManager implements RestServer {
         response.status(400).send("Invalid request:  missing package");
         return;
       }
-      let pkg = requestBody.detailsObject.package;
+      const pkg = requestBody.detailsObject.package;
       console.log("Bower.ensure-component", requestBody.detailsObject);
-      // Following code is to help those who might copy a hyperlink to a GitHub project, when bower
-      // requires that they point to ".git" for a GitHub project.
-      if (pkg.startsWith('https://github.com/') && pkg.lastIndexOf('/') > pkg.lastIndexOf('.')) {
-        pkg = pkg + '.git';
-      }
-      return new Promise<void>((resolve, reject) => {
-        void this.install(pkg).then((pkgInfo) => {
-          void this.processComponent(pkgInfo, request, response).then(() => {
-            console.log("Component loaded", pkgInfo);
-            resolve();
-          }).catch((err: any) => {
-            console.error("Error processing component", pkg, err);
-            response.status(err.code ? err.code : 400).send(err.message ? err.message : "Unable to load component: " + err.toString());
-            resolve();
-          });
-        }).catch((err) => {
-          console.error(err.message || err);
-          response.status(err.code ? err.code : 503).send(err.message ? err.message : err);
-          resolve();
-        });
-      });
+      const pkgInfo = await this.install(pkg);
+      const componentResponse = await this.processComponent(pkgInfo);
+      console.log("Component loaded", pkgInfo);
+      response.json(componentResponse);
     } catch (err) {
       console.error("Bower.handleComponent: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
-  private async processComponent(pkgInfo: BowerInstallResult, request: Request, response: Response): Promise<void> {
+  private async processComponent(pkgInfo: BowerInstallResult): Promise<ChannelComponentResponse> {
     if (!pkgInfo || !pkgInfo.pkgMeta) {
       throw new ErrorWithStatusCode(400, "This is not a valid package or is incomplete");
     }
@@ -321,26 +318,25 @@ export class ChannelsComponentManager implements RestServer {
       throw new ErrorWithStatusCode(400, "This package is invalid:  'main' is missing from bower.json.");
     }
     const componentPath = this.shadowComponentsDirectory + '/bower_components/' + pkgInfo.endpoint.name + '/' + 'channels-component.json';
-    try {
-      if (!fs.existsSync(componentPath)) {
-        throw new ErrorWithStatusCode(400, "This package does not appear to contain a Channels card definition.  Missing channels-component.json.");
-      }
-      const content = fs.readFileSync(componentPath, 'utf-8');
-      const descriptor = JSON.parse(content) as ChannelComponentDescriptor;
-      if (!descriptor || !descriptor.composerTag || !descriptor.viewerTag) {
-        throw new ErrorWithStatusCode(400, "The channel-component.json file in this package is invalid.");
-      }
-      const componentResponse: ChannelComponentResponse = {
-        source: pkgInfo.endpoint.source,
-        importHref: this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/' + pkgInfo.pkgMeta.main,
-        package: pkgInfo,
-        channelComponent: descriptor,
-        iconUrl: descriptor.iconUrl ? url.resolve(this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/', descriptor.iconUrl) : null
-      };
-      response.json(componentResponse);
-    } catch (err) {
-      throw err;
+    if (!fs.existsSync(componentPath)) {
+      throw new ErrorWithStatusCode(400, "This package does not appear to contain a Channels card definition.  Missing channels-component.json.");
     }
+    const content = fs.readFileSync(componentPath, 'utf-8');
+    const descriptor = JSON.parse(content) as ChannelComponentDescriptor;
+    if (!descriptor || !descriptor.composerTag || !descriptor.viewerTag) {
+      throw new ErrorWithStatusCode(400, "The channel-component.json file in this package is invalid.");
+    }
+    if (descriptor.developerFraction && Number(descriptor.developerFraction) < 0 || Number(descriptor.developerFraction) > 0.99) {
+      throw new ErrorWithStatusCode(400, "The channel-component.json file in this package has an invalid value for developerFraction.  It must be between 0 and 1.");
+    }
+    const componentResponse: ChannelComponentResponse = {
+      source: pkgInfo.endpoint.source,
+      importHref: this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/' + pkgInfo.pkgMeta.main,
+      package: pkgInfo,
+      channelComponent: descriptor,
+      iconUrl: descriptor.iconUrl ? url.resolve(this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/', descriptor.iconUrl) : null
+    };
+    return componentResponse;
   }
 
 }

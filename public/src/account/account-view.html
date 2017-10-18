@@ -105,10 +105,6 @@
           <div class="value">[[profile.handle]]</div>
         </div>
         <div class="row">
-          <label>Handle</label>
-          <div class="value">[[profile.handle]]</div>
-        </div>
-        <div class="row">
           <label>Name</label>
           <div class="value">[[profile.name]]</div>
         </div>
@@ -119,6 +115,10 @@
         <div class="row">
           <label>Email</label>
           <div class="value">[[profile.emailAddress]]</div>
+        </div>
+        <div class="row">
+          <label>Account Address</label>
+          <div class="value">[[accountAddress]]</div>
         </div>
         <div class="buttons">
           <button on-click="_onEdit">Edit profile</button>
@@ -132,7 +132,8 @@
       static get properties() {
         return {
           profile: Object,
-          imageUrl: String
+          imageUrl: String,
+          accountAddress: String
         };
       }
 
@@ -150,6 +151,7 @@
             location: "Unknown",
             emailAddress: "Not specified"
           };
+          this.set('accountAddress', $core.address);
           let p = $core.profile;
           if (p) {
             if (p.handle) {

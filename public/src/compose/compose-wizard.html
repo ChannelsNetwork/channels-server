@@ -50,7 +50,7 @@
             return;
           }
           if (!$core.profile || !$core.profile.handle) {
-            $router.goto("edit-profile");
+            $router.goto("edit-profile", { returnRoute: { success: "compose", cancel: "feed" } });
             return;
           }
           this.pages = [this.$.card, this.$.composer, this.$.pricing, this.$.promotion, this.$.finish];
@@ -66,7 +66,7 @@
       }
 
       _onPageCancel(event) {
-        $router.goto("preview ");
+        $router.goto("feed ");
       }
 
       _onPageBack(event) {
@@ -114,14 +114,13 @@
           this.pageContext.cardTitle,
           this.pageContext.cardText,
           this.pageContext.componentResponse.source,
-          this.pageContext.componentResponse.iconUrl,
           this.pageContext.promotion ? this.pageContext.promotion.amount : 0,
           this.pageContext.pricing.pay ? this.pageContext.promotion.amount : 0,
           this.pageContext.pricing.fee ? this.pageContext.pricing.fee.priceLevel : 0,
           this.pageContext.promotion ? this.pageContext.promotion.budgetCoins : 0,
           this.pageContext.promotion && this.pageContext.promotion.budgetPercent ? this.pageContext.promotion.budgetPercent : 0,
           this.pageContext.sharedState).then(() => {
-            $router.goto("preview");
+            $router.goto("feed");
           });
       }
     }

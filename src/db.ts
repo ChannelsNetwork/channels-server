@@ -323,6 +323,10 @@ export class Database {
     return await this.users.findOne<UserRecord>({ type: "network" });
   }
 
+  async findNetworkDeveloperUser(): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ type: "networkDeveloper" });
+  }
+
   async findUserByHandle(handle: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
   }
@@ -429,7 +433,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -449,7 +453,9 @@ export class Database {
       },
       cardType: {
         package: cardType,
-        iconUrl: cardTypeIconUrl
+        iconUrl: cardTypeIconUrl,
+        royaltyAddress: cardTypeRoyaltyAddress,
+        royaltyFraction: cardTypeRoyaltyFraction
       },
       pricing: {
         promotionFee: promotionFee,
@@ -992,14 +998,17 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signedObject: SignedObject): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
+      relatedCardTitle: relatedCardTitle,
       details: details,
-      signedObject: signedObject
+      signedObject: signedObject,
+      deductions: deductions,
+      remainderShares: remainderShares
     };
     await this.bankTransactions.insert(record);
     return record;
@@ -1009,8 +1018,14 @@ export class Database {
     return await db.bankTransactions.findOne<BankTransactionRecord>({ id: id });
   }
 
-  async findBankTransactionByParticipant(participantUserId: string, limit = 500): Promise<BankTransactionRecord[]> {
-    return await db.bankTransactions.find<BankTransactionRecord>({ participantUserIds: participantUserId }).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+  async findBankTransactionsByParticipant(participantUserId: string, omitInterest: boolean, limit = 500): Promise<BankTransactionRecord[]> {
+    const query: any = {
+      participantUserIds: participantUserId
+    };
+    if (omitInterest) {
+      query["details.reason"] = { $nin: ["interest", "subsidy"] };
+    }
+    return await db.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
   }
 
   async countBankTransactions(): Promise<number> {

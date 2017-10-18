@@ -52,7 +52,7 @@
       }
     </style>
     <div class="barspace"></div>
-    <div class="header">
+    <div class="header" style="display:none;">
       <div>
         <p>
           This is an example of what your feed will look like when we go live.
@@ -97,9 +97,6 @@
           this._timer = setInterval(() => {
             this._onTimer();
           }, 100);
-          return $core.getFeed('new', 25).then((cards) => {
-            this.items = cards;
-          });
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -115,7 +112,7 @@
         }
       }
 
-      onActivate() {
+      onActivate(route) {
         this._barShowing = true;
         this._prevScrollValue = 0;
         this._preventScroll = false;
@@ -131,6 +128,9 @@
         }, 350);
         window.addEventListener("resize", this._resizeListener);
         this.onResize();
+        return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
+          this.items = cards;
+        });
       }
 
       onDeactivate() {
@@ -209,7 +209,7 @@
         const cardView = event.detail.card;
         if (card.pricing.openFee > 0 && !card.userSpecific.paid) {
           card.userSpecific.paid = card.pricing.openFee;
-          $core.cardPay(card.id, card.pricing.openFee, card.by.address, null, 0, null, null, null).then((response) => {
+          $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
             card.history.revenue = response.totalCardRevenue;
             cardView.onPayment();
           });
@@ -233,6 +233,10 @@
       }
 
       onCompose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("edit-profile", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
         $router.goto("compose");
       }
 
