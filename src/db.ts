@@ -998,14 +998,16 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signedObject: SignedObject): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
       details: details,
-      signedObject: signedObject
+      signedObject: signedObject,
+      deductions: deductions,
+      remainderShares: remainderShares
     };
     await this.bankTransactions.insert(record);
     return record;
@@ -1015,8 +1017,14 @@ export class Database {
     return await db.bankTransactions.findOne<BankTransactionRecord>({ id: id });
   }
 
-  async findBankTransactionByParticipant(participantUserId: string, limit = 500): Promise<BankTransactionRecord[]> {
-    return await db.bankTransactions.find<BankTransactionRecord>({ participantUserIds: participantUserId }).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+  async findBankTransactionsByParticipant(participantUserId: string, omitInterest: boolean, limit = 500): Promise<BankTransactionRecord[]> {
+    const query: any = {
+      participantUserIds: participantUserId
+    };
+    if (omitInterest) {
+      query["details.reason"] = { $nin: ["interest", "subsidy"] };
+    }
+    return await db.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
   }
 
   async countBankTransactions(): Promise<number> {

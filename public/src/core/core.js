@@ -309,6 +309,15 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  bankStatement(maxCount) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.bankStatementDetails(this._keys.address, maxCount);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/bank-statement";
+      return this.rest.post(url, request);
+    });
+  }
+
   uploadFile(file) {
     return this.ensureKey().then(() => {
       var formData = new FormData();
@@ -357,6 +366,14 @@ class CoreService extends Polymer.Element {
       return 0;
     }
     return this._statusResponse.cardBasePrice;
+  }
+
+  get operatorAddress() {
+    return this._statusResponse ? this._statusResponse.operatorAddress : null;
+  }
+
+  get networkDeveloperAddress() {
+    return this._statusResponse ? this._statusResponse.networkDeveloperAddress : null;
   }
 
   _fire(name, detail) {

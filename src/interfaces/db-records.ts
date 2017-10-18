@@ -264,6 +264,8 @@ export interface BankTransactionRecord {
   at: number;
   originatorUserId: string;
   participantUserIds: string[];
+  deductions: number;
+  remainderShares: number;
   details: BankTransactionDetails;
   signedObject: SignedObject;
 }

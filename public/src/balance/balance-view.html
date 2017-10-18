@@ -58,28 +58,111 @@
           margin-top: 20px;
         }
       }
+
+      #bankStatement {
+        font-size: 14px;
+        background-color: white;
+        color: black;
+        border: 1px solid black;
+        border-radius: 5px;
+        padding: 10px;
+        box-sizing: border-box;
+        max-width: 900px;
+        margin: 40px auto 10px;
+      }
+
+      .transactionHeader {
+        display: table-row;
+        font-weight: bold;
+      }
+
+      .transactionHeaderCell {
+        display: table-cell;
+        border-collapse: collapse;
+        border: 1px solid #ccc;
+        padding: 3px 5px;
+      }
+
+      .transactionItem {
+        display: table-row;
+      }
+
+      .transactionCell {
+        display: table-cell;
+        border-collapse: collapse;
+        border: 1px solid #ccc;
+        padding: 3px 5px;
+        vertical-align: middle;
+      }
+
+      .cardIcon {
+        width: 16px;
+        height: auto;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .statementSubtitle {
+        font-size: 12px;
+        font-style: italic;
+        margin: -4px 0 16px;
+      }
     </style>
     <div class="barspace"></div>
-    <div class="content">
-      <p>
-        This is your balance in ChannelCoins.
-      </p>
-      <p>Use these to open cards or to promote your own cards.</p>
-      <p>Earn these when others open cards you posted. You can also earn coins by viewing promoted content.</p>
-      <p>When we go live, you'll also be able to buy and sell coins using US dollars. Each ChannelCoin will be worth approximately
-        one US dollar.
-      </p>
-      <div class="balancePanel">
-        <div id="balanceCard" class="balance">
-          <label>Balance</label>
-          <div>[[balance]]</div>
+    <div id="fullContent">
+      <div class="content">
+        <p>
+          This is your balance in ChannelCoins.
+        </p>
+        <p>Use these to open cards or to promote your own cards.</p>
+        <p>Earn these when others open cards you posted. You can also earn coins by viewing promoted content.</p>
+        <p>When we go live, you'll also be able to buy and sell coins using US dollars. Each ChannelCoin will be worth approximately
+          one US dollar.
+        </p>
+        <div class="balancePanel">
+          <div id="balanceCard" class="balance">
+            <label>Balance</label>
+            <div>[[balance]]</div>
+          </div>
+        </div>
+        <div class="footer" style="display:none;">
+          <p>Want to earn extra coins for you and your friends?</p>
+          <p>
+            <a on-click="onInvite">Invite a friend</a>
+          </p>
         </div>
       </div>
-      <div class="footer" style="display:none;">
-        <p>Want to earn extra coins for you and your friends?</p>
-        <p>
-          <a on-click="onInvite">Invite a friend</a>
-        </p>
+      <div id="bankStatement" style="display:none;">
+        <h3>Recent Transactions</h3>
+        <div class="statementSubtitle">Interest and subsidy payments have been omitted for clarity</div>
+        <div style="display:table; width:100%;">
+          <div class="transactionHeader">
+            <div class="transactionHeaderCell">Date</div>
+            <div class="transactionHeaderCell right">Amount</div>
+            <div class="transactionHeaderCell">Reason</div>
+            <div class="transactionHeaderCell">Other Party</div>
+            <div class="transactionHeaderCell">Card</div>
+          </div>
+          <template is="dom-repeat" items="[[bankTransactions]]">
+            <div class="transactionItem" style="display:table-row;">
+              <div class="transactionCell">[[item.date]]</div>
+              <div class="transactionCell right">[[item.amount]]</div>
+              <div class="transactionCell">[[item.reason]]</div>
+              <div class="transactionCell">[[item.address]]</div>
+              <div class="transactionCell center">
+                <a href$="[[item.cardHref]]" style$="[[item.cardStyle]]">
+                  <img class="cardIcon" src="/s/icons/card.png">
+                </a>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </template>
@@ -88,7 +171,11 @@
       static get is() { return "balance-view"; }
       static get properties() {
         return {
-          balance: String
+          balance: String,
+          bankTransactions: {
+            type: Array,
+            value: function () { return []; }
+          }
         };
       }
 
@@ -106,6 +193,7 @@
           this.balanceTimer = setInterval(() => {
             this.balance = "ℂ" + $core.balance.toFixed(8);
           }, 250);
+          this._refreshTransactions();
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -123,6 +211,95 @@
           clearInterval(this.balanceTimer);
           this.balanceTimer = null;
         }
+      }
+
+      _refreshTransactions() {
+        if (this.$.fullContent.offsetWidth >= 650) {
+          this.$.bankStatement.style.display = "none";
+          $core.bankStatement(150).then((response) => {
+            if (response.transactions.length > 0) {
+              const transactions = [];
+              for (const transaction of response.transactions) {
+                if (transaction.details.address === $core.address) {
+                  for (const recipient of transaction.details.toRecipients) {
+                    if (recipient.portion === 'remainder') {
+                      transactions.push({
+                        date: this._displayDate(transaction.details.timestamp),
+                        id: transaction.id,
+                        amount: (-transaction.details.amount).toFixed(6),
+                        address: this._displayAddress(recipient.address),
+                        reason: this._displayReason(transaction.details.reason),
+                        cardHref: transaction.details.relatedCardId ? "/app/#feed+" + transaction.details.relatedCardId : null,
+                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;"
+                      });
+                    }
+                  }
+                } else {
+                  for (const recipient of transaction.details.toRecipients) {
+                    let amount = transaction.details.amount;
+                    switch (recipient.portion) {
+                      case "remainder":
+                        amount = (amount - transaction.deductions) / transaction.remainderShares;
+                        break;
+                      case "fraction":
+                        amount = amount * recipient.amount;
+                        break;
+                      case "absolute":
+                        amount = recipient.amount;
+                        break;
+                    }
+                    if (recipient.address === $core.address) {
+                      transactions.push({
+                        date: this._displayDate(transaction.details.timestamp),
+                        id: transaction.id,
+                        amount: amount.toFixed(6),
+                        address: this._displayAddress(transaction.details.address),
+                        reason: this._displayReason(transaction.details.reason),
+                        cardHref: transaction.details.relatedCardId ? "/app/#feed+" + transaction.details.relatedCardId : null,
+                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;"
+                      });
+                    }
+                  }
+                }
+              }
+              this.set('bankTransactions', transactions);
+              this.$.bankStatement.style.display = "";
+            }
+          });
+        } else {
+          this.$.bankStatement.style.display = "none";
+        }
+      }
+
+      _displayAddress(address) {
+        if (address === $core.operatorAddress) {
+          return "network";
+        } else if (address === $core.networkDeveloperAddress) {
+          return "creators";
+        }
+        return address;
+      }
+
+      _displayReason(reason, amount) {
+        switch (reason) {
+          case "card-promotion":
+            return amount > 0 ? "card impression: payment to reader" : "card impression: payment from author";
+          case "card-open-payment":
+            return amount > 0 ? "card opened: payment from author" : "card opened: payment to reader";
+          case "card-open-fee":
+            return amount > 0 ? "card opened: payment from reader" : "card opened: payment to author";
+          default:
+            return reason;
+        }
+      }
+
+      _displayDate(timestamp) {
+        const d = new Date(timestamp);
+        return d.getFullYear() + "-" + this._d2(parseInt(d.getMonth() + 1)) + "-" + this._d2(d.getDate()) + " " + this._d2(d.getHours()) + ":" + this._d2(d.getMinutes()) + ":" + this._d2(d.getSeconds());
+      }
+      _d2(n) {
+        if (n < 9) return "0" + n;
+        return n;
       }
     }
     window.customElements.define(BalanceView.is, BalanceView);

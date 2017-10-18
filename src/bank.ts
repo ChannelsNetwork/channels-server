@@ -59,8 +59,19 @@ export class Bank implements RestServer {
         return;
       }
       console.log("Bank.bank-statement", requestBody.detailsObject);
+      const max = requestBody.detailsObject.maxTransactions || 50;
+      const transactions = await db.findBankTransactionsByParticipant(user.id, true, max);
       const reply: BankStatementResponse = {
+        transactions: []
       };
+      for (const transaction of transactions) {
+        reply.transactions.push({
+          id: transaction.id,
+          deductions: transaction.deductions || 0,
+          remainderShares: transaction.remainderShares || 1,
+          details: transaction.details
+        });
+      }
       response.json(reply);
     } catch (err) {
       console.error("Bank.handleStatement: Failure", err);
@@ -113,7 +124,7 @@ export class Bank implements RestServer {
     let amount = 0;
     let totalNonRemainder = 0;
     let remainders = 0;
-    const participantIds: string[] = [];
+    const participantIds: string[] = [user.id];
     for (const recipient of details.toRecipients) {
       if (!recipient.address || !recipient.portion) {
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
@@ -122,10 +133,9 @@ export class Bank implements RestServer {
       if (!recipientUser) {
         throw new ErrorWithStatusCode(404, "Unknown recipient address " + recipient.address);
       }
-      if (participantIds.indexOf(recipientUser.id) >= 0) {
-        throw new ErrorWithStatusCode(400, "Duplicate transaction recipient");
+      if (participantIds.indexOf(recipientUser.id) === 0) {
+        participantIds.push(recipientUser.id);
       }
-      participantIds.push(recipientUser.id);
       switch (recipient.portion) {
         case "remainder":
           remainders++;
@@ -160,12 +170,12 @@ export class Bank implements RestServer {
     const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
     // console.log("Bank.performTransfer", details.reason, user.id, user.balance, details.amount);
     await db.incrementUserBalance(user, -details.amount, 0, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, user.id, participantIds, details, signedTransaction);
-    await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
     let deductions = 0;
+    let remainderShares = 0;
     for (const recipient of details.toRecipients) {
       switch (recipient.portion) {
         case "remainder":
+          remainderShares++;
           break;
         case "fraction":
           deductions += details.amount * recipient.amount;
@@ -177,6 +187,8 @@ export class Bank implements RestServer {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
+    const record = await db.insertBankTransaction(now, user.id, participantIds, details, signedTransaction, deductions, remainderShares);
+    await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
       let creditAmount = 0;
@@ -229,7 +241,7 @@ export class Bank implements RestServer {
       throw new ErrorWithStatusCode(401, "This coupon's budget is exhausted");
     }
     const transactionDetails: BankTransactionDetails = {
-      address: from.address,
+      address: coupon.byAddress,
       timestamp: now,
       type: "coupon-redemption",
       reason: coupon.reason,
@@ -247,7 +259,7 @@ export class Bank implements RestServer {
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, 0, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id], transactionDetails, null);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], transactionDetails, null, 0, 1);
     if (from.id !== to.id) {
       await db.updateUserCardIncrementPaid(from.id, card.id, coupon.amount, record.id);
       await db.updateUserCardIncrementEarned(to.id, card.id, coupon.amount, record.id);

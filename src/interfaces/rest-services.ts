@@ -333,9 +333,19 @@ export interface BankWithdrawDetails extends Signable {
 export interface BankWithdrawResponse extends RestResponse { }
 
 export interface BankStatementDetails extends Signable {
+  maxTransactions: number;
 }
 
-export interface BankStatementResponse extends RestResponse { }
+export interface BankStatementResponse extends RestResponse {
+  transactions: BankTransactionDetailsWithId[];
+}
+
+export interface BankTransactionDetailsWithId {
+  id: string;
+  deductions: number;
+  remainderShares: number;
+  details: BankTransactionDetails;
+}
 
 export interface BankTransactionDetails extends Signable {
   type: BankTransactionType;

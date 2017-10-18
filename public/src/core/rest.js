@@ -273,6 +273,14 @@ class RestUtils {
     };
   }
 
+  static bankStatementDetails(address, maxCount) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      maxCount: maxCount
+    };
+  }
+
   static cardClosedDetails(address, cardId) {
     return {
       address: address,
