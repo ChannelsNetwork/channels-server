@@ -69,6 +69,7 @@ export class Bank implements RestServer {
           id: transaction.id,
           deductions: transaction.deductions || 0,
           remainderShares: transaction.remainderShares || 1,
+          relatedCardTitle: transaction.relatedCardTitle,
           details: transaction.details
         });
       }
@@ -79,7 +80,7 @@ export class Bank implements RestServer {
     }
   }
 
-  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, networkInitiated = false, increaseTargetBalance = false): Promise<BankTransactionResult> {
+  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false): Promise<BankTransactionResult> {
     if (!UserHelper.isUsersAddress(user, address)) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -133,7 +134,7 @@ export class Bank implements RestServer {
       if (!recipientUser) {
         throw new ErrorWithStatusCode(404, "Unknown recipient address " + recipient.address);
       }
-      if (participantIds.indexOf(recipientUser.id) === 0) {
+      if (participantIds.indexOf(recipientUser.id) < 0) {
         participantIds.push(recipientUser.id);
       }
       switch (recipient.portion) {
@@ -187,7 +188,7 @@ export class Bank implements RestServer {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    const record = await db.insertBankTransaction(now, user.id, participantIds, details, signedTransaction, deductions, remainderShares);
+    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, signedTransaction, deductions, remainderShares);
     await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
@@ -259,7 +260,7 @@ export class Bank implements RestServer {
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, 0, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], transactionDetails, null, 0, 1);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, null, 0, 1);
     if (from.id !== to.id) {
       await db.updateUserCardIncrementPaid(from.id, card.id, coupon.amount, record.id);
       await db.updateUserCardIncrementEarned(to.id, card.id, coupon.amount, record.id);

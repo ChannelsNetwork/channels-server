@@ -998,12 +998,13 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
+      relatedCardTitle: relatedCardTitle,
       details: details,
       signedObject: signedObject,
       deductions: deductions,

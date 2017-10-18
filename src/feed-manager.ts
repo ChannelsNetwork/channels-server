@@ -578,7 +578,7 @@ export class FeedManager implements Initializable, RestServer {
       address: user.keys[0].address,
       portion: "remainder"
     });
-    await networkEntity.performBankTransaction(grantDetails, true);
+    await networkEntity.performBankTransaction(grantDetails, null, true);
     user.balance += 10;
     user.targetBalance += 10;
     return {

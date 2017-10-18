@@ -345,6 +345,7 @@ export interface BankTransactionDetailsWithId {
   id: string;
   deductions: number;
   remainderShares: number;
+  relatedCardTitle: string;
   details: BankTransactionDetails;
 }
 

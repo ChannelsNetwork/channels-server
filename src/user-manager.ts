@@ -115,7 +115,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(reward, true);
+          await networkEntity.performBankTransaction(reward, null, true);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -134,7 +134,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(grant, true);
+        await networkEntity.performBankTransaction(grant, null, true);
         userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
@@ -147,7 +147,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(inviteeRewardDetails, true);
+          await networkEntity.performBankTransaction(inviteeRewardDetails, null, true);
           userRecord.balance += inviteeReward;
         }
         userRecord.balance += INITIAL_BALANCE;
@@ -458,7 +458,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(subsidyDetails, false);
+        await networkEntity.performBankTransaction(subsidyDetails, null, false);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -478,7 +478,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         relatedCouponId: null,
         toRecipients: [interestRecipient]
       };
-      await networkEntity.performBankTransaction(grant, true);
+      await networkEntity.performBankTransaction(grant, null, true);
     }
   }
 

@@ -67,7 +67,7 @@
         border-radius: 5px;
         padding: 10px;
         box-sizing: border-box;
-        max-width: 900px;
+        max-width: 1100px;
         margin: 40px auto 10px;
       }
 
@@ -113,6 +113,22 @@
         font-style: italic;
         margin: -4px 0 16px;
       }
+
+      .cardTitle,
+      .cardTitle:visited,
+      .cardTitle:hover {
+        color: black;
+        text-transform: none;
+        text-decoration: underline;
+      }
+
+      .cardTitleInner {
+        color: black;
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     </style>
     <div class="barspace"></div>
     <div id="fullContent">
@@ -144,6 +160,7 @@
         <div style="display:table; width:100%;">
           <div class="transactionHeader">
             <div class="transactionHeaderCell">Date</div>
+            <div class="transactionHeaderCell">Type</div>
             <div class="transactionHeaderCell right">Amount</div>
             <div class="transactionHeaderCell">Reason</div>
             <div class="transactionHeaderCell">Other Party</div>
@@ -152,12 +169,13 @@
           <template is="dom-repeat" items="[[bankTransactions]]">
             <div class="transactionItem" style="display:table-row;">
               <div class="transactionCell">[[item.date]]</div>
+              <div class="transactionCell">[[item.type]]</div>
               <div class="transactionCell right">[[item.amount]]</div>
               <div class="transactionCell">[[item.reason]]</div>
               <div class="transactionCell">[[item.address]]</div>
               <div class="transactionCell center">
-                <a href$="[[item.cardHref]]" style$="[[item.cardStyle]]">
-                  <img class="cardIcon" src="/s/icons/card.png">
+                <a href$="[[item.cardHref]]" class="cardTitle" style$="[[item.cardStyle]]">
+                  <div class="cardTitleInner">[[item.cardTitle]]</div>
                 </a>
               </div>
             </div>
@@ -226,11 +244,13 @@
                       transactions.push({
                         date: this._displayDate(transaction.details.timestamp),
                         id: transaction.id,
+                        type: this._displayTransactionType(transaction.details.type),
                         amount: (-transaction.details.amount).toFixed(6),
                         address: this._displayAddress(recipient.address),
                         reason: this._displayReason(transaction.details.reason),
-                        cardHref: transaction.details.relatedCardId ? "/app/#feed+" + transaction.details.relatedCardId : null,
-                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;"
+                        cardHref: transaction.details.relatedCardId ? "/app/#feed/" + transaction.details.relatedCardId : null,
+                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
+                        cardTitle: transaction.relatedCardTitle
                       });
                     }
                   }
@@ -252,11 +272,13 @@
                       transactions.push({
                         date: this._displayDate(transaction.details.timestamp),
                         id: transaction.id,
+                        type: this._displayTransactionType(transaction.details.type),
                         amount: amount.toFixed(6),
                         address: this._displayAddress(transaction.details.address),
                         reason: this._displayReason(transaction.details.reason),
-                        cardHref: transaction.details.relatedCardId ? "/app/#feed+" + transaction.details.relatedCardId : null,
-                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;"
+                        cardHref: transaction.details.relatedCardId ? "/app/#feed/" + transaction.details.relatedCardId : null,
+                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
+                        cardTitle: transaction.relatedCardTitle
                       });
                     }
                   }
@@ -278,6 +300,17 @@
           return "creators";
         }
         return address;
+      }
+
+      _displayTransactionType(type) {
+        switch (type) {
+          case "transfer":
+            return "transfer";
+          case "coupon-redemption":
+            return "redeem coupon";
+          default:
+            return type;
+        }
       }
 
       _displayReason(reason, amount) {
