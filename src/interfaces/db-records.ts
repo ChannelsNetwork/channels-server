@@ -26,7 +26,7 @@ export interface UserRecord {
   syncCodeExpires?: number;
 }
 
-export type UserAccountType = "normal" | "network";
+export type UserAccountType = "normal" | "network" | "networkDeveloper";
 
 export interface UserKey {
   address: string;
@@ -76,6 +76,8 @@ export interface CardRecord {
   cardType: {
     package: string;
     iconUrl: string;
+    royaltyAddress: string;
+    royaltyFraction: number;
   };
   pricing: {
     promotionFee: number;
@@ -262,6 +264,9 @@ export interface BankTransactionRecord {
   at: number;
   originatorUserId: string;
   participantUserIds: string[];
+  deductions: number;
+  remainderShares: number;
+  relatedCardTitle: string;
   details: BankTransactionDetails;
   signedObject: SignedObject;
 }

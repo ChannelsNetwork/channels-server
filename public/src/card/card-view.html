@@ -327,8 +327,9 @@
         let dc = this.data.history.dislikes;
         let tc = uc + dc;
         let rating = tc ? (uc / tc) * 100 : 0;
+        let negRating = tc ? (dc / tc) * 100 : 0;
         this.$.posBar.style.width = rating + "%";
-        this.$.negBar.style.width = (100 - rating) + "%";
+        this.$.negBar.style.width = negRating + "%";
 
         this.$.description.text = this.data.summary.text;
         let absCost = Math.abs(cost).toFixed(2);

@@ -51,7 +51,7 @@
         <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
         <invite-view class="invite page" data-href="account/invite-view.html"></invite-view>
         <notifications-view class="notifications page" data-href="notifications/notifications-view.html"></notifications-view>
-        <preview-page class="preview page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
+        <preview-page class="feed page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
         <compose-wizard class="compose page" data-href="compose/compose-wizard.html"></compose-wizard>
         <test-page class="test page" data-href="test/test-page.html"></test-page>
       </div>
@@ -98,7 +98,7 @@
       }
 
       _handleRouteChange(route) {
-        let pageName = route.segments[0] || "preview";
+        let pageName = route.segments[0] || "feed";
         const pages = this.shadowRoot.querySelectorAll(".page");
         if (pages) {
           for (let i = 0; i < pages.length; i++) {
