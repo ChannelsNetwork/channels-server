@@ -273,6 +273,7 @@ export interface BankTransactionRecord {
     type: string;
     referenceId: string;
     status: string;
+    error: any;
   };
 }
 

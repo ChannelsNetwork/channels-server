@@ -31,13 +31,14 @@ export class Bank implements RestServer, Initializable {
 
   async initialize(urlManager: UrlManager): Promise<void> {
     if (configuration.get('paypal.clientId') && configuration.get('paypal.secret')) {
+      const mode = configuration.get('paypal.mode', "sandbox");
       paypal.configure({
-        mode: "sandbox",
+        mode: mode,
         client_id: configuration.get('paypal.clientId'),
         client_secret: configuration.get('paypal.secret')
       });
       this.paypalEnabled = true;
-      console.log("Bank.initialize:  Paypal operations enabled");
+      console.log("Bank.initialize:  Paypal operations enabled", mode);
     }
   }
 
@@ -116,8 +117,15 @@ export class Bank implements RestServer, Initializable {
       const now = Date.now();
       const transactionResult = await bank.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now);
       const note = "Your withdrawal request from your Channels balance has been accepted.";
-      const payoutResult = await this.makePaypalPayout("Channels withdrawal", paidAmount, details.withdrawalRecipient.currency, details.withdrawalRecipient.emailAddress, note, transactionResult.record.id);
-      await bank.updateWithdrawalStatus(transactionResult.record, payoutResult.batch_header.payout_batch_id, payoutResult.batch_header.batch_status);
+      let payoutResult: PaypalPayoutResponse;
+      try {
+        payoutResult = await this.makePaypalPayout("Channels withdrawal", paidAmount, details.withdrawalRecipient.currency, details.withdrawalRecipient.emailAddress, note, transactionResult.record.id);
+      } catch (err) {
+        await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, null, "API_FAILED", err);
+        response.status(503).send("Paypal payout request failed");
+        return;
+      }
+      await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, payoutResult.batch_header.payout_batch_id, payoutResult.batch_header.batch_status, null);
       const userStatus = await userManager.getUserStatus(user);
       const reply: BankWithdrawResponse = {
         paidAmount: paidAmount,
@@ -457,8 +465,8 @@ export class Bank implements RestServer, Initializable {
     return result;
   }
 
-  async updateWithdrawalStatus(transaction: BankTransactionRecord, referenceId: string, status: string): Promise<void> {
-    await db.updateBankTransactionWithdrawalStatus(transaction.id, referenceId, status);
+  private async updateWithdrawalStatus(transaction: BankTransactionRecord, referenceId: string, status: string, err: any): Promise<void> {
+    await db.updateBankTransactionWithdrawalStatus(transaction.id, referenceId, status, err);
   }
 }
 

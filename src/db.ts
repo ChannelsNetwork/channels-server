@@ -1016,7 +1016,8 @@ export class Database {
       record.withdrawalInfo = {
         type: withdrawalType,
         referenceId: null,
-        status: "Initiated"
+        status: "Initiated",
+        error: null
       };
     }
     await this.bankTransactions.insert(record);
@@ -1041,11 +1042,12 @@ export class Database {
     return await db.bankTransactions.count({});
   }
 
-  async updateBankTransactionWithdrawalStatus(transactionId: string, referenceId: string, status: string): Promise<void> {
+  async updateBankTransactionWithdrawalStatus(transactionId: string, referenceId: string, status: string, err: any): Promise<void> {
     await db.bankTransactions.updateOne({ id: transactionId }, {
       $set: {
         "withdrawalInfo.referenceId": referenceId,
-        "withdrawalInfo.status": status
+        "withdrawalInfo.status": status,
+        "withdrawalInfo.err": err
       }
     });
   }
