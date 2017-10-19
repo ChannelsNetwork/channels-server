@@ -80,7 +80,7 @@
       <div id="container">
         <h2>Withdrawal</h2>
         <div class="explain">You can withdraw coins into your Paypal account by entering your email address below. If you don't already have a
-          Paypal account, one will be set up for you automatically.</div>
+          Paypal account, you can set it up when you receive their payment notification.</div>
         <div>
           <div class="tableContainer">
             <div class="row">
@@ -157,7 +157,7 @@
           this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(2));
           this.$.withdrawalAmount.value = this.maxWithdrawal;
           this.set('exchangeRate', $core.coinSellExchangeRate.toFixed(6));
-          this.set('feeDescription', '($0.30 plus 2.9%)');
+          this.set('feeDescription', '');
           this._refresh();
         });
       }
