@@ -157,6 +157,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const userStatus = await this.getUserStatus(userRecord);
       const registerResponse: RegisterUserResponse = {
         status: userStatus,
+        userId: userRecord.id,
         interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
         subsidyRate: await priceRegulator.getUserSubsidyRate(),
         operatorTaxFraction: networkEntity.getOperatorTaxFraction(),

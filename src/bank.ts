@@ -332,9 +332,9 @@ export class Bank implements RestServer, Initializable {
     if (!networkInitiated && from.balance < coupon.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
-    const card = await db.findCardById(coupon.cardId);
+    const card = await db.findCardById(coupon.cardId, false);
     if (!card) {
-      throw new ErrorWithStatusCode(404, "The card associated with this coupon is missing");
+      throw new ErrorWithStatusCode(404, "The card associated with this coupon is no longer available");
     }
     const redeemable = await this.isCouponRedeemable(coupon, card);
     if (!redeemable) {
