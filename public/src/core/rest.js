@@ -254,8 +254,16 @@ class RestUtils {
     };
   }
 
-  static bankTransaction(address, type, reason, cardId, couponId, amount, recipients) {
+  static bankTransactionWithdrawalRecipient(emailAddress) {
     return {
+      mechanism: "Paypal",
+      currency: "USD",
+      emailAddress: emailAddress
+    };
+  }
+
+  static bankTransaction(address, type, reason, cardId, couponId, amount, recipients, withdrawalRecipient) {
+    const result = {
       address: address,
       timestamp: RestUtils.now(),
       type: type,                 // "transfer"
@@ -264,6 +272,10 @@ class RestUtils {
       amount: amount,             // ChannelCoins
       toRecipients: recipients    // bankTransactionRecipient[]
     };
+    if (withdrawalRecipient) {
+      result.withdrawalRecipient = withdrawalRecipient;
+    }
+    return result;
   }
 
   static bankTransactionRecipient(address, portion, amount) {
@@ -280,6 +292,17 @@ class RestUtils {
       timestamp: RestUtils.now(),
       maxCount: maxCount
     };
+  }
+
+  static bankWithdraw(address, transactionString, transactionSignature) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      transaction: {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      }
+    }
   }
 
   static cardClosedDetails(address, cardId) {

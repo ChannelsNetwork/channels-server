@@ -31,13 +31,13 @@ import { channelsComponentManager } from "./channels-component-manager";
 import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
 
-const VERSION = 24;
+const VERSION = 25;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager];
+  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank];
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;

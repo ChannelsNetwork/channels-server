@@ -269,6 +269,12 @@ export interface BankTransactionRecord {
   relatedCardTitle: string;
   details: BankTransactionDetails;
   signedObject: SignedObject;
+  withdrawalInfo?: {
+    type: string;
+    referenceId: string;
+    status: string;
+    error: any;
+  };
 }
 
 export interface UserCardActionRecord {
@@ -324,7 +330,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;

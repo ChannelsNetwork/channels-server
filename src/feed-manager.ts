@@ -563,7 +563,7 @@ export class FeedManager implements Initializable, RestServer {
     const privateKey = KeyUtils.generatePrivateKey();
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, id);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, 0, id);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,

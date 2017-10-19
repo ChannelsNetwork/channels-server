@@ -261,7 +261,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -274,7 +274,7 @@ export class Database {
       balance: 0,
       targetBalance: 0,
       balanceBelowTarget: false,
-      withdrawableBalance: 0,
+      withdrawableBalance: withdrawableBalance,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
@@ -402,7 +402,7 @@ export class Database {
     return await this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
   }
 
-  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
+  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, incrementWithdrawableBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
     const query: any = {
       id: user.id
     };
@@ -410,12 +410,13 @@ export class Database {
       query.balanceLastUpdated = onlyIfLastBalanceUpdated;
     }
     const result = await this.users.updateOne(query, {
-      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy },
+      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy, withdrawableBalance: incrementWithdrawableBalanceBy },
       $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
     });
     if (result.modifiedCount > 0) {
       user.balance += incrementBalanceBy;
       user.targetBalance += incrementTargetBy;
+      user.withdrawableBalance += incrementWithdrawableBalanceBy;
       user.balanceBelowTarget = balanceBelowTarget;
       user.balanceLastUpdated = now;
     } else {
@@ -423,6 +424,7 @@ export class Database {
       if (updatedUser) {
         user.balance = updatedUser.balance;
         user.targetBalance = updatedUser.targetBalance;
+        user.withdrawableBalance = updatedUser.withdrawableBalance;
         user.balanceBelowTarget = updatedUser.balanceBelowTarget;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
@@ -998,7 +1000,7 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
@@ -1008,8 +1010,16 @@ export class Database {
       details: details,
       signedObject: signedObject,
       deductions: deductions,
-      remainderShares: remainderShares
+      remainderShares: remainderShares,
     };
+    if (withdrawalType) {
+      record.withdrawalInfo = {
+        type: withdrawalType,
+        referenceId: null,
+        status: "Initiated",
+        error: null
+      };
+    }
     await this.bankTransactions.insert(record);
     return record;
   }
@@ -1030,6 +1040,16 @@ export class Database {
 
   async countBankTransactions(): Promise<number> {
     return await db.bankTransactions.count({});
+  }
+
+  async updateBankTransactionWithdrawalStatus(transactionId: string, referenceId: string, status: string, err: any): Promise<void> {
+    await db.bankTransactions.updateOne({ id: transactionId }, {
+      $set: {
+        "withdrawalInfo.referenceId": referenceId,
+        "withdrawalInfo.status": status,
+        "withdrawalInfo.err": err
+      }
+    });
   }
 
   async insertUserCardAction(userId: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {

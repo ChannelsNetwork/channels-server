@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -223,15 +223,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardImpressionResponse = {
         transactionId: transactionResult ? transactionResult.record.id : null,
-        status: userStatus.status,
-        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
-        cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate,
-        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
-        operatorAddress: networkEntity.getOperatorAddress(),
-        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
-        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
-        referralFraction: networkEntity.getReferralFraction()
+        status: userStatus
       };
       response.json(reply);
     } catch (err) {
@@ -312,16 +304,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         transactionId: transactionResult.record.id,
-        status: userStatus.status,
-        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
-        cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate,
         totalCardRevenue: card.revenue.value + transaction.amount,
-        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
-        operatorAddress: networkEntity.getOperatorAddress(),
-        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
-        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
-        referralFraction: networkEntity.getReferralFraction()
+        status: userStatus
       };
       response.json(reply);
     } catch (err) {
@@ -386,18 +370,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await db.incrementCardOpenFeesPaid(card.id, coupon.amount);
       const userStatus = await userManager.getUserStatus(user);
-      const reply: CardPayResponse = {
+      const reply: CardRedeemOpenResponse = {
         transactionId: transactionResult.record.id,
-        status: userStatus.status,
-        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
-        cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate,
-        totalCardRevenue: card.revenue.value,
-        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
-        operatorAddress: networkEntity.getOperatorAddress(),
-        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
-        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
-        referralFraction: networkEntity.getReferralFraction()
+        status: userStatus
       };
       response.json(reply);
     } catch (err) {

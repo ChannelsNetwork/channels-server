@@ -91,7 +91,7 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
-        this._statusResponse = result;
+        this._userStatus = result.status;
         this._fire("channels-registration", this._registration);
         this.getUserProfile();
         setInterval(() => {
@@ -237,7 +237,7 @@ class CoreService extends Polymer.Element {
       let request = this._createRequest(details);
       const url = this.restBase + "/card-impression";
       return this.rest.post(url, request).then((response) => {
-        this._statusResponse = response;
+        this._userStatus = response.status;
       });
     });
   }
@@ -258,14 +258,14 @@ class CoreService extends Polymer.Element {
       if (cardDeveloperAddress && cardDeveloperFraction && cardDeveloperFraction > 0) {
         recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", cardDeveloperFraction));
       }
-      if (this._statusResponse.operatorAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(this._statusResponse.operatorAddress, "fraction", this._statusResponse.operatorTaxFraction));
+      if (this._registration.operatorAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", this._registration.operatorTaxFraction));
       }
-      if (this._statusResponse.networkDeveloperAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(this._statusResponse.networkDeveloperAddress, "fraction", this._statusResponse.networkDeveloperRoyaltyFraction));
+      if (this._registration.networkDeveloperAddress) {
+        recipients.push(RestUtils.bankTransactionRecipient(this._registration.networkDeveloperAddress, "fraction", this._registration.networkDeveloperRoyaltyFraction));
       }
       if (referrerAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", this._statusResponse.referralFraction));
+        recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", this._registration.referralFraction));
       }
       const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
       const transactionString = JSON.stringify(transaction);
@@ -274,7 +274,7 @@ class CoreService extends Polymer.Element {
       let request = this._createRequest(details);
       const url = this.restBase + "/card-pay";
       return this.rest.post(url, request).then((response) => {
-        this._statusResponse = response;
+        this._userStatus = response.status;
         return response;
       });
     });
@@ -286,7 +286,7 @@ class CoreService extends Polymer.Element {
       let request = this._createRequest(details);
       const url = this.restBase + "/card-redeem-open";
       return this.rest.post(url, request).then((response) => {
-        this._statusResponse = response;
+        this._userStatus = response.status;
       });
     });
   }
@@ -318,6 +318,21 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  withdraw(amount, emailAddress) {
+    return this.ensureKey().then(() => {
+      const transaction = RestUtils.bankTransaction(this._keys.address, "withdrawal", "withdrawal", null, null, amount, [], RestUtils.bankTransactionWithdrawalRecipient(emailAddress));
+      const transactionString = JSON.stringify(transaction);
+      const transactionSignature = this._sign(transactionString);
+      let details = RestUtils.bankWithdraw(this._keys.address, transactionString, transactionSignature);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/bank-withdraw";
+      return this.rest.post(url, request).then((response) => {
+        this._userStatus = response.status;
+        return response;
+      });
+    });
+  }
+
   uploadFile(file) {
     return this.ensureKey().then(() => {
       var formData = new FormData();
@@ -331,6 +346,11 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/upload";
       return this.rest.postFile(url, formData);
     });
+  }
+
+  isValidEmail(emailAddress) {
+    const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(emailAddress);
   }
 
   get profile() {
@@ -349,31 +369,49 @@ class CoreService extends Polymer.Element {
     return this._registration;
   }
 
+  get coinSellExchangeRate() {
+    return 0.98;
+  }
+
+  get withdrawalsEnabled() {
+    if (!this._registration) {
+      return false;
+    }
+    return this._registration.withdrawalsEnabled;
+  }
+
   get balance() {
-    if (!this._statusResponse) {
+    if (!this._userStatus) {
       return 0;
     }
-    let result = this._statusResponse.status.userBalance * (1 + (Date.now() - this._statusResponse.status.userBalanceAt) * this._statusResponse.interestRatePerMillisecond);
-    if (result < this._statusResponse.status.targetBalance) {
-      result += (Date.now() - this._statusResponse.status.userBalanceAt) * this._statusResponse.subsidyRate;
-      result = Math.min(result, this._statusResponse.status.targetBalance);
+    let result = this._userStatus.userBalance * (1 + (Date.now() - this._userStatus.userBalanceAt) * this.registration.interestRatePerMillisecond);
+    if (result < this._userStatus.targetBalance) {
+      result += (Date.now() - this._userStatus.userBalanceAt) * this.registration.subsidyRate;
+      result = Math.min(result, this._userStatus.targetBalance);
     }
     return result;
   }
 
-  get baseCardPrice() {
-    if (!this._statusResponse) {
+  get withdrawableBalance() {
+    if (!this._userStatus) {
       return 0;
     }
-    return this._statusResponse.cardBasePrice;
+    return this._userStatus.withdrawableBalance;
+  }
+
+  get baseCardPrice() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.cardBasePrice;
   }
 
   get operatorAddress() {
-    return this._statusResponse ? this._statusResponse.operatorAddress : null;
+    return this._registration ? this._registration.operatorAddress : null;
   }
 
   get networkDeveloperAddress() {
-    return this._statusResponse ? this._statusResponse.networkDeveloperAddress : null;
+    return this._registration ? this._registration.networkDeveloperAddress : null;
   }
 
   _fire(name, detail) {
@@ -382,8 +420,8 @@ class CoreService extends Polymer.Element {
   }
 
   _updateBalance() {
-    this.getAccountStatus().then((status) => {
-      this._statusResponse = status;
+    this.getAccountStatus().then((response) => {
+      this._userStatus = response.status;
     });
   }
 
