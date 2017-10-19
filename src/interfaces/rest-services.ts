@@ -22,23 +22,23 @@ export interface Signable {
   timestamp: number;
 }
 
-export interface RegisterUserResponse extends UserStatusResponse { }
-
-export interface UserStatusDetails extends Signable {
-  appVersion: string;
-}
-
-export interface UserStatusResponse extends RestResponse {
-  status: UserStatus;
+export interface RegisterUserResponse extends RestResponseWithUserStatus {
+  userId: string;
   interestRatePerMillisecond: number;
-  cardBasePrice: number;
   subsidyRate: number;
   operatorTaxFraction: number;
   operatorAddress: string;
   networkDeveloperRoyaltyFraction: number;
   networkDeveloperAddress: string;
   referralFraction: number;
+  withdrawalsEnabled: boolean;
 }
+
+export interface UserStatusDetails extends Signable {
+  appVersion: string;
+}
+
+export interface UserStatusResponse extends RestResponseWithUserStatus { }
 
 export interface UserStatus {
   goLive: number;
@@ -49,6 +49,7 @@ export interface UserStatus {
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
+  cardBasePrice: number;
 }
 
 export interface RegisterDeviceDetails extends Signable {
@@ -69,7 +70,9 @@ export interface SyncIdentityDetails extends Signable {
   syncCode: string;
 }
 
-export interface SyncIdentityResponse extends UserStatusResponse { }
+export interface SyncIdentityResponse extends RestResponse {
+  status: UserStatus;
+}
 
 export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
@@ -134,6 +137,7 @@ export interface CardDescriptor {
   id: string;
   postedAt: number;
   by: {
+    id: string;
     address: string;
     handle: string;
     name: string;
@@ -147,6 +151,7 @@ export interface CardDescriptor {
     name: string;
     imageUrl: string;
   };
+  private: boolean;
   summary: {
     imageUrl: string;
     linkUrl: string;
@@ -262,6 +267,7 @@ export interface PostCardDetails extends Signable {
   linkUrl?: string;
   title?: string;
   text: string;
+  private: boolean;
   cardType?: string;
   promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
@@ -282,12 +288,27 @@ export interface PostCardResponse extends RestResponse {
   couponId?: string;
 }
 
+export interface UpdateCardPrivateDetails extends Signable {
+  cardId: string;
+  private: boolean;
+}
+
+export interface UpdateCardPrivateResponse extends RestResponse {
+  newValue: boolean;
+}
+
+export interface DeleteCardDetails extends Signable {
+  cardId: string;
+}
+
+export interface DeleteCardResponse extends RestResponse { }
+
 export interface CardImpressionDetails extends Signable {
   cardId: string;
   couponId?: string;
 }
 
-export interface CardImpressionResponse extends UserStatusResponse {
+export interface CardImpressionResponse extends RestResponseWithUserStatus {
   transactionId?: string;
 }
 
@@ -301,7 +322,7 @@ export interface CardPayDetails extends Signable {
   transaction: SignedObject;
 }
 
-export interface CardPayResponse extends UserStatusResponse {
+export interface CardPayResponse extends RestResponseWithUserStatus {
   transactionId: string;
   totalCardRevenue: number;
 }
@@ -311,8 +332,12 @@ export interface CardRedeemOpenDetails extends Signable {
   couponId: string;
 }
 
-export interface CardRedeemOpenResponse extends UserStatusResponse {
+export interface CardRedeemOpenResponse extends RestResponseWithUserStatus {
   transactionId: string;
+}
+
+export interface RestResponseWithUserStatus {
+  status: UserStatus;
 }
 
 export interface CardClosedDetails extends Signable {
@@ -329,9 +354,23 @@ export interface UpdateCardLikeDetails extends Signable {
 export interface UpdateCardLikeResponse extends RestResponse { }
 
 export interface BankWithdrawDetails extends Signable {
+  transaction: SignedObject;  // signed BankTransactionDetails with type = withdrawal
 }
 
-export interface BankWithdrawResponse extends RestResponse { }
+export type Currency = "USD";
+
+export type WithdrawalMechanism = "Paypal";
+
+export interface BankWithdrawResponse extends RestResponseWithUserStatus {
+  paidAmount: number;
+  feeAmount: number;
+  feeDescription: string;
+  currency: Currency;
+  channelsReferenceId: string;
+  paypalReferenceId: string;
+  updatedBalance: number;
+  updateBalanceAt: number;
+}
 
 export interface BankStatementDetails extends Signable {
   maxTransactions: number;
@@ -356,9 +395,16 @@ export interface BankTransactionDetails extends Signable {
   relatedCouponId: string;
   amount: number;  // ChannelCoin
   toRecipients: BankTransactionRecipientDirective[];
+  withdrawalRecipient?: BankWithdrawalRecipient;
 }
 
-export type BankTransactionType = "transfer" | "coupon-redemption";  // others to come such as "coupon-create"
+export type BankTransactionType = "transfer" | "coupon-redemption" | "withdrawal";  // others to come such as "coupon-create"
+
+export interface BankWithdrawalRecipient {
+  mechanism: WithdrawalMechanism;
+  currency: Currency;
+  emailAddress: string;
+}
 
 export interface BankTransactionRecipientDirective {
   address: string;

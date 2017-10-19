@@ -129,6 +129,17 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
+
+      #withdrawableBalancePanel {
+        margin: 30px 0 0;
+        font-size: 16px;
+      }
+
+      .availableNote {
+        font-size: 12px;
+        font-style: italic;
+        margin: 0 0 10px;
+      }
     </style>
     <div class="barspace"></div>
     <div id="fullContent">
@@ -138,13 +149,17 @@
         </p>
         <p>Use these to open cards or to promote your own cards.</p>
         <p>Earn these when others open cards you posted. You can also earn coins by viewing promoted content.</p>
-        <p>When we go live, you'll also be able to buy and sell coins using US dollars. Each ChannelCoin will be worth approximately
-          one US dollar.
-        </p>
         <div class="balancePanel">
           <div id="balanceCard" class="balance">
             <label>Balance</label>
             <div>[[balance]]</div>
+          </div>
+          <div id="withdrawableBalancePanel" style="display:none;">
+            <label>Available for withdrawal:
+              <span>[[withdrawableBalance]]</span>
+            </label>
+            <div class="availableNote">Coins you have earned from your cards are available for withdrawal.</div>
+            <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
           </div>
         </div>
         <div class="footer" style="display:none;">
@@ -190,6 +205,7 @@
       static get properties() {
         return {
           balance: String,
+          withdrawableBalance: String,
           bankTransactions: {
             type: Array,
             value: function () { return []; }
@@ -211,6 +227,9 @@
           this.balanceTimer = setInterval(() => {
             this.balance = "ℂ" + $core.balance.toFixed(8);
           }, 250);
+          this.$.withdrawableBalancePanel.style = $core.withdrawalsEnabled ? "" : "display:none;";
+          this.set('withdrawableBalance', "ℂ" + $core.withdrawableBalance.toFixed(3));
+          this.$.btnWithdraw.disabled = $core.withdrawableBalance < 1;
           this._refreshTransactions();
         }).catch((err) => {
           console.error(err);
@@ -239,20 +258,34 @@
               const transactions = [];
               for (const transaction of response.transactions) {
                 if (transaction.details.address === $core.address) {
-                  for (const recipient of transaction.details.toRecipients) {
-                    if (recipient.portion === 'remainder') {
-                      transactions.push({
-                        date: this._displayDate(transaction.details.timestamp),
-                        id: transaction.id,
-                        type: this._displayTransactionType(transaction.details.type),
-                        amount: (-transaction.details.amount).toFixed(6),
-                        address: this._displayAddress(recipient.address),
-                        reason: this._displayReason(transaction.details.reason),
-                        cardHref: transaction.details.relatedCardId ? "/app/#feed/" + transaction.details.relatedCardId : null,
-                        cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
-                        cardTitle: transaction.relatedCardTitle
-                      });
+                  if (transaction.details.toRecipients && transaction.details.toRecipients.length > 0) {
+                    for (const recipient of transaction.details.toRecipients) {
+                      if (recipient.portion === 'remainder') {
+                        transactions.push({
+                          date: this._displayDate(transaction.details.timestamp),
+                          id: transaction.id,
+                          type: this._displayTransactionType(transaction.details.type),
+                          amount: (-transaction.details.amount).toFixed(6),
+                          address: this._displayAddress(recipient.address),
+                          reason: this._displayReason(transaction.details, true),
+                          cardHref: transaction.details.relatedCardId ? "/app/#feed/" + transaction.details.relatedCardId : null,
+                          cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
+                          cardTitle: transaction.relatedCardTitle
+                        });
+                      }
                     }
+                  } else {
+                    transactions.push({
+                      date: this._displayDate(transaction.details.timestamp),
+                      id: transaction.id,
+                      type: this._displayTransactionType(transaction.details.type),
+                      amount: (-transaction.details.amount).toFixed(6),
+                      address: null,
+                      reason: null,
+                      cardHref: null,
+                      cardStyle: "display:none;",
+                      cardTitle: null
+                    });
                   }
                 } else {
                   for (const recipient of transaction.details.toRecipients) {
@@ -275,7 +308,7 @@
                         type: this._displayTransactionType(transaction.details.type),
                         amount: amount.toFixed(6),
                         address: this._displayAddress(transaction.details.address),
-                        reason: this._displayReason(transaction.details.reason),
+                        reason: this._displayReason(transaction.details, false),
                         cardHref: transaction.details.relatedCardId ? "/app/#feed/" + transaction.details.relatedCardId : null,
                         cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
                         cardTitle: transaction.relatedCardTitle
@@ -313,16 +346,16 @@
         }
       }
 
-      _displayReason(reason, amount) {
-        switch (reason) {
+      _displayReason(transaction, originator) {
+        switch (transaction.reason) {
           case "card-promotion":
-            return amount > 0 ? "card impression: payment to reader" : "card impression: payment from author";
+            return originator ? "card impression: payment to reader" : "card impression: payment from author";
           case "card-open-payment":
-            return amount > 0 ? "card opened: payment from author" : "card opened: payment to reader";
+            return originator ? "card opened: payment to reader" : "card opened: payment from author";
           case "card-open-fee":
-            return amount > 0 ? "card opened: payment from reader" : "card opened: payment to author";
+            return originator ? "card opened: payment to author" : "card opened: payment from reader";
           default:
-            return reason;
+            return transaction.reason;
         }
       }
 
@@ -333,6 +366,10 @@
       _d2(n) {
         if (n < 9) return "0" + n;
         return n;
+      }
+
+      _onWithdrawClick() {
+        $router.goto("withdraw")
       }
     }
     window.customElements.define(BalanceView.is, BalanceView);

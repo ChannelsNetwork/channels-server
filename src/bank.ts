@@ -9,20 +9,47 @@ import { UserHelper } from "./user-helper";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import { SignedObject } from "./interfaces/signed-object";
+import * as paypal from 'paypal-rest-sdk';
+import { Initializable } from "./interfaces/initializable";
+import { configuration } from "./configuration";
+import { Utils } from "./utils";
+import { networkEntity } from "./network-entity";
+import { userManager } from "./user-manager";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 
-export class Bank implements RestServer {
+export class Bank implements RestServer, Initializable {
   private app: express.Application;
   private urlManager: UrlManager;
+  private paypalEnabled = false;
+  private exchangeRate = 1;
+  private paypalFixedPayoutFee = 0.25;
+  private paypalVariablePayoutFraction = 0;
+
+  async initialize(urlManager: UrlManager): Promise<void> {
+    if (configuration.get('paypal.enabled') && configuration.get('paypal.clientId') && configuration.get('paypal.secret')) {
+      const mode = configuration.get('paypal.mode', "sandbox");
+      paypal.configure({
+        mode: mode,
+        client_id: configuration.get('paypal.clientId'),
+        client_secret: configuration.get('paypal.secret')
+      });
+      this.paypalEnabled = true;
+      console.log("Bank.initialize:  Paypal operations enabled", mode);
+    }
+  }
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     this.urlManager = urlManager;
     this.app = app;
     this.registerHandlers();
+  }
+
+  async initialize2(): Promise<void> {
+    // noop
   }
 
   private registerHandlers(): void {
@@ -34,15 +61,86 @@ export class Bank implements RestServer {
     });
   }
 
+  get withdrawalsEnabled() {
+    return this.paypalEnabled;
+  }
+
   private async handleWithdraw(request: Request, response: Response): Promise<void> {
     try {
+      if (!this.paypalEnabled) {
+        response.status(500).send("Paypal functions are not available.");
+        return;
+      }
       const requestBody = request.body as RestRequest<BankWithdrawDetails>;
       const user = await RestHelper.validateRegisteredRequest(requestBody, response);
       if (!user) {
         return;
       }
-      console.log("Bank.bank-withdraw", requestBody.detailsObject);
+      if (!requestBody.detailsObject.transaction) {
+        response.status(400).send("Missing details");
+        return;
+      }
+      if (!KeyUtils.verifyString(requestBody.detailsObject.transaction.objectString, UserHelper.getPublicKeyForAddress(user, requestBody.detailsObject.address), requestBody.detailsObject.transaction.signature)) {
+        response.status(401).send("Invalid details signature");
+        return;
+      }
+      const details = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
+      if (!details.amount || !details.reason || !details.type || !details.withdrawalRecipient) {
+        response.status(400).send("Invalid withdrawal details:  missing fields");
+        return;
+      }
+      if (details.amount < 1 || details.amount > user.withdrawableBalance) {
+        response.status(400).send("Invalid withdrawal amount.  Must be at least ℂ1 and no more than your available withdrawable balance.");
+        return;
+      }
+      if (details.reason !== "withdrawal" || details.type !== 'withdrawal') {
+        response.status(400).send("Invalid withdrawal type or reason.  Both must be 'withdrawal'.");
+        return;
+      }
+      if (details.withdrawalRecipient.currency !== 'USD') {
+        response.status(400).send("Unsupported currency.  We currently only support US dollars (USD).");
+        return;
+      }
+      if (!Utils.isEmailAddress(details.withdrawalRecipient.emailAddress)) {
+        response.status(400).send("Invalid email address");
+        return;
+      }
+      if (details.toRecipients && details.toRecipients.length > 0) {
+        response.status(400).send("ToRecipients are not allowed on a withdrawal.");
+        return;
+      }
+      if (details.withdrawalRecipient.mechanism !== 'Paypal') {
+        response.status(400).send("Invalid withdrawal mechanism.  Currently we only support Paypal.");
+        return;
+      }
+      console.log("Bank.bank-withdraw", details);
+      const amountInUSD = Utils.floorDecimal(details.amount * this.exchangeRate, 2);
+      const feeAmount = Utils.ceilDecimal(this.paypalFixedPayoutFee + amountInUSD * this.paypalVariablePayoutFraction, 2);
+      const feeDescription = "USD$" + this.paypalFixedPayoutFee.toFixed(2);
+      const paidAmount = amountInUSD - feeAmount;
+      const now = Date.now();
+      const transactionResult = await bank.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now);
+      const note = "Your withdrawal request from your Channels balance has been accepted.";
+      let payoutResult: PaypalPayoutResponse;
+      try {
+        payoutResult = await this.makePaypalPayout("Channels withdrawal", paidAmount, details.withdrawalRecipient.currency, details.withdrawalRecipient.emailAddress, note, transactionResult.record.id);
+      } catch (err) {
+        await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, null, "API_FAILED", err);
+        response.status(503).send("Paypal payout request failed");
+        return;
+      }
+      await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, payoutResult.batch_header.payout_batch_id, payoutResult.batch_header.batch_status, null);
+      const userStatus = await userManager.getUserStatus(user);
       const reply: BankWithdrawResponse = {
+        paidAmount: paidAmount,
+        currency: details.withdrawalRecipient.currency,
+        feeAmount: feeAmount,
+        feeDescription: feeDescription,
+        channelsReferenceId: transactionResult.record.id,
+        paypalReferenceId: payoutResult.batch_header.payout_batch_id,
+        updateBalanceAt: now,
+        updatedBalance: user.balance,
+        status: userStatus
       };
       response.json(reply);
     } catch (err) {
@@ -80,7 +178,7 @@ export class Bank implements RestServer {
     }
   }
 
-  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false): Promise<BankTransactionResult> {
+  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false): Promise<BankTransactionResult> {
     if (!UserHelper.isUsersAddress(user, address)) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -170,7 +268,7 @@ export class Bank implements RestServer {
     }
     const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
     // console.log("Bank.performTransfer", details.reason, user.id, user.balance, details.amount);
-    await db.incrementUserBalance(user, -details.amount, 0, balanceBelowTarget, now);
+    await db.incrementUserBalance(user, -details.amount, 0, 0, balanceBelowTarget, now);
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
@@ -188,7 +286,7 @@ export class Bank implements RestServer {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, signedTransaction, deductions, remainderShares);
+    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, signedTransaction, deductions, remainderShares, null);
     await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
     for (const recipient of details.toRecipients) {
       const recipientUser = await db.findUserByAddress(recipient.address);
@@ -207,7 +305,7 @@ export class Bank implements RestServer {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
       console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
-      await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
+      await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, increaseWithdrawableBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
       await db.updateUserCardIncrementEarned(recipientUser.id, details.relatedCardId, creditAmount, record.id);
       if (recipientUser.id === user.id) {
         user.balance += creditAmount;
@@ -216,6 +314,7 @@ export class Bank implements RestServer {
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,
+      updatedWithdrawableBalance: user.withdrawableBalance,
       balanceAt: now
     };
     return result;
@@ -233,9 +332,9 @@ export class Bank implements RestServer {
     if (!networkInitiated && from.balance < coupon.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
-    const card = await db.findCardById(coupon.cardId);
+    const card = await db.findCardById(coupon.cardId, false);
     if (!card) {
-      throw new ErrorWithStatusCode(404, "The card associated with this coupon is missing");
+      throw new ErrorWithStatusCode(404, "The card associated with this coupon is no longer available");
     }
     const redeemable = await this.isCouponRedeemable(coupon, card);
     if (!redeemable) {
@@ -259,18 +358,19 @@ export class Bank implements RestServer {
     transactionDetails.toRecipients.push(recipient);
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
-    await db.incrementUserBalance(from, -coupon.amount, 0, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, null, 0, 1);
+    await db.incrementUserBalance(from, -coupon.amount, 0, 0, balanceBelowTarget, now);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, null, 0, 1, null);
     if (from.id !== to.id) {
       await db.updateUserCardIncrementPaid(from.id, card.id, coupon.amount, record.id);
       await db.updateUserCardIncrementEarned(to.id, card.id, coupon.amount, record.id);
     }
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
-    await db.incrementUserBalance(to, coupon.amount, 0, to.balance + coupon.amount < to.targetBalance, now);
+    await db.incrementUserBalance(to, coupon.amount, 0, 0, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: from.id === to.id ? originalBalance : to.balance,
+      updatedWithdrawableBalance: to.withdrawableBalance,
       balanceAt: now
     };
     return result;
@@ -316,8 +416,68 @@ export class Bank implements RestServer {
     const record = await db.insertBankCoupon(details, user.id, coupon.address, coupon.timestamp, coupon.amount, coupon.budget.amount, coupon.budget.plusPercent, coupon.reason, cardId);
     return record;
   }
+
+  private async makePaypalPayout(emailSubject: string, amount: number, currency: Currency, receiverEmail: string, note: string, senderItemId: string): Promise<PaypalPayoutResponse> {
+    return new Promise<PaypalPayoutResponse>((resolve, reject) => {
+      const senderBatchId = Math.random().toString(36).substr(9);
+      const payoutData: any = {
+        sender_batch_header: {
+          sender_batch_id: senderBatchId,
+          email_subject: emailSubject
+        },
+        items: [
+          {
+            recipient_type: "EMAIL",
+            amount: {
+              value: amount.toFixed(2),
+              currency: currency
+            },
+            receiver: receiverEmail,
+            note: note,
+            sender_item_id: senderItemId
+          }
+        ]
+      };
+      paypal.payout.create(payoutData, false, (err: any, payout: PaypalPayoutResponse) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(payout);
+        }
+      });
+    });
+  }
+
+  private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number): Promise<BankTransactionResult> {
+    console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
+    await db.incrementUserBalance(user, -details.amount, 0, -details.amount, user.balance - details.amount < user.targetBalance, now);
+    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
+    const result: BankTransactionResult = {
+      record: record,
+      updatedBalance: user.balance,
+      updatedWithdrawableBalance: user.withdrawableBalance,
+      balanceAt: now
+    };
+    return result;
+  }
+
+  private async updateWithdrawalStatus(transaction: BankTransactionRecord, referenceId: string, status: string, err: any): Promise<void> {
+    await db.updateBankTransactionWithdrawalStatus(transaction.id, referenceId, status, err);
+  }
 }
 
 const bank = new Bank();
 
 export { bank };
+
+// see https://developer.paypal.com/docs/api/payments.payouts-batch/
+interface PaypalPayoutResponse {
+  batch_header: {
+    sender_batch_header: {
+      sender_batch_id: string;
+      email_subject: string;
+    },
+    payout_batch_id: string;
+    batch_status: string;
+  };
+}

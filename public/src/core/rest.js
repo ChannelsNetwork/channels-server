@@ -182,7 +182,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -190,6 +190,7 @@ class RestUtils {
       linkUrl: linkUrl,
       title: title,
       text: text,
+      private: isPrivate,
       cardType: packageName,            // same as sent to ensure-component
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
@@ -241,6 +242,23 @@ class RestUtils {
     };
   }
 
+  static updateCardPrivateDetails(address, cardId, isPrivate) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      private: isPrivate
+    };
+  }
+
+  static deleteCardDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+  }
+
   static getCouponDetails(address, reason, amount, budgetAmount, budgetPlusPercent) {
     return {
       address: address,
@@ -254,8 +272,16 @@ class RestUtils {
     };
   }
 
-  static bankTransaction(address, type, reason, cardId, couponId, amount, recipients) {
+  static bankTransactionWithdrawalRecipient(emailAddress) {
     return {
+      mechanism: "Paypal",
+      currency: "USD",
+      emailAddress: emailAddress
+    };
+  }
+
+  static bankTransaction(address, type, reason, cardId, couponId, amount, recipients, withdrawalRecipient) {
+    const result = {
       address: address,
       timestamp: RestUtils.now(),
       type: type,                 // "transfer"
@@ -264,6 +290,10 @@ class RestUtils {
       amount: amount,             // ChannelCoins
       toRecipients: recipients    // bankTransactionRecipient[]
     };
+    if (withdrawalRecipient) {
+      result.withdrawalRecipient = withdrawalRecipient;
+    }
+    return result;
   }
 
   static bankTransactionRecipient(address, portion, amount) {
@@ -280,6 +310,17 @@ class RestUtils {
       timestamp: RestUtils.now(),
       maxCount: maxCount
     };
+  }
+
+  static bankWithdraw(address, transactionString, transactionSignature) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      transaction: {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      }
+    }
   }
 
   static cardClosedDetails(address, cardId) {

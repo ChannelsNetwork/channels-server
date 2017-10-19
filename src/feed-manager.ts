@@ -157,7 +157,7 @@ export class FeedManager implements Initializable, RestServer {
       return this.highScoreCards;
     }
     this.lastHighScoreCardsAt = now;
-    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT);
+    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT, user.id);
     this.highScoreCards = await this.populateCards(cards, user, startWithCardId);
     return this.highScoreCards;
   }
@@ -175,12 +175,12 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getRecentlyAddedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const cards = await db.findCardsByTime(Date.now(), 0, limit);
+    const cards = await db.findAccessibleCardsByTime(Date.now(), 0, limit, user.id);
     return await this.populateCards(cards, user, startWithCardId);
   }
 
   private async getRecentlyPostedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const cards = await db.findCardsByTime(Date.now(), 0, limit, user.id);
+    const cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, user.id, false);
     return await this.populateCards(cards, user, startWithCardId);
   }
 
@@ -188,7 +188,10 @@ export class FeedManager implements Initializable, RestServer {
     const infos = await db.findRecentCardOpens(user.id, limit);
     const cards: CardRecord[] = [];
     for (const info of infos) {
-      cards.push(await db.findCardById(info.cardId));
+      const card = await db.findCardById(info.cardId, false);
+      if (card && (!card.private || card.by.id === user.id)) {
+        cards.push(card);
+      }
     }
     return await this.populateCards(cards, user, startWithCardId);
   }
@@ -206,7 +209,7 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     if (startWithCardId && !found) {
-      const card = await db.findCardById(startWithCardId);
+      const card = await db.findCardById(startWithCardId, false);
       if (card) {
         orderedCards.unshift(card);
       }
@@ -326,6 +329,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "The Devastation in Puerto Rico, as Seen From Above",
       "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
+      false,
       null,
       this.getPreviewUrl("icon-news.png"),
       null, 0,
@@ -340,6 +344,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Play Galaga",
       "The online classic 80's arcade game",
+      false,
       null,
       this.getPreviewUrl("icon-game.png"),
       null, 0,
@@ -356,6 +361,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Puff Pizza Ring",
       "Learn how to make this delicious treat",
+      false,
       null,
       this.getPreviewUrl("icon-play2.png"),
       null, 0,
@@ -371,6 +377,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "The National doesn't rest on the excellent Sleep Well Beast",
       "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
+      false,
       null,
       this.getPreviewUrl("icon-news.png"),
       null, 0,
@@ -385,6 +392,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Solemn Promise",
       "Solve this mini-crossword in one minute",
+      false,
       null,
       this.getPreviewUrl("icon-crossword.png"),
       null, 0,
@@ -401,6 +409,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Tomb Raider",
       "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
+      false,
       null,
       this.getPreviewUrl("icon-play2.png"),
       null, 0,
@@ -416,6 +425,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Ascension",
       "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
+      false,
       null,
       this.getPreviewUrl("icon-play2.png"),
       null, 0,
@@ -430,6 +440,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "My Drive on the Most Dangerous Road in the World",
       null,
+      false,
       null,
       this.getPreviewUrl("icon-play2.png"),
       null, 0,
@@ -444,6 +455,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "The 100 best photographs ever taken without photoshop",
       "According to BrightSide.me",
+      false,
       null,
       this.getPreviewUrl("icon-photos.png"),
       null, 0,
@@ -458,6 +470,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Rage Against the Current",
       "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
+      false,
       null,
       this.getPreviewUrl("icon-book.png"),
       null, 0,
@@ -472,6 +485,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Five Things to Learn From Uber's Implosion",
       "How to Fail at the Future",
+      false,
       null,
       this.getPreviewUrl("icon-news.png"),
       null, 0,
@@ -488,6 +502,7 @@ export class FeedManager implements Initializable, RestServer {
       "https://www.bluenile.com",
       "New. Brilliant. Astor by Blue Nile",
       "Find the most beautiful diamonds in the world and build your own ring.",
+      false,
       null,
       this.getPreviewUrl("icon-link.png"),
       null, 0,
@@ -503,6 +518,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "The Latest Unfiltered News",
       "Explore news from around the world that are outside the mainstream media",
+      false,
       null,
       this.getPreviewUrl("icon-touch.png"),
       null, 0,
@@ -519,6 +535,7 @@ export class FeedManager implements Initializable, RestServer {
       null,
       "Pyro Podcast Show 285",
       "Foreshadowing Week 4",
+      false,
       null,
       this.getPreviewUrl("icon-audio.png"),
       null, 0,
@@ -563,7 +580,7 @@ export class FeedManager implements Initializable, RestServer {
     const privateKey = KeyUtils.generatePrivateKey();
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, id);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, 0, id);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,

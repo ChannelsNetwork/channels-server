@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
 import { BankTransactionDetails } from "./interfaces/rest-services";
@@ -114,10 +114,13 @@ export class Database {
   private async initializeCards(): Promise<void> {
     this.cards = this.db.collection('cards');
     await this.cards.createIndex({ id: 1 }, { unique: true });
-    await this.cards.createIndex({ postedAt: -1, "by.address": -1 });
-    await this.cards.createIndex({ "by.address": 1, at: -1 });
-    await this.cards.createIndex({ postedAt: 1, lastScored: -1 });
-    await this.cards.createIndex({ "score.value": -1 });
+    await this.cards.createIndex({ state: 1, postedAt: -1, "by.id": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "private": 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, "private": 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "score.value": -1 });
+    await this.cards.createIndex({ state: 1, "private": 1, "score.value": -1 });
 
     // Migrate cards that don't have stats set up yet...
     const existing = await this.cards.find<CardRecord>({ opens: { $exists: false } }).toArray();
@@ -137,6 +140,8 @@ export class Database {
       });
     }
     await this.cards.updateMany({ lastScored: { $exists: false } }, { $set: { lastScored: 0 } });
+    await this.cards.updateMany({ state: { $exists: false } }, { $set: { state: "active" } });
+    await this.cards.updateMany({ private: { $exists: false } }, { $set: { private: false } });
   }
 
   private async initializeMutationIndexes(): Promise<void> {
@@ -261,7 +266,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -274,7 +279,7 @@ export class Database {
       balance: 0,
       targetBalance: 0,
       balanceBelowTarget: false,
-      withdrawableBalance: 0,
+      withdrawableBalance: withdrawableBalance,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
@@ -402,7 +407,7 @@ export class Database {
     return await this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
   }
 
-  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
+  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, incrementWithdrawableBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
     const query: any = {
       id: user.id
     };
@@ -410,12 +415,13 @@ export class Database {
       query.balanceLastUpdated = onlyIfLastBalanceUpdated;
     }
     const result = await this.users.updateOne(query, {
-      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy },
+      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy, withdrawableBalance: incrementWithdrawableBalanceBy },
       $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
     });
     if (result.modifiedCount > 0) {
       user.balance += incrementBalanceBy;
       user.targetBalance += incrementTargetBy;
+      user.withdrawableBalance += incrementWithdrawableBalanceBy;
       user.balanceBelowTarget = balanceBelowTarget;
       user.balanceLastUpdated = now;
     } else {
@@ -423,6 +429,7 @@ export class Database {
       if (updatedUser) {
         user.balance = updatedUser.balance;
         user.targetBalance = updatedUser.targetBalance;
+        user.withdrawableBalance = updatedUser.withdrawableBalance;
         user.balanceBelowTarget = updatedUser.balanceBelowTarget;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
@@ -433,10 +440,11 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
+      state: "active",
       postedAt: now,
       by: {
         id: byUserId,
@@ -451,6 +459,7 @@ export class Database {
         title: title,
         text: text,
       },
+      private: isPrivate,
       cardType: {
         package: cardType,
         iconUrl: cardTypeIconUrl,
@@ -527,19 +536,19 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, { $set: { lock: { server: '', at: 0 } } });
   }
 
-  async findCardById(id: string): Promise<CardRecord> {
+  async findCardById(id: string, includeInactive: boolean): Promise<CardRecord> {
     if (!id) {
       return null;
     }
-    return await this.cards.findOne<CardRecord>({ id: id });
+    const query: any = { id: id };
+    if (!includeInactive) {
+      query.state = "active";
+    }
+    return await this.cards.findOne<CardRecord>(query);
   }
 
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
-  }
-
-  async findAllCards(): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({}).toArray();
+    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
   }
 
   async updateCardScore(card: CardRecord, score: number, addHistory: boolean): Promise<void> {
@@ -565,27 +574,25 @@ export class Database {
     });
   }
 
+  async updateCardPrivate(card: CardRecord, isPrivate: boolean): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, { $set: { private: isPrivate } });
+    card.private = isPrivate;
+  }
+
+  async updateCardState(card: CardRecord, state: CardActiveState): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, { $set: { state: state } });
+    card.state = state;
+  }
+
   async clearCardScoreHistoryBefore(card: CardRecord, before: number): Promise<void> {
     await this.cards.updateOne({ id: card.id }, { $pull: { history: { at: { $lte: before } } } });
   }
 
-  async findCards(beforeCard: CardRecord, afterCard: CardRecord, maxCount: number): Promise<CardRecord[]> {
-    let cursor = this.cards.find();
-    let anyCursor = cursor as any;  // appears to be a bug in type definitions related to max/min
-    if (afterCard) {
-      anyCursor = anyCursor.min({ postedAt: afterCard.postedAt, "by.address": afterCard.by.address });
-    }
-    if (beforeCard) {
-      anyCursor = anyCursor.max({ postedAt: beforeCard.postedAt, "by.address": beforeCard.by.address });
-    }
-    cursor = anyCursor as Cursor<CardRecord>;
-    return await cursor.sort({ postedAt: -1, byAddress: -1 }).limit(maxCount).toArray();
-  }
-
-  async findCardsByTime(before: number, after: number, maxCount: number, byUserId?: string): Promise<CardRecord[]> {
-    const query: any = {};
-    if (byUserId) {
-      query["by.id"] = byUserId;
+  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    query["by.id"] = byUserId;
+    if (excludePrivate) {
+      query.private = false;
     }
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
@@ -597,8 +604,29 @@ export class Database {
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
-  async findCardsByScore(limit: number): Promise<CardRecord[]> {
-    return await this.cards.find({}).sort({ "score.value": -1 }).limit(limit).toArray();
+  async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    query.$or = [
+      { "by.id": userId },
+      { "private": false }
+    ];
+    if (before && after) {
+      query.postedAt = { $lt: before, $gt: after };
+    } else if (before) {
+      query.postedAt = { $lt: before };
+    } else if (after) {
+      query.postedAt = { $gt: after };
+    }
+    return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
+  }
+
+  async findCardsByScore(limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    query.$or = [
+      { "by.id": userId },
+      { "private": false }
+    ];
+    return await this.cards.find(query).sort({ "score.value": -1 }).limit(limit).toArray();
   }
 
   async incrementCardLikes(cardId: string, incrementLikesBy: number, incrementDislikesBy: number): Promise<void> {
@@ -998,7 +1026,7 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
@@ -1008,8 +1036,16 @@ export class Database {
       details: details,
       signedObject: signedObject,
       deductions: deductions,
-      remainderShares: remainderShares
+      remainderShares: remainderShares,
     };
+    if (withdrawalType) {
+      record.withdrawalInfo = {
+        type: withdrawalType,
+        referenceId: null,
+        status: "Initiated",
+        error: null
+      };
+    }
     await this.bankTransactions.insert(record);
     return record;
   }
@@ -1030,6 +1066,16 @@ export class Database {
 
   async countBankTransactions(): Promise<number> {
     return await db.bankTransactions.count({});
+  }
+
+  async updateBankTransactionWithdrawalStatus(transactionId: string, referenceId: string, status: string, err: any): Promise<void> {
+    await db.bankTransactions.updateOne({ id: transactionId }, {
+      $set: {
+        "withdrawalInfo.referenceId": referenceId,
+        "withdrawalInfo.status": status,
+        "withdrawalInfo.err": err
+      }
+    });
   }
 
   async insertUserCardAction(userId: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {

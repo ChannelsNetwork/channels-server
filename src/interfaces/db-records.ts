@@ -59,6 +59,7 @@ export interface NetworkRecord {
 
 export interface CardRecord {
   id: string;
+  state: CardActiveState;
   postedAt: number;
   by: {
     id: string;
@@ -73,6 +74,7 @@ export interface CardRecord {
     title: string;
     text: string;
   };
+  private: boolean;
   cardType: {
     package: string;
     iconUrl: string;
@@ -105,6 +107,8 @@ export interface CardRecord {
     at: number;
   };
 }
+
+export type CardActiveState = "active" | "deleted";
 
 export interface CardStatistic {
   value: number;
@@ -269,6 +273,12 @@ export interface BankTransactionRecord {
   relatedCardTitle: string;
   details: BankTransactionDetails;
   signedObject: SignedObject;
+  withdrawalInfo?: {
+    type: string;
+    referenceId: string;
+    status: string;
+    error: any;
+  };
 }
 
 export interface UserCardActionRecord {
@@ -291,7 +301,7 @@ export interface UserCardActionRecord {
   };
 }
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "make-private" | "make-public";
 
 export interface UserCardInfoRecord {
   userId: string;
@@ -324,7 +334,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;

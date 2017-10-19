@@ -30,7 +30,8 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"></card-view>
+          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"
+            on-card-deleted="_onCardDeleted"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -209,6 +210,17 @@
       _removeNodeAndAdjustScroll(node) {
         node.remove();
         this._openCardShell.scrollIntoView(true);
+      }
+
+      _onCardDeleted(event) {
+        const newItems = [];
+        const cardId = event.detail.card.id;
+        for (const item of this.items) {
+          if (item.id !== cardId) {
+            newItems.push(item);
+          }
+        }
+        this.set('items', newItems);
       }
     }
     window.customElements.define(CardFeed.is, CardFeed);

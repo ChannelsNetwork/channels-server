@@ -85,5 +85,6 @@ export interface CardOpenedReply extends ReplyDetails {
 export interface BankTransactionResult {
   record: BankTransactionRecord;
   updatedBalance: number;
+  updatedWithdrawableBalance: number;
   balanceAt: number;
 }
