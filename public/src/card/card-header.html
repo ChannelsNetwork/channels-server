@@ -2,6 +2,7 @@
 <link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
 <link rel="import" href="../../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../../bower_components/neon-animation/web-animations.html">
 
 <dom-module id="card-header">
   <template>
@@ -151,10 +152,12 @@
       }
 
       _onDelete(event) {
-        this.$.menuButton.disabled = true;
-        $core.deleteCard(this.data.id).then((response) => {
-          this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
-        });
+        if (window.confirm("This will delete this card permanently.  Are you sure?")) {
+          this.$.menuButton.disabled = true;
+          $core.deleteCard(this.data.id).then((response) => {
+            this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
+          });
+        }
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);
