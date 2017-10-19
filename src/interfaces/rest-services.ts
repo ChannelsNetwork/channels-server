@@ -329,9 +329,23 @@ export interface UpdateCardLikeDetails extends Signable {
 export interface UpdateCardLikeResponse extends RestResponse { }
 
 export interface BankWithdrawDetails extends Signable {
+  transaction: SignedObject;  // signed BankTransactionDetails with type = withdrawal
 }
 
-export interface BankWithdrawResponse extends RestResponse { }
+export type Currency = "USD";
+
+export type WithdrawalMechanism = "Paypal";
+
+export interface BankWithdrawResponse extends UserStatusResponse {
+  paidAmount: number;
+  feeAmount: number;
+  feeDescription: string;
+  currency: Currency;
+  channelsReferenceId: string;
+  paypalReferenceId: string;
+  updatedBalance: number;
+  updateBalanceAt: number;
+}
 
 export interface BankStatementDetails extends Signable {
   maxTransactions: number;
@@ -356,9 +370,16 @@ export interface BankTransactionDetails extends Signable {
   relatedCouponId: string;
   amount: number;  // ChannelCoin
   toRecipients: BankTransactionRecipientDirective[];
+  withdrawalRecipient?: BankWithdrawalRecipient;
 }
 
-export type BankTransactionType = "transfer" | "coupon-redemption";  // others to come such as "coupon-create"
+export type BankTransactionType = "transfer" | "coupon-redemption" | "withdrawal";  // others to come such as "coupon-create"
+
+export interface BankWithdrawalRecipient {
+  mechanism: WithdrawalMechanism;
+  currency: Currency;
+  emailAddress: string;
+}
 
 export interface BankTransactionRecipientDirective {
   address: string;

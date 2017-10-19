@@ -318,6 +318,21 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  withdraw(amount, emailAddress) {
+    return this.ensureKey().then(() => {
+      const transaction = RestUtils.bankTransaction(this._keys.address, "withdrawal", "withdrawal", null, null, amount, [], RestUtils.bankTransactionWithdrawalRecipient(emailAddress));
+      const transactionString = JSON.stringify(transaction);
+      const transactionSignature = this._sign(transactionString);
+      let details = RestUtils.bankWithdraw(this._keys.address, transactionString, transactionSignature);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/bank-withdraw";
+      return this.rest.post(url, request).then((response) => {
+        this._statusResponse = response;
+        return response;
+      });
+    });
+  }
+
   uploadFile(file) {
     return this.ensureKey().then(() => {
       var formData = new FormData();
@@ -331,6 +346,11 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/upload";
       return this.rest.postFile(url, formData);
     });
+  }
+
+  isValidEmail(emailAddress) {
+    const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(emailAddress);
   }
 
   get profile() {
@@ -349,6 +369,10 @@ class CoreService extends Polymer.Element {
     return this._registration;
   }
 
+  get coinSellExchangeRate() {
+    return 0.98;
+  }
+
   get balance() {
     if (!this._statusResponse) {
       return 0;
@@ -359,6 +383,13 @@ class CoreService extends Polymer.Element {
       result = Math.min(result, this._statusResponse.status.targetBalance);
     }
     return result;
+  }
+
+  get withdrawableBalance() {
+    if (!this._statusResponse || !this._statusResponse.status) {
+      return 0;
+    }
+    return this._statusResponse.status.withdrawableBalance;
   }
 
   get baseCardPrice() {

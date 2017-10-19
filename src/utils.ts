@@ -67,4 +67,19 @@ export class Utils {
   static escapeRegex(value: string): string {
     return value.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
   }
+
+  static isEmailAddress(emailAddress: string): boolean {
+    const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(emailAddress);
+  }
+
+  static floorDecimal(value: number, decimals: number): number {
+    const multiplier = Math.pow(10, decimals);
+    return Math.floor(value * multiplier) / multiplier;
+  }
+
+  static ceilDecimal(value: number, decimals: number): number {
+    const multiplier = Math.pow(10, decimals);
+    return Math.ceil(value * multiplier) / multiplier;
+  }
 }

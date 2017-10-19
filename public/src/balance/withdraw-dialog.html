@@ -1,0 +1,213 @@
+<dom-module id="withdraw-dialog">
+  <template>
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+        background-color: white;
+        color: black;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      #container {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #progressPanel {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      .buttons {
+        text-align: right;
+        padding: 30px 0 5px;
+      }
+
+      .tableContainer {
+        max-width: 600px;
+        margin: 25px auto;
+        display: table;
+      }
+
+      .row {
+        display: table-row;
+        margin: 10px 0;
+      }
+
+      .leftCell {
+        display: table-cell;
+        text-align: right;
+        padding: 5px;
+      }
+
+      .rightCell {
+        display: table-cell;
+        padding: 5px;
+      }
+
+      input {
+        font-size: 16px;
+      }
+
+      #withdrawalAmount {
+        width: 100px;
+      }
+
+      #email {
+        width: 250px;
+      }
+
+      .feeDescription {
+        font-size: 12px;
+        font-style: italic;
+      }
+
+      .extraSpace {
+        margin-top: 15px;
+      }
+    </style>
+    <div class="shell horizontal layout center">
+      <div id="container">
+        <h2>Withdrawal</h2>
+        <div class="explain">You can withdraw coins into your Paypal account by entering your email address below. If you don't already have a
+          Paypal account, one will be set up for you automatically.</div>
+        <div>
+          <div class="tableContainer">
+            <div class="row">
+              <div class="leftCell">Send funds to:</div>
+              <div class="rightCell">
+                <input id="email" type="email" placeholder="Enter email address" on-input="_onEmailChanged">
+              </div>
+            </div>
+            <div class="row">
+              <div class="leftCell">Amount to withdraw:</div>
+              <div class="rightCell">ℂ
+                <input id="withdrawalAmount" type="number" value="4.00" min="1" max="[[maxWithdrawal]]" step="0.01" on-input="_onAmountChanged">
+              </div>
+            </div>
+            <div class="row">
+              <div class="leftCell">USD Exchange Rate:</div>
+              <div class="rightCell">[[exchangeRate]]</div>
+            </div>
+            <div class="row">
+              <div class="leftCell">Total:</div>
+              <div class="rightCell">[[withdrawalAmount]]</div>
+            </div>
+            <div class="row">
+              <div class="leftCell">Paypal Fees:</div>
+              <div class="rightCell">[[fees]]
+                <span class="feeDescription">[[feeDescription]]</span>
+              </div>
+            </div>
+            <div class="row extraSpace">
+              <div class="leftCell">Net proceeds:</div>
+              <div class="rightCell">[[proceeds]]</div>
+            </div>
+          </div>
+          <div class="buttons">
+            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
+            <button id="btnSave" on-click="_onSave" disabled>Save</button>
+          </div>
+        </div>
+      </div>
+      <div id="progressPanel" style="display: none;">
+        <p>[[progress]]</p>
+        <p id="errorPanel" style="display: none;">
+          <button on-click="_onOk">OK</button>
+        </p>
+      </div>
+    </div>
+  </template>
+  <script>
+    class WithdrawDialog extends Polymer.Element {
+      static get is() { return "withdraw-dialog"; }
+      static get properties() {
+        return {
+          maxWithdrawal: String,
+          exchangeRate: String,
+          withdrawalAmount: String,
+          fees: String,
+          feeDescription: String,
+          proceeds: String
+        };
+      }
+
+      onActivate(route) {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+          return;
+        }
+        $core.register().then((info) => {
+          if ($core.withdrawableBalance < 1) {
+            $router.goto("balance");
+            return;
+          }
+          this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(2));
+          this.$.withdrawalAmount.value = this.maxWithdrawal;
+          this.set('exchangeRate', $core.coinSellExchangeRate.toFixed(6));
+          this.set('feeDescription', '($0.30 plus 2.9%)');
+          this._refresh();
+        });
+      }
+
+      _onEmailChanged() {
+        this._refresh();
+      }
+
+      _onAmountChanged() {
+        this._refresh();
+      }
+
+      _refresh() {
+        this.$.email.disabled = false;
+        this.$.withdrawalAmount.disabled = false;
+        this.$.btnSave.disabled = true;
+        if (Number.isNaN(this.$.withdrawalAmount.value)) {
+          return;
+        }
+        const amount = Number(this.$.withdrawalAmount.value);
+        if (amount < 1 || amount > $core.withdrawableBalance) {
+          return;
+        }
+        this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(3));
+        const withdrawal = amount * $core.coinSellExchangeRate;
+        this.set('withdrawalAmount', 'US$' + withdrawal.toFixed(2));
+        const fees = 0.25; //
+        + withdrawal * 0.029;
+        this.set('fees', 'US$' + fees.toFixed(2));
+        const proceeds = withdrawal - fees;
+        this.set('proceeds', 'US$' + proceeds.toFixed(2));
+        if (!$core.isValidEmail(this.$.email.value)) {
+          return;
+        }
+        this.$.btnSave.disabled = false;
+      }
+
+      _onCancel() {
+        $router.goto("balance");
+      }
+
+      _onSave() {
+        this.$.btnSave.disabled = true;
+        this.$.email.disabled = true;
+        this.$.withdrawalAmount.disabled = true;
+        $core.withdraw(Number(this.$.withdrawalAmount.value), this.$.email.value).then(() => {
+          $router.goto("balance");
+        });
+      }
+    }
+    window.customElements.define(WithdrawDialog.is, WithdrawDialog);
+  </script>
+</dom-module>
