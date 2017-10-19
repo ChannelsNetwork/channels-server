@@ -213,7 +213,7 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  postCard(imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
+  postCard(imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     return this.ensureKey().then(() => {
       let coupon;
       if (promotionFee + openPayment > 0) {
@@ -224,7 +224,7 @@ class CoreService extends Polymer.Element {
           signature: this._sign(couponDetailsString)
         }
       }
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
+      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
       let request = this._createRequest(details);
       const url = this.restBase + "/post-card";
       return this.rest.post(url, request);
@@ -309,6 +309,24 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  updateCardPrivate(cardId, isPrivate) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.updateCardPrivateDetails(this._keys.address, cardId, isPrivate);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/update-card-private";
+      return this.rest.post(url, request);
+    });
+  }
+
+  deleteCard(cardId) {
+    return this.ensureKey().then(() => {
+      let details = RestUtils.deleteCardDetails(this._keys.address, cardId);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/delete-card";
+      return this.rest.post(url, request);
+    });
+  }
+
   bankStatement(maxCount) {
     return this.ensureKey().then(() => {
       let details = RestUtils.bankStatementDetails(this._keys.address, maxCount);
@@ -355,6 +373,10 @@ class CoreService extends Polymer.Element {
 
   get profile() {
     return this._profile;
+  }
+
+  get userId() {
+    return this._registration ? this._registration.userId : null;
   }
 
   get address() {

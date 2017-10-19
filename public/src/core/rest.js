@@ -182,7 +182,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     return {
       address: address,
       timestamp: RestUtils.now(),
@@ -190,6 +190,7 @@ class RestUtils {
       linkUrl: linkUrl,
       title: title,
       text: text,
+      private: isPrivate,
       cardType: packageName,            // same as sent to ensure-component
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
@@ -238,6 +239,23 @@ class RestUtils {
       timestamp: RestUtils.now(),
       cardId: cardId,
       couponId: couponId
+    };
+  }
+
+  static updateCardPrivateDetails(address, cardId, isPrivate) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      private: isPrivate
+    };
+  }
+
+  static deleteCardDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
     };
   }
 

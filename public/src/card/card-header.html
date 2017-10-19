@@ -1,3 +1,8 @@
+<link rel="import" href="../../bower_components/paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../bower_components/paper-item/paper-item.html">
+
 <dom-module id="card-header">
   <template>
     <style is="custom-style" include="iron-flex iron-flex-alignment">
@@ -40,6 +45,19 @@
       .hidden {
         display: none;
       }
+
+      #privateIcon {
+        width: 16px;
+        height: 16px;
+      }
+
+      paper-item {
+        cursor: pointer;
+      }
+
+      #menuButton {
+        cursor: pointer;
+      }
     </style>
     <div class="horizontal layout center bar">
       <img id="authorImage">
@@ -48,8 +66,15 @@
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
       <div id="revenue" class="revenue">ℂ[[data.history.revenueDisplay]]</div>
-      <div class="horizontal layout center">
-        <iron-icon icon="ch:expand-more"></iron-icon>
+      <iron-icon id="privateIcon" icon="lock-outline"></iron-icon>
+      <div class="horizontal layout center" on-click="_onMenuClick">
+        <paper-menu-button id="menuButton" disabled>
+          <paper-icon-button icon="ch:expand-more" slot="dropdown-trigger" alt="menu"></paper-icon-button>
+          <paper-listbox slot="dropdown-content">
+            <paper-item id="makePublicPrivate" on-click="_onMakePublicPrivate">[[makePublicPrivate]]</paper-item>
+            <paper-item on-click="_onDelete">Delete</paper-item>
+          </paper-listbox>
+        </paper-menu-button>
       </div>
     </div>
   </template>
@@ -61,7 +86,8 @@
           data: {
             type: Object,
             observer: '_onData'
-          }
+          },
+          makePublicPrivate: String
         };
       }
 
@@ -70,6 +96,10 @@
       }
 
       onImpressionPaid() { }
+
+      onPrivateUpdated() {
+        this._refreshPrivate();
+      }
 
       _onData() {
         if (!this.data) {
@@ -85,11 +115,46 @@
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
+        this._refreshMenu();
+        this._refreshPrivate();
         this._refreshRevenue();
+      }
+
+      _refreshMenu() {
+        if (this.data.by.id === $core.userId) {
+          this.$.menuButton.disabled = false;
+          this.set('makePublicPrivate', this.data.private ? "Make public" : "Make private");
+        } else {
+          this.$.menuButton.disabled = true;
+        }
+      }
+
+      _refreshPrivate() {
+        this.$.privateIcon.style = this.data && this.data.private ? "" : "display: none;";
       }
 
       _refreshRevenue() {
         this.set("data.history.revenueDisplay", this.data.history.revenue.toFixed(2));
+      }
+
+      _onMenuClick(event) {
+        event.stopPropagation();
+      }
+
+      _onMakePublicPrivate(event) {
+        this.$.menuButton.disabled = true;
+        $core.updateCardPrivate(this.data.id, !this.data.private).then((response) => {
+          this.data.private = response.newValue;
+          this._refreshMenu();
+          this._refreshPrivate();
+        });
+      }
+
+      _onDelete(event) {
+        this.$.menuButton.disabled = true;
+        $core.deleteCard(this.data.id).then((response) => {
+          this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
+        });
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);

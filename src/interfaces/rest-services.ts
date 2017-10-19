@@ -23,6 +23,7 @@ export interface Signable {
 }
 
 export interface RegisterUserResponse extends RestResponseWithUserStatus {
+  userId: string;
   interestRatePerMillisecond: number;
   subsidyRate: number;
   operatorTaxFraction: number;
@@ -136,6 +137,7 @@ export interface CardDescriptor {
   id: string;
   postedAt: number;
   by: {
+    id: string;
     address: string;
     handle: string;
     name: string;
@@ -149,6 +151,7 @@ export interface CardDescriptor {
     name: string;
     imageUrl: string;
   };
+  private: boolean;
   summary: {
     imageUrl: string;
     linkUrl: string;
@@ -264,6 +267,7 @@ export interface PostCardDetails extends Signable {
   linkUrl?: string;
   title?: string;
   text: string;
+  private: boolean;
   cardType?: string;
   promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
@@ -283,6 +287,21 @@ export interface PostCardResponse extends RestResponse {
   cardId: string;
   couponId?: string;
 }
+
+export interface UpdateCardPrivateDetails extends Signable {
+  cardId: string;
+  private: boolean;
+}
+
+export interface UpdateCardPrivateResponse extends RestResponse {
+  newValue: boolean;
+}
+
+export interface DeleteCardDetails extends Signable {
+  cardId: string;
+}
+
+export interface DeleteCardResponse extends RestResponse { }
 
 export interface CardImpressionDetails extends Signable {
   cardId: string;
