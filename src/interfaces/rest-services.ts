@@ -22,23 +22,22 @@ export interface Signable {
   timestamp: number;
 }
 
-export interface RegisterUserResponse extends UserStatusResponse { }
-
-export interface UserStatusDetails extends Signable {
-  appVersion: string;
-}
-
-export interface UserStatusResponse extends RestResponse {
-  status: UserStatus;
+export interface RegisterUserResponse extends RestResponseWithUserStatus {
   interestRatePerMillisecond: number;
-  cardBasePrice: number;
   subsidyRate: number;
   operatorTaxFraction: number;
   operatorAddress: string;
   networkDeveloperRoyaltyFraction: number;
   networkDeveloperAddress: string;
   referralFraction: number;
+  withdrawalsEnabled: boolean;
 }
+
+export interface UserStatusDetails extends Signable {
+  appVersion: string;
+}
+
+export interface UserStatusResponse extends RestResponseWithUserStatus { }
 
 export interface UserStatus {
   goLive: number;
@@ -49,6 +48,7 @@ export interface UserStatus {
   inviteCode: string;
   invitationsUsed: number;
   invitationsRemaining: number;
+  cardBasePrice: number;
 }
 
 export interface RegisterDeviceDetails extends Signable {
@@ -69,7 +69,9 @@ export interface SyncIdentityDetails extends Signable {
   syncCode: string;
 }
 
-export interface SyncIdentityResponse extends UserStatusResponse { }
+export interface SyncIdentityResponse extends RestResponse {
+  status: UserStatus;
+}
 
 export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
@@ -287,7 +289,7 @@ export interface CardImpressionDetails extends Signable {
   couponId?: string;
 }
 
-export interface CardImpressionResponse extends UserStatusResponse {
+export interface CardImpressionResponse extends RestResponseWithUserStatus {
   transactionId?: string;
 }
 
@@ -301,7 +303,7 @@ export interface CardPayDetails extends Signable {
   transaction: SignedObject;
 }
 
-export interface CardPayResponse extends UserStatusResponse {
+export interface CardPayResponse extends RestResponseWithUserStatus {
   transactionId: string;
   totalCardRevenue: number;
 }
@@ -311,8 +313,12 @@ export interface CardRedeemOpenDetails extends Signable {
   couponId: string;
 }
 
-export interface CardRedeemOpenResponse extends UserStatusResponse {
+export interface CardRedeemOpenResponse extends RestResponseWithUserStatus {
   transactionId: string;
+}
+
+export interface RestResponseWithUserStatus {
+  status: UserStatus;
 }
 
 export interface CardClosedDetails extends Signable {
@@ -336,7 +342,7 @@ export type Currency = "USD";
 
 export type WithdrawalMechanism = "Paypal";
 
-export interface BankWithdrawResponse extends UserStatusResponse {
+export interface BankWithdrawResponse extends RestResponseWithUserStatus {
   paidAmount: number;
   feeAmount: number;
   feeDescription: string;

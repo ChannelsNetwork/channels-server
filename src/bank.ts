@@ -30,7 +30,7 @@ export class Bank implements RestServer, Initializable {
   private paypalVariablePayoutFraction = 0;
 
   async initialize(urlManager: UrlManager): Promise<void> {
-    if (configuration.get('paypal.clientId') && configuration.get('paypal.secret')) {
+    if (configuration.get('paypal.enabled') && configuration.get('paypal.clientId') && configuration.get('paypal.secret')) {
       const mode = configuration.get('paypal.mode', "sandbox");
       paypal.configure({
         mode: mode,
@@ -59,6 +59,10 @@ export class Bank implements RestServer, Initializable {
     this.app.post(this.urlManager.getDynamicUrl('bank-statement'), (request: Request, response: Response) => {
       void this.handleStatement(request, response);
     });
+  }
+
+  get withdrawalsEnabled() {
+    return this.paypalEnabled;
   }
 
   private async handleWithdraw(request: Request, response: Response): Promise<void> {
@@ -136,15 +140,7 @@ export class Bank implements RestServer, Initializable {
         paypalReferenceId: payoutResult.batch_header.payout_batch_id,
         updateBalanceAt: now,
         updatedBalance: user.balance,
-        status: userStatus.status,
-        interestRatePerMillisecond: userStatus.interestRatePerMillisecond,
-        cardBasePrice: userStatus.cardBasePrice,
-        subsidyRate: userStatus.subsidyRate,
-        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
-        operatorAddress: networkEntity.getOperatorAddress(),
-        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
-        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
-        referralFraction: networkEntity.getReferralFraction()
+        status: userStatus
       };
       response.json(reply);
     } catch (err) {

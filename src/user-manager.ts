@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, GetSyncCodeDetails, GetSyncCodeResponse, SyncIdentityDetails, SyncIdentityResponse, BankTransactionRecipientDirective, BankTransactionDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, GetSyncCodeDetails, GetSyncCodeResponse, SyncIdentityDetails, SyncIdentityResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -17,8 +17,10 @@ import { socketServer, UserSocketHandler } from "./socket-server";
 import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
+import { bank } from "./bank";
 
 const INITIAL_BALANCE = 5;
+const INITIAL_WITHDRAWABLE_BALANCE = 2;
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
@@ -119,7 +121,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder"
@@ -150,9 +152,21 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           await networkEntity.performBankTransaction(inviteeRewardDetails, null, true);
           userRecord.balance += inviteeReward;
         }
-        userRecord.balance += INITIAL_BALANCE;
       }
-      await this.returnUserStatus(userRecord, response);
+
+      const userStatus = await this.getUserStatus(userRecord);
+      const registerResponse: RegisterUserResponse = {
+        status: userStatus,
+        interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
+        subsidyRate: await priceRegulator.getUserSubsidyRate(),
+        operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
+        operatorAddress: networkEntity.getOperatorAddress(),
+        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
+        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
+        referralFraction: networkEntity.getReferralFraction(),
+        withdrawalsEnabled: bank.withdrawalsEnabled
+      };
+      response.json(registerResponse);
     } catch (err) {
       console.error("User.handleRegisterUser: Failure", err);
       response.status(500).send(err);
@@ -196,7 +210,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.status", requestBody.detailsObject.address);
-      await this.returnUserStatus(user, response);
+      await this.updateUserBalance(user);
+      const status = await this.getUserStatus(user);
+      const result: UserStatusResponse = {
+        status: status
+      };
+      response.json(result);
     } catch (err) {
       console.error("User.handleStatus: Failure", err);
       response.status(500).send(err);
@@ -294,7 +313,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.deleteUser(requestBody.detailsObject.address);
       }
       await db.updateUserAddAddress(syncUser, requestBody.detailsObject.address, publicKey);
-      await this.returnUserStatus(syncUser, response);
+      const status = await this.getUserStatus(syncUser);
+      const result: SyncIdentityResponse = {
+        status: status
+      };
+      response.json(result);
     } catch (err) {
       console.error("User.handleSyncIdentity: Failure", err);
       response.status(500).send(err);
@@ -363,32 +386,22 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
-    const network = await db.getNetwork();
     await this.updateUserBalance(user);
     const result = await this.getUserStatus(user);
     response.json(result);
   }
 
-  async getUserStatus(user: UserRecord): Promise<UserStatusResponse> {
-    const result: UserStatusResponse = {
-      status: {
-        goLive: this.goLiveDate,
-        userBalance: user.balance,
-        userBalanceAt: user.balanceLastUpdated,
-        withdrawableBalance: user.withdrawableBalance,
-        targetBalance: user.targetBalance,
-        inviteCode: user.inviterCode.toUpperCase(),
-        invitationsUsed: user.invitationsAccepted,
-        invitationsRemaining: user.invitationsRemaining
-      },
-      interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
-      cardBasePrice: await priceRegulator.getBaseCardFee(),
-      subsidyRate: await priceRegulator.getUserSubsidyRate(),
-      operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
-      operatorAddress: networkEntity.getOperatorAddress(),
-      networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
-      networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
-      referralFraction: networkEntity.getReferralFraction()
+  async getUserStatus(user: UserRecord): Promise<UserStatus> {
+    const result: UserStatus = {
+      goLive: this.goLiveDate,
+      userBalance: user.balance,
+      userBalanceAt: user.balanceLastUpdated,
+      withdrawableBalance: user.withdrawableBalance,
+      targetBalance: user.targetBalance,
+      inviteCode: user.inviterCode.toUpperCase(),
+      invitationsUsed: user.invitationsAccepted,
+      invitationsRemaining: user.invitationsRemaining,
+      cardBasePrice: await priceRegulator.getBaseCardFee()
     };
     return result;
   }
@@ -496,11 +509,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     await db.updateLastUserContact(user, Date.now());
     return user;
-  }
-
-  async insertUser(id: string, address: string, publicKey: string, name: string, imageUrl: string): Promise<UserRecord> {
-    const inviteCode = await this.generateInviteCode();
-    return await db.insertUser("normal", address, publicKey, null, inviteCode, 0, 0, id);
   }
 }
 

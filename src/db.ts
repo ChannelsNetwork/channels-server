@@ -261,7 +261,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -274,7 +274,7 @@ export class Database {
       balance: 0,
       targetBalance: 0,
       balanceBelowTarget: false,
-      withdrawableBalance: 0,
+      withdrawableBalance: withdrawableBalance,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       lastContact: now,

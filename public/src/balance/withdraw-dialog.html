@@ -150,7 +150,7 @@
           return;
         }
         $core.register().then((info) => {
-          if ($core.withdrawableBalance < 1) {
+          if (!$core.withdrawalsEnabled || $core.withdrawableBalance < 1) {
             $router.goto("balance");
             return;
           }
