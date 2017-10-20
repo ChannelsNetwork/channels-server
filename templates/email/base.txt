@@ -1,0 +1,6 @@
+{{&messageBody}}
+
+{{&buttons}}
+
+{{&signature}}
+Kai

@@ -30,14 +30,15 @@ import { priceRegulator } from "./price-regulator";
 import { channelsComponentManager } from "./channels-component-manager";
 import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
+import { emailManager } from "./email-manager";
 
-const VERSION = 26;
+const VERSION = 27;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank];
+  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager];
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
