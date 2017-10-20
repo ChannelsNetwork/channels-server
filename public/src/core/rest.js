@@ -272,11 +272,11 @@ class RestUtils {
     };
   }
 
-  static bankTransactionWithdrawalRecipient(emailAddress) {
+  static bankTransactionWithdrawalRecipient(contact) {
     return {
       mechanism: "Paypal",
       currency: "USD",
-      emailAddress: emailAddress
+      recipientContact: contact
     };
   }
 

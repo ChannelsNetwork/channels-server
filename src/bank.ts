@@ -18,6 +18,7 @@ import { configuration } from "./configuration";
 import { Utils } from "./utils";
 import { networkEntity } from "./network-entity";
 import { userManager } from "./user-manager";
+import { emailManager } from "./email-manager";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 
@@ -26,7 +27,7 @@ export class Bank implements RestServer, Initializable {
   private urlManager: UrlManager;
   private paypalEnabled = false;
   private exchangeRate = 1;
-  private paypalFixedPayoutFee = 0.25;
+  private paypalFixedPayoutFee = 0;
   private paypalVariablePayoutFraction = 0;
 
   async initialize(urlManager: UrlManager): Promise<void> {
@@ -101,8 +102,8 @@ export class Bank implements RestServer, Initializable {
         response.status(400).send("Unsupported currency.  We currently only support US dollars (USD).");
         return;
       }
-      if (!Utils.isEmailAddress(details.withdrawalRecipient.emailAddress)) {
-        response.status(400).send("Invalid email address");
+      if (!Utils.isValidPaypalRecipient(details.withdrawalRecipient.recipientContact)) {
+        response.status(400).send("Invalid recipient");
         return;
       }
       if (details.toRecipients && details.toRecipients.length > 0) {
@@ -120,16 +121,42 @@ export class Bank implements RestServer, Initializable {
       const paidAmount = amountInUSD - feeAmount;
       const now = Date.now();
       const transactionResult = await bank.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now);
-      const note = "Your withdrawal request from your Channels balance has been accepted.";
-      let payoutResult: PaypalPayoutResponse;
-      try {
-        payoutResult = await this.makePaypalPayout("Channels withdrawal", paidAmount, details.withdrawalRecipient.currency, details.withdrawalRecipient.emailAddress, note, transactionResult.record.id);
-      } catch (err) {
-        await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, null, "API_FAILED", err);
-        response.status(503).send("Paypal payout request failed");
-        return;
+
+      // const note = "Your withdrawal request from your Channels balance has been accepted.";
+      // let payoutResult: PaypalPayoutResponse;
+      // try {
+      //   payoutResult = await this.makePaypalPayout("Channels withdrawal", paidAmount, details.withdrawalRecipient.currency, details.withdrawalRecipient.recipientContact, note, transactionResult.record.id);
+      // } catch (err) {
+      //   await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, null, "API_FAILED", err);
+      //   response.status(503).send("Paypal payout request failed");
+      //   return;
+      // }
+      // await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, payoutResult.batch_header.payout_batch_id, payoutResult.batch_header.batch_status, null);
+
+      const manualRecord = await db.insertManualWithdrawal(user.id, transactionResult.record.id, "pending", now, amountInUSD, details.withdrawalRecipient.recipientContact);
+      let html = "<div>";
+      html += "<h3>A user has made a request for a withdrawal</h3>";
+      html += "<div>Manual Withdrawal ID: " + manualRecord.id + "</div>";
+      html += "<div>TransactionId: " + transactionResult.record.id + "</div>";
+      html += "<div>Amount: US$" + paidAmount.toFixed(2) + "</div>";
+      html += "<div>Deliver to: " + details.withdrawalRecipient.recipientContact + "</div>";
+      html += "<div>UserId: " + user.id + "</div>";
+      if (user.identity && user.identity.handle) {
+        html += "<div>Name: " + user.identity.name + "</div>";
+        html += "<div>Handle: " + user.identity.handle + "</div>";
+        if (user.identity.emailAddress) {
+          html += "<div>email: " + user.identity.emailAddress + "</div>";
+        }
+        if (user.identity.location) {
+          html += "<div>location: " + user.identity.location + "</div>";
+        }
+        if (user.identity.imageUrl) {
+          html += '<div><img style="width:100px;height:auto;" src="' + user.identity.imageUrl + '"></div>';
+        }
       }
-      await db.updateBankTransactionWithdrawalStatus(transactionResult.record.id, payoutResult.batch_header.payout_batch_id, payoutResult.batch_header.batch_status, null);
+      html += "</div>";
+      void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
+
       const userStatus = await userManager.getUserStatus(user);
       const reply: BankWithdrawResponse = {
         paidAmount: paidAmount,
@@ -137,7 +164,7 @@ export class Bank implements RestServer, Initializable {
         feeAmount: feeAmount,
         feeDescription: feeDescription,
         channelsReferenceId: transactionResult.record.id,
-        paypalReferenceId: payoutResult.batch_header.payout_batch_id,
+        paypalReferenceId: null, // payoutResult.batch_header.payout_batch_id,
         updateBalanceAt: now,
         updatedBalance: user.balance,
         status: userStatus

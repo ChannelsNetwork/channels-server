@@ -344,3 +344,18 @@ export interface BankCouponDetails extends Signable {
     plusPercent: number;
   };
 }
+
+export interface ManualWithdrawalRecord {
+  id: string;
+  userId: string;
+  transactionId: string;
+  state: ManualWithdrawalState;
+  created: number;
+  amount: number;
+  recipientContact: string;
+  lastUpdated: number;
+  lastUpdatedBy: string;
+  paymentReferenceId: string;
+}
+
+export type ManualWithdrawalState = "pending" | "canceled" | "paid";

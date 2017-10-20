@@ -23,6 +23,7 @@ import * as uuid from "uuid";
 import { networkEntity } from "./network-entity";
 import { channelsComponentManager } from "./channels-component-manager";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
+import { emailManager } from "./email-manager";
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -551,6 +552,26 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
     await this.announceCard(card, user);
+    if (configuration.get("notifications.postCard")) {
+      let html = "<div>";
+      html += "<div>User: " + user.identity.name + "</div>";
+      html += "<div>Handle: " + user.identity.handle + "</div>";
+      html += "<div>Title: " + details.title + "</div>";
+      html += "<div>Text: " + details.text + "</div>";
+      html += "<div>CardType: " + details.cardType + "</div>";
+      html += "<div>Private: " + details.private + "</div>";
+      if (details.promotionFee) {
+        html += "<div>Promotion fee: " + details.promotionFee + "</div>";
+      }
+      if (details.openFeeUnits) {
+        html += "<div>Open fee (units): " + details.openFeeUnits + "</div>";
+      }
+      if (details.openPayment) {
+        html += "<div>Open payment: " + details.openPayment + "</div>";
+      }
+      html += "</div>";
+      void emailManager.sendInternalNotification("Card posted", "", html);
+    }
     return card;
   }
 
