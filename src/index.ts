@@ -32,7 +32,7 @@ import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 
-const VERSION = 26;
+const VERSION = 27;
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
