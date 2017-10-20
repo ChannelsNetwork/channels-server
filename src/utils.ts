@@ -21,6 +21,26 @@ export class Utils {
     return result;
   }
 
+  static isValidPaypalRecipient(value: string) {
+    if (!value) {
+      return false;
+    }
+    const reEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    const isEmail = reEmail.test(value);
+    if (isEmail) {
+      return true;
+    }
+    const phoneNumber = value.split(/[\-\.\(\)\s/]+/).join("");
+    if (/^[0-9]{10,16}$/.test(phoneNumber)) {
+      return true;
+    }
+    const rePaypalMeLink = /^(https?\:\/\/)?paypal\.me\/\S+$/i;
+    if (rePaypalMeLink.test(value)) {
+      return true;
+    }
+    return false;
+  }
+
   static cleanPhoneNumber(phoneNumber: string, omitPlus?: boolean): string {
     if (!phoneNumber) {
       return null;

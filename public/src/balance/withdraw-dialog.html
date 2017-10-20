@@ -1,3 +1,5 @@
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+
 <dom-module id="withdraw-dialog">
   <template>
     <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
@@ -61,10 +63,12 @@
 
       #withdrawalAmount {
         width: 100px;
+        font-size: 20px;
       }
 
-      #email {
-        width: 250px;
+      #email,
+      #emailConfirm {
+        width: 350px;
       }
 
       .feeDescription {
@@ -75,26 +79,38 @@
       .extraSpace {
         margin-top: 15px;
       }
+
+      .form {
+        margin-top: 20px;
+      }
+
+      .label {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #555;
+      }
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
         <h2>Withdrawal</h2>
-        <div class="explain">You can withdraw coins into your Paypal account by entering your email address below. If you don't already have a
-          Paypal account, you can set it up when you receive their payment notification.</div>
-        <div>
+        <div class="explain">You can sell coins and have proceeds deposited into your Paypal account by entering your email address, mobile number,
+          or Paypal.me link below. If you don't already have a Paypal account, you can set it up when you receive their payment
+          notification.
+        </div>
+        <div class="form">
+          <div>
+            <paper-input id="email" on-input="_onEmailChanged" placeholder="Email address, mobile number, or Paypal.me.link" label="Send funds to"></paper-input>
+          </div>
+          <div>
+            <paper-input id="emailConfirm" on-input="_onEmailChanged" placeholder="Repeat email, mobile, or link" label="Confirm recipient"></paper-input>
+          </div>
+          <div>
+            <div class="label">Amount to withdraw (ℂ)</div>
+            <div>
+              <input id="withdrawalAmount" type="number" min="1" max="[[maxWithdrawal]]" step="0.01" on-input="_onAmountChanged">
+            </div>
+          </div>
           <div class="tableContainer">
-            <div class="row">
-              <div class="leftCell">Send funds to:</div>
-              <div class="rightCell">
-                <input id="email" type="email" placeholder="Enter email address" on-input="_onEmailChanged">
-              </div>
-            </div>
-            <div class="row">
-              <div class="leftCell">Amount to withdraw:</div>
-              <div class="rightCell">ℂ
-                <input id="withdrawalAmount" type="number" value="4.00" min="1" max="[[maxWithdrawal]]" step="0.01" on-input="_onAmountChanged">
-              </div>
-            </div>
             <div class="row">
               <div class="leftCell">USD Exchange Rate:</div>
               <div class="rightCell">[[exchangeRate]]</div>
@@ -114,6 +130,7 @@
               <div class="rightCell">[[proceeds]]</div>
             </div>
           </div>
+          <div class="explain">It may take up to one business day before you receive your payment.</div>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>
@@ -138,7 +155,8 @@
           withdrawalAmount: String,
           fees: String,
           feeDescription: String,
-          proceeds: String
+          proceeds: String,
+          progress: String
         };
       }
 
@@ -172,6 +190,7 @@
 
       _refresh() {
         this.$.email.disabled = false;
+        this.$.emailConfirm.disabled = false;
         this.$.withdrawalAmount.disabled = false;
         this.$.btnSave.disabled = true;
         if (Number.isNaN(this.$.withdrawalAmount.value)) {
@@ -184,12 +203,11 @@
         this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(3));
         const withdrawal = amount * $core.coinSellExchangeRate;
         this.set('withdrawalAmount', 'US$' + withdrawal.toFixed(2));
-        const fees = 0.25; //
-        + withdrawal * 0.029;
+        const fees = 0; //+ withdrawal * 0.029;
         this.set('fees', 'US$' + fees.toFixed(2));
         const proceeds = withdrawal - fees;
         this.set('proceeds', 'US$' + proceeds.toFixed(2));
-        if (!$core.isValidEmail(this.$.email.value)) {
+        if (!$core.isValidPaypalRecipient(this.$.email.value) || this.$.email.value !== this.$.emailConfirm.value) {
           return;
         }
         this.$.btnSave.disabled = false;
@@ -200,6 +218,7 @@
       }
 
       _onSave() {
+        this._progress("Processing request");
         this.$.btnSave.disabled = true;
         this.$.email.disabled = true;
         this.$.withdrawalAmount.disabled = true;
@@ -207,6 +226,19 @@
           $router.goto("balance");
         });
       }
+
+      _progress(progress, error) {
+        if (progress) {
+          this.set("progress", progress);
+          this.$.errorPanel.style.display = error ? "" : "none";
+          this.$.progressPanel.style.display = "";
+          this.$.container.style.display = "none";
+        } else {
+          this.$.progressPanel.style.display = "none";
+          this.$.container.style.display = "";
+        }
+      }
+
     }
     window.customElements.define(WithdrawDialog.is, WithdrawDialog);
   </script>

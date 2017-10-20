@@ -403,7 +403,7 @@ export type BankTransactionType = "transfer" | "coupon-redemption" | "withdrawal
 export interface BankWithdrawalRecipient {
   mechanism: WithdrawalMechanism;
   currency: Currency;
-  emailAddress: string;
+  recipientContact: string;  // email, mobile number, or paypal.me link
 }
 
 export interface BankTransactionRecipientDirective {

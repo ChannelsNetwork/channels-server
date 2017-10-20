@@ -43,5 +43,9 @@
   },
   "networkDeveloper": {
     "privateKeyHex": "0e7d40baca3dd45c008d4870a89b1cf637f675ffb0081b04c9e4d27f202cfbf1"
+  },
+  "notifications": {
+    "userIdentityChange": true,
+    "postCard": true
   }
 }

@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { UserHelper } from "./user-helper";
 import { BankTransactionDetails } from "./interfaces/rest-services";
@@ -27,6 +27,7 @@ export class Database {
   private userCardActions: Collection;
   private userCardInfo: Collection;
   private bankCoupons: Collection;
+  private manualWithdrawals: Collection;
 
   async initialize(): Promise<void> {
     const serverOptions = configuration.get('mongo.serverOptions');
@@ -52,6 +53,7 @@ export class Database {
     await this.initializeUserCardActions();
     await this.initializeUserCardInfo();
     await this.initializeBankCoupons();
+    await this.initializeManualWithdrawals();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -250,6 +252,12 @@ export class Database {
     this.bankCoupons = this.db.collection('bankCoupons');
     await this.bankCoupons.createIndex({ id: 1 }, { unique: true });
     await this.bankCoupons.createIndex({ cardId: 1 });
+  }
+
+  private async initializeManualWithdrawals(): Promise<void> {
+    this.manualWithdrawals = this.db.collection('manualWithdrawals');
+    await this.manualWithdrawals.createIndex({ id: 1 }, { unique: true });
+    await this.manualWithdrawals.createIndex({ state: 1, created: -1 });
   }
 
   async ensureNetwork(balance: number): Promise<NetworkRecord> {
@@ -1202,6 +1210,23 @@ export class Database {
     await this.bankCoupons.updateOne({ id: couponId }, {
       $inc: { "budget.spent": amount }
     });
+  }
+
+  async insertManualWithdrawal(userId: string, transactionId: string, state: ManualWithdrawalState, created: number, amount: number, recipientContact: string): Promise<ManualWithdrawalRecord> {
+    const record: ManualWithdrawalRecord = {
+      id: uuid.v4(),
+      userId: userId,
+      transactionId: transactionId,
+      state: state,
+      created: created,
+      amount: amount,
+      recipientContact: recipientContact,
+      lastUpdated: created,
+      lastUpdatedBy: null,
+      paymentReferenceId: null
+    };
+    await this.manualWithdrawals.insert(record);
+    return record;
   }
 }
 

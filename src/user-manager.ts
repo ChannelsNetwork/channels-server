@@ -18,6 +18,7 @@ import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
 import { bank } from "./bank";
+import { emailManager } from "./email-manager";
 
 const INITIAL_BALANCE = 5;
 const INITIAL_WITHDRAWABLE_BALANCE = 2;
@@ -248,6 +249,17 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress);
+      if (configuration.get("notifications.userIdentityChange")) {
+        let html = "<div>";
+        html += "<div>userId: " + user.id + "</div>";
+        html += "<div>name: " + requestBody.detailsObject.name + "</div>";
+        html += "<div>handle: " + requestBody.detailsObject.handle + "</div>";
+        html += "<div>email: " + requestBody.detailsObject.emailAddress ? requestBody.detailsObject.emailAddress : "not specified" + "</div>";
+        html += "<div>location: " + requestBody.detailsObject.location ? requestBody.detailsObject.location : "not specified" + "</div>";
+        html += "<div>image: " + requestBody.detailsObject.imageUrl ? '<img style="width:100px;height:auto;" src="' + requestBody.detailsObject.imageUrl + '">' : "not specified" + "< /div>";
+        html += "</div>";
+        void emailManager.sendInternalNotification("User identity added/updated", "A user has added or updated their identity", html);
+      }
       const reply: UpdateUserIdentityResponse = {};
       response.json(reply);
     } catch (err) {
