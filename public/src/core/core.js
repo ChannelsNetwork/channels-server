@@ -454,7 +454,7 @@ class CoreService extends Polymer.Element {
   }
 
   get balance() {
-    if (!this._userStatus) {
+    if (!this._userStatus || !this._registration) {
       return 0;
     }
     let result = this._userStatus.userBalance * (1 + (Date.now() - this._userStatus.userBalanceAt) * this.registration.interestRatePerMillisecond);
