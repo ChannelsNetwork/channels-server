@@ -122,7 +122,7 @@
 
         this._progress("Signing in...");
 
-        $core.signIn(handle, this.$.password.value.trim()).then(() => {
+        $core.signIn(handle, this.$.password.value.trim(), this.$.trust.checked).then(() => {
           $router.goto("");
         }).catch((err) => {
           console.error(err);

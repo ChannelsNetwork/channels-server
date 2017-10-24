@@ -214,12 +214,6 @@
       }
 
       onActivate() {
-        if (!$core.hasKey) {
-          setTimeout(() => {
-            $router.goto("");
-          }, 600);
-          return;
-        }
         $core.register().then((info) => {
           this.$.balanceCard.style.opacity = 1;
           const at = Date.now();

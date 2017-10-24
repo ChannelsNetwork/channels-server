@@ -1,5 +1,6 @@
 const _CKeys = {
   KEYS: "channels-identity",
+  BACKUP_KEYS: "backup-keys",
   AGREED_TERMS: "channels-terms-agreed"
 };
 
@@ -149,9 +150,15 @@ class CoreService extends Polymer.Element {
   signOut() {
     this._keys = null;
     this.storage.clearItem(_CKeys.KEYS, true);
+    this._keys = this.storage.getItem(_CKeys.BACKUP_KEYS, true);
+    if (this._keys) {
+      this.storage.setItem(_CKeys.KEYS, this._keys, true);
+    }
     this._profile = null;
     this._registration = null;
-    return this.register();
+    return this.register().then(() => {
+      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
+    });
   }
 
   getAccountStatus() {
