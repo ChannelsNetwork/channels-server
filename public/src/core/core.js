@@ -20,6 +20,7 @@ class CoreService extends Polymer.Element {
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
+    this._pendingRegistrations = [];
   }
 
   agreeToTnCs() {
@@ -81,6 +82,16 @@ class CoreService extends Polymer.Element {
   }
 
   register(inviteCode) {
+    // We want to avoid race conditions where multiple entities all ask to register
+    // at the same time.  We only want to register once, so we return a promise for
+    // others and resolve them after resolving the initial request.
+    if (this._registrationInProgress) {
+      console.log("Concurrent registration being queued.");
+      return new Promise((resolve, reject) => {
+        this._pendingRegistrations.push(resolve);
+      });
+    }
+    this._registrationInProgress = true;
     return this.ensureKey().then(() => {
       if (this._registration) {
         return this._registration;
@@ -102,7 +113,23 @@ class CoreService extends Polymer.Element {
           return result;
         });
       });
+    }).then((info) => {
+      this._registrationInProgress = false;
+      this._resolvePendingRegistrations(info);
+      return info;
+    }).catch((err) => {
+      this._registrationInProgress = false;
+      this._resolvePendingRegistrations();
+      throw err;
     });
+  }
+
+  _resolvePendingRegistrations(info) {
+    const registrations = this._pendingRegistrations;
+    this._pendingRegistrations = [];
+    for (const registration of registrations) {
+      registration(info);
+    }
   }
 
   signIn(handle, password, trust) {
