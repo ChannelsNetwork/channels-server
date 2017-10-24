@@ -85,6 +85,15 @@
       paper-checkbox {
         margin: 15px 0;
       }
+
+      .morePanel {
+        margin: 25px 0;
+        font-size: 14px;
+      }
+
+      .moreOption {
+        margin: 20px 0;
+      }
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
@@ -111,6 +120,11 @@
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>
+          </div>
+          <div class="morePanel">
+            <div class="moreOption">
+              <a href="#signin">I already have an account</a>
+            </div>
           </div>
         </div>
       </div>
