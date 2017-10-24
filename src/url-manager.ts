@@ -7,6 +7,13 @@ export class UrlManager {
     this.version = version;
   }
 
+  getAbsoluteUrl(relativeUrl: string): string {
+    if (!relativeUrl.startsWith('/')) {
+      relativeUrl += '/';
+    }
+    return configuration.get('baseClientUri') + relativeUrl;
+  }
+
   getPublicBaseUrl(absolute = false): string {
     const baseUrl = '/v' + this.version;
     if (absolute) {

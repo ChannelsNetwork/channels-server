@@ -162,6 +162,8 @@ export interface CardDescriptor {
   private: boolean;
   summary: {
     imageUrl: string;
+    imageWidth: number;
+    imageHeight: number;
     linkUrl: string;
     title: string;
     text: string;
@@ -272,6 +274,8 @@ export interface GetCardResponse extends RestResponse {
 
 export interface PostCardDetails extends Signable {
   imageUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   linkUrl?: string;
   title?: string;
   text: string;
