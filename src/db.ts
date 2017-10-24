@@ -1053,7 +1053,7 @@ export class Database {
     return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
@@ -1061,9 +1061,10 @@ export class Database {
       participantUserIds: participantUserIds,
       relatedCardTitle: relatedCardTitle,
       details: details,
+      recipientUserIds: recipientUserIds,
       signedObject: signedObject,
       deductions: deductions,
-      remainderShares: remainderShares,
+      remainderShares: remainderShares
     };
     if (withdrawalType) {
       record.withdrawalInfo = {

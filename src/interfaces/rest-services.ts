@@ -394,6 +394,8 @@ export interface BankTransactionDetailsWithId {
   remainderShares: number;
   relatedCardTitle: string;
   details: BankTransactionDetails;
+  isOriginator: boolean;
+  isRecipient: boolean[];
 }
 
 export interface BankTransactionDetails extends Signable {

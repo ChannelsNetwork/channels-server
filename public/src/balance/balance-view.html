@@ -251,7 +251,7 @@
             if (response.transactions.length > 0) {
               const transactions = [];
               for (const transaction of response.transactions) {
-                if (transaction.details.address === $core.address) {
+                if (transaction.isOriginator) {
                   if (transaction.details.toRecipients && transaction.details.toRecipients.length > 0) {
                     for (const recipient of transaction.details.toRecipients) {
                       if (recipient.portion === 'remainder') {
@@ -282,20 +282,22 @@
                     });
                   }
                 } else {
-                  for (const recipient of transaction.details.toRecipients) {
-                    let amount = transaction.details.amount;
-                    switch (recipient.portion) {
-                      case "remainder":
-                        amount = (amount - transaction.deductions) / transaction.remainderShares;
-                        break;
-                      case "fraction":
-                        amount = amount * recipient.amount;
-                        break;
-                      case "absolute":
-                        amount = recipient.amount;
-                        break;
-                    }
-                    if (recipient.address === $core.address) {
+                  let index = 0;
+                  for (const recipientIsMe of transaction.isRecipient) {
+                    const recipient = transaction.details.toRecipients[index++];
+                    if (recipientIsMe) {
+                      let amount = transaction.details.amount;
+                      switch (recipient.portion) {
+                        case "remainder":
+                          amount = (amount - transaction.deductions) / transaction.remainderShares;
+                          break;
+                        case "fraction":
+                          amount = amount * recipient.amount;
+                          break;
+                        case "absolute":
+                          amount = recipient.amount;
+                          break;
+                      }
                       transactions.push({
                         date: this._displayDate(transaction.details.timestamp),
                         id: transaction.id,

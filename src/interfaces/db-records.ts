@@ -266,6 +266,7 @@ export interface BankTransactionRecord {
   remainderShares: number;
   relatedCardTitle: string;
   details: BankTransactionDetails;
+  recipientUserIds: string[];
   signedObject: SignedObject;
   withdrawalInfo?: {
     type: string;

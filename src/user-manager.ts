@@ -440,7 +440,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (!user) {
         return;
       }
-      console.log("UserManager.get-identity", requestBody.detailsObject);
+      console.log("UserManager.get-identity", user.id, requestBody.detailsObject);
       const reply: GetUserIdentityResponse = {
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,

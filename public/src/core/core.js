@@ -241,6 +241,7 @@ class CoreService extends Polymer.Element {
       const url = this.restBase + "/recover-user";
       return this.rest.post(url, request).then(() => {
         this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        this.storage.clearItem(_CKeys.BACKUP_KEYS);
         this._profile = null;
         this._registration = null;
         return this.register();
