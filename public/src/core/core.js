@@ -228,18 +228,16 @@ class CoreService extends Polymer.Element {
   }
 
   recoverUser(code, handle, password, trust) {
-    let encryptedPrivateKey = null;
-    if (password) {
-      encryptedPrivateKey = EncryptionUtils.encryptString(this._keys.privateKey, password);
-    }
-    let details = RestUtils.recoverUserDetails(this._keys.address, code, handle, encryptedPrivateKey);
-    let request = this._createRequest(details);
-    const url = this.restBase + "/recover-user";
-    return this.rest.post(url, request).then(() => {
-      this.storage.setItem(_CKeys.KEYS, this._keys, trust);
-      this._profile = null;
-      this._registration = null;
-      return this.register();
+    return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
+      let details = RestUtils.recoverUserDetails(this._keys.address, code, handle, encryptedPrivateKey);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/recover-user";
+      return this.rest.post(url, request).then(() => {
+        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        this._profile = null;
+        this._registration = null;
+        return this.register();
+      });
     });
   }
 
