@@ -14,7 +14,6 @@ import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { UserHelper } from "./user-helper";
 import { KeyUtils } from "./key-utils";
 import { bank } from "./bank";
 import { userManager } from "./user-manager";
@@ -203,7 +202,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Invalid coupon: card mismatch");
           return;
         }
-        if (!UserHelper.isUsersAddress(author, coupon.byAddress)) {
+        if (author.address !== coupon.byAddress) {
           response.status(400).send("Invalid coupon: author mismatch");
           return;
         }
@@ -271,7 +270,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
-      if (!UserHelper.isUsersAddress(user, transaction.address)) {
+      if (user.address !== transaction.address) {
         response.status(403).send("You do not own the address in the transaction");
         return;
       }
@@ -359,7 +358,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid coupon: card mismatch");
         return;
       }
-      if (!UserHelper.isUsersAddress(author, coupon.byAddress)) {
+      if (author.address !== coupon.byAddress) {
         response.status(400).send("Invalid coupon: author mismatch");
         return;
       }
@@ -832,7 +831,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         score: record.score.value,
         userSpecific: {
-          isPoster: user ? UserHelper.isUsersAddress(user, record.by.address) : false,
+          isPoster: user ? user.address === record.by.address : false,
           lastImpression: userInfo ? userInfo.lastImpression : 0,
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,

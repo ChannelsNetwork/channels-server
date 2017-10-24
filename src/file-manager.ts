@@ -14,7 +14,6 @@ import * as uuid from "uuid";
 import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
-import { UserHelper } from "./user-helper";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -88,7 +87,7 @@ export class FileManager implements RestServer {
         await this.abortFile(fileRecord);
         return;
       }
-      const publicKey = UserHelper.getPublicKeyForAddress(user, ownerAddress);
+      const publicKey = user.publicKey;
       if (!publicKey) {
         response.status(401).send("No such address");
         await this.abortFile(fileRecord);

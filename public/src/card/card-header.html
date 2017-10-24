@@ -122,7 +122,7 @@
       }
 
       _refreshMenu() {
-        if (this.data.by.id === $core.userId) {
+        if (this.data.by.address === $core.address) {
           this.$.menuButton.disabled = false;
           this.set('makePublicPrivate', this.data.private ? "Make public" : "Make private");
         } else {

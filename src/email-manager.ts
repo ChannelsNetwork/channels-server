@@ -86,6 +86,11 @@ export class EmailManager implements Initializable {
   async sendInternalNotification(subject: string, text: string, html: string): Promise<void> {
     await this.send("Channels Server", "kduffie+channelsnotifications@hivepoint.com", "Channels Operations", "notifications@ChannelElements.emailchannels.us", subject, text, html);
   }
+
+  async sendNoReplyUserNotification(toName: string, toEmail: string, subject: string, text: string, html: string): Promise<void> {
+    await this.send("Channels Operations", "kduffie+channelsnotifications@hivepoint.com", toName, toEmail, subject, text, html);
+  }
+
   async send(fromName: string, fromEmail: string, toName: string, toEmail: string, subject: string, text: string, html: string): Promise<void> {
     if (this.transporter) {
       let from = '<' + fromEmail + '>';

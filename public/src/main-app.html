@@ -44,16 +44,19 @@
       <app-bar id="toolbar"></app-bar>
       <div id="pageContainer" class="flex">
         <home-view id="home" class="home page" data-href="home/home-view.html" data-dir="down"></home-view>
-        <!-- <register-view class="register page" data-href="account/register-view.html" data-dir="up"></register-view> -->
         <launch-view class="launch page" data-toolbar="true" data-href="launch/launch-view.html"></launch-view>
         <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
-        <edit-account-view class="edit-profile page" data-href="account/edit-account-view.html" data-dir="up"></edit-account-view>
         <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
         <withdraw-dialog class="withdraw page" data-href="balance/withdraw-dialog.html"></withdraw-dialog>
         <invite-view class="invite page" data-href="account/invite-view.html"></invite-view>
         <notifications-view class="notifications page" data-href="notifications/notifications-view.html"></notifications-view>
         <preview-page class="feed page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
         <compose-wizard class="compose page" data-href="compose/compose-wizard.html"></compose-wizard>
+        <register-view class="register page" data-href="account/register-view.html" data-dir="up"></register-view>
+        <edit-account-view class="edit-profile page" data-href="account/edit-account-view.html" data-dir="up"></edit-account-view>
+        <sign-in-view class="signin page" data-href="account/sign-in-view.html"></sign-in-view>
+        <request-recovery-view class="request-recovery page" data-href="account/request-recovery-view.html"></request-recovery-view>
+        <recover-account-view class="recover page" data-href="account/recover-account-view.html"></recover-account-view>
       </div>
     </div>
     <welcome-view id="welcome" on-tncs-agreed="onWelcomeCompleted" style="display:none;"></welcome-view>
