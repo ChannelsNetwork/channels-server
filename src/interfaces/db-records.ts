@@ -5,9 +5,9 @@ import { SignedObject } from "./signed-object";
 export interface UserRecord {
   id: string;
   type: UserAccountType;
-  keys: UserKey[];
-  address?: string;  // deprecated
-  publicKey?: string; // deprecated
+  address: string;
+  publicKey: string;
+  encryptedPrivateKey: string;
   added: number;
   inviteeCode: string;
   inviterCode: string;
@@ -22,17 +22,11 @@ export interface UserRecord {
   identity?: UserIdentity;
   storage: number;
   admin: boolean;
-  syncCode?: string;
-  syncCodeExpires?: number;
+  recoveryCode?: string;
+  recoveryCodeExpires?: number;
 }
 
 export type UserAccountType = "normal" | "network" | "networkDeveloper";
-
-export interface UserKey {
-  address: string;
-  publicKey: string;
-  added: number;
-}
 
 export interface DeviceTokenRecord {
   type: DeviceType;

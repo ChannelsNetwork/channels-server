@@ -73,7 +73,7 @@
         }
       }
     </style>
-    <div id="container" class="horizontal layout center">
+    <div id="container" class="horizontal layout center" on-click="_onClick">
       <a id="logoLink" href="/">
         <img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png">
       </a>
@@ -88,11 +88,14 @@
         <a href="#launch">
           <button id="launch">Launch</button>
         </a>
-        <a href="#account">
-          <button id="account">Account</button>
-        </a>
         <a href="https://medium.com/channels-network" target="_blank">
           <button id="blog">Blog</button>
+        </a>
+        <a id="accountLink" href="#account" style="display:none;">
+          <button id="account">Account</button>
+        </a>
+        <a id="signInLink" href="#signin" style="display:none;">
+          <button id="signin">Sign In</button>
         </a>
       </div>
       <div id="iconsBar" class="flex horizontal layout center">
@@ -114,10 +117,16 @@
             <div>Launch</div>
           </button>
         </a>
-        <a class="flex" href="#account">
+        <a id="accountButton" class="flex" href="#account">
           <button id="iaccount">
             <iron-icon icon="ch:account-circle"></iron-icon>
             <div>Account</div>
+          </button>
+        </a>
+        <a id="signInButton" class="flex" href="#signin">
+          <button id="isignin">
+            <iron-icon icon="ch:account-circle"></iron-icon>
+            <div>Sign In</div>
           </button>
         </a>
         <!-- <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a> -->
@@ -147,6 +156,23 @@
             this._refreshBalance(reg);
           }
         });
+        window.addEventListener("channels-profile", (event) => {
+          this._refreshSignIn();
+        });
+      }
+
+      _refreshSignIn() {
+        if ($core.profile && $core.profile.handle) {
+          this.$.accountLink.style.display = "";
+          this.$.accountButton.style.display = "";
+          this.$.signInLink.style.display = "none";
+          this.$.signInButton.style.display = "none";
+        } else {
+          this.$.accountLink.style.display = "none";
+          this.$.accountButton.style.display = "none";
+          this.$.signInLink.style.display = "";
+          this.$.signInButton.style.display = "";
+        }
       }
 
       _refreshBalance(reg, fetched) {
@@ -161,6 +187,10 @@
           return "0.000";
         }
         return (Math.floor(value * 1000) / 1000).toFixed(3);
+      }
+
+      _onClick(event) {
+        event.stopPropagation();
       }
 
       onRoute(route) {

@@ -3,7 +3,6 @@ import { Signable, RestRequest } from "./interfaces/rest-services";
 import { KeyUtils } from "./key-utils";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
-import { UserHelper } from "./user-helper";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 
@@ -50,7 +49,7 @@ export class RestHelper {
       response.status(401).send("No such registered users");
       return null;
     }
-    const publicKey = UserHelper.getPublicKeyForAddress(userRecord, requestBody.detailsObject.address);
+    const publicKey = userRecord.publicKey;
     if (!this.validateRequest(requestBody, publicKey, response)) {
       return null;
     }

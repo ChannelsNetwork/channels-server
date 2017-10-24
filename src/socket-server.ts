@@ -12,7 +12,6 @@ import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { CardRecord, UserRecord, Mutation, CardMutationRecord, BankTransactionRecord } from "./interfaces/db-records";
 import { CardDescriptor } from "./interfaces/rest-services";
-import { UserHelper } from "./user-helper";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
@@ -156,7 +155,7 @@ export class SocketServer implements SocketConnectionHandler {
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));
       return;
     }
-    const publicKey = UserHelper.getPublicKeyForAddress(user, msg.details.address);
+    const publicKey = user.publicKey;
     if (!publicKey) {
       const errDetails: OpenReplyDetails = { success: false, error: { code: 401, message: "Invalid address" } };
       socket.socket.send(JSON.stringify({ type: "error", requestId: msg.requestId, details: errDetails }));

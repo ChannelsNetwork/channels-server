@@ -50,7 +50,7 @@
             return;
           }
           if (!$core.profile || !$core.profile.handle) {
-            $router.goto("edit-profile", { returnRoute: { success: "compose", cancel: "feed" } });
+            $router.goto("register", { returnRoute: { success: "compose", cancel: "feed" } });
             return;
           }
           this.pages = [this.$.card, this.$.composer, this.$.pricing, this.$.promotion, this.$.finish];

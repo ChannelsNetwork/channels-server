@@ -4,7 +4,6 @@ import * as uuid from "uuid";
 import { configuration } from "./configuration";
 import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, CardStatistic, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { UserHelper } from "./user-helper";
 import { BankTransactionDetails } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 
@@ -81,24 +80,20 @@ export class Database {
     //   console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
     // }
 
-    // Migrate old users with single address/publicKey to new collection
-    const existing = await this.users.find<UserRecord>({ address: { $exists: true } }).toArray();
-    for (const u of existing) {
-      await this.users.updateOne({ address: u.address }, { $push: { keys: { address: u.address, publicKey: u.publicKey, added: u.added } }, $unset: { address: 1, publicKey: 1 } });
-    }
-
     const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
     for (const u of noIds) {
       await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
     }
 
     await this.users.createIndex({ id: 1 }, { unique: true });
-    await this.users.createIndex({ "keys.address": 1 }, { unique: true });
+    await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
-    await this.users.createIndex({ "identity.handle": 1 });
+    await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
+    await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
     await this.users.createIndex({ type: 1, lastContact: -1 });
     await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
+    await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -274,12 +269,14 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
       type: type,
-      keys: [{ address: address, publicKey: publicKey, added: now }],
+      address: address,
+      publicKey: publicKey,
+      encryptedPrivateKey: encryptedPrivateKey,
       added: now,
       inviteeCode: inviteeCode,
       inviterCode: inviterCode,
@@ -302,15 +299,16 @@ export class Database {
     await this.users.updateOne({ id: userId }, { $set: { balance: value } });
   }
 
-  async updateUserAddAddress(user: UserRecord, newAddress: string, newPublicKey: string): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $push: { keys: { address: newAddress, publicKey: newPublicKey } } });
-    user.keys.push({ address: newAddress, publicKey: newPublicKey, added: Date.now() });
+  async updateUserRecoveryCode(user: UserRecord, code: string, expires: number): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { recoveryCode: code, recoveryCodeExpires: expires } });
+    user.recoveryCode = code;
+    user.recoveryCodeExpires = expires;
   }
 
-  async updateUserSyncCode(user: UserRecord, syncCode: string, syncCodeExpires: number): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { syncCode: syncCode, syncCodeExpires: syncCodeExpires } });
-    user.syncCode = syncCode;
-    user.syncCodeExpires = syncCodeExpires;
+  async clearRecoveryCode(user: UserRecord): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $unset: { recoveryCode: 1, recoveryCodeExpires: 1 } });
+    delete user.recoveryCode;
+    delete user.recoveryCodeExpires;
   }
 
   async findUserById(id: string): Promise<UserRecord> {
@@ -318,7 +316,11 @@ export class Database {
   }
 
   async findUserByAddress(address: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ "keys.address": address });
+    return await this.users.findOne<UserRecord>({ address: address });
+  }
+
+  async findUserByRecoveryCode(code: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ recoveryCode: code });
   }
 
   async findUserByInviterCode(code: string): Promise<UserRecord> {
@@ -344,20 +346,20 @@ export class Database {
     return await this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
   }
 
+  async findUserByEmail(emailAddress: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ "identity.emailAddress": emailAddress.toLowerCase() });
+  }
+
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
     await this.users.updateOne({ id: userRecord.id }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
   }
 
-  async updateUserRemoveAddress(address: string): Promise<void> {
-    await this.users.updateOne({ "keys.address": address }, { $pull: { keys: { address: address } } });
+  async deleteUser(id: string): Promise<void> {
+    await this.users.deleteOne({ id: id });
   }
 
-  async deleteUser(address: string): Promise<void> {
-    await this.users.deleteOne({ "keys.address": address });
-  }
-
-  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string, emailAddress: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
     const update: any = {};
     if (!userRecord.identity) {
       userRecord.identity = {
@@ -368,27 +370,44 @@ export class Database {
         emailAddress: null
       };
     }
-    if (typeof name !== 'undefined') {
+    if (name) {
       update["identity.name"] = name;
       userRecord.identity.name = name;
     }
-    if (typeof handle !== 'undefined') {
-      update["identity.handle"] = handle;
-      userRecord.identity.handle = handle;
+    if (handle) {
+      update["identity.handle"] = handle.toLowerCase();
+      userRecord.identity.handle = handle.toLowerCase();
     }
-    if (typeof imageUrl !== 'undefined') {
+    if (imageUrl) {
       update["identity.imageUrl"] = imageUrl;
       userRecord.identity.imageUrl = imageUrl;
     }
-    if (typeof location !== 'undefined') {
+    if (location) {
       update["identity.location"] = location;
       userRecord.identity.location = location;
     }
-    if (typeof emailAddress !== 'undefined') {
-      update["identity.emailAddress"] = emailAddress;
-      userRecord.identity.emailAddress = emailAddress;
+    if (emailAddress) {
+      update["identity.emailAddress"] = emailAddress.toLowerCase();
+      userRecord.identity.emailAddress = emailAddress.toLowerCase();
+    }
+    if (encryptedPrivateKey) {
+      update.encryptedPrivateKey = encryptedPrivateKey;
+      userRecord.encryptedPrivateKey = encryptedPrivateKey;
     }
     await this.users.updateOne({ id: userRecord.id }, { $set: update });
+  }
+
+  async updateUserAddress(userRecord: UserRecord, address: string, publicKey: string, encryptedPrivateKey: string): Promise<void> {
+    await this.users.updateOne({ id: userRecord.id }, {
+      $set: {
+        address: address,
+        publicKey: publicKey,
+        encryptedPrivateKey: encryptedPrivateKey
+      }
+    });
+    userRecord.address = address;
+    userRecord.publicKey = publicKey;
+    userRecord.encryptedPrivateKey = encryptedPrivateKey;
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {

@@ -5,7 +5,6 @@ import { UrlManager } from "./url-manager";
 import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails } from "./interfaces/db-records";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
-import { UserHelper } from "./user-helper";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
@@ -81,7 +80,7 @@ export class Bank implements RestServer, Initializable {
         response.status(400).send("Missing details");
         return;
       }
-      if (!KeyUtils.verifyString(requestBody.detailsObject.transaction.objectString, UserHelper.getPublicKeyForAddress(user, requestBody.detailsObject.address), requestBody.detailsObject.transaction.signature)) {
+      if (!KeyUtils.verifyString(requestBody.detailsObject.transaction.objectString, user.publicKey, requestBody.detailsObject.transaction.signature)) {
         response.status(401).send("Invalid details signature");
         return;
       }
@@ -206,10 +205,10 @@ export class Bank implements RestServer, Initializable {
   }
 
   async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false): Promise<BankTransactionResult> {
-    if (!UserHelper.isUsersAddress(user, address)) {
+    if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
-    if (!KeyUtils.verifyString(signedTransaction.objectString, UserHelper.getPublicKeyForAddress(user, address), signedTransaction.signature)) {
+    if (!KeyUtils.verifyString(signedTransaction.objectString, user.publicKey, signedTransaction.signature)) {
       throw new ErrorWithStatusCode(401, "Transaction signature is invalid");
     }
     let details: BankTransactionDetails;
@@ -349,7 +348,7 @@ export class Bank implements RestServer, Initializable {
 
   async performRedemption(from: UserRecord, to: UserRecord, toAddress: string, couponId: string, networkInitiated = false): Promise<BankTransactionResult> {
     const now = Date.now();
-    if (!UserHelper.isUsersAddress(to, toAddress)) {
+    if (to.address !== toAddress) {
       throw new ErrorWithStatusCode(401, "This address is not owned by the recipient");
     }
     const coupon = await db.findBankCouponById(couponId);
@@ -420,7 +419,10 @@ export class Bank implements RestServer, Initializable {
     if (!coupon.address || !coupon.timestamp || !coupon.reason || !coupon.amount || coupon.amount <= 0 || !coupon.budget || !coupon.budget.amount || coupon.budget.amount <= 0) {
       throw new ErrorWithStatusCode(400, "Coupon has missing or invalid fields");
     }
-    if (!KeyUtils.verifyString(details.objectString, UserHelper.getPublicKeyForAddress(user, coupon.address), details.signature)) {
+    if (coupon.address !== user.address) {
+      throw new ErrorWithStatusCode(401, "The coupon address is not associated with this user");
+    }
+    if (!KeyUtils.verifyString(details.objectString, user.publicKey, details.signature)) {
       throw new ErrorWithStatusCode(401, "Invalid coupon signature");
     }
     if (coupon.budget.amount <= 0 && coupon.amount <= 0) {

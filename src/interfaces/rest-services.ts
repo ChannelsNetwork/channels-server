@@ -23,7 +23,6 @@ export interface Signable {
 }
 
 export interface RegisterUserResponse extends RestResponseWithUserStatus {
-  userId: string;
   interestRatePerMillisecond: number;
   subsidyRate: number;
   operatorTaxFraction: number;
@@ -32,6 +31,21 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   networkDeveloperAddress: string;
   referralFraction: number;
   withdrawalsEnabled: boolean;
+}
+
+export interface RegisterDeviceDetails extends Signable {
+  type: DeviceType;
+  token: string;
+}
+
+export interface RegisterDeviceResponse extends RestResponse { }
+
+export interface SignInDetails {
+  handle: string;
+}
+
+export interface SignInResponse {
+  encryptedPrivateKey: string;
 }
 
 export interface UserStatusDetails extends Signable {
@@ -52,25 +66,20 @@ export interface UserStatus {
   cardBasePrice: number;
 }
 
-export interface RegisterDeviceDetails extends Signable {
-  type: DeviceType;
-  token: string;
-}
-
-export interface RegisterDeviceResponse extends RestResponse { }
-
-export interface GetSyncCodeDetails extends Signable { }
-
-export interface GetSyncCodeResponse extends RestResponse {
-  syncCode: string;
-}
-
-export interface SyncIdentityDetails extends Signable {
+export interface RequestRecoveryCodeDetails {
   handle: string;
-  syncCode: string;
+  emailAddress: string;
 }
 
-export interface SyncIdentityResponse extends RestResponse {
+export interface RequestRecoveryCodeResponse extends RestResponse { }
+
+export interface RecoverUserDetails extends Signable {
+  code: string;
+  handle: string;
+  encryptedPrivateKey: string;
+}
+
+export interface RecoverUserResponse extends GetUserIdentityResponse {
   status: UserStatus;
 }
 
@@ -80,6 +89,7 @@ export interface UpdateUserIdentityDetails extends Signable {
   location?: string;
   imageUrl?: string;
   emailAddress?: string;
+  encryptedPrivateKey?: string;
 }
 
 export interface UpdateUserIdentityResponse extends RestResponse { }
@@ -92,10 +102,8 @@ export interface GetUserIdentityResponse extends RestResponse {
   location: string;
   imageUrl: string;
   emailAddress: string;
-  settings: UserSettings;
+  encryptedPrivateKey: string;
 }
-
-export interface UserSettings { }
 
 export interface CheckHandleDetails extends Signable {
   handle: string;
