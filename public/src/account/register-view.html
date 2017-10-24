@@ -154,6 +154,8 @@
           this.$.email.value = "";
           this.$.password.style.display = "";
           this.$.trust.style.display = "";
+          this.$.userPhoto.style.display = "none";
+          this.$.userPhoto.src = "";
           let p = $core.profile;
           if (p) {
             this.$.handle.value = p.handle || "";
