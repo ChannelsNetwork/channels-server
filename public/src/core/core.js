@@ -29,7 +29,7 @@ class CoreService extends Polymer.Element {
   }
 
   isAgreedToTnCs() {
-    return this.storage.getItem(_CKeys.AGREED_TERMS, false, true) ? true : false;
+    return this.storage.getItem(_CKeys.AGREED_TERMS, false) ? true : false;
   }
 
   hasKeys() {
@@ -138,8 +138,8 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/sign-in";
     return this.rest.post(url, details).then((result) => {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
-        this._keys = $keyUtils.generateKey(privateKey);
-        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        const newKeys = $keyUtils.generateKey(privateKey);
+        this._switchToSignedInKeys(newKeys, trust);
         return this.getUserProfile();
       }).catch((err) => {
         throw new Error("Your handle or password is incorrect.");
@@ -147,18 +147,32 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  signOut() {
-    this._keys = null;
-    this.storage.clearItem(_CKeys.KEYS, true);
-    this._keys = this.storage.getItem(_CKeys.BACKUP_KEYS, true);
-    if (this._keys) {
-      this.storage.setItem(_CKeys.KEYS, this._keys, true);
+  _switchToSignedInKeys(newKeys, trust) {
+    if (this._keys && this._keys.privateKey !== newKeys.privateKey) {
+      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
+    } else {
+      this.storage.clearItem(_CKeys.BACKUP_KEYS);
     }
+    this._keys = newKeys;
+    this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+  }
+
+  _switchToBackupKeys() {
+    const backupKeys = this.storage.getItem(_CKeys.BACKUP_KEYS, true);
+    if (backupKeys && backupKeys.privateKey !== this._keys.privateKey) {
+      this._keys = backupKeys;
+    } else {
+      this._keys = $keyUtils.generateKey();
+      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
+    }
+    this.storage.setItem(_CKeys.KEYS, this._keys, true);
+  }
+
+  signOut() {
+    this._switchToBackupKeys();
     this._profile = null;
     this._registration = null;
-    return this.register().then(() => {
-      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
-    });
+    return this.register();
   }
 
   getAccountStatus() {
@@ -182,6 +196,7 @@ class CoreService extends Polymer.Element {
     if (password) {
       return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
         this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        this.storage.clearItem(_CKeys.BACKUP_KEYS);
         return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey);
       });
     } else {

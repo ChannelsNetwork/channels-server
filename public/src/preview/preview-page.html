@@ -94,9 +94,6 @@
             });
           }, options);
           this.set('intersectionObserver', observer);
-          this._timer = setInterval(() => {
-            this._onTimer();
-          }, 100);
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -107,9 +104,6 @@
 
       disconnectedCallback() {
         super.disconnectedCallback();
-        if (this._timer) {
-          clearInterval(this._timer);
-        }
       }
 
       onActivate(route) {
@@ -129,8 +123,13 @@
           }, 350);
           window.addEventListener("resize", this._resizeListener);
           this.onResize();
+          this._visibleCards = {};
+          this.set('items', []);
           return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
-            this.items = cards;
+            this.set('items', cards);
+            this._timer = setInterval(() => {
+              this._onTimer();
+            }, 100);
           });
         });
       }
@@ -143,6 +142,10 @@
         if (this._resizeListener) {
           window.removeEventListener("resize", this._resizeListener);
           this._resizeListener = null;
+        }
+        if (this._timer) {
+          clearInterval(this._timer);
+          this._timer = null;
         }
       }
 
