@@ -100,8 +100,8 @@
         <h2>Register</h2>
         <h4>[[subtitle]]</h4>
         <div>
-          <text-input-light id="handle" placeholder="Handle" label="Handle" on-input="_onHandleInput"></text-input-light>
-          <text-input-light id="password" type="password" placeholder="Password" label="Password" on-input="_onInput"></text-input-light>
+          <text-input-light id="handle" placeholder="Handle" label="Handle" on-input="_onHandleInput" on-keydown="_onKeyDown"></text-input-light>
+          <text-input-light id="password" type="password" placeholder="Password" label="Password" on-input="_onInput" on-keydown="_onKeyDown"></text-input-light>
           <paper-checkbox id="trust" checked>Remember my password</paper-checkbox>
           <div>
             <div id="photoContainer" class="vertical layout center">
@@ -114,9 +114,10 @@
               </div>
             </div>
           </div>
-          <text-input-light id="name" placeholder="Full name" label="Full name" on-input="_onInput"></text-input-light>
-          <text-input-light id="location" placeholder="Location" label="Location (optional)" on-input="_onInput" style="display:none;"></text-input-light>
-          <text-input-light id="email" placeholder="Email address" label="Email address" on-input="_onInput"></text-input-light>
+          <text-input-light id="name" placeholder="Full name" label="Full name" on-input="_onInput" on-keydown="_onKeyDown"></text-input-light>
+          <text-input-light id="location" placeholder="Location" label="Location (optional)" on-input="_onInput" on-keydown="_onKeyDown"
+            style="display:none;"></text-input-light>
+          <text-input-light id="email" placeholder="Email address" label="Email address" on-input="_onInput" on-keydown="_onKeyDown"></text-input-light>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>
@@ -209,6 +210,14 @@
             this._onInput();
             console.log("Upload complete", response);
           });
+        }
+      }
+
+      _onKeyDown(event) {
+        if (event.keyCode === 13) {
+          if (!this.$.btnSave.disabled) {
+            this._onSave();
+          }
         }
       }
 
