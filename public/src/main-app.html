@@ -102,6 +102,7 @@
 
       _handleRouteChange(route) {
         let pageName = route.segments[0] || "feed";
+        pageName = pageName.trim();
         const pages = this.shadowRoot.querySelectorAll(".page");
         if (pages) {
           for (let i = 0; i < pages.length; i++) {
