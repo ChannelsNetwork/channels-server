@@ -1,6 +1,6 @@
 const _CKeys = {
   KEYS: "channels-identity",
-  PROFILE: "channels-profile",
+  BACKUP_KEYS: "backup-keys",
   AGREED_TERMS: "channels-terms-agreed"
 };
 
@@ -19,19 +19,17 @@ class CoreService extends Polymer.Element {
     this.dummy = new DummyService(this);
     this.cardManager = new CardManager(this);
 
-    this._keys = this.storage.getLocal(_CKeys.KEYS, true);
+    this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
-    if (this._keys && this._keys.privateKey) {
-      this._profile = this.storage.getLocal(_CKeys.PROFILE, true);
-    }
+    this._pendingRegistrations = [];
   }
 
   agreeToTnCs() {
-    this.storage.setLocal(_CKeys.AGREED_TERMS, true);
+    this.storage.setItem(_CKeys.AGREED_TERMS, true, true);
   }
 
   isAgreedToTnCs() {
-    return this.storage.getLocal(_CKeys.AGREED_TERMS) ? true : false;
+    return this.storage.getItem(_CKeys.AGREED_TERMS, false, true) ? true : false;
   }
 
   hasKeys() {
@@ -44,7 +42,13 @@ class CoreService extends Polymer.Element {
         resolve();
         return;
       }
-      Polymer.importHref(this.resolveUrl("../../bower_components/channels-web-utils/channels-key-utils.html"), resolve, reject);
+      Polymer.importHref(this.resolveUrl("../../bower_components/channels-web-utils/channels-key-utils.html"), () => {
+        this._keyLibLoaded = true;
+        resolve();
+      }, (err) => {
+        console.error("Error importing channels-key-utils", err);
+        reject(err);
+      });
     });
   }
 
@@ -70,7 +74,7 @@ class CoreService extends Polymer.Element {
           return;
         }
         this._keys = $keyUtils.generateKey();
-        this.storage.setLocal(_CKeys.KEYS, this._keys);
+        this.storage.setItem(_CKeys.KEYS, this._keys, true);
         resolve();
       }).catch((err) => {
         reject(err);
@@ -79,6 +83,16 @@ class CoreService extends Polymer.Element {
   }
 
   register(inviteCode) {
+    // We want to avoid race conditions where multiple entities all ask to register
+    // at the same time.  We only want to register once, so we return a promise for
+    // others and resolve them after resolving the initial request.
+    if (this._registrationInProgress) {
+      console.log("Concurrent registration being queued.");
+      return new Promise((resolve, reject) => {
+        this._pendingRegistrations.push(resolve);
+      });
+    }
+    this._registrationInProgress = true;
     return this.ensureKey().then(() => {
       if (this._registration) {
         return this._registration;
@@ -93,58 +107,106 @@ class CoreService extends Polymer.Element {
         this._registration = result;
         this._userStatus = result.status;
         this._fire("channels-registration", this._registration);
-        this.getUserProfile();
-        setInterval(() => {
-          this._updateBalance();
-        }, 1000 * 60);
-        return result;
+        return this.getUserProfile().then((profile) => {
+          setInterval(() => {
+            this._updateBalance();
+          }, 1000 * 60);
+          return result;
+        });
       });
+    }).then((info) => {
+      this._registrationInProgress = false;
+      this._resolvePendingRegistrations(info);
+      return info;
+    }).catch((err) => {
+      this._registrationInProgress = false;
+      this._resolvePendingRegistrations();
+      throw err;
+    });
+  }
+
+  _resolvePendingRegistrations(info) {
+    const registrations = this._pendingRegistrations;
+    this._pendingRegistrations = [];
+    for (const registration of registrations) {
+      registration(info);
+    }
+  }
+
+  signIn(handle, password, trust) {
+    let details = RestUtils.signInDetails(handle);
+    const url = this.restBase + "/sign-in";
+    return this.rest.post(url, details).then((result) => {
+      return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
+        this._keys = $keyUtils.generateKey(privateKey);
+        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        return this.getUserProfile();
+      }).catch((err) => {
+        throw new Error("Your handle or password is incorrect.");
+      });
+    });
+  }
+
+  signOut() {
+    this._keys = null;
+    this.storage.clearItem(_CKeys.KEYS, true);
+    this._keys = this.storage.getItem(_CKeys.BACKUP_KEYS, true);
+    if (this._keys) {
+      this.storage.setItem(_CKeys.KEYS, this._keys, true);
+    }
+    this._profile = null;
+    this._registration = null;
+    return this.register().then(() => {
+      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
     });
   }
 
   getAccountStatus() {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.accountStatusDetails(this._keys.address);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/account-status";
-      return this.rest.post(url, request).then((result) => {
-        this._accountStatus = result;
-        return result;
-      });
+    let details = RestUtils.accountStatusDetails(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/account-status";
+    return this.rest.post(url, request).then((result) => {
+      this._accountStatus = result;
+      return result;
     });
   }
 
   registerDevice(deviceCode) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.registerDeviceDetails(this._keys.address, deviceCode);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/register-device";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.registerDeviceDetails(this._keys.address, deviceCode);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/register-device";
+    return this.rest.post(url, request);
   }
 
-  updateUserProfile(name, handle, location, imageUrl, email) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.updateIdentityDetails(this._keys.address, name, handle, location, imageUrl, email);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/update-identity";
-      return this.rest.post(url, request).then(() => {
-        return this.getUserProfile();
-      })
-    });
+  updateUserProfile(name, handle, location, imageUrl, email, password, trust) {
+    if (password) {
+      return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
+        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey);
+      });
+    } else {
+      return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password);
+    }
+  }
+
+  _completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey) {
+    let details = RestUtils.updateIdentityDetails(this._keys.address, name, handle, location, imageUrl, email, encryptedPrivateKey);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-identity";
+    return this.rest.post(url, request).then(() => {
+      this._fire("profile-updated");
+      return this.getUserProfile();
+    })
   }
 
   getUserProfile() {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.getUserIdentityDetails(this._keys.address);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/get-identity";
-      return this.rest.post(url, request).then((profile) => {
-        this._profile = profile;
-        this.storage.setLocal(_CKeys.PROFILE, profile);
-        this._fire("channels-profile", this._profile);
-        return profile;
-      });
+    let details = RestUtils.getUserIdentityDetails(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-identity";
+    return this.rest.post(url, request).then((profile) => {
+      this._profile = profile;
+      this._fire("channels-profile", this._profile);
+      return profile;
     });
   }
 
@@ -166,204 +228,177 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  getSyncCode() {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.getSyncCodeDetails(this._keys.address);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/get-sync-code";
-      return this.rest.post(url, request);
-    });
+  requestRecoveryCode(handle, emailAddress) {
+    let details = RestUtils.requestRecoveryCodeDetails(handle, emailAddress);
+    const url = this.restBase + "/request-recovery-code";
+    return this.rest.post(url, details);
   }
 
-  syncIdentity(handle, syncCode) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.syncIdentityDetails(this._keys.address, handle, syncCode);
+  recoverUser(code, handle, password, trust) {
+    return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
+      let details = RestUtils.recoverUserDetails(this._keys.address, code, handle, encryptedPrivateKey);
       let request = this._createRequest(details);
-      const url = this.restBase + "/sync-identity";
-      return this.rest.post(url, request);
+      const url = this.restBase + "/recover-user";
+      return this.rest.post(url, request).then(() => {
+        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        this.storage.clearItem(_CKeys.BACKUP_KEYS);
+        this._profile = null;
+        this._registration = null;
+        return this.register();
+      });
     });
   }
 
   getFeeds(maxCardsPerFeed) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.getFeedDetails(this._keys.address, maxCardsPerFeed);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/get-feed";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.getFeedDetails(this._keys.address, maxCardsPerFeed);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-feed";
+    return this.rest.post(url, request);
   }
 
   getFeed(type, maxCards, startWithCardId) {  // type = "recommended" | "new" | "mine" | "opened"
-    return this.ensureKey().then(() => {
-      let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type, startWithCardId);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/get-feed";
-      return this.rest.post(url, request).then((response) => {
-        return response.feeds[0].cards;
-      });
+    let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type, startWithCardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-feed";
+    return this.rest.post(url, request).then((response) => {
+      return response.feeds[0].cards;
     });
   }
 
   ensureComponent(packageName) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/ensure-component";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/ensure-component";
+    return this.rest.post(url, request);
   }
 
   postCard(imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
-    return this.ensureKey().then(() => {
-      let coupon;
-      if (promotionFee + openPayment > 0) {
-        const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
-        const couponDetailsString = JSON.stringify(couponDetails);
-        const coupon = {
-          objectString: couponDetailsString,
-          signature: this._sign(couponDetailsString)
-        }
+    let coupon;
+    if (promotionFee + openPayment > 0) {
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+      const couponDetailsString = JSON.stringify(couponDetails);
+      const coupon = {
+        objectString: couponDetailsString,
+        signature: this._sign(couponDetailsString)
       }
-      let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/post-card";
-      return this.rest.post(url, request);
-    });
+    }
+    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/post-card";
+    return this.rest.post(url, request);
   }
 
   cardImpression(cardId, coupon) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, coupon);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/card-impression";
-      return this.rest.post(url, request).then((response) => {
-        this._userStatus = response.status;
-      });
+    let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, coupon);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-impression";
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
     });
   }
 
   cardOpened(cardId) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.cardOpenedDetails(this._keys.address, cardId);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/card-opened";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.cardOpenedDetails(this._keys.address, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-opened";
+    return this.rest.post(url, request);
   }
 
   cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, referrerAddress) {
-    return this.ensureKey().then(() => {
-      const recipients = [];
-      recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder"));
-      if (cardDeveloperAddress && cardDeveloperFraction && cardDeveloperFraction > 0) {
-        recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", cardDeveloperFraction));
-      }
-      if (this._registration.operatorAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", this._registration.operatorTaxFraction));
-      }
-      if (this._registration.networkDeveloperAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(this._registration.networkDeveloperAddress, "fraction", this._registration.networkDeveloperRoyaltyFraction));
-      }
-      if (referrerAddress) {
-        recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", this._registration.referralFraction));
-      }
-      const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
-      const transactionString = JSON.stringify(transaction);
-      const transactionSignature = this._sign(transactionString);
-      let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/card-pay";
-      return this.rest.post(url, request).then((response) => {
-        this._userStatus = response.status;
-        return response;
-      });
+    const recipients = [];
+    recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder"));
+    if (cardDeveloperAddress && cardDeveloperFraction && cardDeveloperFraction > 0) {
+      recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", cardDeveloperFraction));
+    }
+    if (this._registration.operatorAddress) {
+      recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", this._registration.operatorTaxFraction));
+    }
+    if (this._registration.networkDeveloperAddress) {
+      recipients.push(RestUtils.bankTransactionRecipient(this._registration.networkDeveloperAddress, "fraction", this._registration.networkDeveloperRoyaltyFraction));
+    }
+    if (referrerAddress) {
+      recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", this._registration.referralFraction));
+    }
+    const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
+    const transactionString = JSON.stringify(transaction);
+    const transactionSignature = this._sign(transactionString);
+    let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-pay";
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      return response;
     });
   }
 
   cardOpenPaymentRedeem(cardId, coupon) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, coupon);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/card-redeem-open";
-      return this.rest.post(url, request).then((response) => {
-        this._userStatus = response.status;
-      });
+    let details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, coupon);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-redeem-open";
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
     });
   }
 
   cardClosed(cardId) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.cardClosedDetails(this._keys.address, cardId);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/card-closed";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.cardClosedDetails(this._keys.address, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-closed";
+    return this.rest.post(url, request);
   }
 
   updateCardLike(cardId, selection) {  // "like" | "none" | "dislike"
-    return this.ensureKey().then(() => {
-      let details = RestUtils.updateCardLikeDetails(this._keys.address, cardId, selection);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/update-card-like";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.updateCardLikeDetails(this._keys.address, cardId, selection);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-card-like";
+    return this.rest.post(url, request);
   }
 
   updateCardPrivate(cardId, isPrivate) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.updateCardPrivateDetails(this._keys.address, cardId, isPrivate);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/update-card-private";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.updateCardPrivateDetails(this._keys.address, cardId, isPrivate);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-card-private";
+    return this.rest.post(url, request);
   }
 
   deleteCard(cardId) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.deleteCardDetails(this._keys.address, cardId);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/delete-card";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.deleteCardDetails(this._keys.address, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/delete-card";
+    return this.rest.post(url, request);
   }
 
   bankStatement(maxCount) {
-    return this.ensureKey().then(() => {
-      let details = RestUtils.bankStatementDetails(this._keys.address, maxCount);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/bank-statement";
-      return this.rest.post(url, request);
-    });
+    let details = RestUtils.bankStatementDetails(this._keys.address, maxCount);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/bank-statement";
+    return this.rest.post(url, request);
   }
 
   withdraw(amount, emailAddress) {
-    return this.ensureKey().then(() => {
-      const transaction = RestUtils.bankTransaction(this._keys.address, "withdrawal", "withdrawal", null, null, amount, [], RestUtils.bankTransactionWithdrawalRecipient(emailAddress));
-      const transactionString = JSON.stringify(transaction);
-      const transactionSignature = this._sign(transactionString);
-      let details = RestUtils.bankWithdraw(this._keys.address, transactionString, transactionSignature);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/bank-withdraw";
-      return this.rest.post(url, request).then((response) => {
-        this._userStatus = response.status;
-        return response;
-      });
+    const transaction = RestUtils.bankTransaction(this._keys.address, "withdrawal", "withdrawal", null, null, amount, [], RestUtils.bankTransactionWithdrawalRecipient(emailAddress));
+    const transactionString = JSON.stringify(transaction);
+    const transactionSignature = this._sign(transactionString);
+    let details = RestUtils.bankWithdraw(this._keys.address, transactionString, transactionSignature);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/bank-withdraw";
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      return response;
     });
   }
 
   uploadFile(file) {
-    return this.ensureKey().then(() => {
-      var formData = new FormData();
+    var formData = new FormData();
 
-      formData.append("address", this._keys.address);
-      const signatureTimestamp = Date.now().toString();
-      formData.append("signatureTimestamp", signatureTimestamp);
-      formData.append("signature", this._sign(signatureTimestamp));
-      formData.append("userFile", file);
+    formData.append("address", this._keys.address);
+    const signatureTimestamp = Date.now().toString();
+    formData.append("signatureTimestamp", signatureTimestamp);
+    formData.append("signature", this._sign(signatureTimestamp));
+    formData.append("userFile", file);
 
-      const url = this.restBase + "/upload";
-      return this.rest.postFile(url, formData);
-    });
+    const url = this.restBase + "/upload";
+    return this.rest.postFile(url, formData);
   }
 
   isValidEmail(emailAddress) {
@@ -395,10 +430,6 @@ class CoreService extends Polymer.Element {
     return this._profile;
   }
 
-  get userId() {
-    return this._registration ? this._registration.userId : null;
-  }
-
   get address() {
     return this._keys ? this._keys.address : null;
   }
@@ -423,7 +454,7 @@ class CoreService extends Polymer.Element {
   }
 
   get balance() {
-    if (!this._userStatus) {
+    if (!this._userStatus || !this._registration) {
       return 0;
     }
     let result = this._userStatus.userBalance * (1 + (Date.now() - this._userStatus.userBalanceAt) * this.registration.interestRatePerMillisecond);

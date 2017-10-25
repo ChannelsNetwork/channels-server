@@ -1,86 +1,255 @@
-<link rel="import" href="../controls/text-input.html">
+<link rel="import" href="../../bower_components/iron-image/iron-image.html">
+<link rel="import" href="../../bower_components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../controls/text-input-light.html">
 
 <dom-module id="register-view">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+      :host {
         display: block;
-        background: #212121;
+        background: white;
+        color: black;
       }
 
       .shell {
         min-height: 100vh;
       }
 
-      #container,
+      #container {
+        max-width: 400px;
+        padding: 16px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
       #progressPanel {
         max-width: 600px;
         padding: 16px;
         margin: 0 auto;
         box-sizing: border-box;
-      }
-
-      #progressPanel {
         text-align: center;
         font-size: 20px;
       }
 
-      text-input {
-        margin-top: 20px;
+      text-input-light {
+        margin-top: 10px;
       }
 
       .buttons {
         text-align: right;
         padding: 30px 0 5px;
       }
+
+      #photoContainer {
+        width: 64px;
+        height: 64px;
+        border-radius: 32px;
+        border: 1px solid #ccc;
+        text-align: center;
+        font-size: 12px;
+        margin-top: 50px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .photoForeground {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        overflow: hidden;
+      }
+
+      #photoInput {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      #userPhoto {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      paper-checkbox {
+        margin: 15px 0;
+      }
+
+      .morePanel {
+        margin: 25px 0;
+        font-size: 14px;
+      }
+
+      .moreOption {
+        margin: 20px 0;
+      }
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
-        <h2>Register with Channels</h2>
+        <h2>Register</h2>
+        <h4>[[subtitle]]</h4>
         <div>
-          <text-input id="handle" label="Handle" placeholder="Handle" on-input="_onHandleInput"></text-input>
-          <text-input id="name" label="Full name" placeholder="Full name" on-input="_onInput"></text-input>
-          <text-input id="location" label="Location" placeholder="Location (optional)" on-input="_onInput"></text-input>
-          <text-input id="code" label="Invite code" placeholder="Invite code (optional)" on-input="_onInput"></text-input>
+          <text-input-light id="handle" placeholder="Handle" label="Handle" on-input="_onHandleInput" on-keydown="_onKeyDown"></text-input-light>
+          <text-input-light id="password" type="password" placeholder="Password" label="Password" on-input="_onInput" on-keydown="_onKeyDown"></text-input-light>
+          <paper-checkbox id="trust" checked>Remember my password</paper-checkbox>
+          <div>
+            <div id="photoContainer" class="vertical layout center">
+              <div class="flex"></div>
+              <div id="noPhoto">upload photo</div>
+              <div class="flex"></div>
+              <iron-image sizing="cover" id="userPhoto" style="display:none"></iron-image>
+              <div class="photoForeground">
+                <input id="photoInput" type="file" accept="image/*" , on-change="_onFilesLoaded">
+              </div>
+            </div>
+          </div>
+          <text-input-light id="name" placeholder="Full name" label="Full name" on-input="_onInput" on-keydown="_onKeyDown"></text-input-light>
+          <text-input-light id="location" placeholder="Location" label="Location (optional)" on-input="_onInput" on-keydown="_onKeyDown"
+            style="display:none;"></text-input-light>
+          <text-input-light id="email" placeholder="Email address" label="Email address" on-input="_onInput" on-keydown="_onKeyDown"></text-input-light>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>
+          </div>
+          <div class="morePanel">
+            <div class="moreOption">
+              <a href="#signin">I already have an account</a>
+            </div>
           </div>
         </div>
       </div>
       <div id="progressPanel" style="display: none;">
         <p>[[progress]]</p>
-        <p id="errorPanel" style="display: none;"><button on-click="_onOk">OK</button></p>
+        <p id="errorPanel" style="display: none;">
+          <button on-click="_onOk">OK</button>
+        </p>
       </div>
     </div>
   </template>
   <script>
     class RegisterView extends Polymer.Element {
       static get is() { return "register-view"; }
-
       static get properties() {
         return {
-          progress: String
+          progress: String,
+          subtitle: String
         };
       }
 
-      onActivate() {
-        this._alreadyRegistered = false;
-        this._hideProgress();
-        this.$.handle.validate(null);
-        this.$.handle.value = "";
-        this.$.name.value = "";
-        this.$.location.value = "";
-        this.$.code.value = "";
-        this.$.handle.input.focus();
-        this._onInput();
-        this.$.container.style.opacity = 0;
-        if ($core.hasKey) {
-          this._alreadyRegistered = true;
-          this._progress("You are already registered with channels.", true);
-        } else {
-          this.$.container.style.opacity = 1;
+      onActivate(route) {
+        $core.register().then((info) => {
+          if (route && route.context && route.context.message) {
+            this.set('subtitle', route.context.message);
+          }
+          if (route && route.context && route.context.returnRoute) {
+            this.returnRoute = route.context.returnRoute;
+          } else {
+            this.returnRoute = {
+              success: "account",
+              cancel: "account"
+            };
+          }
+          this._handleValid = true;
+          this._hideProgress();
+          this.$.handle.validate(null);
+          this.$.handle.value = "";
+          this.$.name.value = "";
+          this.$.location.value = "";
+          this.$.email.value = "";
+          this.$.password.value = "";
+          this.$.password.style.display = "";
+          this.$.trust.style.display = "";
+          this.$.userPhoto.style.display = "none";
+          this.$.userPhoto.src = "";
+          let p = $core.profile;
+          if (p) {
+            this.$.handle.value = p.handle || "";
+            this.$.name.value = p.name || "";
+            this.$.location.value = p.location || "";
+            this.$.email.value = p.emailAddress || "";
+            this.$.password.style.display = p.handle ? "none" : "";
+            this.$.trust.style.display = p.handle ? "none" : "";
+            if (p.imageUrl) {
+              this.$.userPhoto.src = p.imageUrl;
+              this.$.userPhoto.style.display = "";
+              this.$.photoContainer.style.border = "0";
+              this.userPhoto = p.imageUrl;
+            }
+          }
+          this.$.handle.input.focus();
+          this._onInput();
+        });
+      }
+
+      _onCancel() {
+        $router.goto(this.returnRoute.cancel);
+      }
+
+      _onFilesLoaded() {
+        this.$.userPhoto.src = "/s/images/spinner.gif";
+        this.$.userPhoto.style.display = "";
+        this.$.photoContainer.style.border = "0";
+        this.$.noPhoto.style.display = "none";
+        var files = this.$.photoInput.files;
+        if (files.length > 0) {
+          $core.uploadFile(files[0]).then((response) => {
+            this.$.userPhoto.src = response.url;
+            this.$.userPhoto.style.display = "";
+            this.userPhoto = response.url;
+            this._onInput();
+            console.log("Upload complete", response);
+          });
         }
+      }
+
+      _onKeyDown(event) {
+        if (event.keyCode === 13) {
+          if (!this.$.btnSave.disabled) {
+            this._onSave();
+          }
+        }
+      }
+
+      _onSave() {
+        let handle = this.$.handle.value.trim();
+        let name = this.$.name.value.trim();
+        let photo = this.$.user;
+        let password = this.$.password.value ? this.$.password.value.trim() : null;
+        if (!handle || !name || !password) {
+          this._onInput();
+          return;
+        }
+        let location = this.$.location.value.trim();
+        let email = this.$.email.value.trim();
+        this._progress("Registering...");
+        $core.updateUserProfile(name, handle, location, this.userPhoto, email, this.$.password.value.trim(), this.$.trust.checked).then(() => {
+          $router.goto(this.returnRoute.success);
+        }).catch((err) => {
+          console.error(err);
+          this._progress(err || "Oops. Something went wrong when registering your handle.", true);
+        });
+      }
+
+      _onInput() {
+        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this._handleValid;
+        this.$.btnSave.disabled = !valid;
+      }
+
+      _onHandleInput() {
+        this._handleValid = true;
+        this._onInput();
+        this._validateHandle();
       }
 
       _progress(progress, error) {
@@ -95,53 +264,12 @@
         }
       }
 
-      _onCancel() {
-        $router.goto("");
-      }
-
-      _onSave() {
-        let handle = this.$.handle.value.trim();
-        let name = this.$.name.value.trim();
-        if (!(handle && name)) {
-          this._onInput();
-          return;
-        }
-        let location = this.$.location.value.trim();
-        let code = this.$.code.value.trim();
-
-        this._progress("Registering handle...");
-
-        $core.register(code).then(() => {
-          return $core.updateUserProfile(name, handle, location, null, null);
-        }).then((ss) => {
-          $router.goto("notifications");
-        }).catch((err) => {
-          console.error(err);
-          this._progress(err || "Oops. Something went wrong when registering your handle.", true);
-        });
-      }
-
       _hideProgress() {
         this._progress(null);
       }
 
-      _onInput() {
-        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this._handleValid;
-        this.$.btnSave.disabled = !valid;
-      }
-
       _onOk() {
-        if (this._alreadyRegistered) {
-          $router.goto("launch");
-        } else {
-          this._hideProgress();
-        }
-      }
-
-      _onHandleInput() {
-        this._handleValid = true;
-        this._onInput();
-        this._validateHandle();
+        this._hideProgress();
       }
 
       _validateHandle() {

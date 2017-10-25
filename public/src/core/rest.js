@@ -72,21 +72,19 @@ class RestUtils {
     return (new Date()).getTime();
   }
 
-  static registerUserDetails(address, publicKey, inviteCode) {
+  static registerUserDetails(address, publicKey, inviteCode, appVersion) {
     return {
       publicKey: publicKey,
       inviteCode: inviteCode,
+      appVersion: appVersion,
       address: address,
       timestamp: RestUtils.now()
     };
   }
 
-  static registerDeviceDetails(address, deviceToken) {
+  static signInDetails(handle) {
     return {
-      token: deviceToken,
-      type: "web",
-      address: address,
-      timestamp: RestUtils.now()
+      handle: handle
     };
   }
 
@@ -97,29 +95,31 @@ class RestUtils {
     };
   }
 
-  static getSyncCodeDetails(address) {
+  static requestRecoveryCodeDetails(handle, emailAddress) {
     return {
+      handle: handle,
+      emailAddress: emailAddress
+    };
+  }
+
+  static recoverUserDetails(address, code, handle, encryptedPrivateKey) {
+    return {
+      code: code,
+      handle: handle,
+      encryptedPrivateKey: encryptedPrivateKey,
       address: address,
       timestamp: RestUtils.now()
     };
   }
 
-  static syncIdentityDetails(address, handle, syncCode) {
-    return {
-      address: address,
-      timestamp: RestUtils.now(),
-      handle: handle,
-      syncCode: syncCode
-    };
-  }
-
-  static updateIdentityDetails(address, name, handle, location, imageUrl, emailAddress) {
+  static updateIdentityDetails(address, name, handle, location, imageUrl, emailAddress, encryptedPrivateKey) {
     return {
       name: name,
       handle: handle,
       location: location,
       imageUrl: imageUrl,
       emailAddress: emailAddress,
+      encryptedPrivateKey: encryptedPrivateKey,
       address: address,
       timestamp: RestUtils.now()
     };

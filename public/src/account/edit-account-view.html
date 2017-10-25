@@ -1,12 +1,14 @@
-<link rel="import" href="../controls/text-input.html">
 <link rel="import" href="../../bower_components/iron-image/iron-image.html">
+<link rel="import" href="../../bower_components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
 
 <dom-module id="edit-account-view">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
       :host {
         display: block;
-        background: #212121;
+        background: white;
+        color: black;
       }
 
       .shell {
@@ -14,7 +16,7 @@
       }
 
       #container {
-        max-width: 500px;
+        max-width: 400px;
         padding: 16px;
         margin: 0 auto;
         width: 100%;
@@ -30,8 +32,8 @@
         font-size: 20px;
       }
 
-      text-input {
-        margin-top: 20px;
+      paper-input {
+        margin-top: 15px;
       }
 
       .buttons {
@@ -43,7 +45,7 @@
         width: 64px;
         height: 64px;
         border-radius: 32px;
-        border: 1px solid white;
+        border: 1px solid #ccc;
         text-align: center;
         font-size: 12px;
         margin-top: 50px;
@@ -79,11 +81,14 @@
         right: 0;
         bottom: 0;
       }
+
+      paper-checkbox {
+        margin: 15px 0;
+      }
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
-        <h2>Edit Profile</h2>
-        <h4>[[subtitle]]</h4>
+        <h2>Update Profile</h2>
         <div>
           <div>
             <div id="photoContainer" class="vertical layout center">
@@ -96,10 +101,9 @@
               </div>
             </div>
           </div>
-          <text-input id="handle" label="Handle" placeholder="Handle" on-input="_onHandleInput"></text-input>
-          <text-input id="name" label="Full name" placeholder="Full name" on-input="_onInput"></text-input>
-          <text-input id="location" label="Location" placeholder="Location (optional)" on-input="_onInput"></text-input>
-          <text-input id="email" label="Email" placeholder="Email (optional)" on-input="_onInput"></text-input>
+          <paper-input id="name" label="Full name" on-input="_onInput"></paper-input>
+          <paper-input id="location" label="Location (optional)" on-input="_onInput" style="display:none;"></paper-input>
+          <paper-input id="email" label="Email address" on-input="_onInput"></paper-input>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>
@@ -119,51 +123,45 @@
       static get is() { return "edit-account-view"; }
       static get properties() {
         return {
-          progress: String,
-          subtitle: String
+          progress: String
         };
       }
 
       onActivate(route) {
-        if (route && route.context && route.context.message) {
-          this.set('subtitle', route.context.message);
-        }
-        if (route && route.context && route.context.returnRoute) {
-          this.returnRoute = route.context.returnRoute;
-        } else {
-          this.returnRoute = {
-            success: "account",
-            cancel: "account"
-          };
-        }
-        this._handleValid = true;
-        this._hideProgress();
-        if (!$core.hasKey) {
-          setTimeout(() => {
-            $router.goto("");
-          }, 600);
-          return;
-        }
-        this.$.handle.validate(null);
-        this.$.handle.value = "";
-        this.$.name.value = "";
-        this.$.location.value = "";
-        this.$.email.value = "";
-        let p = $core.profile;
-        if (p) {
-          this.$.handle.value = p.handle || "";
-          this.$.name.value = p.name || "";
-          this.$.location.value = p.location || "";
-          this.$.email.value = p.emailAddress || "";
-          if (p.imageUrl) {
-            this.$.userPhoto.src = p.imageUrl;
-            this.$.userPhoto.style.display = "";
-            this.$.photoContainer.style.border = "0";
-            this.userPhoto = p.imageUrl;
+        $core.register().then((info) => {
+          if (route && route.context && route.context.message) {
+            this.set('subtitle', route.context.message);
           }
-        }
-        this.$.handle.input.focus();
-        this._onInput();
+          if (route && route.context && route.context.returnRoute) {
+            this.returnRoute = route.context.returnRoute;
+          } else {
+            this.returnRoute = {
+              success: "feed",
+              cancel: "feed"
+            };
+          }
+          this._handleValid = true;
+          this._hideProgress();
+          this.$.name.value = "";
+          this.$.location.value = "";
+          this.$.email.value = "";
+          this.$.userPhoto.src = "";
+          this.$.userPhoto.style.display = "none";
+          this.userPhoto = null;
+          let p = $core.profile;
+          if (p) {
+            this.$.name.value = p.name || "";
+            this.$.location.value = p.location || "";
+            this.$.email.value = p.emailAddress || "";
+            if (p.imageUrl) {
+              this.$.userPhoto.src = p.imageUrl;
+              this.$.userPhoto.style.display = "";
+              this.$.photoContainer.style.border = "0";
+              this.userPhoto = p.imageUrl;
+            }
+          }
+          this._onInput();
+        });
       }
 
       _onCancel() {
@@ -188,35 +186,27 @@
       }
 
       _onSave() {
-        let handle = this.$.handle.value.trim();
         let name = this.$.name.value.trim();
-        let photo = this.$.user
-        if (!handle || !name || !this.userPhoto) {
+        let photo = this.$.user;
+        if (!name) {
           this._onInput();
           return;
         }
         let location = this.$.location.value.trim();
         let email = this.$.email.value.trim();
 
-        this._progress("Updating profile...");
-
-        $core.updateUserProfile(name, handle, location, this.userPhoto, email).then(() => {
+        this._progress("Updating...");
+        $core.updateUserProfile(name, null, location, this.userPhoto, email, null).then(() => {
           $router.goto(this.returnRoute.success);
         }).catch((err) => {
           console.error(err);
-          this._progress(err || "Oops. Something went wrong when registering your handle.", true);
+          this._progress(err || "Oops. Something went wrong when updating your profile.", true);
         });
       }
 
       _onInput() {
-        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this._handleValid && this.userPhoto;
+        let valid = this.$.name.value.trim() ? true : false;
         this.$.btnSave.disabled = !valid;
-      }
-
-      _onHandleInput() {
-        this._handleValid = true;
-        this._onInput();
-        this._validateHandle();
       }
 
       _progress(progress, error) {
@@ -239,54 +229,6 @@
         this._hideProgress();
       }
 
-      _validateHandle() {
-        if (this._handleValidationPending) {
-          return;
-        }
-        if (this._handleValidationInProgress) {
-          this._handleValidationRequested = true;
-        } else {
-          this._scheduleValidation();
-        }
-      }
-
-      _scheduleValidation() {
-        this._handleValidationInProgress = true;
-        this._handleValidationRequested = false;
-        this._handleValidationPending = true;
-        var _complete = () => {
-          this._handleValidationInProgress = false;
-          if (this._handleValidationRequested) {
-            this._scheduleValidation();
-          } else {
-            this._onInput();
-          }
-        };
-        setTimeout(() => {
-          this._handleValidationPending = false;
-          let handle = this.$.handle.value.trim();
-          if (handle) {
-            $core.checkHandle(handle).then((response) => {
-              this._handleValid = false;
-              if (!response.valid) {
-                this.$.handle.validate("Invalid handle", true);
-              } else if (response.inUse) {
-                this.$.handle.validate("Not available", true);
-              } else {
-                this._handleValid = true;
-                this.$.handle.validate("Available", false);
-              }
-              _complete();
-            }).catch((err) => {
-              console.error(err);
-              _complete();
-            });
-          } else {
-            this.$.handle.validate(null);
-            _complete();
-          }
-        }, 700);
-      }
     }
     window.customElements.define(EditAccountView.is, EditAccountView);
   </script>

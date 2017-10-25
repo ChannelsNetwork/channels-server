@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, RegisterDeviceDetails, UserStatusDetails, Signable, RegisterDeviceResponse, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, GetSyncCodeDetails, GetSyncCodeResponse, SyncIdentityDetails, SyncIdentityResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -12,7 +12,6 @@ import { UrlManager } from "./url-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
 import { RestHelper } from "./rest-helper";
 import * as url from 'url';
-import { UserHelper } from "./user-helper";
 import { socketServer, UserSocketHandler } from "./socket-server";
 import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
@@ -31,7 +30,7 @@ const DIGITS = '0123456789';
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
-const SYNC_CODE_LIFETIME = 1000 * 60 * 5;
+const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -62,17 +61,23 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('register-device'), (request: Request, response: Response) => {
       void this.handleRegisterDevice(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('sign-in'), (request: Request, response: Response) => {
+      void this.handleSignIn(request, response);
+    });
+    // this.app.post(this.urlManager.getDynamicUrl('register-device'), (request: Request, response: Response) => {
+    //   void this.handleRegisterDevice(request, response);
+    // });
     this.app.post(this.urlManager.getDynamicUrl('account-status'), (request: Request, response: Response) => {
       void this.handleStatus(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('update-identity'), (request: Request, response: Response) => {
       void this.handleUpdateIdentity(request, response);
     });
-    this.app.post(this.urlManager.getDynamicUrl('get-sync-code'), (request: Request, response: Response) => {
-      void this.handleGetSyncCode(request, response);
+    this.app.post(this.urlManager.getDynamicUrl('request-recovery-code'), (request: Request, response: Response) => {
+      void this.handleRequestRecoveryCode(request, response);
     });
-    this.app.post(this.urlManager.getDynamicUrl('sync-identity'), (request: Request, response: Response) => {
-      void this.handleSyncIdentity(request, response);
+    this.app.post(this.urlManager.getDynamicUrl('recover-user'), (request: Request, response: Response) => {
+      void this.handleRecoverUser(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('get-identity'), (request: Request, response: Response) => {
       void this.handleGetIdentity(request, response);
@@ -105,7 +110,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         if (inviter && inviter.invitationsRemaining > 0) {
           await db.incrementInvitationsAccepted(inviter, INVITER_REWARD);
           const rewardRecipient: BankTransactionRecipientDirective = {
-            address: inviter.keys[0].address,
+            address: inviter.address,
             portion: "remainder"
           };
           const reward: BankTransactionDetails = {
@@ -122,7 +127,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder"
@@ -158,7 +163,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const userStatus = await this.getUserStatus(userRecord);
       const registerResponse: RegisterUserResponse = {
         status: userStatus,
-        userId: userRecord.id,
         interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
         subsidyRate: await priceRegulator.getUserSubsidyRate(),
         operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
@@ -189,7 +193,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.register-device", requestBody.detailsObject.address, requestBody.detailsObject);
       const existing = await db.findDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token);
       if (existing) {
-        if (!UserHelper.isUsersAddress(user, existing.userAddress)) {
+        if (user.address !== existing.userAddress) {
           response.status(409).send("This device token is already associated with a different user");
           return;
         }
@@ -203,6 +207,58 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.status(500).send(err);
     }
   }
+
+  private async handleSignIn(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as SignInDetails;
+      if (!requestBody || !requestBody.handle) {
+        response.status(400).send("Missing handle");
+        return;
+      }
+      console.log("UserManager.register-user", requestBody);
+      const user = await db.findUserByHandle(requestBody.handle);
+      if (!user) {
+        response.status(404).send("No user with this handle");
+        return;
+      }
+      const reply: SignInResponse = {
+        encryptedPrivateKey: user.encryptedPrivateKey
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleSignIn: Failure", err);
+      response.status(500).send(err);
+    }
+  }
+
+  // private async handleRegisterDevice(request: Request, response: Response): Promise<void> {
+  //   try {
+  //     const requestBody = request.body as RestRequest<RegisterDeviceDetails>;
+  //     const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+  //     if (!user) {
+  //       return;
+  //     }
+  //     if (!requestBody.detailsObject.token || !requestBody.detailsObject.type) {
+  //       response.status(400).send("Device token is missing or invalid");
+  //       return;
+  //     }
+  //     console.log("UserManager.register-device", requestBody.detailsObject.address, requestBody.detailsObject);
+  //     const existing = await db.findDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token);
+  //     if (existing) {
+  //       if (user.address !== existing.userAddress) {
+  //         response.status(409).send("This device token is already associated with a different user");
+  //         return;
+  //       }
+  //     } else {
+  //       await db.insertDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token, requestBody.detailsObject.address);
+  //     }
+  //     const reply: RegisterDeviceResponse = { success: true };
+  //     response.json(reply);
+  //   } catch (err) {
+  //     console.error("User.handleRegisterDevice: Failure", err);
+  //     response.status(500).send(err);
+  //   }
+  // }
 
   private async handleStatus(request: Request, response: Response): Promise<void> {
     try {
@@ -231,24 +287,36 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (!user) {
         return;
       }
-      if (!requestBody.detailsObject.name || !requestBody.detailsObject.handle) {
-        response.status(400).send("Missing name and handle");
-        return;
+      if (!user.identity || !user.identity.handle) {
+        if (!requestBody.detailsObject.name || !requestBody.detailsObject.handle) {
+          response.status(400).send("Missing name and handle");
+          return;
+        }
+        if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
+          response.status(400).send("Invalid handle.  Must start with letter and can only contain letters, digits and/or underscore.");
+          return;
+        }
+        if (!this.isHandlePermissible(requestBody.detailsObject.handle)) {
+          response.status(409).send("This handle is not available");
+          return;
+        }
       }
-      if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
-        response.status(400).send("Invalid handle.  Must start with letter and can only contain letters, digits and/or underscore.");
-        return;
+      if (requestBody.detailsObject.handle) {
+        const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+        if (existing && existing.id !== user.id) {
+          response.status(409).send("This handle is not available");
+          return;
+        }
       }
-      if (!this.isHandlePermissible(requestBody.detailsObject.handle)) {
-        response.status(409).send("This handle is not available");
+      if (requestBody.detailsObject.emailAddress) {
+        const existing = await db.findUserByEmail(requestBody.detailsObject.emailAddress);
+        if (existing && existing.id !== user.id) {
+          response.status(409).send("This email address is associated with a different account.");
+          return;
+        }
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
-      const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
-      if (existing && existing.id !== user.id) {
-        response.status(409).send("This handle is not available");
-        return;
-      }
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress);
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
       if (configuration.get("notifications.userIdentityChange")) {
         let html = "<div>";
         html += "<div>userId: " + user.id + "</div>";
@@ -268,71 +336,99 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private async handleGetSyncCode(request: Request, response: Response): Promise<void> {
+  private async handleRequestRecoveryCode(request: Request, response: Response): Promise<void> {
     try {
-      const requestBody = request.body as RestRequest<GetSyncCodeDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const requestBody = request.body as RequestRecoveryCodeDetails;
+      let user: UserRecord;
+      if (requestBody.handle) {
+        user = await db.findUserByHandle(requestBody.handle);
+      } else if (requestBody.emailAddress) {
+        user = await db.findUserByEmail(requestBody.emailAddress);
+      } else {
+        response.status(400).send("You must provide handle or email address");
+        return;
+      }
       if (!user) {
+        response.status(400).send("No matching account found.");
         return;
       }
-      if (!user.identity || !user.identity.handle) {
-        response.status(403).send("You must have a handle to get a sync code");
+      if (!user.identity || !user.identity.emailAddress) {
+        response.status(409).send("This account does not have a recovery email address associated with it.  There is no way to recover the account if you have forgotten the credentials.");
         return;
       }
-      console.log("UserManager.get-sync-code", requestBody.detailsObject);
-      const syncCode = this.generateSyncCode();
-      await db.updateUserSyncCode(user, syncCode, Date.now() + SYNC_CODE_LIFETIME);
-      const reply: GetSyncCodeResponse = {
-        syncCode: syncCode
-      };
+      console.log("UserManager.request-recovery-code", requestBody);
+      let code: string;
+      while (true) {
+        code = this.generateRecoveryCode();
+        try {
+          await db.updateUserRecoveryCode(user, code, Date.now() + RECOVERY_CODE_LIFETIME);
+          break;
+        } catch (err) {
+          // collision on recovery code use, try again
+        }
+      }
+      const text = "Your handle: " + user.identity.handle + "\nRecovery code: " + code + "\n\nEnter this information into the Recover Account page";
+      let html = "<p>You asked to recover your Channels account.  Enter the following information into the Account Recovery page.</p>";
+      html += "<li>Code: " + code + "</li>";
+      html += "<li>Handle: " + user.identity.handle + "</li>";
+      html += "<p>If you did not request account recovery, you can safely ignore this message.</p>";
+      await emailManager.sendNoReplyUserNotification(user.identity.name, user.identity.emailAddress, "Account recovery", text, html);
+      const reply: RequestRecoveryCodeResponse = {};
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetSyncCode: Failure", err);
+      console.error("User.handleRequestRecoveryCode: Failure", err);
       response.status(500).send(err);
     }
   }
 
-  private async handleSyncIdentity(request: Request, response: Response): Promise<void> {
+  private async handleRecoverUser(request: Request, response: Response): Promise<void> {
     try {
-      const requestBody = request.body as RestRequest<SyncIdentityDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const requestBody = request.body as RestRequest<RecoverUserDetails>;
+      const registeredUser = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!registeredUser) {
+        return;
+      }
+      if (registeredUser.identity && registeredUser.identity.handle) {
+        response.status(400).send("You can't recover when you have a current identity. Sign out first.");
+        return;
+      }
+      if (!requestBody.detailsObject.code) {
+        response.status(400).send("You need to include the code");
+        return;
+      }
+      const user = await db.findUserByRecoveryCode(requestBody.detailsObject.code);
       if (!user) {
+        response.status(404).send("This is not a valid code.");
         return;
       }
-      console.log("UserManager.sync-identity", requestBody.detailsObject);
-      if (!requestBody.detailsObject.handle || !requestBody.detailsObject.syncCode) {
-        response.status(400).send("You must provide existing user handle and syncCode");
+      if (user.recoveryCodeExpires < Date.now()) {
+        response.status(401).send("This code has expired.");
         return;
       }
-      const syncUser = await db.findUserByHandle(requestBody.detailsObject.handle);
-      if (!syncUser) {
-        response.status(404).send("No such handle");
+      if (!user.identity || !user.identity.handle) {
+        response.status(401).send("This account is not suitable for recovery.");
         return;
       }
-      if (syncUser.syncCode !== requestBody.detailsObject.syncCode || !syncUser.syncCodeExpires || Date.now() > syncUser.syncCodeExpires) {
-        response.status(401).send("This code is not valid or has expired");
+      if (user.identity.handle !== requestBody.detailsObject.handle) {
+        response.status(400).send("Handle does not match account.");
         return;
       }
-      let publicKey: string;
-      for (const k of user.keys) {
-        if (k.address === requestBody.detailsObject.address) {
-          publicKey = k.publicKey;
-          break;
-        }
-      }
-      if (user.keys.length > 1) {
-        await db.updateUserRemoveAddress(requestBody.detailsObject.address);
-      } else {
-        await db.deleteUser(requestBody.detailsObject.address);
-      }
-      await db.updateUserAddAddress(syncUser, requestBody.detailsObject.address, publicKey);
-      const status = await this.getUserStatus(syncUser);
-      const result: SyncIdentityResponse = {
-        status: status
+      console.log("UserManager.recover-user", requestBody.detailsObject);
+      await db.deleteUser(registeredUser.id);
+      await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
+      const status = await this.getUserStatus(user);
+      const result: RecoverUserResponse = {
+        status: status,
+        name: user.identity ? user.identity.name : null,
+        location: user.identity ? user.identity.location : null,
+        imageUrl: user.identity ? user.identity.imageUrl : null,
+        handle: user.identity ? user.identity.handle : null,
+        emailAddress: user.identity ? user.identity.emailAddress : null,
+        encryptedPrivateKey: user.encryptedPrivateKey
       };
       response.json(result);
     } catch (err) {
-      console.error("User.handleSyncIdentity: Failure", err);
+      console.error("User.handleRecoverUser: Failure", err);
       response.status(500).send(err);
     }
   }
@@ -344,14 +440,14 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (!user) {
         return;
       }
-      console.log("UserManager.get-identity", requestBody.detailsObject);
+      console.log("UserManager.get-identity", user.id, requestBody.detailsObject);
       const reply: GetUserIdentityResponse = {
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
         imageUrl: user.identity ? user.identity.imageUrl : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
-        settings: {}
+        encryptedPrivateKey: user.encryptedPrivateKey
       };
       response.json(reply);
     } catch (err) {
@@ -435,9 +531,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private generateSyncCode(): string {
+  private generateRecoveryCode(): string {
     let result = '';
     result += NON_ZERO_DIGITS[Math.floor(Math.random() * NON_ZERO_DIGITS.length)];
+    result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
     result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
     result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
     result += DIGITS[Math.floor(Math.random() * DIGITS.length)];
@@ -471,7 +568,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       if (subsidy > 0) {
         const subsidyRecipient: BankTransactionRecipientDirective = {
-          address: user.keys[0].address,
+          address: user.address,
           portion: "remainder"
         };
         const subsidyDetails: BankTransactionDetails = {
@@ -491,7 +588,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
     if (interest > 0) {
       const interestRecipient: BankTransactionRecipientDirective = {
-        address: user.keys[0].address,
+        address: user.address,
         portion: "remainder"
       };
       const grant: BankTransactionDetails = {

@@ -85,6 +85,10 @@
         right: 0;
         bottom: 0;
       }
+
+      button {
+        margin: 0 15px;
+      }
     </style>
     <div class="barspace"></div>
     <div class="content horizontal layout">
@@ -108,10 +112,10 @@
           <label>Name</label>
           <div class="value">[[profile.name]]</div>
         </div>
-        <div class="row">
+        <!-- <div class="row">
           <label>Location</label>
           <div class="value">[[profile.location]]</div>
-        </div>
+        </div> -->
         <div class="row">
           <label>Email</label>
           <div class="value">[[profile.emailAddress]]</div>
@@ -122,6 +126,7 @@
         </div>
         <div class="buttons">
           <button on-click="_onEdit">Edit profile</button>
+          <button on-click="_onSignOut">Sign out</button>
         </div>
       </div>
     </div>
@@ -138,13 +143,11 @@
       }
 
       onActivate() {
-        if (!$core.hasKey) {
-          setTimeout(() => {
-            $router.goto("");
-          }, 600);
-          return;
-        }
         $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle) {
+            $router.goto("feed");
+            return;
+          }
           var profile = {
             handle: "Not specified",
             name: "Not specified",
@@ -183,6 +186,12 @@
 
       _onEdit() {
         $router.goto("edit-profile");
+      }
+
+      _onSignOut() {
+        $core.signOut().then(() => {
+          $router.goto("feed");
+        });
       }
     }
     window.customElements.define(AccountView.is, AccountView);

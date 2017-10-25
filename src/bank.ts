@@ -5,11 +5,10 @@ import { UrlManager } from "./url-manager";
 import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails } from "./interfaces/db-records";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
-import { UserHelper } from "./user-helper";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import { SignedObject } from "./interfaces/signed-object";
 import * as paypal from 'paypal-rest-sdk';
@@ -81,7 +80,7 @@ export class Bank implements RestServer, Initializable {
         response.status(400).send("Missing details");
         return;
       }
-      if (!KeyUtils.verifyString(requestBody.detailsObject.transaction.objectString, UserHelper.getPublicKeyForAddress(user, requestBody.detailsObject.address), requestBody.detailsObject.transaction.signature)) {
+      if (!KeyUtils.verifyString(requestBody.detailsObject.transaction.objectString, user.publicKey, requestBody.detailsObject.transaction.signature)) {
         response.status(401).send("Invalid details signature");
         return;
       }
@@ -190,13 +189,19 @@ export class Bank implements RestServer, Initializable {
         transactions: []
       };
       for (const transaction of transactions) {
-        reply.transactions.push({
+        const info: BankTransactionDetailsWithId = {
           id: transaction.id,
           deductions: transaction.deductions || 0,
           remainderShares: transaction.remainderShares || 1,
           relatedCardTitle: transaction.relatedCardTitle,
-          details: transaction.details
-        });
+          details: transaction.details,
+          isOriginator: transaction.originatorUserId === user.id,
+          isRecipient: []
+        };
+        for (const recipientUserId of transaction.recipientUserIds) {
+          info.isRecipient.push(user.id === recipientUserId);
+        }
+        reply.transactions.push(info);
       }
       response.json(reply);
     } catch (err) {
@@ -206,10 +211,10 @@ export class Bank implements RestServer, Initializable {
   }
 
   async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false): Promise<BankTransactionResult> {
-    if (!UserHelper.isUsersAddress(user, address)) {
+    if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
-    if (!KeyUtils.verifyString(signedTransaction.objectString, UserHelper.getPublicKeyForAddress(user, address), signedTransaction.signature)) {
+    if (!KeyUtils.verifyString(signedTransaction.objectString, user.publicKey, signedTransaction.signature)) {
       throw new ErrorWithStatusCode(401, "Transaction signature is invalid");
     }
     let details: BankTransactionDetails;
@@ -251,6 +256,8 @@ export class Bank implements RestServer, Initializable {
     let totalNonRemainder = 0;
     let remainders = 0;
     const participantIds: string[] = [user.id];
+    const recipientUserIds: string[] = [];
+    const recipientUsers: UserRecord[] = [];
     for (const recipient of details.toRecipients) {
       if (!recipient.address || !recipient.portion) {
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
@@ -259,6 +266,8 @@ export class Bank implements RestServer, Initializable {
       if (!recipientUser) {
         throw new ErrorWithStatusCode(404, "Unknown recipient address " + recipient.address);
       }
+      recipientUserIds.push(recipientUser.id);
+      recipientUsers.push(recipientUser);
       if (participantIds.indexOf(recipientUser.id) < 0) {
         participantIds.push(recipientUser.id);
       }
@@ -299,6 +308,7 @@ export class Bank implements RestServer, Initializable {
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
+      const recipientUser = await db.findUserByAddress(recipient.address);
       switch (recipient.portion) {
         case "remainder":
           remainderShares++;
@@ -313,10 +323,11 @@ export class Bank implements RestServer, Initializable {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, signedTransaction, deductions, remainderShares, null);
+    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null);
     await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
+    let index = 0;
     for (const recipient of details.toRecipients) {
-      const recipientUser = await db.findUserByAddress(recipient.address);
+      const recipientUser = recipientUsers[index++];
       let creditAmount = 0;
       switch (recipient.portion) {
         case "remainder":
@@ -349,7 +360,7 @@ export class Bank implements RestServer, Initializable {
 
   async performRedemption(from: UserRecord, to: UserRecord, toAddress: string, couponId: string, networkInitiated = false): Promise<BankTransactionResult> {
     const now = Date.now();
-    if (!UserHelper.isUsersAddress(to, toAddress)) {
+    if (to.address !== toAddress) {
       throw new ErrorWithStatusCode(401, "This address is not owned by the recipient");
     }
     const coupon = await db.findBankCouponById(couponId);
@@ -386,7 +397,7 @@ export class Bank implements RestServer, Initializable {
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, 0, 0, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, null, 0, 1, null);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, [to.id], null, 0, 1, null);
     if (from.id !== to.id) {
       await db.updateUserCardIncrementPaid(from.id, card.id, coupon.amount, record.id);
       await db.updateUserCardIncrementEarned(to.id, card.id, coupon.amount, record.id);
@@ -420,7 +431,10 @@ export class Bank implements RestServer, Initializable {
     if (!coupon.address || !coupon.timestamp || !coupon.reason || !coupon.amount || coupon.amount <= 0 || !coupon.budget || !coupon.budget.amount || coupon.budget.amount <= 0) {
       throw new ErrorWithStatusCode(400, "Coupon has missing or invalid fields");
     }
-    if (!KeyUtils.verifyString(details.objectString, UserHelper.getPublicKeyForAddress(user, coupon.address), details.signature)) {
+    if (coupon.address !== user.address) {
+      throw new ErrorWithStatusCode(401, "The coupon address is not associated with this user");
+    }
+    if (!KeyUtils.verifyString(details.objectString, user.publicKey, details.signature)) {
       throw new ErrorWithStatusCode(401, "Invalid coupon signature");
     }
     if (coupon.budget.amount <= 0 && coupon.amount <= 0) {
@@ -478,7 +492,7 @@ export class Bank implements RestServer, Initializable {
   private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number): Promise<BankTransactionResult> {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
     await db.incrementUserBalance(user, -details.amount, 0, -details.amount, user.balance - details.amount < user.targetBalance, now);
-    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
+    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,

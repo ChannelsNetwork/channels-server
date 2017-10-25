@@ -113,23 +113,25 @@
       }
 
       onActivate(route) {
-        this._barShowing = true;
-        this._prevScrollValue = 0;
-        this._preventScroll = false;
-        this._scrollListener = () => {
-          if (!this._preventScroll) {
-            this.onScroll();
-          }
-        };
-        $app.shell.addEventListener("scroll", this._scrollListener);
+        $core.register().then(() => {
+          this._barShowing = true;
+          this._prevScrollValue = 0;
+          this._preventScroll = false;
+          this._scrollListener = () => {
+            if (!this._preventScroll) {
+              this.onScroll();
+            }
+          };
+          $app.shell.addEventListener("scroll", this._scrollListener);
 
-        this._resizeListener = _debounce(() => {
+          this._resizeListener = _debounce(() => {
+            this.onResize();
+          }, 350);
+          window.addEventListener("resize", this._resizeListener);
           this.onResize();
-        }, 350);
-        window.addEventListener("resize", this._resizeListener);
-        this.onResize();
-        return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
-          this.items = cards;
+          return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
+            this.items = cards;
+          });
         });
       }
 
@@ -234,7 +236,7 @@
 
       onCompose() {
         if (!$core.profile || !$core.profile.handle) {
-          $router.goto("edit-profile", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          $router.goto("register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
           return;
         }
         $router.goto("compose");
@@ -245,7 +247,7 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
+            if (!card.data.by.isAuthor && card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
               $core.cardImpression(id, card.data.couponId);
               card.data.userSpecific.earned = card.data.pricing.promotionFee;
               card.onImpressionPaid();

@@ -12,7 +12,6 @@ import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeed
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
-import { UserHelper } from "./user-helper";
 import { userManager } from "./user-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
 import * as uuid from "uuid";
@@ -129,7 +128,7 @@ export class FeedManager implements Initializable, RestServer {
     const highScores = await this.getCardsWithHighestScores(user, startWithCardId);
     const promises: Array<Promise<CardWithUserScore>> = [];
     for (const highScore of highScores) {
-      if (!UserHelper.isUsersAddress(user, highScore.by.address)) {
+      if (user.address !== highScore.by.address) {
         const candidate: CardWithUserScore = {
           card: highScore,
           fullScore: highScore.score
@@ -555,7 +554,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
     const details: BankCouponDetails = {
-      address: user.user.keys[0].address,
+      address: user.user.address,
       timestamp: Date.now(),
       reason: reason,
       amount: amount,
@@ -580,7 +579,7 @@ export class FeedManager implements Initializable, RestServer {
     const privateKey = KeyUtils.generatePrivateKey();
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, inviteCode, 0, 0, 0, id);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 0, id);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,
@@ -592,7 +591,7 @@ export class FeedManager implements Initializable, RestServer {
       toRecipients: []
     };
     grantDetails.toRecipients.push({
-      address: user.keys[0].address,
+      address: user.address,
       portion: "remainder"
     });
     await networkEntity.performBankTransaction(grantDetails, null, true);
