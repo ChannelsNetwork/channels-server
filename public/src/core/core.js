@@ -292,7 +292,7 @@ class CoreService extends Polymer.Element {
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
-      const coupon = {
+      coupon = {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
