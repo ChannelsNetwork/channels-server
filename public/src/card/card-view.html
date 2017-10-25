@@ -312,6 +312,7 @@
         if (!this.data) {
           return;
         }
+        this.$.price.style.display = this.data.by.isAuthor ? "none" : "";
         let cost = this.data.pricing.openFee;
         var img = this.data.summary.imageUrl;
         if (img) {
@@ -351,7 +352,7 @@
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
         this.openedAt = Date.now();
-        if (this.data.pricing.openFee > 0 && this.data.userSpecific.paid === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earned == 0) {
+        if (!this.data.by.isAuthor && this.data.pricing.openFee > 0 && this.data.userSpecific.paid === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earned == 0) {
           this.paymentTimer = setInterval(() => {
             this._checkPaymentDue();
           }, 100);
@@ -382,7 +383,7 @@
       }
 
       _checkPaymentDue() {
-        if (this.data.userSpecific.paid === 0 && this.data.userSpecific.earned === 0) {
+        if (!this.data.by.isAuthor && this.data.userSpecific.paid === 0 && this.data.userSpecific.earned === 0) {
           const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
           this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
           if (openDuration > 10000) {

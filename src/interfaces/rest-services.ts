@@ -145,7 +145,7 @@ export interface CardDescriptor {
   id: string;
   postedAt: number;
   by: {
-    id: string;
+    isAuthor: boolean;
     address: string;
     handle: string;
     name: string;

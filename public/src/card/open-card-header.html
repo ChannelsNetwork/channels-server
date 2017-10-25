@@ -183,7 +183,7 @@
       }
 
       _refreshPaidCheck() {
-        if (this.data.userSpecific.paid > 0 || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earned > 0)) {
+        if (!this.data.by.isAuthor && this.data.userSpecific.paid > 0 || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earned > 0)) {
           this.$.paidCheck.style.display = "block";
         } else {
           this.$.paidCheck.style.display = "none";

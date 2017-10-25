@@ -795,7 +795,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         id: record.id,
         postedAt: record.postedAt,
         by: {
-          id: record.by.id,
+          isAuthor: user && record.by.id === user.id ? true : false,
           address: record.by.address,
           handle: record.by.handle,
           name: record.by.name,

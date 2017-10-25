@@ -247,7 +247,7 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
+            if (!card.data.by.isAuthor && card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
               $core.cardImpression(id, card.data.couponId);
               card.data.userSpecific.earned = card.data.pricing.promotionFee;
               card.onImpressionPaid();
