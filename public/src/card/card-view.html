@@ -328,8 +328,8 @@
           this.$.container.classList.remove("negative");
           this.$.price.classList.remove("negative");
         }
-        let uc = this.data.history.likes;
-        let dc = this.data.history.dislikes;
+        let uc = this.data.stats.likes;
+        let dc = this.data.stats.dislikes;
         let tc = uc + dc;
         let rating = tc ? (uc / tc) * 100 : 0;
         let negRating = tc ? (dc / tc) * 100 : 0;

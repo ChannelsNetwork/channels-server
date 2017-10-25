@@ -212,7 +212,7 @@
         if (card.pricing.openFee > 0 && !card.userSpecific.paid) {
           card.userSpecific.paid = card.pricing.openFee;
           $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
-            card.history.revenue = response.totalCardRevenue;
+            card.stats.revenue = response.totalCardRevenue;
             cardView.onPayment();
           });
         } else if (card.pricing.openFee < 0 && !card.userSpecific.earned && card.couponId) {

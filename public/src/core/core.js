@@ -388,6 +388,13 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  cardStatsHistory(cardId, historyLimit) {
+    let details = RestUtils.cardStatsHistoryDetails(this._keys.address, cardId, historyLimit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-stat-history";
+    return this.rest.post(url, request);
+  }
+
   uploadFile(file) {
     var formData = new FormData();
 

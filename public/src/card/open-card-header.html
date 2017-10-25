@@ -150,8 +150,8 @@
         } else {
           this.$.price.classList.remove("negative");
         }
-        let uc = this.data.history.likes || 0;
-        let dc = this.data.history.dislikes || 0;
+        let uc = this.data.stats.likes || 0;
+        let dc = this.data.stats.dislikes || 0;
         let tc = uc + dc;
         this.rating = tc ? (uc / tc) * 100 : 0;
         if (!this.data.postedAtDisplay) {

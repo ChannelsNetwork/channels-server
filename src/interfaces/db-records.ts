@@ -87,14 +87,8 @@ export interface CardRecord {
     plusPercent: number;
     spent: number;
   };
-  revenue: CardStatistic;
-  promotionsPaid: CardStatistic;
-  openFeesPaid: CardStatistic;
-  impressions: CardStatistic;
-  opens: CardStatistic;
-  likes: CardStatistic;
-  dislikes: CardStatistic;
-  score: CardStatistic;
+  stats: CardStatistics;
+  score: number;
   lastScored: number;
   lock: {
     server: string;
@@ -102,14 +96,28 @@ export interface CardRecord {
   };
 }
 
-export type CardActiveState = "active" | "deleted";
+export interface CardStatistics {
+  revenue: CardStatistic;
+  promotionsPaid: CardStatistic;
+  openFeesPaid: CardStatistic;
+  impressions: CardStatistic;
+  uniqueImpressions: CardStatistic;
+  opens: CardStatistic;
+  uniqueOpens: CardStatistic;
+  likes: CardStatistic;
+  dislikes: CardStatistic;
+}
 
 export interface CardStatistic {
   value: number;
-  history: CardStatisticHistory[];
+  lastSnapshot: number;
 }
 
-export interface CardStatisticHistory {
+export type CardActiveState = "active" | "deleted";
+
+export interface CardStatisticHistoryRecord {
+  cardId: string;
+  statName: string;
   value: number;
   at: number;
 }

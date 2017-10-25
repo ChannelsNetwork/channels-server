@@ -20,7 +20,7 @@ import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 
 const INITIAL_BALANCE = 5;
-const INITIAL_WITHDRAWABLE_BALANCE = 2;
+const INITIAL_WITHDRAWABLE_BALANCE = 0;
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
