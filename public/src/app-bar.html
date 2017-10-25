@@ -159,6 +159,12 @@
         window.addEventListener("channels-profile", (event) => {
           this._refreshSignIn();
         });
+        window.addEventListener("channels-user-status", (event) => {
+          this._refreshBalance();
+        });
+        setInterval(() => {
+          this._refreshBalance();
+        }, 1000);
       }
 
       _refreshSignIn() {
@@ -175,11 +181,8 @@
         }
       }
 
-      _refreshBalance(reg, fetched) {
+      _refreshBalance() {
         this.balance = "ℂ" + this._truncateBalance($core.balance);
-        setInterval(() => {
-          this.balance = "ℂ" + this._truncateBalance($core.balance);
-        }, 1000);
       }
 
       _truncateBalance(value) {

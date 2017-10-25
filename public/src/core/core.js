@@ -106,6 +106,7 @@ class CoreService extends Polymer.Element {
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
         this._userStatus = result.status;
+        this._fire("channels-user-status", this._userStatus);
         this._fire("channels-registration", this._registration);
         return this.getUserProfile().then((profile) => {
           setInterval(() => {
@@ -309,6 +310,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/card-impression";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
@@ -342,6 +344,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/card-pay";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
       return response;
     });
   }
@@ -352,6 +355,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/card-redeem-open";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
@@ -399,6 +403,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/bank-withdraw";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
       return response;
     });
   }
@@ -517,6 +522,7 @@ class CoreService extends Polymer.Element {
   _updateBalance() {
     this.getAccountStatus().then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
