@@ -1,0 +1,130 @@
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+
+<dom-module id="compose-card-type">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 40px 16px 20px;
+        max-width: 700px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      .buttons {
+        margin-top: 40px;
+      }
+
+      #cancel {
+        margin-right: 10px;
+      }
+
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.95);
+        padding-top: 40px;
+      }
+
+      .message {
+        padding: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        opacity: 0.87;
+      }
+
+      .error {
+        color: var(--error-color);
+        margin-top: 40px;
+        font-size: 16px;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          padding: 20px 16px 20px;
+        }
+      }
+    </style>
+    <div class="container">
+      <h2>Select card type</h2>
+      <p>Choose a card best suited to your content. Card designs are hosted in GitHub repositories.</p>
+      <div>
+        <soso-text-input id="repo" placeholder="GitHub repo URL or organization/repo" label="Card repository" on-input="_onInput"></soso-text-input>
+      </div>
+      <div class="buttons">
+        <button id="cancel" on-click="_onCancel">Cancel</button>
+        <button id="next" disabled on-click="_onNext">Next</button>
+      </div>
+      <div class="error">[[errorMessage]]</div>
+    </div>
+    <div id="overlay" class="hidden">
+      <soso-spinner id="spinner"></soso-spinner>
+      <div class="message">[[message]]</div>
+    </div>
+  </template>
+  <script>
+    class ComposeCardType extends Polymer.Element {
+      static get is() { return 'compose-card-type'; }
+      static get properties() {
+        return {
+          wizard: Object,
+          message: String,
+          errorMessage: String
+        };
+      }
+      _onInput() {
+        this.errorMessage = "";
+        let disabled = this.$.repo.value.trim() ? false : true;
+        this.$.next.disabled = disabled;
+        this.dispatchEvent(new CustomEvent(disabled ? 'next-disable' : 'next-enable', { bubbles: true, composed: true }));
+      }
+      _onCancel() {
+        this.wizard.cancel();
+      }
+      _onNext() {
+        this.wizard.next();
+      }
+
+      onTransitioningIn(forward) {
+        this.$.repo.value = this.wizard.data.repo || "";
+        this.errorMessage = "";
+        this.$.overlay.classList.add("hidden");
+        this.$.spinner.spinning = false;
+      }
+
+      onTransitioningOut(forward) {
+        return new Promise((resolve, reject) => {
+          if (!forward) {
+            resolve();
+          } else {
+            this.message = "Importing card";
+            this.$.overlay.classList.remove("hidden");
+            this.$.spinner.spinning = true;
+            this.errorMessage = "";
+            this.wizard.data.repo = this.$.repo.value.trim();
+            $core.cardManager.ensurePackage(this.wizard.data.repo).then((cardInfo) => {
+              this.$.spinner.spinning = false;
+              this.$.overlay.classList.add("hidden");
+              this.wizard.data.cardInfo = cardInfo;
+              resolve();
+            }).catch((err) => {
+              this.errorMessage = err;
+              this.$.overlay.classList.add("hidden");
+              this.$.spinner.spinning = false;
+              reject(err);
+            });
+          }
+        });
+      }
+    }
+    window.customElements.define(ComposeCardType.is, ComposeCardType);
+  </script>
+</dom-module>
