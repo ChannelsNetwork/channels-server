@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
@@ -245,13 +245,9 @@ export class FeedManager implements Initializable, RestServer {
       if (lockedCard.lastScored === card.lastScored) {
         // After locking, it's clear that another processor has not already scored this one
         const score = await this.scoreCard(card);
-        if (card.score.value !== score) {
+        if (card.score !== score) {
           console.log("Feed.rescoreCard: Updating card score", card.id, score, addHistory);
-          await db.updateCardScore(card, score, addHistory);
-          // TODO: also copy other stats into history
-        }
-        if (card.score.history.length > 10) {
-          await db.clearCardScoreHistoryBefore(card, card.score.history[card.score.history.length - 11].at);
+          await cardManager.updateCardScore(card, score);
         }
       }
     } finally {
@@ -263,9 +259,9 @@ export class FeedManager implements Initializable, RestServer {
     let score = 0;
     score += this.getCardAgeScore(card);
     score += this.getCardRevenueScore(card);
-    score += this.getCardRecentRevenueScore(card);
+    score += await this.getCardRecentRevenueScore(card);
     score += this.getCardOpensScore(card);
-    score += this.getCardRecentOpensScore(card);
+    score += await this.getCardRecentOpensScore(card);
     score += this.getCardLikesScore(card);
     score += this.getCardControversyScore(card);
     return +(score.toFixed(5));
@@ -280,42 +276,49 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private getCardRevenueScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_REVENUE, card.revenue.value, SCORE_CARD_REVENUE_DOUBLING);
+    return this.getLogScore(SCORE_CARD_WEIGHT_REVENUE, card.stats.revenue.value, SCORE_CARD_REVENUE_DOUBLING);
   }
 
   private getLogScore(weight: number, value: number, doubling: number): number {
     return weight * Math.log10(1 + 100 * value / doubling);
   }
-  private getCardRecentRevenueScore(card: CardRecord): number {
-    let priorRevenue = 0;
-    for (const item of card.revenue.history) {
-      if (item.at < Date.now() - SCORE_CARD_REVENUE_RECENT_INTERVAL) {
-        break;
-      }
-      priorRevenue = item.value;
-    }
-    const value = card.revenue.value - priorRevenue;
+  private async getCardRecentRevenueScore(card: CardRecord): Promise<number> {
+    const revenue = card.stats.revenue.value;
+    const priorRevenue = await this.getPriorStatValue(card, "revenue", SCORE_CARD_REVENUE_RECENT_INTERVAL);
+    const value = revenue - priorRevenue;
     return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_REVENUE, value, SCORE_CARD_RECENT_REVENUE_DOUBLING);
   }
-  private getCardOpensScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_OPENS, card.opens.value, SCORE_CARD_OPENS_DOUBLING);
-  }
-  private getCardRecentOpensScore(card: CardRecord): number {
-    let priorOpens = 0;
-    for (const item of card.revenue.history) {
-      if (item.at < Date.now() - SCORE_CARD_OPENS_RECENT_INTERVAL) {
-        break;
+
+  private async getPriorStatValue(card: CardRecord, statName: string, minInterval: number): Promise<number> {
+    let priorValue = 0;
+    const stat = (card.stats as any)[statName] as CardStatistic;
+    if (stat && stat.lastSnapshot > 0) {
+      const history = await db.findCardStatsHistory(card.id, statName, 5);
+      for (const item of history) {
+        if (item.at < Date.now() - minInterval) {
+          break;
+        }
+        priorValue = item.value;
       }
-      priorOpens = item.value;
     }
-    const value = card.revenue.value - priorOpens;
+    return priorValue;
+  }
+  private getCardOpensScore(card: CardRecord): number {
+    return this.getLogScore(SCORE_CARD_WEIGHT_OPENS, card.stats.opens.value, SCORE_CARD_OPENS_DOUBLING);
+  }
+  private async getCardRecentOpensScore(card: CardRecord): Promise<number> {
+    const opens = card.stats.opens.value;
+    const priorOpens = await this.getPriorStatValue(card, "opens", SCORE_CARD_OPENS_RECENT_INTERVAL);
+    const value = opens - priorOpens;
     return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
   }
   private getCardLikesScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.likes.value, SCORE_CARD_LIKES_DOUBLING);
+    return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value, SCORE_CARD_LIKES_DOUBLING);
   }
   private getCardControversyScore(card: CardRecord): number {
-    const controversy = (card.likes.value + card.dislikes.value) / (Math.abs(card.likes.value - card.dislikes.value) + 1);
+    const likes = card.stats.likes.value;
+    const dislikes = card.stats.dislikes.value;
+    const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
     return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
   }
 

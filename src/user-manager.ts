@@ -20,7 +20,7 @@ import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 
 const INITIAL_BALANCE = 5;
-const INITIAL_WITHDRAWABLE_BALANCE = 2;
+const INITIAL_WITHDRAWABLE_BALANCE = 0;
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
@@ -440,7 +440,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (!user) {
         return;
       }
-      console.log("UserManager.get-identity", requestBody.detailsObject);
+      console.log("UserManager.get-identity", user.id, requestBody.detailsObject);
       const reply: GetUserIdentityResponse = {
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,

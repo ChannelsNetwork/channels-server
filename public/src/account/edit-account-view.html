@@ -145,6 +145,9 @@
           this.$.name.value = "";
           this.$.location.value = "";
           this.$.email.value = "";
+          this.$.userPhoto.src = "";
+          this.$.userPhoto.style.display = "none";
+          this.userPhoto = null;
           let p = $core.profile;
           if (p) {
             this.$.name.value = p.name || "";

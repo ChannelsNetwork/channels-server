@@ -339,4 +339,13 @@ class RestUtils {
       selection: selection    // "like" | "none" | "dislike"
     };
   }
+
+  static cardStatsHistoryDetails(address, cardId, historyLimit) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      historyLimit: historyLimit
+    };
+  }
 }

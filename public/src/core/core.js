@@ -1,5 +1,6 @@
 const _CKeys = {
   KEYS: "channels-identity",
+  BACKUP_KEYS: "backup-keys",
   AGREED_TERMS: "channels-terms-agreed"
 };
 
@@ -20,6 +21,7 @@ class CoreService extends Polymer.Element {
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
+    this._pendingRegistrations = [];
   }
 
   agreeToTnCs() {
@@ -27,7 +29,7 @@ class CoreService extends Polymer.Element {
   }
 
   isAgreedToTnCs() {
-    return this.storage.getItem(_CKeys.AGREED_TERMS, false, true) ? true : false;
+    return this.storage.getItem(_CKeys.AGREED_TERMS, false) ? true : false;
   }
 
   hasKeys() {
@@ -81,6 +83,16 @@ class CoreService extends Polymer.Element {
   }
 
   register(inviteCode) {
+    // We want to avoid race conditions where multiple entities all ask to register
+    // at the same time.  We only want to register once, so we return a promise for
+    // others and resolve them after resolving the initial request.
+    if (this._registrationInProgress) {
+      console.log("Concurrent registration being queued.");
+      return new Promise((resolve, reject) => {
+        this._pendingRegistrations.push(resolve);
+      });
+    }
+    this._registrationInProgress = true;
     return this.ensureKey().then(() => {
       if (this._registration) {
         return this._registration;
@@ -94,6 +106,7 @@ class CoreService extends Polymer.Element {
       return this.rest.post(url, request).then((result) => {
         this._registration = result;
         this._userStatus = result.status;
+        this._fire("channels-user-status", this._userStatus);
         this._fire("channels-registration", this._registration);
         return this.getUserProfile().then((profile) => {
           setInterval(() => {
@@ -102,7 +115,23 @@ class CoreService extends Polymer.Element {
           return result;
         });
       });
+    }).then((info) => {
+      this._registrationInProgress = false;
+      this._resolvePendingRegistrations(info);
+      return info;
+    }).catch((err) => {
+      this._registrationInProgress = false;
+      this._resolvePendingRegistrations();
+      throw err;
     });
+  }
+
+  _resolvePendingRegistrations(info) {
+    const registrations = this._pendingRegistrations;
+    this._pendingRegistrations = [];
+    for (const registration of registrations) {
+      registration(info);
+    }
   }
 
   signIn(handle, password, trust) {
@@ -110,8 +139,8 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/sign-in";
     return this.rest.post(url, details).then((result) => {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
-        this._keys = $keyUtils.generateKey(privateKey);
-        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        const newKeys = $keyUtils.generateKey(privateKey);
+        this._switchToSignedInKeys(newKeys, trust);
         return this.getUserProfile();
       }).catch((err) => {
         throw new Error("Your handle or password is incorrect.");
@@ -119,9 +148,29 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  _switchToSignedInKeys(newKeys, trust) {
+    if (this._keys && this._keys.privateKey !== newKeys.privateKey) {
+      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
+    } else {
+      this.storage.clearItem(_CKeys.BACKUP_KEYS);
+    }
+    this._keys = newKeys;
+    this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+  }
+
+  _switchToBackupKeys() {
+    const backupKeys = this.storage.getItem(_CKeys.BACKUP_KEYS, true);
+    if (backupKeys && backupKeys.privateKey !== this._keys.privateKey) {
+      this._keys = backupKeys;
+    } else {
+      this._keys = $keyUtils.generateKey();
+      this.storage.setItem(_CKeys.BACKUP_KEYS, this._keys, true);
+    }
+    this.storage.setItem(_CKeys.KEYS, this._keys, true);
+  }
+
   signOut() {
-    this._keys = null;
-    this.storage.clearItem(_CKeys.KEYS, true);
+    this._switchToBackupKeys();
     this._profile = null;
     this._registration = null;
     return this.register();
@@ -148,6 +197,7 @@ class CoreService extends Polymer.Element {
     if (password) {
       return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
         this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        this.storage.clearItem(_CKeys.BACKUP_KEYS);
         return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey);
       });
     } else {
@@ -201,18 +251,17 @@ class CoreService extends Polymer.Element {
   }
 
   recoverUser(code, handle, password, trust) {
-    let encryptedPrivateKey = null;
-    if (password) {
-      encryptedPrivateKey = EncryptionUtils.encryptString(this._keys.privateKey, password);
-    }
-    let details = RestUtils.recoverUserDetails(this._keys.address, code, handle, encryptedPrivateKey);
-    let request = this._createRequest(details);
-    const url = this.restBase + "/recover-user";
-    return this.rest.post(url, request).then(() => {
-      this.storage.setItem(_CKeys.KEYS, this._keys, trust);
-      this._profile = null;
-      this._registration = null;
-      return this.register();
+    return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
+      let details = RestUtils.recoverUserDetails(this._keys.address, code, handle, encryptedPrivateKey);
+      let request = this._createRequest(details);
+      const url = this.restBase + "/recover-user";
+      return this.rest.post(url, request).then(() => {
+        this.storage.setItem(_CKeys.KEYS, this._keys, trust);
+        this.storage.clearItem(_CKeys.BACKUP_KEYS);
+        this._profile = null;
+        this._registration = null;
+        return this.register();
+      });
     });
   }
 
@@ -244,7 +293,7 @@ class CoreService extends Polymer.Element {
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
-      const coupon = {
+      coupon = {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
@@ -261,6 +310,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/card-impression";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
@@ -294,6 +344,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/card-pay";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
       return response;
     });
   }
@@ -304,6 +355,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/card-redeem-open";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
@@ -351,8 +403,16 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/bank-withdraw";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
       return response;
     });
+  }
+
+  cardStatsHistory(cardId, historyLimit) {
+    let details = RestUtils.cardStatsHistoryDetails(this._keys.address, cardId, historyLimit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-stat-history";
+    return this.rest.post(url, request);
   }
 
   uploadFile(file) {
@@ -421,7 +481,7 @@ class CoreService extends Polymer.Element {
   }
 
   get balance() {
-    if (!this._userStatus) {
+    if (!this._userStatus || !this._registration) {
       return 0;
     }
     let result = this._userStatus.userBalance * (1 + (Date.now() - this._userStatus.userBalanceAt) * this.registration.interestRatePerMillisecond);
@@ -462,6 +522,7 @@ class CoreService extends Polymer.Element {
   _updateBalance() {
     this.getAccountStatus().then((response) => {
       this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 

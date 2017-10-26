@@ -53,8 +53,8 @@
       <div id="container">
         <h2>Sign In</h2>
         <div>
-          <paper-input id="handle" label="Your Channels handle" on-input="_onInput"></paper-input>
-          <paper-input id="password" type="password" label="Your password" on-input="_onInput"></paper-input>
+          <paper-input id="handle" label="Your Channels handle" on-input="_onInput" on-keydown="_onKeyDown"></paper-input>
+          <paper-input id="password" type="password" label="Your password" on-input="_onInput" on-keydown="_onKeyDown"></paper-input>
           <paper-checkbox id="trust" checked>Remember my password</paper-checkbox>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
@@ -122,7 +122,7 @@
 
         this._progress("Signing in...");
 
-        $core.signIn(handle, this.$.password.value.trim()).then(() => {
+        $core.signIn(handle, this.$.password.value.trim(), this.$.trust.checked).then(() => {
           $router.goto("");
         }).catch((err) => {
           console.error(err);
@@ -142,9 +142,17 @@
         this._progress(null);
       }
 
-      _onInput() {
+      _onInput(event) {
         let valid = this.$.handle.value && this.$.handle.value.trim().length > 0 && this.$.password.value && this.$.password.value.trim().length > 0 ? true : false;
         this.$.btnSave.disabled = !valid;
+      }
+
+      _onKeyDown(event) {
+        if (event.keyCode === 13) {
+          if (!this.$.btnSave.disabled) {
+            this._onSave();
+          }
+        }
       }
 
       _onOk() {

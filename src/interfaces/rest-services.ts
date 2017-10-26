@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -145,7 +145,6 @@ export interface CardDescriptor {
   id: string;
   postedAt: number;
   by: {
-    id: string;
     address: string;
     handle: string;
     name: string;
@@ -180,13 +179,7 @@ export interface CardDescriptor {
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   couponId: string;
-  history: {
-    revenue: number;
-    impressions: number;
-    opens: number;
-    likes: number;
-    dislikes: number;
-  };
+  stats: CardDescriptorStatistics;
   score: number;
   userSpecific: {
     isPoster: boolean;
@@ -194,13 +187,27 @@ export interface CardDescriptor {
     lastOpened: number;
     lastClosed: number;
     likeState: CardLikeState;
-    paid: number;
-    earned: number;
+    paidToAuthor: number;
+    paidToReader: number;
+    earnedFromAuthor: number;
+    earnedFromReader: number;
   };
   state?: {
     user: CardState;
     shared: CardState;
   };
+}
+
+export interface CardDescriptorStatistics {
+  revenue: number;
+  promotionsPaid: number;
+  openFeesPaid: number;
+  impressions: number;
+  uniqueImpressions: number;
+  opens: number;
+  uniqueOpens: number;
+  likes: number;
+  dislikes: number;
 }
 
 export interface GetNewsDetails extends Signable {
@@ -270,6 +277,28 @@ export interface GetCardDetails extends Signable {
 
 export interface GetCardResponse extends RestResponse {
   card: CardDescriptor;
+}
+
+export interface CardStatsHistoryDetails extends Signable {
+  cardId: string;
+  historyLimit: number;
+}
+
+export interface CardStatsHistoryResponse extends RestResponse {
+  revenue: CardStatDatapoint[];
+  promotionsPaid: CardStatDatapoint[];
+  openFeesPaid: CardStatDatapoint[];
+  impressions: CardStatDatapoint[];
+  uniqueImpressions: CardStatDatapoint[];
+  opens: CardStatDatapoint[];
+  uniqueOpens: CardStatDatapoint[];
+  likes: CardStatDatapoint[];
+  dislikes: CardStatDatapoint[];
+}
+
+export interface CardStatDatapoint {
+  value: number;
+  at: number;
 }
 
 export interface PostCardDetails extends Signable {
@@ -398,6 +427,8 @@ export interface BankTransactionDetailsWithId {
   remainderShares: number;
   relatedCardTitle: string;
   details: BankTransactionDetails;
+  isOriginator: boolean;
+  isRecipient: boolean[];
 }
 
 export interface BankTransactionDetails extends Signable {

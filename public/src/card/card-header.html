@@ -66,7 +66,7 @@
         <div class="authorName">[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
-      <div id="revenue" class="revenue">ℂ[[data.history.revenueDisplay]]</div>
+      <div id="revenue" class="revenue">ℂ[[data.stats.revenueDisplay]]</div>
       <iron-icon id="privateIcon" icon="lock-outline"></iron-icon>
       <div class="horizontal layout center" on-click="_onMenuClick">
         <paper-menu-button id="menuButton" disabled>
@@ -135,7 +135,7 @@
       }
 
       _refreshRevenue() {
-        this.set("data.history.revenueDisplay", this.data.history.revenue.toFixed(2));
+        this.set("data.stats.revenueDisplay", this.data.stats.revenue.toFixed(2));
       }
 
       _onMenuClick(event) {

@@ -90,7 +90,7 @@
       }
 
       #priceLevel {
-        width: 35px;
+        width: 50px;
         text-align: right;
       }
 
@@ -163,10 +163,17 @@
       }
 
       _onPriceLevelChanged() {
-        this._refreshCardPrice();
+        if (Math.round(Number(this.$.priceLevel.value)) < 1 || Math.round(Number(this.$.priceLevel.value)) > 10) {
+          this.$.priceLevel.style.backgroundColor = "#faa";
+        } else {
+          this.$.priceLevel.style.backgroundColor = "#fff";
+          this._refreshCardPrice();
+        }
+        this._refreshButtons();
       }
+
       _refreshCardPrice() {
-        this.set('cardPrice', ($core.baseCardPrice * Number(this.$.priceLevel.value)).toFixed(3));
+        this.set('cardPrice', ($core.baseCardPrice * Math.round(Number(this.$.priceLevel.value))).toFixed(3));
       }
       _onFeeChanged() {
         if (this.$.fee.checked) {
@@ -199,7 +206,7 @@
       }
 
       _refreshButtons() {
-        this.$.btnNext.disabled = !this.$.pay.checked && !this.$.fee.checked;
+        this.$.btnNext.disabled = (!this.$.pay.checked && !this.$.fee.checked) || Math.round(Number(this.$.priceLevel.value)) < 1 || Math.round(Number(this.$.priceLevel.value)) > 10;
       }
 
       _onCancel() {
@@ -216,9 +223,10 @@
             pricing: {}
           }
         };
+        this.$.priceLevel.value = Math.round(Number(this.$.priceLevel.value)).toFixed(0);
         if (this.$.fee.checked) {
           details.context.pricing.fee = {
-            priceLevel: Number(this.$.priceLevel.value),
+            priceLevel: Math.round(Number(this.$.priceLevel.value)),
             expandReach: this.$.expandReach.checked
           };
         } else if (this.$.pay.checked) {

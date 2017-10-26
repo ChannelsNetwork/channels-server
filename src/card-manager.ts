@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -31,6 +31,15 @@ import * as escapeHtml from 'escape-html';
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
+const DEFAULT_STAT_SNAPSHOT_INTERVAL = 1000 * 60 * 15;
+const REVENUE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const IMPRESSIONS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const PROMOTIONS_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
@@ -82,6 +91,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('delete-card'), (request: Request, response: Response) => {
       void this.handleDeleteCard(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('card-stat-history'), (request: Request, response: Response) => {
+      void this.handleCardStatHistory(request, response);
     });
   }
 
@@ -217,7 +229,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (info.earned > 0) {
+        if (info.earnedFromAuthor > 0) {
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
@@ -250,14 +262,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-impression", requestBody.detailsObject);
       const now = Date.now();
+      const userCard = await db.findUserCardInfo(user.id, card.id);
+      if (!userCard || !userCard.lastImpression) {
+        await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
+      }
+      await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
       await db.insertUserCardAction(user.id, card.id, now, "impression", 0, null, 0, null, 0, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
-      await db.incrementCardImpressions(card.id, 1);
       let transactionResult: BankTransactionResult;
       if (requestBody.detailsObject.couponId) {
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
+        await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+        await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
-        await db.incrementCardPromotionsPaid(card.id, transactionResult.record.details.amount);
+        await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardImpressionResponse = {
@@ -284,9 +302,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-opened", requestBody.detailsObject);
       const now = Date.now();
+      const userCard = await db.findUserCardInfo(user.id, card.id);
+      if (!userCard || !userCard.lastOpened) {
+        await this.incrementStat(card, "uniqueOpens", 1, now, UNIQUE_OPENS_SNAPSHOT_INTERVAL);
+      }
+      await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
       await db.insertUserCardAction(user.id, card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
-      await db.incrementCardOpens(card.id, 1);
       const reply: CardOpenedResponse = {};
       response.json(reply);
     } catch (err) {
@@ -337,13 +359,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title);
+      await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, transaction.amount, transactionResult.record.id);
+      await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, transaction.amount, transactionResult.record.id);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
-      await db.incrementCardRevenue(card.id, transaction.amount);
+      await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         transactionId: transactionResult.record.id,
-        totalCardRevenue: card.revenue.value + transaction.amount,
+        totalCardRevenue: card.stats.revenue.value + transaction.amount,
         status: userStatus
       };
       response.json(reply);
@@ -369,7 +393,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const info = await db.ensureUserCardInfo(user.id, card.id);
-      if (info.earned > 0) {
+      if (info.earnedFromAuthor > 0) {
         response.status(400).send("You have already been paid for opening this card");
         return;
       }
@@ -405,9 +429,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-redeem-open-payment", requestBody.detailsObject);
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
+      await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+      await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
-      await db.incrementCardOpenFeesPaid(card.id, coupon.amount);
+      await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardRedeemOpenResponse = {
         transactionId: transactionResult.record.id,
@@ -459,6 +485,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (cardInfo && cardInfo.like !== requestBody.detailsObject.selection) {
         if (cardInfo.like !== requestBody.detailsObject.selection) {
+          const now = Date.now();
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
           let existingLikes = 0;
           let existingDislikes = 0;
@@ -478,7 +505,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             default:
               throw new Error("Unhandled card info like state " + cardInfo.like);
           }
-          await db.insertUserCardAction(user.id, card.id, Date.now(), action, 0, null, 0, null, 0, null);
+          await db.insertUserCardAction(user.id, card.id, now, action, 0, null, 0, null, 0, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -495,7 +522,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           const deltaLikes = newLikes - existingLikes;
           const deltaDislikes = newDislikes - existingDislikes;
-          await db.incrementCardLikes(card.id, deltaLikes, deltaDislikes);
+          if (deltaLikes !== 0) {
+            await this.incrementStat(card, "likes", deltaLikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
+          }
+          if (deltaDislikes !== 0) {
+            await this.incrementStat(card, "dislikes", deltaDislikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
+          }
         }
       }
       const reply: UpdateCardLikeResponse = {};
@@ -558,6 +590,46 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleDeleteCard: Failure", err);
+      response.status(500).send(err);
+    }
+  }
+
+  private async handleCardStatHistory(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<CardStatsHistoryDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
+      if (!card) {
+        return;
+      }
+      console.log("CardManager.card-stat-history", requestBody.detailsObject);
+      const reply: CardStatsHistoryResponse = {
+        revenue: [],
+        promotionsPaid: [],
+        openFeesPaid: [],
+        impressions: [],
+        uniqueImpressions: [],
+        opens: [],
+        uniqueOpens: [],
+        likes: [],
+        dislikes: []
+      };
+      for (const key of Object.keys(reply)) {
+        const items = await db.findCardStatsHistory(card.id, key, requestBody.detailsObject.historyLimit);
+        for (const item of items) {
+          const d: CardStatDatapoint = {
+            value: item.value,
+            at: item.at
+          };
+          (reply as any)[key].push(d);
+        }
+      }
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleCardStatHistory: Failure", err);
       response.status(500).send(err);
     }
   }
@@ -828,7 +900,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         id: record.id,
         postedAt: record.postedAt,
         by: {
-          id: record.by.id,
           address: record.by.address,
           handle: record.by.handle,
           name: record.by.name,
@@ -857,22 +928,28 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
         couponId: record.couponId,
-        history: {
-          revenue: record.revenue.value,
-          likes: record.likes.value,
-          dislikes: record.dislikes.value,
-          opens: record.opens.value,
-          impressions: record.impressions.value
+        stats: {
+          revenue: record.stats.revenue.value,
+          promotionsPaid: record.stats.promotionsPaid.value,
+          openFeesPaid: record.stats.openFeesPaid.value,
+          impressions: record.stats.impressions.value,
+          uniqueImpressions: record.stats.uniqueImpressions.value,
+          opens: record.stats.opens.value,
+          uniqueOpens: record.stats.uniqueOpens.value,
+          likes: record.stats.likes.value,
+          dislikes: record.stats.dislikes.value
         },
-        score: record.score.value,
+        score: record.score,
         userSpecific: {
-          isPoster: user ? user.address === record.by.address : false,
+          isPoster: user && record.by.id === user.id ? true : false,
           lastImpression: userInfo ? userInfo.lastImpression : 0,
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,
           likeState: userInfo ? userInfo.like : "none",
-          paid: userInfo ? userInfo.paid : 0,
-          earned: userInfo ? userInfo.earned : 0
+          paidToAuthor: userInfo ? userInfo.paidToAuthor : 0,
+          paidToReader: userInfo ? userInfo.paidToReader : 0,
+          earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
+          earnedFromReader: userInfo ? userInfo.earnedFromReader : 0
         }
       };
       if (includeInitialState) {
@@ -931,6 +1008,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
+  }
+
+  private async incrementStat(card: CardRecord, statName: string, incrementBy: number, at: number, snapshotInterval: number): Promise<void> {
+    const cardStatistic = (card.stats as any)[statName] as CardStatistic;
+    if (cardStatistic) {
+      let lastSnapshot: number;
+      if (cardStatistic.lastSnapshot === 0 && at - card.postedAt > snapshotInterval || cardStatistic.lastSnapshot > 0 && at - cardStatistic.lastSnapshot > snapshotInterval) {
+        await db.insertCardStatsHistory(card.id, statName, cardStatistic.value, at);
+        lastSnapshot = at;
+      }
+      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot);
+    } else {
+      await db.addCardStat(card, statName, incrementBy);
+    }
+  }
+
+  async updateCardScore(card: CardRecord, score: number): Promise<void> {
+    await db.updateCardScore(card, score);
   }
 }
 
