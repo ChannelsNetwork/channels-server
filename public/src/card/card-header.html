@@ -108,7 +108,7 @@
         }
         this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
         let cost = this.data.pricing.openFee;
-        if (cost < 0) {
+        if (this.data.pricing.openFeeUnits === 0) {
           this.$.revenue.classList.add("hidden");
         } else {
           this.$.revenue.classList.remove("hidden");
