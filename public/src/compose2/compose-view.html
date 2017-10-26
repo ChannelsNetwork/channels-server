@@ -48,6 +48,19 @@
         this.$.wiz.navigationEnabled = true;
         this.$.wiz.data = {};
         this.$.wiz.selectedIndex = 0;
+
+        $core.register().then((info) => {
+          if (!$core.hasKey) {
+            setTimeout(() => {
+              $router.goto(" ");
+            }, 600);
+            return;
+          }
+          if (!$core.profile || !$core.profile.handle) {
+            $router.goto("register", { returnRoute: { success: "compose", cancel: "feed" } });
+            return;
+          }
+        });
       }
 
       _onPublish() {
