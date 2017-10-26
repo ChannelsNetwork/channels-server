@@ -18,7 +18,7 @@
       }
 
       .buttons {
-        margin-top: 40px;
+        padding: 40px 0 30px;
       }
 
       #cancel {
@@ -161,6 +161,24 @@
       _onEarnPriceChange() {
         let value = this.$.earnPrice.immediateValue || 1;
         this.earnEstimate = ($core.baseCardPrice * value).toFixed(3);
+      }
+
+      onTransitioningIn(forward) {
+        let reset = false;
+        if (this._prevInstance != this.wizard.instanceStamp) {
+          this._prevInstance = this.wizard.instanceStamp
+          reset = true;
+        }
+        if (reset) {
+          this.$.group.selected = null;
+          this.$.group2.selected = "impressions";
+          this.$.earnPrice.value = 1;
+          this.$.chkPromote.checked = false;
+          this.$.earnSection.classList.add("hidden");
+          this.$.paySection.classList.add("hidden");
+          this.$.next.disabled = true;
+          this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
+        }
       }
 
       onTransitioningOut(forward) {
