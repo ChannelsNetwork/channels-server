@@ -172,7 +172,11 @@
             $router.goto("balance");
             return;
           }
-          this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(2));
+          let maxWithdrawable = $core.withdrawableBalance;
+          if ($core.balance - $core.withdrawableBalance < 2) {
+            maxWithdrawable -= 2 - ($core.balance - $core.withdrawableBalance);
+          }
+          this.set('maxWithdrawal', maxWithdrawable.toFixed(2));
           this.$.withdrawalAmount.value = this.maxWithdrawal;
           this.set('exchangeRate', $core.coinSellExchangeRate.toFixed(6));
           this.set('feeDescription', '');
