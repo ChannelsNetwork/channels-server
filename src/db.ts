@@ -461,7 +461,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -476,6 +476,8 @@ export class Database {
       },
       summary: {
         imageUrl: cardImageUrl,
+        imageWidth: cardImageWidth,
+        imageHeight: cardImageHeight,
         linkUrl: linkUrl,
         title: title,
         text: text,

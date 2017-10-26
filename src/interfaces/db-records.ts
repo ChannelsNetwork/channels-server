@@ -64,6 +64,8 @@ export interface CardRecord {
   };
   summary: {
     imageUrl: string;
+    imageWidth: number;
+    imageHeight: number;
     linkUrl: string;
     title: string;
     text: string;

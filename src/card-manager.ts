@@ -23,6 +23,11 @@ import { networkEntity } from "./network-entity";
 import { channelsComponentManager } from "./channels-component-manager";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { emailManager } from "./email-manager";
+import * as Mustache from 'mustache';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as escapeHtml from 'escape-html';
+
 const promiseLimit = require('promise-limit');
 
 const CARD_LOCK_TIMEOUT = 1000 * 60;
@@ -41,6 +46,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private urlManager: UrlManager;
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
+  private cardTemplate: string;
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
@@ -53,6 +59,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private registerHandlers(): void {
+    this.app.get('/c/:cardId', (request: Request, response: Response) => {
+      void this.handleCardRequest(request, response);
+    });
     this.app.post(this.urlManager.getDynamicUrl('get-card'), (request: Request, response: Response) => {
       void this.handleGetCard(request, response);
     });
@@ -93,6 +102,30 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (lastMutation) {
       this.lastMutationIndexSent = lastMutation.index;
     }
+    const appPath = path.join(__dirname, '../templates/web/card.html');
+    this.cardTemplate = fs.readFileSync(appPath, 'utf8');
+  }
+
+  private async handleCardRequest(request: Request, response: Response): Promise<void> {
+    const card = await db.findCardById(request.params.cardId, false);
+    if (!card) {
+      response.redirect('/');
+      return;
+    }
+    const ogUrl = configuration.get('baseClientUri');
+    const view = {
+      og_title: escapeHtml(card.summary.title),
+      og_description: escapeHtml(card.summary.text),
+      og_url: this.urlManager.getAbsoluteUrl('/c/' + card.id),
+      og_image: card.summary.imageUrl,
+      og_imagewidth: card.summary.imageWidth,
+      og_imageheight: card.summary.imageHeight,
+      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#feed/' + card.id)
+    };
+    const output = Mustache.render(this.cardTemplate, view);
+    response.setHeader("Cache-Control", 'public, max-age=' + 600);
+    response.contentType('text/html');
+    response.status(200).send(output);
   }
 
   private async handleGetCard(request: Request, response: Response): Promise<void> {
@@ -621,7 +654,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
       couponId = couponRecord.id;
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
     await this.announceCard(card, user);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -876,6 +909,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         summary: {
           imageUrl: record.summary.imageUrl,
+          imageWidth: record.summary.imageWidth,
+          imageHeight: record.summary.imageHeight,
           linkUrl: record.summary.linkUrl,
           title: record.summary.title,
           text: record.summary.text,
