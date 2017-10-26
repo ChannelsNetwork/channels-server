@@ -94,9 +94,6 @@
             });
           }, options);
           this.set('intersectionObserver', observer);
-          this._timer = setInterval(() => {
-            this._onTimer();
-          }, 100);
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -107,9 +104,6 @@
 
       disconnectedCallback() {
         super.disconnectedCallback();
-        if (this._timer) {
-          clearInterval(this._timer);
-        }
       }
 
       onActivate(route) {
@@ -129,8 +123,13 @@
           }, 350);
           window.addEventListener("resize", this._resizeListener);
           this.onResize();
+          this._visibleCards = {};
+          this.set('items', []);
           return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
-            this.items = cards;
+            this.set('items', cards);
+            this._timer = setInterval(() => {
+              this._onTimer();
+            }, 100);
           });
         });
       }
@@ -143,6 +142,10 @@
         if (this._resizeListener) {
           window.removeEventListener("resize", this._resizeListener);
           this._resizeListener = null;
+        }
+        if (this._timer) {
+          clearInterval(this._timer);
+          this._timer = null;
         }
       }
 
@@ -209,16 +212,18 @@
       onCardPay(event) {
         const card = event.detail.item;
         const cardView = event.detail.card;
-        if (card.pricing.openFee > 0 && !card.userSpecific.paid) {
-          card.userSpecific.paid = card.pricing.openFee;
-          $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
-            card.history.revenue = response.totalCardRevenue;
+        if (!card.userSpecific.isPoster) {
+          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
+            card.userSpecific.paidToAuthor = card.pricing.openFee;
+            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
+              card.stats.revenue = response.totalCardRevenue;
+              cardView.onPayment();
+            });
+          } else if (card.pricing.openFee < 0 && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
+            $core.cardOpenPaymentRedeem(card.id, card.couponId);
             cardView.onPayment();
-          });
-        } else if (card.pricing.openFee < 0 && !card.userSpecific.earned && card.couponId) {
-          card.userSpecific.earned = -card.pricing.openFee;
-          $core.cardOpenPaymentRedeem(card.id, card.couponId);
-          cardView.onPayment();
+          }
         }
       }
 
@@ -247,9 +252,9 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (!card.data.by.isAuthor && card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
+            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId) {
               $core.cardImpression(id, card.data.couponId);
-              card.data.userSpecific.earned = card.data.pricing.promotionFee;
+              card.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
               card.onImpressionPaid();
             } else {
               $core.cardImpression(id);

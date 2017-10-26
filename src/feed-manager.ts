@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
@@ -245,13 +245,9 @@ export class FeedManager implements Initializable, RestServer {
       if (lockedCard.lastScored === card.lastScored) {
         // After locking, it's clear that another processor has not already scored this one
         const score = await this.scoreCard(card);
-        if (card.score.value !== score) {
+        if (card.score !== score) {
           console.log("Feed.rescoreCard: Updating card score", card.id, score, addHistory);
-          await db.updateCardScore(card, score, addHistory);
-          // TODO: also copy other stats into history
-        }
-        if (card.score.history.length > 10) {
-          await db.clearCardScoreHistoryBefore(card, card.score.history[card.score.history.length - 11].at);
+          await cardManager.updateCardScore(card, score);
         }
       }
     } finally {
@@ -263,9 +259,9 @@ export class FeedManager implements Initializable, RestServer {
     let score = 0;
     score += this.getCardAgeScore(card);
     score += this.getCardRevenueScore(card);
-    score += this.getCardRecentRevenueScore(card);
+    score += await this.getCardRecentRevenueScore(card);
     score += this.getCardOpensScore(card);
-    score += this.getCardRecentOpensScore(card);
+    score += await this.getCardRecentOpensScore(card);
     score += this.getCardLikesScore(card);
     score += this.getCardControversyScore(card);
     return +(score.toFixed(5));
@@ -280,42 +276,49 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private getCardRevenueScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_REVENUE, card.revenue.value, SCORE_CARD_REVENUE_DOUBLING);
+    return this.getLogScore(SCORE_CARD_WEIGHT_REVENUE, card.stats.revenue.value, SCORE_CARD_REVENUE_DOUBLING);
   }
 
   private getLogScore(weight: number, value: number, doubling: number): number {
     return weight * Math.log10(1 + 100 * value / doubling);
   }
-  private getCardRecentRevenueScore(card: CardRecord): number {
-    let priorRevenue = 0;
-    for (const item of card.revenue.history) {
-      if (item.at < Date.now() - SCORE_CARD_REVENUE_RECENT_INTERVAL) {
-        break;
-      }
-      priorRevenue = item.value;
-    }
-    const value = card.revenue.value - priorRevenue;
+  private async getCardRecentRevenueScore(card: CardRecord): Promise<number> {
+    const revenue = card.stats.revenue.value;
+    const priorRevenue = await this.getPriorStatValue(card, "revenue", SCORE_CARD_REVENUE_RECENT_INTERVAL);
+    const value = revenue - priorRevenue;
     return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_REVENUE, value, SCORE_CARD_RECENT_REVENUE_DOUBLING);
   }
-  private getCardOpensScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_OPENS, card.opens.value, SCORE_CARD_OPENS_DOUBLING);
-  }
-  private getCardRecentOpensScore(card: CardRecord): number {
-    let priorOpens = 0;
-    for (const item of card.revenue.history) {
-      if (item.at < Date.now() - SCORE_CARD_OPENS_RECENT_INTERVAL) {
-        break;
+
+  private async getPriorStatValue(card: CardRecord, statName: string, minInterval: number): Promise<number> {
+    let priorValue = 0;
+    const stat = (card.stats as any)[statName] as CardStatistic;
+    if (stat && stat.lastSnapshot > 0) {
+      const history = await db.findCardStatsHistory(card.id, statName, 5);
+      for (const item of history) {
+        if (item.at < Date.now() - minInterval) {
+          break;
+        }
+        priorValue = item.value;
       }
-      priorOpens = item.value;
     }
-    const value = card.revenue.value - priorOpens;
+    return priorValue;
+  }
+  private getCardOpensScore(card: CardRecord): number {
+    return this.getLogScore(SCORE_CARD_WEIGHT_OPENS, card.stats.opens.value, SCORE_CARD_OPENS_DOUBLING);
+  }
+  private async getCardRecentOpensScore(card: CardRecord): Promise<number> {
+    const opens = card.stats.opens.value;
+    const priorOpens = await this.getPriorStatValue(card, "opens", SCORE_CARD_OPENS_RECENT_INTERVAL);
+    const value = opens - priorOpens;
     return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
   }
   private getCardLikesScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.likes.value, SCORE_CARD_LIKES_DOUBLING);
+    return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value, SCORE_CARD_LIKES_DOUBLING);
   }
   private getCardControversyScore(card: CardRecord): number {
-    const controversy = (card.likes.value + card.dislikes.value) / (Math.abs(card.likes.value - card.dislikes.value) + 1);
+    const likes = card.stats.likes.value;
+    const dislikes = card.stats.dislikes.value;
+    const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
     return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
   }
 
@@ -324,7 +327,7 @@ export class FeedManager implements Initializable, RestServer {
     let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"));
     let card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimes', 'New York Times',
       this.getPreviewUrl("nytimes.jpg"),
-      this.getPreviewUrl("puerto_rico.jpg"),
+      this.getPreviewUrl("puerto_rico.jpg"), 1024, 683,
       null,
       "The Devastation in Puerto Rico, as Seen From Above",
       "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
@@ -339,7 +342,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, '80sgames', "80's Games",
       this.getPreviewUrl("80s_games.png"),
-      this.getPreviewUrl("galaga.png"),
+      this.getPreviewUrl("galaga.png"), 1332, 998,
       null,
       "Play Galaga",
       "The online classic 80's arcade game",
@@ -356,7 +359,7 @@ export class FeedManager implements Initializable, RestServer {
     const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
       this.getPreviewUrl("thrillist.jpg"),
-      this.getPreviewUrl("pizza_ring.jpg"),
+      this.getPreviewUrl("pizza_ring.jpg"), 640, 640,
       null,
       "Puff Pizza Ring",
       "Learn how to make this delicious treat",
@@ -372,7 +375,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'jmodell', 'Josh Modell',
       this.getPreviewUrl("josh_modell.jpg"),
-      this.getPreviewUrl("the_national.png"),
+      this.getPreviewUrl("the_national.png"), 800, 532,
       null,
       "The National doesn't rest on the excellent Sleep Well Beast",
       "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
@@ -387,7 +390,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimescw', 'NY Times Crosswords',
       this.getPreviewUrl("nytimes.jpg"),
-      this.getPreviewUrl("crossword1.jpg"),
+      this.getPreviewUrl("crossword1.jpg"), 640, 480,
       null,
       "Solemn Promise",
       "Solve this mini-crossword in one minute",
@@ -404,7 +407,7 @@ export class FeedManager implements Initializable, RestServer {
     const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
       this.getPreviewUrl("cbs.jpg"),
-      this.getPreviewUrl("tomb_raider.jpg"),
+      this.getPreviewUrl("tomb_raider.jpg"), 545, 331,
       null,
       "Tomb Raider",
       "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
@@ -420,7 +423,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'tyler', 'Tyler McGrath',
       this.getPreviewUrl("tyler.jpg"),
-      this.getPreviewUrl("ascension.jpg"),
+      this.getPreviewUrl("ascension.jpg"), 1280, 532,
       null,
       "Ascension",
       "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
@@ -435,7 +438,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'roadw', 'Road Warrior',
       this.getPreviewUrl("road-warrior.jpg"),
-      this.getPreviewUrl("dangerous_road.png"),
+      this.getPreviewUrl("dangerous_road.png"), 917, 481,
       null,
       "My Drive on the Most Dangerous Road in the World",
       null,
@@ -450,7 +453,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'brightside', 'Bright Side',
       this.getPreviewUrl("brightside.png"),
-      this.getPreviewUrl("amsterdam.jpg"),
+      this.getPreviewUrl("amsterdam.jpg"), 1000, 1413,
       null,
       "The 100 best photographs ever taken without photoshop",
       "According to BrightSide.me",
@@ -465,7 +468,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'aperrotta', 'Anthony Perrotta',
       this.getPreviewUrl("anthony.jpg"),
-      this.getPreviewUrl("rage_cover.jpg"),
+      this.getPreviewUrl("rage_cover.jpg"), 400, 600,
       null,
       "Rage Against the Current",
       "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
@@ -480,7 +483,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'uhaque', 'Umair Haque',
       this.getPreviewUrl("umair.jpg"),
-      this.getPreviewUrl("uber_explosion.jpg"),
+      this.getPreviewUrl("uber_explosion.jpg"), 1200, 779,
       null,
       "Five Things to Learn From Uber's Implosion",
       "How to Fail at the Future",
@@ -497,7 +500,7 @@ export class FeedManager implements Initializable, RestServer {
     const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
       this.getPreviewUrl("blue_nile.jpg"),
-      this.getPreviewUrl("blue_nile_diamonds.jpg"),
+      this.getPreviewUrl("blue_nile_diamonds.jpg"), 491, 466,
       "https://www.bluenile.com",
       "New. Brilliant. Astor by Blue Nile",
       "Find the most beautiful diamonds in the world and build your own ring.",
@@ -513,7 +516,7 @@ export class FeedManager implements Initializable, RestServer {
     user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"));
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'jigsaw', 'Jigsaw',
       this.getPreviewUrl("jigsaw.jpg"),
-      this.getPreviewUrl("unfiltered_news.jpg"),
+      this.getPreviewUrl("unfiltered_news.jpg"), 1001, 571,
       null,
       "The Latest Unfiltered News",
       "Explore news from around the world that are outside the mainstream media",
@@ -530,7 +533,7 @@ export class FeedManager implements Initializable, RestServer {
     const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
       this.getPreviewUrl("podcast_handle.jpg"),
-      this.getPreviewUrl("football_podcast.jpg"),
+      this.getPreviewUrl("football_podcast.jpg"), 985, 554,
       null,
       "Pyro Podcast Show 285",
       "Foreshadowing Week 4",

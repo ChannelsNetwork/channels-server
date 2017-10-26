@@ -183,7 +183,7 @@ class RestUtils {
   }
 
   static postCardDetails(address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
-    return {
+    const result = {
       address: address,
       timestamp: RestUtils.now(),
       imageUrl: imageUrl,
@@ -195,11 +195,16 @@ class RestUtils {
       promotionFee: promotionFee,
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10
-      budgetAmount: budgetAmount,
-      budgetPlusPercent: budgetPlusPercent,
       coupon: coupon,                   // signed BankCouponDetails
       state: initialState               // { user: {properties: {...}, collections: {...}}, shared: {properties: {...}, collections: {...}}}
     };
+    if (budgetAmount || budgetPlusPercent) {
+      result.budget = {
+        amount: budgetAmount ? budgetAmount : 0,
+        plusPercent: budgetPlusPercent ? budgetPlusPercent : 0
+      };
+    }
+    return result;
   }
 
   static cardImpressionDetails(address, cardId, couponId) {
@@ -337,6 +342,15 @@ class RestUtils {
       timestamp: RestUtils.now(),
       cardId: cardId,
       selection: selection    // "like" | "none" | "dislike"
+    };
+  }
+
+  static cardStatsHistoryDetails(address, cardId, historyLimit) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      historyLimit: historyLimit
     };
   }
 }
