@@ -46,8 +46,8 @@
 
       onActivate() {
         this.$.wiz.navigationEnabled = true;
-        this.$.wiz.data = {};
-        this.$.wiz.selectedIndex = 0;
+        this.$.wiz.reset();
+        this.$.wiz.instanceStamp = (new Date()).getTime();
 
         $core.register().then((info) => {
           if (!$core.hasKey) {
@@ -61,6 +61,10 @@
             return;
           }
         });
+      }
+
+      onDeactivate() {
+        this.$.wiz.reset();
       }
 
       _onPublish() {
