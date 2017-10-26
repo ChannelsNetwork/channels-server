@@ -688,6 +688,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (details.openPayment === 0 && (details.openFeeUnits < 0 || details.openFeeUnits > 10)) {
       throw new ErrorWithStatusCode(400, "OpenFeeUnits must be between 1 and 10.");
     }
+    details.private = details.private ? true : false;
     const componentResponse = await channelsComponentManager.ensureComponent(details.cardType);
     let couponId: string;
     const cardId = uuid.v4();
