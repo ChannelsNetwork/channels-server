@@ -60,10 +60,10 @@
           data.summary.text,
           data.isPrivate,
           data.cardInfo.source,
-          data.promotion ? data.promotion.amount : 0,
-          data.pricing.pay ? data.promotion.amount : 0,
-          data.pricing.fee ? data.pricing.fee.priceLevel : 0,
-          data.promotion ? data.promotion.budgetCoins : 0,
+          (data.pricing && data.pricing.pay && data.pricing.pay.basedOn === 'impressions' || data.pricing.fee && data.pricing.fee.expandReach) ? (data.promotion ? data.promotion.amount : 0) : 0,
+          data.pricing && data.pricing.pay && data.pricing.pay.basedOn === 'clicks' ? (data.promotion ? data.promotion.amount : 0) : 0,
+          data.pricing && data.pricing.fee ? data.pricing.fee.priceLevel : 0,
+          data.promotion && data.promotion.budgetCoins ? data.promotion.budgetCoins : 0,
           data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
           data.sharedState
         ).then(() => {
