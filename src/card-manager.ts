@@ -679,9 +679,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       throw new ErrorWithStatusCode(400, "You can't declare both an openPayment and a promotionFee.");
     }
     details.openFeeUnits = Math.round(details.openFeeUnits);
-    if (details.openFeeUnits < 1 || details.openFeeUnits > 10) {
+    if (details.promotionFee === 0 && details.openPayment === 0 && details.openFeeUnits === 0) {
+      throw new ErrorWithStatusCode(400, "Not all of promotionFee, openPayment and openFeeUnits can be zero.");
+    }
+    if (details.openPayment > 0 && details.openFeeUnits > 0) {
+      throw new ErrorWithStatusCode(400, "openPayment and openFeeUnits cannot both be non-zero.");
+    }
+    if (details.openPayment === 0 && (details.openFeeUnits < 0 || details.openFeeUnits > 10)) {
       throw new ErrorWithStatusCode(400, "OpenFeeUnits must be between 1 and 10.");
     }
+    details.private = details.private ? true : false;
     const componentResponse = await channelsComponentManager.ensureComponent(details.cardType);
     let couponId: string;
     const cardId = uuid.v4();
