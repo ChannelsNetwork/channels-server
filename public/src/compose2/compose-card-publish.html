@@ -1,0 +1,155 @@
+<link rel="import" href="../card/card-view.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+
+<dom-module id="compose-card-publish">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 40px 16px 20px;
+        max-width: 700px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      .buttons {
+        margin-top: 40px;
+      }
+
+      section {
+        padding: 20px 0;
+      }
+
+      .cardContainer {
+        max-width: 320px;
+        width: 100%;
+        height: 410px;
+      }
+
+      card-view {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.95);
+        padding-top: 40px;
+      }
+
+      .message {
+        padding: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        opacity: 0.87;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          padding: 20px 16px 20px;
+        }
+        .cardContainer {
+          max-width: 310px;
+          width: 100%;
+          height: 400px;
+        }
+        section {
+          padding: 10px 0;
+        }
+      }
+    </style>
+    <div class="container">
+      <h2>Review and Publish</h2>
+      <p>This is how your card will look to others when you post it.</p>
+      <section>
+        <div class="cardContainer">
+          <card-view id="cardView" data="[[cardData]]" preview></card-view>
+        </div>
+      </section>
+      <div>
+        <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivareChanged"></soso-checkbox>
+      </div>
+      <div class="buttons">
+        <button id="publish" on-click="_onPublish">Publish</button>
+      </div>
+    </div>
+    <div id="overlay" class="hidden">
+      <soso-spinner id="spinner"></soso-spinner>
+      <div class="message">Publishing Card</div>
+    </div>
+  </template>
+  <script>
+    class ComposeCardPublish extends Polymer.Element {
+      static get is() { return 'compose-card-publish'; }
+      static get properties() {
+        return {
+          wizard: Object,
+          cardData: Object
+        };
+      }
+
+      _onPrivareChanged() {
+        this.set('cardData.private', this.$.chkboxPrivate.checked);
+        this.wizard.data.isPrivate = this.$.chkboxPrivate.checked;
+        this.$.cardView.onPrivateUpdated();
+      }
+
+      _onPublish() {
+        this.$.overlay.classList.remove("hidden");
+        this.$.spinner.spinning = true;
+        this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
+      }
+
+      onTransitioningIn(forward) {
+        this.$.overlay.classList.add("hidden");
+        this.$.spinner.spinning = false;
+        let data = this.wizard.data;
+        const cardData = {
+          summary: {
+            imageUrl: data.summary.imageURL,
+            title: data.summary.title,
+            text: data.summary.text
+          },
+          history: {
+            likes: 0,
+            dislikes: 0,
+            revenue: 0,
+            revenueDisplay: null
+          },
+          pricing: {
+            openFee: 0,
+          },
+          userSpecific: {
+            paid: 0,
+            earned: 0
+          },
+          by: {
+            name: $core.profile ? $core.profile.name : null,
+            imageUrl: $core.profile ? $core.profile.imageUrl : null
+          },
+          postedAt: Date.now(),
+          postedAtDisplay: "now",
+          cardType: {
+            iconUrl: data.cardInfo.iconUrl
+          }
+        };
+        if (data.pricing.fee) {
+          cardData.pricing.openFee = data.pricing.fee.priceLevel * $core.baseCardPrice;
+        } else if (data.pricing.pay) {
+          cardData.pricing.openFee = -data.promotion.amount;
+        }
+        this.set('cardData', cardData);
+      }
+    }
+    window.customElements.define(ComposeCardPublish.is, ComposeCardPublish);
+  </script>
+</dom-module>

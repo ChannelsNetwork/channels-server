@@ -47,6 +47,12 @@
         if (!this.wizard.data.cardInfo) {
           this.composer = null;
         }
+        let repo = this.wizard.data.repo;
+        if (this._prevRepo != repo) {
+          this.composer = null;
+        }
+        this._prevRepo = repo;
+
         if (!this.composer) {
           this._clearNode(this.$.container);
           let cardInfo = this.wizard.data.cardInfo;
@@ -56,16 +62,30 @@
               this.composer.services = $core.cardManager.cardService;
               this.$.container.appendChild(this.composer);
               this.$.next.disabled = false;
-              this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
+              this.composer.addEventListener('state-ready-change', () => {
+                if (this.composer.isReady) {
+                  this._enableNext(true);
+                } else {
+                  this._enableNext(false);
+                }
+              });
+              if (this.composer.isReady) {
+                this._enableNext(true);
+              } else {
+                this._enableNext(false);
+              }
             }, (err) => {
-              this.$.next.disabled = true;
-              this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
+              this._enableNext(false);
             });
           } else {
-            this.$.next.disabled = true;
-            this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
+            this._enableNext(false);
           }
         }
+      }
+
+      _enableNext(enable) {
+        this.$.next.disabled = !enable;
+        this.dispatchEvent(new CustomEvent(enable ? 'next-enable' : 'next-disable', { bubbles: true, composed: true }));
       }
 
       onTransitioningOut(forward) {
@@ -75,6 +95,7 @@
           } else {
             if (this.composer) {
               this.wizard.data.cardSharedState = this.composer.sharedState || {};
+              this.wizard.data.summary = this.composer.summary || {};
             }
             resolve();
           }

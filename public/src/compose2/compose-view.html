@@ -3,6 +3,7 @@
 <link rel="import" href="compose-card-content.html">
 <link rel="import" href="compose-card-pricing.html">
 <link rel="import" href="compose-card-promotion.html">
+<link rel="import" href="compose-card-publish.html">
 
 <dom-module id="compose-view">
   <template>
@@ -24,14 +25,12 @@
         bottom: 0;
       }
     </style>
-    <soso-wizard label="Create a new card" cancelable on-cancel="_onCancel">
+    <soso-wizard id="wiz" label="Create a new card" cancelable on-cancel="_onCancel">
       <compose-card-type data-label="Card type"></compose-card-type>
       <compose-card-content data-label="Card content"></compose-card-content>
       <compose-card-pricing data-label="Pricing"></compose-card-pricing>
       <compose-card-promotion data-label="Budget"></compose-card-promotion>
-      <div data-label="Step five">
-        <h1>Page Five</h1>
-      </div>
+      <compose-card-publish data-label="Publish" on-compose-publish="_onPublish"></compose-card-publish>
     </soso-wizard>
   </template>
   <script>
@@ -43,6 +42,36 @@
       }
       _onCancel() {
         $router.goto("feed");
+      }
+
+      onActivate() {
+        this.$.wiz.navigationEnabled = true;
+        this.$.wiz.data = {};
+        this.$.wiz.selectedIndex = 0;
+      }
+
+      _onPublish() {
+        this.$.wiz.navigationEnabled = false;
+        let data = this.$.wiz.data;
+        console.debug("Publishing card", data);
+        $core.postCard(data.summary.imageURL,
+          data.summary.linkURL,
+          data.summary.title,
+          data.summary.text,
+          data.isPrivate,
+          data.cardInfo.source,
+          data.promotion ? data.promotion.amount : 0,
+          data.pricing.pay ? data.promotion.amount : 0,
+          data.pricing.fee ? data.pricing.fee.priceLevel : 0,
+          data.promotion ? data.promotion.budgetCoins : 0,
+          data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
+          data.sharedState
+        ).then(() => {
+          $router.goto("feed");
+        }).catch((err) => {
+          console.error("Failed to publish card", err);
+          this._onCancel();
+        });
       }
     }
     window.customElements.define(ComposeView.is, ComposeView);
