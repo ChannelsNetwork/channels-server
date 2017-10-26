@@ -394,7 +394,7 @@ export class Bank implements RestServer, Initializable {
     transactionDetails.toRecipients.push(recipient);
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
-    await db.incrementUserBalance(from, -coupon.amount, 0, 0, balanceBelowTarget, now);
+    await db.incrementUserBalance(from, -coupon.amount, 0, this.computeWithdrawableIncrement(-coupon.amount, from.balance), balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, [to.id], null, 0, 1, null);
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, 0, 0, to.balance + coupon.amount < to.targetBalance, now);
@@ -406,6 +406,16 @@ export class Bank implements RestServer, Initializable {
       balanceAt: now
     };
     return result;
+  }
+
+  private computeWithdrawableIncrement(amount: number, balance: number): number {
+    if (amount >= 0) {
+      return amount;
+    }
+    if (balance > -amount) {
+      return amount;
+    }
+    return balance + amount;
   }
 
   private async isCouponRedeemable(coupon: BankCouponRecord, card: CardRecord): Promise<boolean> {

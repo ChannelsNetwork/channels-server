@@ -358,7 +358,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
-      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title);
+      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, true, true);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, transaction.amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, transaction.amount, transactionResult.record.id);
       const now = Date.now();
@@ -367,7 +367,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         transactionId: transactionResult.record.id,
-        totalCardRevenue: card.stats.revenue.value + transaction.amount,
+        totalCardRevenue: card.stats.revenue.value,
         status: userStatus
       };
       response.json(reply);
