@@ -313,8 +313,10 @@ export interface UserCardInfoRecord {
   lastImpression: number;
   lastOpened: number;
   lastClosed: number;
-  paid: number;
-  earned: number;
+  paidToAuthor: number;
+  paidToReader: number;
+  earnedFromAuthor: number;
+  earnedFromReader: number;
   transactionIds: string[];
   like: CardLikeState;
 }

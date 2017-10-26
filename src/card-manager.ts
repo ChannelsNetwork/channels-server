@@ -196,7 +196,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (info.earned > 0) {
+        if (info.earnedFromAuthor > 0) {
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
@@ -239,6 +239,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       let transactionResult: BankTransactionResult;
       if (requestBody.detailsObject.couponId) {
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
+        await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+        await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
@@ -324,6 +326,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title);
+      await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, transaction.amount, transactionResult.record.id);
+      await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, transaction.amount, transactionResult.record.id);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
@@ -356,7 +360,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const info = await db.ensureUserCardInfo(user.id, card.id);
-      if (info.earned > 0) {
+      if (info.earnedFromAuthor > 0) {
         response.status(400).send("You have already been paid for opening this card");
         return;
       }
@@ -392,6 +396,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-redeem-open-payment", requestBody.detailsObject);
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
+      await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+      await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
@@ -861,7 +867,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         id: record.id,
         postedAt: record.postedAt,
         by: {
-          isAuthor: user && record.by.id === user.id ? true : false,
           address: record.by.address,
           handle: record.by.handle,
           name: record.by.name,
@@ -901,13 +906,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         score: record.score,
         userSpecific: {
-          isPoster: user ? user.address === record.by.address : false,
+          isPoster: user && record.by.id === user.id ? true : false,
           lastImpression: userInfo ? userInfo.lastImpression : 0,
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,
           likeState: userInfo ? userInfo.like : "none",
-          paid: userInfo ? userInfo.paid : 0,
-          earned: userInfo ? userInfo.earned : 0
+          paidToAuthor: userInfo ? userInfo.paidToAuthor : 0,
+          paidToReader: userInfo ? userInfo.paidToReader : 0,
+          earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
+          earnedFromReader: userInfo ? userInfo.earnedFromReader : 0
         }
       };
       if (includeInitialState) {

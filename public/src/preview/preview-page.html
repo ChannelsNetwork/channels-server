@@ -212,16 +212,18 @@
       onCardPay(event) {
         const card = event.detail.item;
         const cardView = event.detail.card;
-        if (card.pricing.openFee > 0 && !card.userSpecific.paid) {
-          card.userSpecific.paid = card.pricing.openFee;
-          $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
-            card.stats.revenue = response.totalCardRevenue;
+        if (!card.userSpecific.isPoster) {
+          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
+            card.userSpecific.paidToAuthor = card.pricing.openFee;
+            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
+              card.stats.revenue = response.totalCardRevenue;
+              cardView.onPayment();
+            });
+          } else if (card.pricing.openFee < 0 && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
+            $core.cardOpenPaymentRedeem(card.id, card.couponId);
             cardView.onPayment();
-          });
-        } else if (card.pricing.openFee < 0 && !card.userSpecific.earned && card.couponId) {
-          card.userSpecific.earned = -card.pricing.openFee;
-          $core.cardOpenPaymentRedeem(card.id, card.couponId);
-          cardView.onPayment();
+          }
         }
       }
 
@@ -250,9 +252,9 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (!card.data.by.isAuthor && card.data.pricing.promotionFee && card.data.userSpecific.earned === 0 && card.data.couponId) {
+            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId) {
               $core.cardImpression(id, card.data.couponId);
-              card.data.userSpecific.earned = card.data.pricing.promotionFee;
+              card.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
               card.onImpressionPaid();
             } else {
               $core.cardImpression(id);

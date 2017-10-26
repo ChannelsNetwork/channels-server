@@ -324,7 +324,6 @@ export class Bank implements RestServer, Initializable {
       }
     }
     const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null);
-    await db.updateUserCardIncrementPaid(user.id, details.relatedCardId, details.amount, record.id);
     let index = 0;
     for (const recipient of details.toRecipients) {
       const recipientUser = recipientUsers[index++];
@@ -344,7 +343,6 @@ export class Bank implements RestServer, Initializable {
       }
       console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
       await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, increaseWithdrawableBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
-      await db.updateUserCardIncrementEarned(recipientUser.id, details.relatedCardId, creditAmount, record.id);
       if (recipientUser.id === user.id) {
         user.balance += creditAmount;
       }
@@ -398,10 +396,6 @@ export class Bank implements RestServer, Initializable {
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, 0, 0, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, [to.id], null, 0, 1, null);
-    if (from.id !== to.id) {
-      await db.updateUserCardIncrementPaid(from.id, card.id, coupon.amount, record.id);
-      await db.updateUserCardIncrementEarned(to.id, card.id, coupon.amount, record.id);
-    }
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, 0, 0, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
@@ -422,7 +416,7 @@ export class Bank implements RestServer, Initializable {
     if (!authorCardInfo) {
       return coupon.budget.amount > coupon.budget.spent;
     }
-    const budget = coupon.budget.amount + authorCardInfo.earned * coupon.budget.plusPercent / 100;
+    const budget = coupon.budget.amount + authorCardInfo.earnedFromReader * coupon.budget.plusPercent / 100;
     return budget > coupon.budget.spent + coupon.amount;
   }
 

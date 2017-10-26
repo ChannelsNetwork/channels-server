@@ -145,7 +145,6 @@ export interface CardDescriptor {
   id: string;
   postedAt: number;
   by: {
-    isAuthor: boolean;
     address: string;
     handle: string;
     name: string;
@@ -186,8 +185,10 @@ export interface CardDescriptor {
     lastOpened: number;
     lastClosed: number;
     likeState: CardLikeState;
-    paid: number;
-    earned: number;
+    paidToAuthor: number;
+    paidToReader: number;
+    earnedFromAuthor: number;
+    earnedFromReader: number;
   };
   state?: {
     user: CardState;

@@ -1140,8 +1140,10 @@ export class Database {
           lastImpression: 0,
           lastOpened: 0,
           lastClosed: 0,
-          paid: 0,
-          earned: 0,
+          paidToAuthor: 0,
+          paidToReader: 0,
+          earnedFromAuthor: 0,
+          earnedFromReader: 0,
           transactionIds: [],
           like: "none"
         };
@@ -1176,14 +1178,24 @@ export class Database {
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastClosed: value } });
   }
 
-  async updateUserCardIncrementPaid(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+  async updateUserCardIncrementPaidToAuthor(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { paid: amount }, $push: { transactionIds: transactionId } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { paidToAuthor: amount }, $push: { transactionIds: transactionId } });
   }
 
-  async updateUserCardIncrementEarned(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+  async updateUserCardIncrementPaidToReader(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { earned: amount }, $push: { transactionIds: transactionId } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { paidToReader: amount }, $push: { transactionIds: transactionId } });
+  }
+
+  async updateUserCardIncrementEarnedFromAuthor(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { earnedFromAuthor: amount }, $push: { transactionIds: transactionId } });
+  }
+
+  async updateUserCardIncrementEarnedFromReader(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { earnedFromReader: amount }, $push: { transactionIds: transactionId } });
   }
 
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {
