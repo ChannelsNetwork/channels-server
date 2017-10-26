@@ -1,0 +1,92 @@
+<link rel="import" href="../../bower_components/soso-wizard/soso-wizard.html">
+<link rel="import" href="compose-card-type.html">
+<link rel="import" href="compose-card-content.html">
+<link rel="import" href="compose-card-pricing.html">
+<link rel="import" href="compose-card-promotion.html">
+<link rel="import" href="compose-card-publish.html">
+
+<dom-module id="compose-view">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+        height: 100vh;
+        box-sizing: border-box;
+        overflow: hidden;
+        position: relative;
+        background: white;
+      }
+
+      soso-wizard {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+    </style>
+    <soso-wizard id="wiz" label="Create a new card" cancelable on-cancel="_onCancel">
+      <compose-card-type data-label="Card type"></compose-card-type>
+      <compose-card-content data-label="Card content"></compose-card-content>
+      <compose-card-pricing data-label="Pricing"></compose-card-pricing>
+      <compose-card-promotion data-label="Budget"></compose-card-promotion>
+      <compose-card-publish data-label="Publish" on-compose-publish="_onPublish"></compose-card-publish>
+    </soso-wizard>
+  </template>
+  <script>
+    class ComposeView extends Polymer.Element {
+      static get is() { return 'compose-view'; }
+      static get properties() {
+        return {
+        };
+      }
+      _onCancel() {
+        $router.goto("feed");
+      }
+
+      onActivate() {
+        this.$.wiz.navigationEnabled = true;
+        this.$.wiz.data = {};
+        this.$.wiz.selectedIndex = 0;
+
+        $core.register().then((info) => {
+          if (!$core.hasKey) {
+            setTimeout(() => {
+              $router.goto(" ");
+            }, 600);
+            return;
+          }
+          if (!$core.profile || !$core.profile.handle) {
+            $router.goto("register", { returnRoute: { success: "compose", cancel: "feed" } });
+            return;
+          }
+        });
+      }
+
+      _onPublish() {
+        this.$.wiz.navigationEnabled = false;
+        let data = this.$.wiz.data;
+        console.debug("Publishing card", data);
+        $core.postCard(data.summary.imageURL,
+          data.summary.linkURL,
+          data.summary.title,
+          data.summary.text,
+          data.isPrivate,
+          data.cardInfo.source,
+          (data.pricing && data.pricing.pay && data.pricing.pay.basedOn === 'impressions' || data.pricing.fee && data.pricing.fee.expandReach) ? (data.promotion ? data.promotion.amount : 0) : 0,
+          data.pricing && data.pricing.pay && data.pricing.pay.basedOn === 'clicks' ? (data.promotion ? data.promotion.amount : 0) : 0,
+          data.pricing && data.pricing.fee ? data.pricing.fee.priceLevel : 0,
+          data.promotion && data.promotion.budgetCoins ? data.promotion.budgetCoins : 0,
+          data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
+          data.sharedState
+        ).then(() => {
+          $router.goto("feed");
+        }).catch((err) => {
+          console.error("Failed to publish card", err);
+          this._onCancel();
+        });
+      }
+    }
+    window.customElements.define(ComposeView.is, ComposeView);
+  </script>
+</dom-module>

@@ -18,4 +18,21 @@ class CardManager {
       }
     });
   }
+
+  get cardService() {
+    if (!this._cardService) {
+      this._cardService = new CardService(this._core);
+    }
+    return this._cardService;
+  }
+}
+
+class CardService {
+  constructor(core) {
+    this._core = core;
+  }
+
+  upload(file) {
+    return this._core.uploadFile(file);
+  }
 }

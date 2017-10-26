@@ -1,0 +1,25 @@
+<link rel="import" href="../../bower_components/card-story/card-story-composer.html">
+
+<dom-module id="test-page">
+  <template>
+    <style>
+      :host {
+        display: block;
+        min-height: 100vh;
+        background: white;
+      }
+    </style>
+    <card-story-composer id="c"></card-story-composer>
+  </template>
+  <script>
+    class TestPage extends Polymer.Element {
+      static get is() { return "test-page"; }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.$.c.services = $core.cardManager.cardService;
+      }
+    }
+    window.customElements.define(TestPage.is, TestPage);
+  </script>
+</dom-module>
