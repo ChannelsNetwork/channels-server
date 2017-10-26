@@ -1,0 +1,172 @@
+<link rel="import" href="../../bower_components/soso-radio-group/soso-radio-group.html">
+<link rel="import" href="../../bower_components/soso-radio-button/soso-radio-button.html">
+<link rel="import" href="../../bower_components/soso-slider/soso-slider.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+
+<dom-module id="compose-card-pricing">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 40px 16px 20px;
+        max-width: 700px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      .buttons {
+        margin-top: 40px;
+      }
+
+      #cancel {
+        margin-right: 10px;
+      }
+
+      #group {
+        margin-top: 20px;
+      }
+
+      section {
+        padding: 20px 15px;
+        margin: 20px 0;
+        border-radius: 3px;
+        border-top: 1px solid #e5e5e5;
+      }
+
+      .row {
+        margin: 15px 0 0;
+      }
+
+      .row label {
+        font-size: 15px;
+        padding-right: 10px;
+        letter-spacing: 0.03em;
+        opacity: 0.87;
+        text-transform: uppercase;
+      }
+
+      #earnSection .caption {
+        font-size: 15px;
+        padding-right: 10px;
+        letter-spacing: 0.03em;
+        opacity: 0.87;
+        margin-top: 3px;
+      }
+
+      soso-slider {
+        width: 100%;
+        box-sizing: border-box;
+      }
+    </style>
+    <div class="container">
+      <h2>Price your card</h2>
+      <soso-radio-group id="group" on-select="_onRadioSelect">
+        <soso-radio-button name="earn" label="I want to earn money with this card"></soso-radio-button>
+        <soso-radio-button name="pay" label="I am willing to pay readers to see this card"></soso-radio-button>
+      </soso-radio-group>
+
+      <section id="earnSection" class="hidden">
+        <div>Readers will pay you after your card is open for at least 10 seconds</div>
+        <div class="row horizontal layout end">
+          <label>Price level</label>
+          <div class="flex">
+            <soso-slider label id="earnPrice" min="1" max="10" value="1" step="1" on-input="_onEarnPriceChange"></soso-slider>
+          </div>
+        </div>
+        <div class="caption">(Currently ℂ
+          <span>[[earnEstimate]]</span>)</div>
+        <div class="row">
+          <soso-checkbox id="chkPromote" label="I want to promote this card to people who don't follow me"></soso-checkbox>
+        </div>
+      </section>
+
+      <section id="paySection" class="hidden">
+        <div>I will pay readers who:</div>
+        <soso-radio-group id="group2">
+          <soso-radio-button name="impressions" label="See this card in their feed for at least 2 seconds (impressions)"></soso-radio-button>
+          <soso-radio-button name="clicks" label="Open this card for at least 10 seconds (clicks)"></soso-radio-button>
+        </soso-radio-group>
+      </section>
+
+      <div class="buttons">
+        <button id="cancel" on-click="_onCancel">Cancel</button>
+        <button id="next" disabled on-click="_onNext">Next</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeCardPricing extends Polymer.Element {
+      static get is() { return 'compose-card-pricing'; }
+      static get properties() {
+        return {
+          wizard: Object,
+          earnEstimate: Number
+        };
+      }
+
+      _onCancel() {
+        this.wizard.cancel();
+      }
+      _onNext() {
+        this.wizard.next();
+      }
+
+      _onRadioSelect() {
+        let selected = this.$.group.selected;
+        if (!selected) {
+          if (this._prevSelected) {
+            setTimeout(() => {
+              this.$.group.selected = this._prevSelected;
+            }, 5);
+          }
+        } else {
+          this.$.next.disabled = false;
+          this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
+          this._prevSelected = selected;
+          if (selected == "earn") {
+            this.$.earnSection.classList.remove("hidden");
+            this.$.paySection.classList.add("hidden");
+            this._onEarnPriceChange();
+          } else {
+            this.$.earnSection.classList.add("hidden");
+            this.$.paySection.classList.remove("hidden");
+            setTimeout(() => {
+              if (!this.$.group2.selected) {
+                this.$.group2.selected = "impressions";
+              }
+            }, 10);
+          }
+        }
+        console.log("radio select", this.$.group.selected);
+      }
+
+      _onEarnPriceChange() {
+        let value = this.$.earnPrice.immediateValue || 1;
+        this.earnEstimate = ($core.baseCardPrice * value).toFixed(3);
+      }
+
+      onTransitioningOut(forward) {
+        return new Promise((resolve, reject) => {
+          let pricing = {}
+          let selected = this.$.group.selected;
+          if (selected == "earn") {
+            pricing.fee = {
+              priceLevel: this.$.earnPrice.value,
+              expandReach: this.$.chkPromote.checked
+            };
+          } else if (selected == "pay") {
+            pricing.pay = {
+              basedOn: this.$.group2.selected || "impressions"
+            };
+          }
+          this.wizard.data.pricing = pricing;
+          resolve();
+        });
+      }
+    }
+    window.customElements.define(ComposeCardPricing.is, ComposeCardPricing);
+  </script>
+</dom-module>

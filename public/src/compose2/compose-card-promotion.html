@@ -1,0 +1,129 @@
+<link rel="import" href="../../bower_components/soso-number-input/soso-number-input.html">
+
+<dom-module id="compose-card-promotion">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 40px 16px 20px;
+        max-width: 700px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      .buttons {
+        margin-top: 40px;
+      }
+
+      #cancel {
+        margin-right: 10px;
+      }
+
+      .row {
+        margin: 15px 0 0;
+      }
+
+      section {
+        padding: 20px 0;
+        border-radius: 3px;
+      }
+
+      #amount {
+        width: 120px;
+      }
+    </style>
+    <div class="container">
+      <h2>Promotion budget</h2>
+      <section>
+        <div>How much are you willing to pay each reader
+          <span>[[paymentAction]]</span>?</div>
+        <div class="row">
+          ℂ
+          <soso-number-input id="amount" value="0.010" step="0.001" min="0.001" fixed="3" max="1"></soso-number-input>
+          <span class="recommendation">(Recommended: ℂ
+            <span>[[minimumRecommendation]]</span> to ℂ[[maximumRecommendation]])
+          </span>
+        </div>
+      </section>
+      <section>
+        <div>What is your budget for this card?</div>
+        <div class="row">
+          ℂ
+          <soso-number-input id="budgetCoins" value="10" step="1" min="1" max="[[maxBudget]]"></soso-number-input>
+          <span id="budgetPlus">plus
+            <soso-number-input id="budgetPercent" value="15" step="1" min="0" max="90"></soso-number-input>
+            % of earnings from this card
+          </span>
+        </div>
+      </section>
+
+      <div class="buttons">
+        <button id="cancel" on-click="_onCancel">Cancel</button>
+        <button id="next" disabled on-click="_onNext">Next</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeCardPromotion extends Polymer.Element {
+      static get is() { return 'compose-card-promotion'; }
+      static get properties() {
+        return {
+          wizard: Object,
+          minimumRecommendation: Number,
+          maximumRecommendation: Number,
+          paymentAction: String,
+          maxBudget: Number
+        };
+      }
+
+      onCancel() {
+        this.wizard.cancel();
+      }
+      _onNext() {
+        this.wizard.next();
+      }
+
+      onTransitioningIn(forward) {
+        let pricing = this.wizard.data.pricing;
+        if (pricing) {
+          if (pricing.pay && pricing.pay.basedOn === 'clicks') {
+            this.set('minimumRecommendation', 0.35);
+            this.set('maximumRecommendation', 0.74);
+            this.set('paymentAction', "to keep this card open for 10 seconds");
+          } else {
+            this.set('minimumRecommendation', 0.008);
+            this.set('maximumRecommendation', 0.015);
+            this.set('paymentAction', "to see this card in his or her feed");
+          }
+          if (Number(this.$.amount.value) < this.minimumRecommendation || Number(this.$.amount.value) > this.maximumRecommendation) {
+            this.$.amount.value = (this.minimumRecommendation + (this.maximumRecommendation - this.minimumRecommendation) / 2).toFixed(3);
+          }
+          this.set('maxBudget', Math.floor($core.balance * 0.9));
+          this.$.budgetCoins.value = Math.min(15, $core.balance * 0.5).toFixed(0);
+          this.$.budgetPlus.style.display = pricing.fee && pricing.fee.expandReach ? "" : "none";
+          this.$.next.disabled = false;
+          this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
+        }
+      }
+
+      onTransitioningOut(forward) {
+        return new Promise((resolve, reject) => {
+          let promotion = {
+            amount: +this.$.amount.value,
+            budgetCoins: +this.$.budgetCoins.value
+          };
+          let pricing = this.wizard.data.pricing;
+          if (pricing && pricing.fee) {
+            promotion.budgetPercent = +this.$.budgetPercent.value;
+          }
+          this.wizard.data.promotion = promotion;
+          resolve();
+        });
+      }
+    }
+    window.customElements.define(ComposeCardPromotion.is, ComposeCardPromotion);
+  </script>
+</dom-module>

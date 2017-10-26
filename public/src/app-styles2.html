@@ -1,0 +1,127 @@
+<dom-module id="app-styles2">
+  <template>
+    <style>
+      :host {
+        --highlight-green: #4CAF50;
+        --dark-green: #2E7D32;
+        --error-color: #D32F2F;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: 'Raleway', sans-serif;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #212121;
+      }
+
+      h2 {
+        font-size: 28px;
+      }
+
+      button {
+        outline: none;
+        letter-spacing: 0.03em;
+        text-decoration: none;
+        text-transform: uppercase;
+        border: none;
+        font-size: 17px;
+        padding: 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        background: #4CAF50;
+        color: white;
+      }
+
+      button:active {
+        box-shadow: 0 0 10px 0px rgba(0, 0, 0, 0.4) inset;
+      }
+
+      button:disabled {
+        cursor: inherit;
+        background: #000;
+        opacity: 0.38;
+      }
+
+      soso-wizard {
+        --soso-stepper-active-color: var(--highlight-green);
+        --soso-wizard-button-color: var(--dark-green);
+        --soso-wizard-button-weight: 600;
+      }
+
+      soso-text-input {
+        --soso-label-color: var(--dark-green);
+        --soso-label-size: 90%;
+      }
+
+      soso-spinner {
+        --soso-spinner-thickness: 6px;
+        --sosos-spinner-major-color: var(--highlight-green);
+        width: 42px;
+        height: 42px;
+      }
+
+      soso-radio-button {
+        --soso-radio-color: var(--highlight-green);
+      }
+
+      soso-checkbox {
+        --soso-checkbox-color: var(--highlight-green);
+      }
+
+      soso-slider {
+        --soso-knob-color: var(--highlight-green);
+      }
+
+      soso-number-input {
+        --soso-button-color: var(--highlight-green);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .layout.horizontal,
+      .layout.vertical {
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+      }
+
+      .layout.horizontal {
+        -ms-flex-direction: row;
+        -webkit-flex-direction: row;
+        flex-direction: row;
+      }
+
+      .layout.vertical {
+        -ms-flex-direction: column;
+        -webkit-flex-direction: column;
+        flex-direction: column;
+      }
+
+      .layout.center,
+      .layout.center-center {
+        -ms-flex-align: center;
+        -webkit-align-items: center;
+        align-items: center;
+      }
+
+      .layout.end {
+        -ms-flex-align: end;
+        -webkit-align-items: flex-end;
+        align-items: flex-end;
+      }
+
+      .flex {
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+      }
+    </style>
+  </template>
+</dom-module>

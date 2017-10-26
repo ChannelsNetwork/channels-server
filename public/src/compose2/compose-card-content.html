@@ -1,0 +1,86 @@
+<dom-module id="compose-card-content">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      .buttons {
+        margin-top: 40px;
+        text-align: center;
+      }
+
+      #cancel {
+        margin-right: 10px;
+      }
+    </style>
+    <div id="container"></div>
+    <div class="buttons">
+      <button id="cancel" on-click="_onCancel">Cancel</button>
+      <button id="next" disabled on-click="_onNext">Next</button>
+    </div>
+  </template>
+  <script>
+    class ComposeCardContent extends Polymer.Element {
+      static get is() { return 'compose-card-content'; }
+      static get properties() {
+        return {
+          wizard: Object
+        };
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+
+      _onCancel() {
+        this.wizard.cancel();
+      }
+
+      _onNext() {
+        this.wizard.next();
+      }
+
+      onTransitioningIn(forward) {
+        if (!this.wizard.data.cardInfo) {
+          this.composer = null;
+        }
+        if (!this.composer) {
+          this._clearNode(this.$.container);
+          let cardInfo = this.wizard.data.cardInfo;
+          if (cardInfo) {
+            Polymer.importHref(cardInfo.importHref, () => {
+              this.composer = document.createElement(cardInfo.channelComponent.composerTag);
+              this.composer.services = $core.cardManager.cardService;
+              this.$.container.appendChild(this.composer);
+              this.$.next.disabled = false;
+              this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
+            }, (err) => {
+              this.$.next.disabled = true;
+              this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
+            });
+          } else {
+            this.$.next.disabled = true;
+            this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
+          }
+        }
+      }
+
+      onTransitioningOut(forward) {
+        return new Promise((resolve, reject) => {
+          if (!forward) {
+            resolve();
+          } else {
+            if (this.composer) {
+              this.wizard.data.cardSharedState = this.composer.sharedState || {};
+            }
+            resolve();
+          }
+        });
+      }
+    }
+    window.customElements.define(ComposeCardContent.is, ComposeCardContent);
+  </script>
+</dom-module>
