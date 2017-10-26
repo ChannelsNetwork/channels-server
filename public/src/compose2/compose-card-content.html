@@ -54,6 +54,10 @@
           this.composer = null;
         }
         this._prevRepo = repo;
+        if (this._prevInstance != this.wizard.instanceStamp) {
+          this._prevInstance = this.wizard.instanceStamp
+          this.composer = null;
+        }
 
         if (!this.composer) {
           this._clearNode(this.$.container);
