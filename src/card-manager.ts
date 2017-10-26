@@ -163,7 +163,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid request: missing text");
         return;
       }
-      // TODO: validate other parts
+      const details = requestBody.detailsObject;
       const card = await this.postCard(user, requestBody.detailsObject, requestBody.detailsObject.address);
       const reply: PostCardResponse = {
         cardId: card.id
@@ -646,6 +646,41 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   async postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord> {
     if (!details.text) {
       throw new ErrorWithStatusCode(400, "Invalid card: missing text");
+    }
+    if (!details.cardType && !details.linkUrl) {
+      throw new ErrorWithStatusCode(400, "You must provide a card type or a linkUrl");
+    }
+    if (details.imageUrl && (details.imageHeight <= 0 || details.imageWidth <= 0)) {
+      throw new ErrorWithStatusCode(400, "You must provide image width and height");
+    }
+    details.promotionFee = details.promotionFee || 0;
+    details.openFeeUnits = details.openFeeUnits || 0;
+    details.openPayment = details.openPayment || 0;
+    if (details.openPayment > 0 || details.promotionFee > 0) {
+      if (!details.budget) {
+        throw new ErrorWithStatusCode(400, "You must provide a budget if you offer payment.");
+      }
+      details.budget.amount = details.budget.amount || 0;
+      details.budget.plusPercent = details.budget.plusPercent || 0;
+      if (details.budget.amount < 1) {
+        throw new ErrorWithStatusCode(400, "Minimum budget is ℂ1.");
+      }
+      if (details.budget.amount > user.balance - 1) {
+        throw new ErrorWithStatusCode(400, "Budget exceeds your balance (leaving at least ℂ1 to spare).");
+      }
+      if (details.budget.plusPercent < 0 || details.budget.plusPercent > 90) {
+        throw new ErrorWithStatusCode(400, "Budget plusPercent must be between 0 and 90.");
+      }
+    }
+    if (details.promotionFee < 0 || details.openPayment < 0) {
+      throw new ErrorWithStatusCode(400, "Promotion fee and openPayment must be greater than or equal to zero.");
+    }
+    if (details.openPayment > 0 && details.promotionFee > 0) {
+      throw new ErrorWithStatusCode(400, "You can't declare both an openPayment and a promotionFee.");
+    }
+    details.openFeeUnits = Math.round(details.openFeeUnits);
+    if (details.openFeeUnits < 1 || details.openFeeUnits > 10) {
+      throw new ErrorWithStatusCode(400, "OpenFeeUnits must be between 1 and 10.");
     }
     const componentResponse = await channelsComponentManager.ensureComponent(details.cardType);
     let couponId: string;
