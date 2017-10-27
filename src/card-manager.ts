@@ -264,6 +264,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardImpressionResponse = {
+        serverVersion: SERVER_VERSION,
         transactionId: transactionResult ? transactionResult.record.id : null,
         status: userStatus
       };
@@ -353,6 +354,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
+        serverVersion: SERVER_VERSION,
         transactionId: transactionResult.record.id,
         totalCardRevenue: card.stats.revenue.value,
         status: userStatus
@@ -423,6 +425,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardRedeemOpenResponse = {
+        serverVersion: SERVER_VERSION,
         transactionId: transactionResult.record.id,
         status: userStatus
       };

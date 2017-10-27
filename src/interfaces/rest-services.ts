@@ -381,7 +381,7 @@ export interface CardRedeemOpenResponse extends RestResponseWithUserStatus {
   transactionId: string;
 }
 
-export interface RestResponseWithUserStatus {
+export interface RestResponseWithUserStatus extends RestResponse {
   status: UserStatus;
 }
 

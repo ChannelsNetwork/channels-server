@@ -163,6 +163,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
       const userStatus = await this.getUserStatus(userRecord);
       const registerResponse: RegisterUserResponse = {
+        serverVersion: SERVER_VERSION,
         status: userStatus,
         interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
         subsidyRate: await priceRegulator.getUserSubsidyRate(),
@@ -274,6 +275,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await this.updateUserBalance(user);
       const status = await this.getUserStatus(user);
       const result: UserStatusResponse = {
+        serverVersion: SERVER_VERSION,
         status: status
       };
       response.json(result);
