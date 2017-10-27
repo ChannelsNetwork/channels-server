@@ -161,10 +161,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.post-card", requestBody.detailsObject);
-      if (!requestBody.detailsObject.text) {
-        response.status(400).send("Invalid request: missing text");
-        return;
-      }
+      // if (!requestBody.detailsObject.text) {
+      //   response.status(400).send("Invalid request: missing text");
+      //   return;
+      // }
       const details = requestBody.detailsObject;
       const card = await this.postCard(user, requestBody.detailsObject, requestBody.detailsObject.address);
       const reply: PostCardResponse = {
