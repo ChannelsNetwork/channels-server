@@ -177,7 +177,7 @@
           this.$.earnSection.classList.add("hidden");
           this.$.paySection.classList.add("hidden");
           this.$.next.disabled = true;
-          this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
+          this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
         }
       }
 
