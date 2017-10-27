@@ -1,4 +1,4 @@
-<link rel="import" href="app-icons.html" async>
+<link rel="import" href="channel-icons.html">
 <dom-module id="app-bar">
   <template>
     <style is="custom-style" include="app-styles2">
@@ -106,25 +106,25 @@
       <div id="iconsBar" class="flex horizontal layout center">
         <a class="flex" href="#feed">
           <button id="ifeed">
-            <iron-icon icon="ch:apps"></iron-icon>
+            <soso-icon icon="apps" icon-map="[[iconMap]]"></soso-icon>
             <div>Feed</div>
           </button>
         </a>
         <a class="flex" href="#about">
           <button>
-            <iron-icon icon="ch:home"></iron-icon>
+            <soso-icon icon="info" icon-map="[[iconMap]]"></soso-icon>
             <div>About</div>
           </button>
         </a>
         <a id="accountButton" class="flex hidden" href="#account">
           <button id="iaccount">
-            <iron-icon icon="ch:account-circle"></iron-icon>
+            <soso-icon icon="account" icon-map="[[iconMap]]"></soso-icon>
             <div>Account</div>
           </button>
         </a>
         <a id="signInButton" class="flex" href="#signin">
           <button id="isignin">
-            <iron-icon icon="ch:account-circle"></iron-icon>
+            <soso-icon icon="account" icon-map="[[iconMap]]"></soso-icon>
             <div>Sign In</div>
           </button>
         </a>
@@ -139,31 +139,34 @@
       static get is() { return "app-bar"; }
       static get properties() {
         return {
-          balance: String
+          balance: String,
+          iconMap: Object
         };
       }
 
       connectedCallback() {
         super.connectedCallback();
         this.balance = "ℂ0.000";
-        if ($core.registration) {
-          this._refreshBalance($core.registration);
-        }
-        window.addEventListener("channels-registration", (event) => {
-          var reg = event.detail;
-          if (reg) {
-            this._refreshBalance(reg);
-          }
-        });
-        window.addEventListener("channels-profile", (event) => {
-          this._refreshSignIn();
-        });
-        window.addEventListener("channels-user-status", (event) => {
-          this._refreshBalance();
-        });
-        setInterval(() => {
-          this._refreshBalance();
-        }, 1000);
+        this.iconMap = window._channelIcons;
+
+        // if ($core.registration) {
+        //   this._refreshBalance($core.registration);
+        // }
+        // window.addEventListener("channels-registration", (event) => {
+        //   var reg = event.detail;
+        //   if (reg) {
+        //     this._refreshBalance(reg);
+        //   }
+        // });
+        // window.addEventListener("channels-profile", (event) => {
+        //   this._refreshSignIn();
+        // });
+        // window.addEventListener("channels-user-status", (event) => {
+        //   this._refreshBalance();
+        // });
+        // setInterval(() => {
+        //   this._refreshBalance();
+        // }, 1000);
       }
 
       _refreshSignIn() {

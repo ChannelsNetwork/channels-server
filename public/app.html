@@ -112,13 +112,17 @@
       right: 0;
     }
 
+    #svg-logo-small {
+      display: none;
+    }
+
+    #svg-logo {
+      display: block;
+    }
 
     @media (max-width: 600px) {
       body {
         font-size: 16px;
-      }
-      #temp-toolbar svg {
-        opacity: 0;
       }
       .temp-balance {
         height: 100%;
@@ -126,6 +130,12 @@
         position: absolute;
         top: 0;
         right: 0;
+      }
+      #svg-logo-small {
+        display: block;
+      }
+      #svg-logo {
+        display: none;
       }
     }
   </style>
