@@ -1,11 +1,11 @@
 <link rel="import" href="app-icons.html" async>
-
 <dom-module id="app-bar">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles2">
       :host {
         display: block;
-        background: rgba(33, 33, 33, 1);
+        background: #213034;
+        color: white;
       }
 
       #container {
@@ -16,19 +16,22 @@
       .logo {
         display: block;
         height: 40px;
+        width: auto;
       }
 
       button {
         color: white;
         font-size: 14px;
+        background: none;
+        font-weight: 400;
       }
 
       button:hover {
-        color: var(--highlight-blue);
+        color: var(--bg-yellow);
       }
 
       .selected {
-        color: var(--highlight-blue);
+        color: var(--bg-yellow);
         font-weight: bold;
       }
 
@@ -41,6 +44,10 @@
         margin-left: 10px;
       }
 
+      a {
+        text-align: center;
+      }
+
       a:hover {
         box-shadow: none;
       }
@@ -49,7 +56,14 @@
         display: none;
       }
 
+      #iconsBar button:hover {
+        color: white;
+      }
+
       @media (max-width: 600px) {
+        #container {
+          padding: 0 0 0 5px;
+        }
         #logoLink,
         #spacer,
         #linksBar {
@@ -58,9 +72,6 @@
         #iconsBar {
           display: flex;
         }
-        #container {
-          padding: 0 0 0 5px;
-        }
         button {
           letter-spacing: initial;
           font-size: 10px;
@@ -68,56 +79,44 @@
         #balancePanel {
           letter-spacing: initial;
           margin-left: 2px;
-          padding: 0 5px;
+          padding: 0 10px;
           font-size: 15px;
         }
       }
     </style>
     <div id="container" class="horizontal layout center" on-click="_onClick">
       <a id="logoLink" href="/">
-        <img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
       </a>
       <div id="spacer" class="flex"></div>
       <div id="linksBar" class="horizontal layout center">
-        <a href="/">
-          <button id="home">Home</button>
-        </a>
         <a href="#feed">
           <button id="feed">Feed</button>
         </a>
-        <a href="#launch">
-          <button id="launch">Launch</button>
+        <a href="#about">
+          <button id="about">About</button>
         </a>
-        <a href="https://medium.com/channels-network" target="_blank">
-          <button id="blog">Blog</button>
-        </a>
-        <a id="accountLink" href="#account" style="display:none;">
+        <a id="accountLink" href="#account" class="hidden">
           <button id="account">Account</button>
         </a>
-        <a id="signInLink" href="#signin" style="display:none;">
+        <a id="signInLink" href="#signin">
           <button id="signin">Sign In</button>
         </a>
       </div>
       <div id="iconsBar" class="flex horizontal layout center">
-        <a class="flex" href="/">
-          <button>
-            <iron-icon icon="ch:home"></iron-icon>
-            <div>Home</div>
-          </button>
-        </a>
         <a class="flex" href="#feed">
           <button id="ifeed">
             <iron-icon icon="ch:apps"></iron-icon>
             <div>Feed</div>
           </button>
         </a>
-        <a class="flex" href="#launch">
-          <button id="ilaunch">
-            <iron-icon icon="ch:near-me"></iron-icon>
-            <div>Launch</div>
+        <a class="flex" href="#about">
+          <button>
+            <iron-icon icon="ch:home"></iron-icon>
+            <div>About</div>
           </button>
         </a>
-        <a id="accountButton" class="flex" href="#account">
+        <a id="accountButton" class="flex hidden" href="#account">
           <button id="iaccount">
             <iron-icon icon="ch:account-circle"></iron-icon>
             <div>Account</div>
@@ -129,7 +128,6 @@
             <div>Sign In</div>
           </button>
         </a>
-        <!-- <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a> -->
       </div>
       <a href="#balance">
         <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
@@ -147,6 +145,7 @@
 
       connectedCallback() {
         super.connectedCallback();
+        this.balance = "ℂ0.000";
         if ($core.registration) {
           this._refreshBalance($core.registration);
         }
@@ -169,15 +168,15 @@
 
       _refreshSignIn() {
         if ($core.profile && $core.profile.handle) {
-          this.$.accountLink.style.display = "";
-          this.$.accountButton.style.display = "";
-          this.$.signInLink.style.display = "none";
-          this.$.signInButton.style.display = "none";
+          this.$.accountLink.classList.remove("hidden");
+          this.$.accountButton.classList.remove("hidden");
+          this.$.signInLink.classList.add("hidden");
+          this.$.signInButton.classList.add("hidden");
         } else {
-          this.$.accountLink.style.display = "none";
-          this.$.accountButton.style.display = "none";
-          this.$.signInLink.style.display = "";
-          this.$.signInButton.style.display = "";
+          this.$.accountLink.classList.add("hidden");
+          this.$.accountButton.classList.add("hidden");
+          this.$.signInLink.classList.remove("hidden");
+          this.$.signInButton.classList.remove("hidden");
         }
       }
 

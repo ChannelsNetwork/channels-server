@@ -2,6 +2,7 @@
 <link rel="import" href="../bower_components/soso-pages/soso-pages.html">
 <link rel="import" href="app-styles2.html">
 <link rel="import" href="hash-router.js">
+<link rel="import" href="app-bar.html">
 
 <dom-module id="main-app">
   <template>
@@ -28,12 +29,25 @@
         position: relative;
         overflow: initial;
       }
+
+      app-bar {
+        position: fixed;
+        top: -70px;
+        left: 0;
+        right: 0;
+        transition: top 0.3s ease;
+      }
+
+      app-bar {
+        top: 0;
+      }
     </style>
     <hash-router id="router" on-route-change="onRouteChange"></hash-router>
     <div id="shell">
       <div id="spacer" class="hidden"></div>
       <soso-pages id="pages"></soso-pages>
     </div>
+    <app-bar id="toolbar"></app-bar>
   </template>
   <script>
     class MainApp extends Polymer.Element {
