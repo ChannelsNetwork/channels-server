@@ -1,0 +1,61 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/soso-pages/soso-pages.html">
+<link rel="import" href="app-styles2.html">
+<link rel="import" href="hash-router.js">
+
+<dom-module id="main-app">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+        position: relative;
+      }
+
+      #shell {
+        height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+      }
+
+      #spacer {
+        height: 60px;
+      }
+
+      soso-pages {
+        display: block;
+        position: relative;
+        overflow: initial;
+      }
+    </style>
+    <hash-router id="router" on-route-change="onRouteChange"></hash-router>
+    <div id="shell">
+      <div id="spacer" class="hidden"></div>
+      <soso-pages id="pages"></soso-pages>
+    </div>
+  </template>
+  <script>
+    class MainApp extends Polymer.Element {
+      static get is() { return 'main-app'; }
+
+      constructor() {
+        super();
+        window.$app = this;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        window.$router = this.$.router;
+        const tp = document.getElementById("temp-panel");
+        if (tp) {
+          tp.style.display = "none";
+        }
+      }
+
+      onRouteChange() {
+      }
+    }
+    window.customElements.define(MainApp.is, MainApp);
+  </script>
+</dom-module>
