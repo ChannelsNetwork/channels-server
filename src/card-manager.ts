@@ -644,9 +644,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   async postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord> {
-    if (!details.text) {
-      throw new ErrorWithStatusCode(400, "Invalid card: missing text");
-    }
+    // if (!details.text) {
+    //   throw new ErrorWithStatusCode(400, "Invalid card: missing text");
+    // }
     if (!details.cardType && !details.linkUrl) {
       throw new ErrorWithStatusCode(400, "You must provide a card type or a linkUrl");
     }
