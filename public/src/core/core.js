@@ -288,6 +288,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getCard(cardId) {
+    let details = RestUtils.GetCardDetails(this._keys.address, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-card";
+    return this.rest.post(url, request);
+  }
+
   postCard(imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
