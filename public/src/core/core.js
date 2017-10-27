@@ -281,17 +281,17 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  getCard(cardId) {
-    let details = RestUtils.getCardDetails(this._keys.address, cardId);
-    let request = this._createRequest(details);
-    const url = this.restBase + "/get-card";
-    return this.rest.post(url, request);
-  }
-
   ensureComponent(packageName) {
     let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
     let request = this._createRequest(details);
     const url = this.restBase + "/ensure-component";
+    return this.rest.post(url, request);
+  }
+
+  getCard(cardId) {
+    let details = RestUtils.GetCardDetails(this._keys.address, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-card";
     return this.rest.post(url, request);
   }
 

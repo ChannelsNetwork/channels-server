@@ -178,37 +178,57 @@
         this.$.dummyContent.classList.remove("hidden");
         this.$.cardView.classList.add("hidden");
         this._clearNode(this.$.cardView);
+
         let onLoaded = () => {
           this._loading = false;
           this.$.dummyContent.classList.add("hidden");
           this.$.cardView.classList.remove("hidden");
         };
 
-        let packageName = this.data.cardType.package;
-        if (packageName) {
-          $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
-            Polymer.importHref(packageInfo.importHref, () => {
-              onLoaded();
-              let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
-              cardNode.data = this.data.summary;
-              cardNode.delegate = {};  // TODO
-              $core.getCard(this.data.id).then((cardResponse) => {
-                cardNode.sharedState = cardResponse.card.state.shared;
-                this.$.cardView.appendChild(cardNode);
-              });
-              // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
-            }, (err) => {
-              onLoaded();
-              console.error("Failed to load package '" + packageName + "'", err);
-            });
-          }).catch((err) => {
-            onLoaded();
-            console.error("Failed to load package '" + packageName + "'", err);
-          });
-        } else {
+        let cardId = this.data.id;
+        if (!cardId) {
           this._loading = false;
           this.$.dummyContent.classList.add("hidden");
+          return;
         }
+
+        // Fetch the card, then ensure the card package is on the serever, 
+        // then import the viewer component, then insert the viewer component
+        $core.getCard(cardId).then((cardData) => {
+          this.set("data", cardData.card);
+          let packageName = this.data.cardType.package;
+          if (!packageName) {
+            this._loading = false;
+            this.$.dummyContent.classList.add("hidden");
+            return;
+          }
+          // Import card package
+          return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+            return new Promise((resolve, reject) => {
+              // Import viewer
+              Polymer.importHref(packageInfo.importHref, () => {
+                onLoaded();
+                // Insert node
+                this._insertCardNode(packageInfo);
+                resolve();
+              }, (err) => {
+                reject(err);
+              })
+            });
+          });
+        }).catch((err) => {
+          onLoaded();
+          console.error("Failed to open card '" + packageName + "'", err);
+        });
+      }
+
+      _insertCardNode(packageInfo) {
+        let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
+        cardNode.sharedState = this.data.state.shared;
+        cardNode.userState = this.data.state.user;
+        cardNode.author = this.data.by;
+        cardNode.user = $core.profile;
+        this.$.cardView.appendChild(cardNode);
       }
     }
     window.customElements.define(OpenCard.is, OpenCard);

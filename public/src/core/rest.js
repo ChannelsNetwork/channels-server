@@ -183,7 +183,7 @@ class RestUtils {
     };
   }
 
-  static getCardDetails(address, cardId) {
+  static GetCardDetails(address, cardId) {
     return {
       address: address,
       timestamp: RestUtils.now(),
