@@ -199,6 +199,14 @@ export interface CardPropertyRecord {
   value: any;
 }
 
+export interface CardCollectionRecord {
+  cardId: string;
+  group: CardStateGroup;
+  user: string;
+  collectionName: string;
+  keyField?: string;
+}
+
 export interface CardCollectionItemRecord {
   cardId: string;
   group: CardStateGroup;

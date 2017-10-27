@@ -31,8 +31,7 @@ import { channelsComponentManager } from "./channels-component-manager";
 import { networkEntity } from "./network-entity";
 import { bank } from "./bank";
 import { emailManager } from "./email-manager";
-
-const VERSION = 40;
+import { SERVER_VERSION } from "./server-version";
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
@@ -45,7 +44,7 @@ class ChannelsNetworkWebClient {
   private wsapp: ExpressWithSockets;
 
   constructor() {
-    this.urlManager = new UrlManager(VERSION);
+    this.urlManager = new UrlManager(SERVER_VERSION);
   }
 
   async start(): Promise<void> {
@@ -146,7 +145,7 @@ class ChannelsNetworkWebClient {
       await restServer.initializeRestServices(this.urlManager, this.app);
     }
 
-    this.app.use('/v' + VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
+    this.app.use('/v' + SERVER_VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 }));
     if (configuration.get('client.ssl')) {
       const privateKey = fs.readFileSync(configuration.get('ssl.key'), 'utf8');
@@ -200,7 +199,7 @@ class ChannelsNetworkWebClient {
       const result: any = {
         product: 'Channel-Elements-Web-Client-Server',
         status: 'OK',
-        version: VERSION,
+        version: SERVER_VERSION,
         deployed: new Date(this.started).toISOString(),
         server: configuration.get('serverId')
       };

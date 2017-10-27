@@ -36,6 +36,26 @@
         z-index: 2;
         transition: top 0.3s ease;
       }
+
+      #reloadingPanel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background-color: #333;
+        color: white;
+        opacity: 0.8;
+        z-index: 10;
+      }
+
+      .reloadingMessage {
+        font-size: 20px;
+        display: block;
+        text-align: center;
+        padding: 10px;
+        width: 100%;
+      }
     </style>
     <channels-core></channels-core>
     <hash-router id="router" on-route-change="onRouteChange"></hash-router>
@@ -50,8 +70,7 @@
         <invite-view class="invite page" data-href="account/invite-view.html"></invite-view>
         <notifications-view class="notifications page" data-href="notifications/notifications-view.html"></notifications-view>
         <preview-page class="feed page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
-        <compose-wizard class="compose2 page" data-href="compose/compose-wizard.html"></compose-wizard>
-        <compose-view class="compose page" data-href="compose2/compose-view.html"></compose-view>
+        <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
         <test-page class="test page" data-href="test/test-page.html"></test-page>
         <register-view class="register page" data-href="account/register-view.html" data-dir="up"></register-view>
         <edit-account-view class="edit-profile page" data-href="account/edit-account-view.html" data-dir="up"></edit-account-view>
@@ -62,6 +81,9 @@
     </div>
     <welcome-view id="welcome" on-tncs-agreed="onWelcomeCompleted" style="display:none;"></welcome-view>
     <timed-toast id="toast"></timed-toast>
+    <div id="reloadingPanel" class="horizontal layout center" style="display:none;">
+      <div class="reloadingMessage">Channels is updating...</div>
+    </div>
   </template>
 
   <script src="hash-router.js"></script>
@@ -79,6 +101,12 @@
       connectedCallback() {
         super.connectedCallback();
         window.$router = this.$.router;
+        window.addEventListener('channels-server-version-change', () => {
+          this.$.reloadingPanel.style.display = "";
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        });
       }
 
       get shell() {

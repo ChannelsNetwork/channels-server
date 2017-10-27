@@ -10,7 +10,7 @@ export interface RestRequest<T extends Signable> {
 }
 
 export interface RestResponse {
-  appVersion: number;
+  serverVersion: number;
 }
 
 export interface RegisterUserDetails extends Signable {
@@ -119,7 +119,12 @@ export interface CheckHandleResponse extends RestResponse {
 export interface CardState {
   mutationId?: string;
   properties: { [name: string]: any };
-  collections: { [name: string]: { [key: string]: any } };
+  collections: { [name: string]: CardCollection };
+}
+
+export interface CardCollection {
+  keyField?: string;
+  records: any[];
 }
 
 export interface GetFeedDetails extends Signable {
@@ -319,10 +324,7 @@ export interface PostCardDetails extends Signable {
     amount: number;
     plusPercent: number;
   };
-  state: {
-    user: CardState;
-    shared: CardState;
-  };
+  sharedState: CardState;
   coupon?: SignedObject;   // BankCouponDetails
 }
 
@@ -379,7 +381,7 @@ export interface CardRedeemOpenResponse extends RestResponseWithUserStatus {
   transactionId: string;
 }
 
-export interface RestResponseWithUserStatus {
+export interface RestResponseWithUserStatus extends RestResponse {
   status: UserStatus;
 }
 
@@ -394,7 +396,9 @@ export interface UpdateCardLikeDetails extends Signable {
   selection: CardLikeState;
 }
 
-export interface UpdateCardLikeResponse extends RestResponse { }
+export interface UpdateCardLikeResponse extends RestResponse {
+  newValue: CardLikeState;
+}
 
 export interface BankWithdrawDetails extends Signable {
   transaction: SignedObject;  // signed BankTransactionDetails with type = withdrawal

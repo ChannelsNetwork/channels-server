@@ -18,6 +18,7 @@ import { Utils } from "./utils";
 import { networkEntity } from "./network-entity";
 import { userManager } from "./user-manager";
 import { emailManager } from "./email-manager";
+import { SERVER_VERSION } from "./server-version";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 const MINIMUM_TARGET_BALANCE = 5;
@@ -164,6 +165,7 @@ export class Bank implements RestServer, Initializable {
 
       const userStatus = await userManager.getUserStatus(user);
       const reply: BankWithdrawResponse = {
+        serverVersion: SERVER_VERSION,
         paidAmount: paidAmount,
         currency: details.withdrawalRecipient.currency,
         feeAmount: feeAmount,
@@ -192,6 +194,7 @@ export class Bank implements RestServer, Initializable {
       const max = requestBody.detailsObject.maxTransactions || 50;
       const transactions = await db.findBankTransactionsByParticipant(user.id, true, max);
       const reply: BankStatementResponse = {
+        serverVersion: SERVER_VERSION,
         transactions: []
       };
       for (const transaction of transactions) {

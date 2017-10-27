@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -23,6 +23,7 @@ import { networkEntity } from "./network-entity";
 import { channelsComponentManager } from "./channels-component-manager";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { emailManager } from "./email-manager";
+import { SERVER_VERSION } from "./server-version";
 import * as Mustache from 'mustache';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -142,6 +143,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.get-card", requestBody.detailsObject);
       const cardState = await this.populateCardState(card.id, true, user);
       const reply: GetCardResponse = {
+        serverVersion: SERVER_VERSION,
         card: cardState
       };
       response.json(reply);
@@ -166,40 +168,23 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const details = requestBody.detailsObject;
       const card = await this.postCard(user, requestBody.detailsObject, requestBody.detailsObject.address);
       const reply: PostCardResponse = {
+        serverVersion: SERVER_VERSION,
         cardId: card.id
       };
-      if (requestBody.detailsObject.state) {
-        if (requestBody.detailsObject.state.user) {
-          if (requestBody.detailsObject.state.user.properties) {
-            for (const key of Object.keys(requestBody.detailsObject.state.user.properties)) {
-              await db.upsertCardProperty(card.id, "user", user.id, key, requestBody.detailsObject.state.user.properties[key]);
-            }
-          }
-          if (requestBody.detailsObject.state.user.collections) {
-            for (const key of Object.keys(requestBody.detailsObject.state.user.collections)) {
-              const collection = requestBody.detailsObject.state.user.collections[key];
-              let index = 0;
-              for (const itemKey of Object.keys(collection)) {
-                await db.insertCardCollectionItem(card.id, "user", user.id, key, itemKey, index, collection[itemKey]);
-                index++;
-              }
-            }
+      if (requestBody.detailsObject.sharedState) {
+        if (requestBody.detailsObject.sharedState.properties) {
+          for (const key of Object.keys(requestBody.detailsObject.sharedState.properties)) {
+            await db.upsertCardProperty(card.id, "shared", '', key, requestBody.detailsObject.sharedState.properties[key]);
           }
         }
-        if (requestBody.detailsObject.state.shared) {
-          if (requestBody.detailsObject.state.shared.properties) {
-            for (const key of Object.keys(requestBody.detailsObject.state.shared.properties)) {
-              await db.upsertCardProperty(card.id, "shared", '', key, requestBody.detailsObject.state.shared.properties[key]);
-            }
-          }
-          if (requestBody.detailsObject.state.shared.collections) {
-            for (const key of Object.keys(requestBody.detailsObject.state.shared.collections)) {
-              const collection = requestBody.detailsObject.state.shared.collections[key];
-              let index = 0;
-              for (const itemKey of Object.keys(collection)) {
-                await db.insertCardCollectionItem(card.id, "shared", '', key, itemKey, index, collection[itemKey]);
-                index++;
-              }
+        if (requestBody.detailsObject.sharedState.collections) {
+          for (const key of Object.keys(requestBody.detailsObject.sharedState.collections)) {
+            const collection = requestBody.detailsObject.sharedState.collections[key];
+            await db.insertCardCollection(card.id, 'shared', '', key, collection.keyField);
+            let index = 0;
+            for (const record of collection.records) {
+              await db.insertCardCollectionItem(card.id, "shared", '', key, collection.keyField ? record[collection.keyField] : index.toString(), index, record);
+              index++;
             }
           }
         }
@@ -279,6 +264,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardImpressionResponse = {
+        serverVersion: SERVER_VERSION,
         transactionId: transactionResult ? transactionResult.record.id : null,
         status: userStatus
       };
@@ -309,7 +295,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
       await db.insertUserCardAction(user.id, card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
-      const reply: CardOpenedResponse = {};
+      const reply: CardOpenedResponse = {
+        serverVersion: SERVER_VERSION
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardOpened: Failure", err);
@@ -366,6 +354,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
+        serverVersion: SERVER_VERSION,
         transactionId: transactionResult.record.id,
         totalCardRevenue: card.stats.revenue.value,
         status: userStatus
@@ -436,6 +425,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardRedeemOpenResponse = {
+        serverVersion: SERVER_VERSION,
         transactionId: transactionResult.record.id,
         status: userStatus
       };
@@ -462,7 +452,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "close", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
-      const reply: CardClosedResponse = {};
+      const reply: CardClosedResponse = {
+        serverVersion: SERVER_VERSION
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardClosed: Failure", err);
@@ -487,6 +479,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         if (cardInfo.like !== requestBody.detailsObject.selection) {
           const now = Date.now();
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
+          cardInfo.like = requestBody.detailsObject.selection;
           let existingLikes = 0;
           let existingDislikes = 0;
           let action: CardActionType;
@@ -530,7 +523,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
         }
       }
-      const reply: UpdateCardLikeResponse = {};
+      const reply: UpdateCardLikeResponse = {
+        serverVersion: SERVER_VERSION,
+        newValue: cardInfo.like
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateCardLike: Failure", err);
@@ -559,7 +555,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.updateCardPrivate(card, requestBody.detailsObject.private);
         await db.insertUserCardAction(user.id, card.id, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", 0, null, 0, null, 0, null);
       }
-      const reply: UpdateCardLikeResponse = {
+      const reply: UpdateCardPrivateResponse = {
+        serverVersion: SERVER_VERSION,
         newValue: requestBody.detailsObject.private
       };
       response.json(reply);
@@ -586,7 +583,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.delete-card", requestBody.detailsObject);
       await db.updateCardState(card, "deleted");
-      const reply: DeleteCardResponse = {};
+      const reply: DeleteCardResponse = {
+        serverVersion: SERVER_VERSION
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleDeleteCard: Failure", err);
@@ -607,6 +606,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-stat-history", requestBody.detailsObject);
       const reply: CardStatsHistoryResponse = {
+        serverVersion: SERVER_VERSION,
         revenue: [],
         promotionsPaid: [],
         openFeesPaid: [],
@@ -930,7 +930,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, includeInitialState: boolean, user?: UserRecord): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, includeState: boolean, user?: UserRecord): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -994,7 +994,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           earnedFromReader: userInfo ? userInfo.earnedFromReader : 0
         }
       };
-      if (includeInitialState) {
+      if (includeState) {
         card.state = {
           user: {
             mutationId: null,
@@ -1013,19 +1013,21 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         if (lastUserMutation) {
           card.state.user.mutationId = lastUserMutation.mutationId;
         }
-        if (includeInitialState) {
-          const userProperties = await db.findCardProperties(card.id, "user", user.id);
-          for (const property of userProperties) {
-            card.state.user.properties[property.name] = property.value;
+        const userProperties = await db.findCardProperties(card.id, "user", user.id);
+        for (const property of userProperties) {
+          card.state.user.properties[property.name] = property.value;
+        }
+        const userCollections = await db.findCardCollections(card.id, "user", user.id);
+        for (const collection of userCollections) {
+          card.state.user.collections[collection.collectionName] = {
+            records: []
+          };
+          if (collection.keyField) {
+            card.state.user.collections[collection.collectionName].keyField = collection.keyField;
           }
-          // TODO: if a lot of state information, omit it and let client ask if it
-          // needs it
-          const userCollectionRecords = await db.findCardCollectionItems(card.id, "user", user.id);
+          const userCollectionRecords = await db.findCardCollectionItems(card.id, "user", user.id, collection.collectionName);
           for (const item of userCollectionRecords) {
-            if (!card.state.user.collections[item.collectionName]) {
-              card.state.user.collections[item.collectionName] = {};
-              card.state.user.collections[item.collectionName][item.key] = item.value;
-            }
+            card.state.user.collections[collection.collectionName].records.push(item.value);
           }
         }
       }
@@ -1033,16 +1035,22 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (lastSharedMutation) {
         card.state.shared.mutationId = lastSharedMutation.mutationId;
       }
-      if (includeInitialState) {
+      if (includeState) {
         const sharedProperties = await db.findCardProperties(card.id, "shared", '');
         for (const property of sharedProperties) {
           card.state.shared.properties[property.name] = property.value;
         }
-        const sharedCollectionRecords = await db.findCardCollectionItems(card.id, "shared", '');
-        for (const item of sharedCollectionRecords) {
-          if (!card.state.shared.collections[item.collectionName]) {
-            card.state.shared.collections[item.collectionName] = {};
-            card.state.shared.collections[item.collectionName][item.key] = item.value;
+        const sharedCollections = await db.findCardCollections(card.id, "shared", '');
+        for (const collection of sharedCollections) {
+          card.state.shared.collections[collection.collectionName] = {
+            records: []
+          };
+          if (collection.keyField) {
+            card.state.shared.collections[collection.collectionName].keyField = collection.keyField;
+          }
+          const sharedCollectionRecords = await db.findCardCollectionItems(card.id, "shared", '', collection.collectionName);
+          for (const item of sharedCollectionRecords) {
+            card.state.shared.collections[collection.collectionName].records.push(item.value);
           }
         }
       }

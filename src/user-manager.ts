@@ -18,6 +18,7 @@ import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
 import { bank } from "./bank";
 import { emailManager } from "./email-manager";
+import { SERVER_VERSION } from "./server-version";
 
 const INITIAL_BALANCE = 5;
 const INITIAL_WITHDRAWABLE_BALANCE = 0;
@@ -162,6 +163,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
       const userStatus = await this.getUserStatus(userRecord);
       const registerResponse: RegisterUserResponse = {
+        serverVersion: SERVER_VERSION,
         status: userStatus,
         interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
         subsidyRate: await priceRegulator.getUserSubsidyRate(),
@@ -200,7 +202,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       } else {
         await db.insertDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token, requestBody.detailsObject.address);
       }
-      const reply: RegisterDeviceResponse = { success: true };
+      const reply: RegisterDeviceResponse = {
+        serverVersion: SERVER_VERSION
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleRegisterDevice: Failure", err);
@@ -271,6 +275,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await this.updateUserBalance(user);
       const status = await this.getUserStatus(user);
       const result: UserStatusResponse = {
+        serverVersion: SERVER_VERSION,
         status: status
       };
       response.json(result);
@@ -328,7 +333,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         html += "</div>";
         void emailManager.sendInternalNotification("User identity added/updated", "A user has added or updated their identity", html);
       }
-      const reply: UpdateUserIdentityResponse = {};
+      const reply: UpdateUserIdentityResponse = {
+        serverVersion: SERVER_VERSION
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateIdentity: Failure", err);
@@ -373,7 +380,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       html += "<li>Handle: " + user.identity.handle + "</li>";
       html += "<p>If you did not request account recovery, you can safely ignore this message.</p>";
       await emailManager.sendNoReplyUserNotification(user.identity.name, user.identity.emailAddress, "Account recovery", text, html);
-      const reply: RequestRecoveryCodeResponse = {};
+      const reply: RequestRecoveryCodeResponse = {
+        serverVersion: SERVER_VERSION
+      };
       response.json(reply);
     } catch (err) {
       console.error("User.handleRequestRecoveryCode: Failure", err);
@@ -418,6 +427,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
       const status = await this.getUserStatus(user);
       const result: RecoverUserResponse = {
+        serverVersion: SERVER_VERSION,
         status: status,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
@@ -442,6 +452,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       console.log("UserManager.get-identity", user.id, requestBody.detailsObject);
       const reply: GetUserIdentityResponse = {
+        serverVersion: SERVER_VERSION,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
         imageUrl: user.identity ? user.identity.imageUrl : null,
@@ -472,7 +483,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(400).send("Missing handle");
         return;
       }
-      const reply: CheckHandleResponse = { valid: false, inUse: false };
+      const reply: CheckHandleResponse = {
+        serverVersion: SERVER_VERSION,
+        valid: false,
+        inUse: false
+      };
       if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
         response.json(reply);
         return;

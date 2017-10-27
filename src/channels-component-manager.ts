@@ -16,6 +16,7 @@ import { ChannelComponentDescriptor, ChannelComponentResponse, EnsureChannelComp
 import { RestHelper } from "./rest-helper";
 import * as mkdirp from 'mkdirp';
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
+import { SERVER_VERSION } from "./server-version";
 import * as url from 'url';
 
 const bower = require('bower');
@@ -330,6 +331,7 @@ export class ChannelsComponentManager implements RestServer {
       throw new ErrorWithStatusCode(400, "The channel-component.json file in this package has an invalid value for developerFraction.  It must be between 0 and 1.");
     }
     const componentResponse: ChannelComponentResponse = {
+      serverVersion: SERVER_VERSION,
       source: pkgInfo.endpoint.source,
       importHref: this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/' + pkgInfo.pkgMeta.main,
       package: pkgInfo,
