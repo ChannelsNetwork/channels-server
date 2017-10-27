@@ -18,6 +18,7 @@ import * as uuid from "uuid";
 import { SignedObject } from "./interfaces/signed-object";
 import { bank } from "./bank";
 import { networkEntity } from "./network-entity";
+import { SERVER_VERSION } from "./server-version";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -81,6 +82,7 @@ export class FeedManager implements Initializable, RestServer {
       }
       console.log("FeedManager.get-feed", requestBody.detailsObject);
       const reply: GetFeedResponse = {
+        serverVersion: SERVER_VERSION,
         feeds: []
       };
       const promises: Array<Promise<CardFeedSet>> = [];

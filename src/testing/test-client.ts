@@ -457,15 +457,9 @@ class TestClient implements RestServer {
       text: "hello world",
       private: false,
       openFeeUnits: 1,
-      state: {
-        user: {
-          properties: {},
-          collections: {}
-        },
-        shared: {
-          properties: { hello: "world" },
-          collections: {}
-        }
+      sharedState: {
+        properties: { hello: "world" },
+        collections: {}
       }
     };
     const detailsString = JSON.stringify(details);

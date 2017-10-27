@@ -191,7 +191,11 @@
               onLoaded();
               let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
               cardNode.data = this.data.summary;
-              this.$.cardView.appendChild(cardNode);
+              cardNode.delegate = {};  // TODO
+              $core.getCard(this.data.id).then((cardResponse) => {
+                cardNode.sharedState = cardResponse.card.state.shared;
+                this.$.cardView.appendChild(cardNode);
+              });
               // console.log("package info", packageInfo, JSON.stringify(this.data.summary));
             }, (err) => {
               onLoaded();

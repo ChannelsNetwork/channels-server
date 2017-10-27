@@ -9,6 +9,7 @@ import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { NewsItemRecord } from "./interfaces/db-records";
+import { SERVER_VERSION } from "./server-version";
 
 const NEWS_ITEMS: NewsItemRecord[] = [{
   id: "1",
@@ -60,6 +61,7 @@ export class NewsManager implements RestServer {
       console.log("NewsManager.handleGetNews", requestBody.detailsObject.address);
       const items = await db.findNewsItems(requestBody.detailsObject.maxCount);
       const reply: GetNewsResponse = {
+        serverVersion: SERVER_VERSION,
         items: []
       };
       for (const item of items) {
