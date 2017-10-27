@@ -105,7 +105,7 @@
         window.addEventListener('channels-server-version-change', () => {
           this.$.reloadingPanel.style.display = "";
           setTimeout(() => {
-            window.location.reload(true);
+            window.location.reload();
           }, 3000);
         });
       }

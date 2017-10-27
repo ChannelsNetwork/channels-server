@@ -165,6 +165,7 @@ export class Bank implements RestServer, Initializable {
 
       const userStatus = await userManager.getUserStatus(user);
       const reply: BankWithdrawResponse = {
+        serverVersion: SERVER_VERSION,
         paidAmount: paidAmount,
         currency: details.withdrawalRecipient.currency,
         feeAmount: feeAmount,
