@@ -1,8 +1,9 @@
 <link rel="import" href="../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../bower_components/soso-pages/soso-pages.html">
+<link rel="import" href="core/core.html">
 <link rel="import" href="app-styles2.html">
 <link rel="import" href="hash-router.js">
-<link rel="import" href="app-bar.html">
+<link rel="import" href="app-bar.html" async>
 
 <dom-module id="main-app">
   <template>
@@ -42,6 +43,7 @@
         top: 0;
       }
     </style>
+    <channels-core></channels-core>
     <hash-router id="router" on-route-change="onRouteChange"></hash-router>
     <div id="shell">
       <div id="spacer" class="hidden"></div>
@@ -56,6 +58,7 @@
       constructor() {
         super();
         window.$app = this;
+        window.$core = new CoreService();
       }
 
       connectedCallback() {

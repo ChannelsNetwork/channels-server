@@ -148,25 +148,19 @@
         super.connectedCallback();
         this.balance = "ℂ0.000";
         this.iconMap = window._channelIcons;
-
-        // if ($core.registration) {
-        //   this._refreshBalance($core.registration);
-        // }
-        // window.addEventListener("channels-registration", (event) => {
-        //   var reg = event.detail;
-        //   if (reg) {
-        //     this._refreshBalance(reg);
-        //   }
-        // });
-        // window.addEventListener("channels-profile", (event) => {
-        //   this._refreshSignIn();
-        // });
-        // window.addEventListener("channels-user-status", (event) => {
-        //   this._refreshBalance();
-        // });
-        // setInterval(() => {
-        //   this._refreshBalance();
-        // }, 1000);
+        window.addEventListener("channels-registration", (event) => {
+          this._refreshBalance();
+        });
+        window.addEventListener("channels-profile", (event) => {
+          this._refreshSignIn();
+        });
+        window.addEventListener("channels-user-status", (event) => {
+          this._refreshBalance();
+        });
+        setInterval(() => {
+          this._refreshBalance();
+        }, 1000);
+        this._refreshBalance();
       }
 
       _refreshSignIn() {
