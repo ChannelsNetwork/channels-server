@@ -9,7 +9,9 @@ export interface RestRequest<T extends Signable> {
   signature: string;
 }
 
-export interface RestResponse { }
+export interface RestResponse {
+  appVersion: number;
+}
 
 export interface RegisterUserDetails extends Signable {
   publicKey: string;
