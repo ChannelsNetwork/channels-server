@@ -15,7 +15,16 @@ class RestService {
           }
         } else {
           if (request.responseText) {
-            resolve(JSON.parse(request.responseText));
+            const result = JSON.parse(request.responseText);
+            if (result.serverVersion) {
+              if (this._lastServerVersion && this._lastServerVersion !== result.serverVersion) {
+                const oldVersion = this._lastServerVersion;
+                this._lastServerVersion = result.serverVersion;
+                window.dispatchEvent(new CustomEvent('channels-server-version-change', { bubbles: true, composed: true, detail: { oldVersion: oldVersion, newVersion: result.serverVersion } }));
+              }
+              this._lastServerVersion = result.serverVersion;
+            }
+            resolve(result);
           } else {
             resolve(null);
           }
@@ -196,7 +205,7 @@ class RestUtils {
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10
       coupon: coupon,                   // signed BankCouponDetails
-      state: initialState               // { user: {properties: {...}, collections: {...}}, shared: {properties: {...}, collections: {...}}}
+      sharedState: initialState         // {properties: {...}, collections: {...}}
     };
     if (budgetAmount || budgetPlusPercent) {
       result.budget = {

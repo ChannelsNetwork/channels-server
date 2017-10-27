@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -15,6 +15,7 @@ export class Database {
   private mutationIndexes: Collection;
   private mutations: Collection;
   private cardProperties: Collection;
+  private cardCollections: Collection;
   private cardCollectionItems: Collection;
   private files: Collection;
   private newsItems: Collection;
@@ -42,6 +43,7 @@ export class Database {
     await this.initializeMutationIndexes();
     await this.initializeMutations();
     await this.initializeCardProperties();
+    await this.initializeCardCollections();
     await this.initializeCardCollectionItems();
     await this.initializeFiles();
     await this.initializeNewsItems();
@@ -146,6 +148,11 @@ export class Database {
   private async initializeCardProperties(): Promise<void> {
     this.cardProperties = this.db.collection('cardProperties');
     await this.cardProperties.createIndex({ cardId: 1, group: 1, user: 1, name: 1 }, { unique: true });
+  }
+
+  private async initializeCardCollections(): Promise<void> {
+    this.cardCollections = this.db.collection('cardCollections');
+    await this.cardCollections.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1 }, { unique: true });
   }
 
   private async initializeCardCollectionItems(): Promise<void> {
@@ -759,6 +766,25 @@ export class Database {
     await this.cardProperties.deleteOne({ cardId: cardId, group: group, user: user, name: name });
   }
 
+  async insertCardCollection(cardId: string, group: CardStateGroup, user: string, collectionName: string, keyField?: string): Promise<CardCollectionRecord> {
+    const now = Date.now();
+    const record: CardCollectionRecord = {
+      cardId: cardId,
+      group: group,
+      user: user,
+      collectionName: collectionName
+    };
+    if (keyField) {
+      record.keyField = keyField;
+    }
+    await this.cardCollections.insert(record);
+    return record;
+  }
+
+  async findCardCollections(cardId: string, group: CardStateGroup, user: string): Promise<CardCollectionRecord[]> {
+    return await this.cardCollections.find<CardCollectionRecord>({ cardId: cardId, group: group, user: user }).toArray();
+  }
+
   async insertCardCollectionItem(cardId: string, group: CardStateGroup, user: string, collectionName: string, key: string, index: number, value: any): Promise<CardCollectionItemRecord> {
     const now = Date.now();
     const record: CardCollectionItemRecord = {
@@ -811,8 +837,8 @@ export class Database {
     return await this.cardCollectionItems.findOne({ cardId: cardId, group: group, user: user, collectionName: collectionName, key: key });
   }
 
-  async findCardCollectionItems(cardId: string, group: CardStateGroup, user: string): Promise<CardCollectionItemRecord[]> {
-    return await this.cardCollectionItems.find<CardCollectionItemRecord>({ cardId: cardId, group: group, user: user }).sort({ collectionName: 1, index: 1 }).toArray();
+  async findCardCollectionItems(cardId: string, group: CardStateGroup, user: string, collectionName: string): Promise<CardCollectionItemRecord[]> {
+    return await this.cardCollectionItems.find<CardCollectionItemRecord>({ cardId: cardId, group: group, user: user, collectionName: collectionName }).sort({ index: 1 }).toArray();
   }
 
   async findFirstCardCollectionItemRecordBeforeIndex(cardId: string, group: CardStateGroup, user: string, collectionName: string, beforeIndex: number): Promise<CardCollectionItemRecord> {
