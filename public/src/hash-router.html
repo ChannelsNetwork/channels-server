@@ -22,7 +22,8 @@
             notify: true,
             observer: 'onRoute'
           },
-          context: Object
+          context: Object,
+          animation: String
         };
       }
 
@@ -44,7 +45,7 @@
         });
       }
 
-      goto(segments, context) {
+      goto(segments, context, animation) {
         if (segments) {
           if (!Array.isArray(segments)) {
             segments = [segments];
@@ -61,6 +62,7 @@
           }
         }
         this.context = context || null;
+        this.animation = animation || null;
         window.location.assign(hash);
       }
 
@@ -75,7 +77,8 @@
         }
         this.set("route", {
           segments: segments,
-          context: this.context
+          context: this.context,
+          animation: this.animation
         });
       }
     }

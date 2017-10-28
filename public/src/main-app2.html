@@ -66,11 +66,16 @@
     <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
     <div id="shell">
       <soso-pages id="pages">
+        <div class="page"></div>
+        <sign-in-view class="signin page" data-href="account/sign-in-view.html"></sign-in-view>
+        <request-recovery-view class="request-recovery page" data-href="account/request-recovery-view.html"></request-recovery-view>
+        <recover-account-view class="recover page" data-href="account/recover-account-view.html"></recover-account-view>
+
         <div id="feed" class="feed page">
           <h1>Feed</h1>
         </div>
         <test-one class="test1 page" data-href="test/test-one.html"></test-one>
-        <test-two class="test2 page" data-toolbar="true" data-animation-in="slide-from-bottom" data-animation-out="shift-down" data-href="test/test-two.html"></test-two>
+        <test-two class="test2 page" data-toolbar="true" data-animation-in="slide-from-bottom" data-href="test/test-two.html"></test-two>
       </soso-pages>
     </div>
     <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
@@ -162,13 +167,17 @@
 
         const showToolbar = activePage.dataset.toolbar == "true";
         const pageHref = activePage.dataset.href;
-        let animation = activePage.dataset.animationIn || "dissolve";
-        if (this._lastPage) {
-          let lpa = this._lastPage.dataset.animationOut;
-          if (lpa) {
-            animation = lpa;
+        let animation = route.animation;
+        if (!animation) {
+          if (this._lastPage) {
+            let lpa = this._lastPage.dataset.animationOut;
+            if (lpa) {
+              animation = lpa;
+            }
           }
         }
+        animation = animation || activePage.dataset.animationIn || "dissolve";
+
         this.$.pages.animation = animation;
         this.setBarVisible(showToolbar);
 
