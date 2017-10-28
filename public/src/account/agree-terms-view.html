@@ -1,0 +1,117 @@
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+
+<dom-module id="agree-terms-view">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -ms-flex-direction: column;
+        -webkit-flex-direction: column;
+        flex-direction: column;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      #content {
+        max-width: 700px;
+        padding: 15px;
+        margin: 0 auto;
+      }
+
+      .logoPanel {
+        padding-right: 40px;
+        width: 200px;
+        height: 200px;
+      }
+
+      .logo {
+        display: block;
+        height: 100%;
+        box-sizing: border-box;
+        width: auto;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: white;
+      }
+
+      a,
+      a:hover,
+      a:visited {
+        color: var(--bg-yellow);
+      }
+
+      soso-checkbox {
+        --soso-checkbox-color: var(--bg-yellow);
+        --soso-checkbox-width: 2em;
+        --soso-checkbox-height: 2em;
+        letter-spacing: 0.05em;
+      }
+
+      @media (max-width: 550px) {
+        .logoPanel {
+          padding: 0 0 20px;
+          width: 100px;
+          height: 100px;
+        }
+        #content {
+          padding: 10px;
+          -ms-flex-direction: column;
+          -webkit-flex-direction: column;
+          flex-direction: column;
+          -ms-flex-align: left;
+          -webkit-align-items: left;
+          align-items: left;
+        }
+      }
+    </style>
+    <div class="flex"></div>
+    <div>
+      <div id="content" class="horizontal layout center">
+        <div class="logoPanel">
+          <img class="logo" alt="channels" src="/s/images/logos/logo_200.png">
+        </div>
+        <div class="flex">
+          <h1>Welcome to Channels</h1>
+          <p>We've setup an account for you. Agree to our
+            <a href="/d/terms.html" target="_blank">terms and conditions</a> to proceed.</p>
+          <p>
+            <soso-checkbox id="agree" label="I agree and I'm not a robot." on-change="_onChecked"></soso-checkbox>
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="flex"></div>
+  </template>
+  <script>
+    class AgreeTermsView extends Polymer.Element {
+      static get is() { return 'agree-terms-view'; }
+      reset() {
+        if (this.$.agree) {
+          this.$.agree.checked = false;
+          this.$.agree.style.pointerEvents = "auto";
+        }
+      }
+      _onChecked() {
+        if (this.$.agree.checked) {
+          this.$.agree.style.pointerEvents = "none";
+          setTimeout(() => {
+            this.dispatchEvent(new CustomEvent('tncs-agreed', { bubbles: true, composed: true }));
+          }, 500);
+        }
+      }
+    }
+    window.customElements.define(AgreeTermsView.is, AgreeTermsView);
+  </script>
+</dom-module>

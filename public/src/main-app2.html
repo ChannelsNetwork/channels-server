@@ -37,7 +37,7 @@
         top: 0;
         left: 0;
         right: 0;
-        transition: top 0.3s ease;
+        z-index: 2;
       }
 
       #reloadingPanel {
@@ -64,17 +64,17 @@
       }
     </style>
     <channels-core></channels-core>
-    <hash-router id="router" on-route-change="onRouteChange"></hash-router>
+    <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
     <div id="shell">
       <soso-pages id="pages">
-        <div class="feed page">
+        <div id="feed" class="feed page">
           <h1>Feed</h1>
         </div>
         <test-one class="test1 page" data-href="test/test-one.html"></test-one>
-        <test-two class="test2 page" data-animation-in="slide-from-bottom" data-animation-out="shift-down" data-href="test/test-two.html"></test-two>
+        <test-two class="test2 page" data-toolbar="true" data-animation-in="slide-from-bottom" data-animation-out="shift-down" data-href="test/test-two.html"></test-two>
       </soso-pages>
     </div>
-    <app-bar id="toolbar"></app-bar>
+    <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
     <div id="reloadingPanel" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
     </div>
@@ -104,8 +104,28 @@
         });
       }
 
-      onRouteChange(event) {
-        this._handleRouteChange(event.detail.route);
+      _onRouteChange(event) {
+        if ($core.hasKeys() && $core.isAgreedToTnCs()) {
+          this._handleRouteChange(event.detail.route);
+        } else {
+          this._pendingRoute = event.detail.route;
+          this.setBarVisible(true);
+          $core.register();
+          requestAnimationFrame(() => {
+            this.$.toolbar.setPendingMode(true);
+          });
+        }
+      }
+
+      _onTermsAgreed() {
+        this.$.toolbar.setPendingMode(false);
+        $core.agreeToTnCs();
+        requestAnimationFrame(() => {
+          if (this._pendingRoute) {
+            this._handleRouteChange(this._pendingRoute);
+            this._pendingRoute = null;
+          }
+        });
       }
 
       _handleRouteChange(route) {

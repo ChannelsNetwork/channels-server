@@ -6,11 +6,20 @@
         display: block;
         background: #213034;
         color: white;
+        height: 60px;
+        transition: top 0.3s ease, height 0.5s ease;
+        position: relative;
       }
 
       #container {
         height: 60px;
         padding: 0 0 0 16px;
+        transition: opacity 0.3s ease;
+      }
+
+      .mute {
+        pointer-events: none;
+        opacity: 0;
       }
 
       .logo {
@@ -133,6 +142,7 @@
         <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
       </a>
     </div>
+    <agree-terms-view id="terms" class="hidden"></agree-terms-view>
   </template>
   <script>
     class AppBar extends Polymer.Element {
@@ -140,7 +150,8 @@
       static get properties() {
         return {
           balance: String,
-          iconMap: Object
+          iconMap: Object,
+          _pending: Boolean
         };
       }
 
@@ -214,6 +225,32 @@
         if (matches.length) {
           for (var i = 0; i < matches.length; i++) {
             matches[i].classList.add("selected");
+          }
+        }
+      }
+
+      setPendingMode(value) {
+        if (value != this._pending) {
+          this._pending = value;
+          if (this._pending) {
+            this.style.height = "100vh";
+            this.$.container.classList.add("mute");
+            Polymer.importHref(this.resolveUrl('account/agree-terms-view.html'), () => {
+              this.$.terms.classList.remove('hidden');
+              this.$.terms.reset();
+              setTimeout(() => {
+                this.$.terms.style.opacity = 1;
+              }, 300);
+            });
+          } else {
+            this.style.height = "60px";
+            this.$.container.classList.remove("mute");
+            if (this.$.terms) {
+              this.$.terms.style.opacity = 0;
+              setTimeout(() => {
+                this.$.terms.classList.add('hidden');
+              }, 300);
+            }
           }
         }
       }
