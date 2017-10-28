@@ -136,13 +136,12 @@
           </div>
           <div class="buttons">
             <div>
-              <button class="link">I haven't registered yet</button>
+              <button class="link" on-click="_onRegister">I haven't registered yet</button>
             </div>
             <div style="margin-top: 7px;">
               <button class="link" on-click="_onRequestRecovery">I forgot my handle or password</button>
             </div>
           </div>
-
           <div id="progressPanel" class="fillContainer vertical layout hidden">
             <div class="flex"></div>
             <div>
@@ -258,6 +257,10 @@
             this._onSave();
           }, 5);
         }
+      }
+
+      _onRegister() {
+        $router.goto("register");
       }
 
       _onRequestRecovery() {
