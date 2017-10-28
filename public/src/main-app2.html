@@ -109,21 +109,25 @@
         } else {
           this._pendingRoute = event.detail.route;
           this.setBarVisible(true);
-          $core.register();
           requestAnimationFrame(() => {
             this.$.toolbar.setPendingMode(true);
           });
+          setTimeout(() => {
+            $core.register();
+          }, 500);
         }
       }
 
       _onTermsAgreed() {
         this.$.toolbar.setPendingMode(false);
-        $core.agreeToTnCs();
-        requestAnimationFrame(() => {
-          if (this._pendingRoute) {
-            this._handleRouteChange(this._pendingRoute);
-            this._pendingRoute = null;
-          }
+        $core.register().then(() => {
+          $core.agreeToTnCs();
+          requestAnimationFrame(() => {
+            if (this._pendingRoute) {
+              this._handleRouteChange(this._pendingRoute);
+              this._pendingRoute = null;
+            }
+          });
         });
       }
 
