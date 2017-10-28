@@ -187,15 +187,17 @@
         this._hideError();
         this._onInput();
 
-        let contextMessage = (route && route.context) ? route.context.message : "";
-        let returnRoute = (route && route.context) ? route.context.returnRoute : null;
+        let context = route ? route.context : null;
+        let contextMessage = context ? route.context.message : "";
+        let returnRoute = context ? route.context.returnRoute : null;
+        this._defaultReturnRoute = returnRoute ? false : true;
         this.returnRoute = returnRoute || { success: "account", cancel: "account" };
 
         $core.register().then(() => {
           this.subtitle = contextMessage;
           if ($core.profile && $core.profile.handle) {
             setTimeout(() => {
-              $router.goto("");
+              $router.goto(this.returnRoute.success);
             }, 600);
           } else {
             this.$.container.classList.add("containerShowing");
@@ -222,7 +224,11 @@
         let password = this.$.password.value.trim() || null;
         this._setMessage("Registering");
         $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
-          $router.goto(this.returnRoute.success);
+          if (this._defaultReturnRoute) {
+            $router.goto("register-photo", { returnRoute: this.returnRoute });
+          } else {
+            $router.goto(this.returnRoute.success);
+          }
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong when registering your handle.");
