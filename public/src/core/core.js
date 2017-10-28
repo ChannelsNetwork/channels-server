@@ -50,8 +50,11 @@ class StorageService {
   }
 }
 
-class CoreService {
+class CoreService extends Polymer.Element {
+  static get is() { return "core-service"; }
   constructor() {
+    super();
+    window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
 
@@ -574,3 +577,4 @@ class CoreService {
     });
   }
 }
+window.customElements.define(CoreService.is, CoreService);

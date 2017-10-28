@@ -63,7 +63,7 @@
         padding-top: 60px;
       }
     </style>
-    <channels-core></channels-core>
+    <core-service></core-service>
     <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
     <div id="shell">
       <soso-pages id="pages">
@@ -86,7 +86,6 @@
       constructor() {
         super();
         window.$app = this;
-        window.$core = new CoreService();
       }
 
       connectedCallback() {
