@@ -50,8 +50,12 @@
           right: 16px;
         }
       }
+
+      .fullBarSpace {
+        height: 100px;
+      }
     </style>
-    <div class="barspace"></div>
+    <div class="fullBarSpace"></div>
     <div class="header" style="display:none;">
       <div>
         <p>
@@ -125,7 +129,15 @@
           this.onResize();
           this._visibleCards = {};
           this.set('items', []);
-          return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
+          let feedName = "recommended";
+          let cardId = null;
+          if (route && route.segments && route.segments.length > 1) {
+            feedName = route.segments[1];
+          }
+          if (route && route.segments && route.segments.length > 2) {
+            cardId = route.segments[2];
+          }
+          return $core.getFeed(feedName, 25, cardId).then((cards) => {
             this.set('items', cards);
             this._timer = setInterval(() => {
               this._onTimer();
