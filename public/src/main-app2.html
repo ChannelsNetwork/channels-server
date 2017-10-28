@@ -1,9 +1,10 @@
 <link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/polymer/lib/utils/import-href.html">
 <link rel="import" href="../bower_components/soso-pages/soso-pages.html">
 <link rel="import" href="core/core.html">
 <link rel="import" href="app-styles2.html">
-<link rel="import" href="hash-router.js">
-<link rel="import" href="app-bar.html" async>
+<link rel="import" href="hash-router.html">
+<link rel="import" href="app-bar.html">
 
 <dom-module id="main-app">
   <template>
@@ -21,8 +22,8 @@
         position: relative;
       }
 
-      #spacer {
-        height: 60px;
+      .noscroll {
+        overflow: hidden !important;
       }
 
       soso-pages {
@@ -33,23 +34,50 @@
 
       app-bar {
         position: fixed;
-        top: -70px;
+        top: 0;
         left: 0;
         right: 0;
         transition: top 0.3s ease;
       }
 
-      app-bar {
+      #reloadingPanel {
+        position: fixed;
+        z-index: 100;
         top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        color: inherit;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        text-align: center;
+      }
+
+      .page {
+        background: white;
+        min-height: 100vh;
+      }
+
+      .page[data-toolbar="true"] {
+        padding-top: 60px;
       }
     </style>
     <channels-core></channels-core>
     <hash-router id="router" on-route-change="onRouteChange"></hash-router>
     <div id="shell">
-      <div id="spacer" class="hidden"></div>
-      <soso-pages id="pages"></soso-pages>
+      <soso-pages id="pages">
+        <div class="feed page">
+          <h1>Feed</h1>
+        </div>
+        <test-one class="test1 page" data-href="test/test-one.html"></test-one>
+        <test-two class="test2 page" data-animation-in="slide-from-bottom" data-animation-out="shift-down" data-href="test/test-two.html"></test-two>
+      </soso-pages>
     </div>
     <app-bar id="toolbar"></app-bar>
+    <div id="reloadingPanel" class="horizontal layout center hidden">
+      <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
+    </div>
   </template>
   <script>
     class MainApp extends Polymer.Element {
@@ -68,9 +96,93 @@
         if (tp) {
           tp.style.display = "none";
         }
+        window.addEventListener('channels-server-version-change', () => {
+          this.$.reloadingPanel.classList.remove("hidden");
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        });
       }
 
-      onRouteChange() {
+      onRouteChange(event) {
+        this._handleRouteChange(event.detail.route);
+      }
+
+      _handleRouteChange(route) {
+        let pageName = route.segments[0] || "feed";
+        pageName = pageName.trim();
+        const pages = this.shadowRoot.querySelectorAll(".page");
+        let activePage = this.shadowRoot.querySelector("." + pageName);
+        if (!activePage) {
+          activePage = this.$.feed;
+          pageName = "feed";
+        }
+        let activeIndex = 0;
+        for (let i = 0; i < pages.length; i++) {
+          if (activePage == pages[i]) {
+            activeIndex = i;
+            break;
+          }
+        }
+
+        // Notify prev page it's being hidden
+        if (this._lastPage) {
+          if (this._lastPage != activePage) {
+            this._lastPage.style.display = "";
+            if (this._lastPage.onDeactivate) {
+              try {
+                this._lastPage.onDeactivate();
+              } catch (err) { console.error("Error in page deactivate", err); }
+            }
+          }
+        }
+
+        const showToolbar = activePage.dataset.toolbar == "true";
+        const pageHref = activePage.dataset.href;
+        let animation = activePage.dataset.animationIn || "dissolve";
+        if (this._lastPage) {
+          let lpa = this._lastPage.dataset.animationOut;
+          if (lpa) {
+            animation = lpa;
+          }
+        }
+        this.$.pages.animation = animation;
+        this.setBarVisible(showToolbar);
+
+        this._lastPage = activePage;
+        const pageCallback = () => {
+          this.$.shell.classList.add('noscroll');
+          this.$.pages.selectedIndex = activeIndex;
+          setTimeout(() => {
+            if (activePage.onActivate) {
+              activePage.onActivate(route);
+            }
+          }, 10);
+          setTimeout(() => {
+            this.$.shell.classList.remove('noscroll');
+          }, 800);
+        };
+        if (pageHref) {
+          Polymer.importHref(this.resolveUrl(pageHref), pageCallback);
+        } else {
+          pageCallback();
+        }
+
+        // scroll to top
+        this.$.shell.scrollTop = 0;
+        // notify toolbar
+        this.$.toolbar.onRoute(route);
+
+        // notify analytics 
+        if (window.ga) {
+          try {
+            window.ga('send', 'pageview', "/" + pageName);
+          } catch (err) { }
+        }
+      }
+
+      setBarVisible(visible) {
+        this.$.toolbar.style.top = visible ? "0px" : "-70px";
       }
     }
     window.customElements.define(MainApp.is, MainApp);
