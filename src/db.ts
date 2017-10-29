@@ -110,6 +110,8 @@ export class Database {
     for (const u of noTarget) {
       await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
     }
+
+    await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
   }
 
   private async initializeCards(): Promise<void> {
@@ -270,7 +272,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -290,8 +292,12 @@ export class Database {
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
       storage: 0,
-      admin: false
+      admin: false,
+      ipAddresses: []
     };
+    if (ipAddress) {
+      record.ipAddresses.push(ipAddress);
+    }
     await this.users.insert(record);
     return record;
   }
@@ -462,6 +468,16 @@ export class Database {
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
     }
+  }
+
+  async addUserIpAddress(userRecord: UserRecord, ipAddress: string): Promise<void> {
+    await this.users.updateOne({ id: userRecord.id }, { $push: { ipAddresses: ipAddress } });
+    userRecord.ipAddresses.push(ipAddress);
+  }
+
+  async discardUserIpAddress(userRecord: UserRecord, ipAddress: string): Promise<void> {
+    await this.users.updateOne({ id: userRecord.id }, { $pull: { ipAddresses: ipAddress } });
+    userRecord.ipAddresses.splice(userRecord.ipAddresses.indexOf(ipAddress), 1);
   }
 
   async countUsersbalanceBelowTarget(): Promise<number> {
