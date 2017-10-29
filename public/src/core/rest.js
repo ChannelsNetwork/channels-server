@@ -157,12 +157,13 @@ class RestUtils {
     };
   }
 
-  static getFeedDetails(address, maxCount, type, startWithCardId) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedDetails(address, maxCount, type, startWithCardId) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
       feeds.push({ type: type, maxCount: maxCount });
     } else {
       feeds.push({ type: 'recommended', maxCount: maxCount });
+      feeds.push({ type: 'top', maxCount: maxCount });
       feeds.push({ type: 'new', maxCount: maxCount });
       feeds.push({ type: 'mine', maxCount: maxCount });
       feeds.push({ type: 'opened', maxCount: maxCount });

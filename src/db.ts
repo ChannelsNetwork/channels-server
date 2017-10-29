@@ -124,6 +124,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, "score": -1 });
     await this.cards.createIndex({ state: 1, "private": 1, "score": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "stats.revenue.value": -1 });
+    await this.cards.createIndex({ state: 1, "private": 1, "stats.revenue.value": -1 });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -688,6 +690,15 @@ export class Database {
       query.postedAt = { $gt: after };
     }
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
+  }
+
+  async findCardsByRevenue(maxCount: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    query.$or = [
+      { "by.id": userId },
+      { "private": false }
+    ];
+    return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByScore(limit: number, userId: string): Promise<CardRecord[]> {

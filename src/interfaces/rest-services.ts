@@ -137,7 +137,7 @@ export interface RequestedFeedDescriptor {
   maxCount: number;
 }
 
-export type CardFeedType = 'recommended' | 'new' | 'mine' | 'opened';
+export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened';
 
 export interface GetFeedResponse extends RestResponse {
   feeds: CardFeedSet[];

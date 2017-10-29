@@ -109,6 +109,9 @@ export class FeedManager implements Initializable, RestServer {
       case 'new':
         result.cards = await this.getRecentlyAddedFeed(user, feed.maxCount, startWithCardId);
         break;
+      case 'top':
+        result.cards = await this.getTopFeed(user, feed.maxCount, startWithCardId);
+        break;
       case 'mine':
         result.cards = await this.getRecentlyPostedFeed(user, feed.maxCount, startWithCardId);
         break;
@@ -177,6 +180,11 @@ export class FeedManager implements Initializable, RestServer {
 
   private async getRecentlyAddedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const cards = await db.findAccessibleCardsByTime(Date.now(), 0, limit, user.id);
+    return await this.populateCards(cards, user, startWithCardId);
+  }
+
+  private async getTopFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
+    const cards = await db.findCardsByRevenue(limit, user.id);
     return await this.populateCards(cards, user, startWithCardId);
   }
 

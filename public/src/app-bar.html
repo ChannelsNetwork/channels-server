@@ -149,6 +149,9 @@
         <a href="#feed/new">
           <button id="new">New</button>
         </a>
+        <a href="#feed/top">
+          <button id="top">Top</button>
+        </a>
         <a href="#feed/mine">
           <button id="mine">Mine</button>
         </a>
@@ -235,12 +238,17 @@
             this.$.feedsBar.style.display = "";
             this.$.recommended.classList.remove("selected");
             this.$.new.classList.remove("selected");
+            this.$.top.classList.remove("selected");
             this.$.mine.classList.remove("selected");
             this.$.opened.classList.remove("selected");
             if (route.segments.length > 1) {
               if (this.$[route.segments[1]]) {
                 this.$[route.segments[1]].classList.add("selected");
+              } else {
+                this.$.recommended.classList.add("selected");
               }
+            } else {
+              this.$.recommended.classList.add("selected");
             }
           }
         }
