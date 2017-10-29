@@ -19,7 +19,7 @@ const SUBSIDY_CONTRIBUTION_RATE = 10.00 / (1000 * 60 * 60 * 24);  // ℂ10/day f
 const SUBSIDY_CACHE_LIFETIME = 1000 * 60 * 60;
 const BASE_CARD_FEE_CACHE_LIFETIME = 1000 * 60 * 60;
 const CARD_OPENED_UPDATE_INTERVAL = 1000 * 60 * 60;
-const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24;
+const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24 * 3;
 const SUBSIDY_PERIOD = 1000 * 60 * 60 * 24;
 const MAXIMUM_BASE_CARD_FEE = 0.05;
 const MINIMUM_BASE_CARD_FEE = 0.001;
@@ -76,12 +76,12 @@ export class PriceRegulator implements Initializable {
   async getBaseCardFee(): Promise<number> {
     const now = Date.now();
     if (now - this.lastBaseCardFeeAt > BASE_CARD_FEE_CACHE_LIFETIME) {
-      const balance = await db.getSubsidyBalance();  // TODO: eventually to include advertising committed balance
       await this.ensureCurrentCardOpens();
       const currentCardOpens = await db.findCurrentCardOpens();
       if (currentCardOpens) {
         const pastCardOpens = await db.findFirstCardOpensBefore(now - BASE_CARD_FEE_PERIOD);
         const previousTotal = pastCardOpens ? pastCardOpens.total.units : 0;
+        const balance = await db.getSubsidyBalance();  // TODO: eventually to include purchased coins, withdrawn coins and withdrawable balance total
         this.lastBaseCardFee = Math.max(MINIMUM_BASE_CARD_FEE, Math.min(MAXIMUM_BASE_CARD_FEE, balance.balance / (Math.max(1, currentCardOpens.total.units - previousTotal))));
         this.lastBaseCardFeeAt = now;
         console.log("PriceRegulator.getBaseCardFee: baseCardFee updated", this.lastBaseCardFee);

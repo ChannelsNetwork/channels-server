@@ -32,6 +32,7 @@ const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
+const MAX_USER_IP_ADDRESSES = 12;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -104,8 +105,16 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.register-user", requestBody.detailsObject.address);
+      const ipAddress = request.headers['X-Forwarded-For'];
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
-      if (!userRecord) {
+      if (userRecord) {
+        if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
+          await db.addUserIpAddress(userRecord, ipAddress);
+          if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
+            await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
+          }
+        }
+      } else {
         const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
         let inviteeReward = 0;
         if (inviter && inviter.invitationsRemaining > 0) {
@@ -128,7 +137,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE, ipAddress);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder"
