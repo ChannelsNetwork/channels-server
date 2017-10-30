@@ -65,7 +65,7 @@
     </div>
     <div class="main">
       <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"
-        intersection-observer="[[intersectionObserver]]"></card-feed>
+        intersection-observer="[[intersectionObserver]]" channel-handle="[[channelHandle]]"></card-feed>
     </div>
     <paper-fab class="composeButton" icon="add" on-tap="onCompose"></paper-fab>
   </template>
@@ -75,7 +75,8 @@
       static get properties() {
         return {
           items: Array,
-          intersectionObserver: Object
+          intersectionObserver: Object,
+          channelHandle: String
         }
       }
 
@@ -130,10 +131,18 @@
           if (route && route.segments && route.segments.length > 1) {
             feedName = route.segments[1];
           }
-          if (route && route.segments && route.segments.length > 2) {
+          this.set('channelHandle', null);
+          if (feedName === 'channel') {
+            if (route && route.segments && route.segments.length > 2) {
+              this.set('channelHandle', route.segments[2]);
+              if (route.segments.length > 3) {
+                cardId = route.segments[3];
+              }
+            }
+          } else if (route && route.segments && route.segments.length > 2) {
             cardId = route.segments[2];
           }
-          return $core.getFeed(feedName, 25, cardId).then((cards) => {
+          return $core.getFeed(feedName, 25, cardId, this.channelHandle).then((cards) => {
             this.set('items', cards);
             this._timer = setInterval(() => {
               this._onTimer();

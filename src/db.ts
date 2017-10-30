@@ -274,7 +274,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -297,6 +297,15 @@ export class Database {
       admin: false,
       ipAddresses: []
     };
+    if (identity) {
+      if (!identity.emailAddress) {
+        delete identity.emailAddress;
+      }
+      if (!identity.handle) {
+        delete identity.handle;
+      }
+      record.identity = identity;
+    }
     if (ipAddress) {
       record.ipAddresses.push(ipAddress);
     }
