@@ -269,7 +269,7 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId) {
+            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId && (!this.channelHandle || this.channelHandle !== card.data.by.handle)) {
               $core.cardImpression(id, card.data.couponId);
               card.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
               card.onImpressionPaid();
