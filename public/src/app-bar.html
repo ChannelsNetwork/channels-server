@@ -240,20 +240,10 @@
             matches.push(im);
           }
           if (path === 'feed') {
-            this.$.feedsBar.classList.remove("hidden");
-            this.$.recommended.classList.remove("selected");
-            this.$.new.classList.remove("selected");
-            this.$.top.classList.remove("selected");
-            this.$.mine.classList.remove("selected");
-            this.$.opened.classList.remove("selected");
-            if (route.segments.length > 1) {
-              if (this.$[route.segments[1]]) {
-                this.$[route.segments[1]].classList.add("selected");
-              }
-            } else {
-              this.$.recommended.classList.add("selected");
-            }
+            this._showFeedsBar(route.segments[1] || "");
           }
+        } else {
+          this._showFeedsBar("");
         }
         if (this._prevMatches && this._prevMatches.length) {
           for (var i = 0; i < this._prevMatches.length; i++) {
@@ -265,6 +255,20 @@
           for (var i = 0; i < matches.length; i++) {
             matches[i].classList.add("selected");
           }
+        }
+      }
+
+      _showFeedsBar(subpath) {
+        this.$.feedsBar.classList.remove("hidden");
+        this.$.recommended.classList.remove("selected");
+        this.$.new.classList.remove("selected");
+        this.$.top.classList.remove("selected");
+        this.$.mine.classList.remove("selected");
+        this.$.opened.classList.remove("selected");
+        if (subpath && this.$[subpath]) {
+          this.$[subpath].classList.add("selected");
+        } else {
+          this.$.recommended.classList.add("selected");
         }
       }
 
