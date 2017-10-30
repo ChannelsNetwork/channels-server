@@ -141,11 +141,12 @@ class ChannelsNetworkWebClient {
     this.app.use('/OneSignalSDKWorker.js', express.static(path.join(__dirname, "../public/OneSignalSDKWorker.js"), { maxAge: 1000 * 60 * 60 * 24 }));
     this.app.use('/OneSignalSDKUpdaterWorker.js', express.static(path.join(__dirname, "../public/OneSignalSDKUpdaterWorker.js"), { maxAge: 1000 * 60 * 60 * 24 }));
 
+    this.app.use('/v' + SERVER_VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
+
     for (const restServer of this.restServers) {
       await restServer.initializeRestServices(this.urlManager, this.app);
     }
 
-    this.app.use('/v' + SERVER_VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 }));
     if (configuration.get('client.ssl')) {
       const privateKey = fs.readFileSync(configuration.get('ssl.key'), 'utf8');
