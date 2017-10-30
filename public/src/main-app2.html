@@ -67,19 +67,25 @@
     <div id="shell">
       <soso-pages id="pages">
         <div class="page"></div>
+        <!-- Signin and registartion pages -->
         <sign-in-view class="signin page" data-href="account/sign-in-view.html"></sign-in-view>
         <register-view class="register page" data-href="account/register-view.html"></register-view>
         <register-image-view class="register-photo page" data-href="account/register-image-view.html"></register-image-view>
         <request-recovery-view class="request-recovery page" data-href="account/request-recovery-view.html"></request-recovery-view>
         <recover-account-view class="recover page" data-href="account/recover-account-view.html"></recover-account-view>
+        <!-- Account Pages -->
         <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
         <edit-profile-view class="edit-profile page" data-href="account/edit-profile-view.html"></edit-profile-view>
-
-        <div id="feed" class="feed page">
-          <h1>Feed</h1>
-        </div>
-        <test-one class="test1 page" data-href="test/test-one.html"></test-one>
-        <test-two class="test2 page" data-toolbar="true" data-animation-in="slide-from-bottom" data-href="test/test-two.html"></test-two>
+        <!-- About Pages -->
+        <about-view class="about page" data-toolbar="true" data-href="about/about-view.html"></about-view>
+        <!-- Balance Pages -->
+        <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
+        <withdraw-dialog class="withdraw page" data-href="balance/withdraw-dialog.html"></withdraw-dialog>
+        <!-- Feed/Card Pages -->
+        <preview-page id="feed" class="feed page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
+        <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
+        <!-- Test pages -->
+        <test-page class="test page" data-href="test/test-page.html"></test-page>
       </soso-pages>
     </div>
     <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
@@ -219,6 +225,42 @@
 
       setBarVisible(visible) {
         this.$.toolbar.style.top = visible ? "0px" : "-70px";
+      }
+
+      get shell() {
+        return this.$.shell;
+      }
+
+      scrollTo(node, duration) {
+        return new Promise((resolve, reject) => {
+          var diff = node.getBoundingClientRect().top;
+          var iv = this.shell.scrollTop;
+          if (this._scrolling) {
+            this._scrolling = false;
+            this.shell.scrollTop = iv + diff;
+            resolve();
+          } else {
+            this._scrollAnimStart = 0;
+            this._scrolling = true;
+            var _step = (timestamp) => {
+              if (!this._scrolling) {
+                return;
+              }
+              if (!this._scrollAnimStart) {
+                this._scrollAnimStart = timestamp;
+              }
+              let progress = Math.min(1, Math.max(0, (timestamp - this._scrollAnimStart) / duration));
+              this.shell.scrollTop = iv + (diff * progress);
+              if (progress < 1) {
+                window.requestAnimationFrame(_step);
+              } else {
+                this._scrolling = false;
+                resolve();
+              }
+            };
+            requestAnimationFrame(_step);
+          }
+        });
       }
     }
     window.customElements.define(MainApp.is, MainApp);

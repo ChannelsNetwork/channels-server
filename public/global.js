@@ -17,6 +17,10 @@ var _debounce = function (func, wait, immediate) {
   }
 };
 
+var _friendlyTime = function (input) {
+  return input;
+};
+
 var _loadAnalytics = function () {
   setTimeout(() => {
     (function (i, s, o, g, r, a, m) {
