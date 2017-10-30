@@ -32,7 +32,7 @@ const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
-const MAX_USER_IP_ADDRESSES = 12;
+const MAX_USER_IP_ADDRESSES = 32;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -105,14 +105,20 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.register-user", requestBody.detailsObject.address);
-      const ipAddress = request.headers['X-Forwarded-For'];
+      const ipAddressHeader = request.headers['x-forwarded-for'];
       console.log("UserManager.register-user: ip address", request.headers);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
-        if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
-          await db.addUserIpAddress(userRecord, ipAddress);
-          if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
-            await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
+        if (ipAddressHeader) {
+          const ipAddresses = ipAddressHeader.split(',');
+          for (let ipAddress of ipAddresses) {
+            ipAddress = ipAddress.trim();
+            if (ipAddress.length > 0 && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
+              await db.addUserIpAddress(userRecord, ipAddress);
+              if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
+                await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
+              }
+            }
           }
         }
       } else {
