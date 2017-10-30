@@ -1,5 +1,7 @@
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="edit-profile-view">
   <template>
@@ -65,6 +67,7 @@
         font-size: 18px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
+        z-index: 2;
       }
 
       #errorPanel {
@@ -72,6 +75,7 @@
         text-align: center;
         border-radius: 3px;
         font-size: 16px;
+        z-index: 2;
       }
 
       #errorPanel button {
@@ -86,6 +90,37 @@
       soso-spinner {
         margin-bottom: 20px;
         margin-left: -10px;
+      }
+
+      soso-file-picker {
+        height: 130px;
+        width: 130px;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+        font-size: 13px;
+        color: #555;
+        border-radius: 50%;
+        position: relative;
+        z-index: 1;
+        font-weight: bold;
+      }
+
+      #userImage {
+        position: absolute;
+        top: 14px;
+        left: -1px;
+        width: 132px;
+        height: 132px;
+        pointer-events: none;
+      }
+
+      .darken {
+        background: rgba(0, 0, 0, 0.55);
+        color: white;
+        --soso-link-color: white;
+        border-color: white;
       }
 
       @media (max-width: 550px) {
@@ -123,6 +158,10 @@
         <div id="container" class="card">
           <div class="content">
             <h2>Edit Profile</h2>
+            <div style="padding: 15px 0; position: relative;">
+              <soso-file-picker id="filePicker" label="Drag an image" accept="image/*" on-files="_onFile"></soso-file-picker>
+              <user-image id="userImage" image="[[imageUrl]]"></user-image>
+            </div>
             <div>
               <soso-text-input id="name" label="Full name" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
               <soso-text-input id="email" type="email" label="Email address" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
@@ -158,16 +197,34 @@
       static get is() { return 'edit-profile-view'; }
       static get properties() {
         return {
-          message: String
+          message: String,
+          imageUrl: {
+            type: String,
+            observer: '_onImageSet'
+          }
         };
+      }
+
+      _onImageSet() {
+        if (this.imageUrl) {
+          this.$.filePicker.classList.add("darken");
+          this.$.userImage.style.opacity = 1;
+        } else {
+          this.$.filePicker.classList.remove("darken");
+          this.$.userImage.style.opacity = 0;
+        }
       }
 
       onActivate() {
         this.$.name.value = "";
         this.$.email.value = "";
+        this.$.filePicker.clear();
+        this.imageUrl = null;
+        this._file = null;
         this._hideMessage();
         this._hideError();
         this._onInput();
+        this._onImageSet();
         $core.register().then(() => {
           if (!($core.profile && $core.profile.handle)) {
             setTimeout(() => {
@@ -176,6 +233,8 @@
           } else {
             this.$.name.value = $core.profile.name || "";
             this.$.email.value = $core.profile.emailAddress || "";
+            this.imageUrl = $core.profile.imageUrl;
+            this._profileImage = $core.profile.imageUrl;
             this._onInput();
             this.$.container.classList.add("containerShowing");
             requestAnimationFrame(() => {
@@ -236,6 +295,53 @@
         }
       }
 
+      _onFile(event) {
+        let file = event.detail.file;
+        if (!file) {
+          this._file = null;
+          this.$.filePicker.clear();
+          this.imageUrl = this._profileImage;
+          return;
+        }
+        if (file.type.indexOf('image/') != 0) {
+          setTimeout(() => {
+            this.$.filePicker.clear();
+            this._file = null;
+            this.imageUrl = this._profileImage;
+            this._setError("Invalid image");
+          });
+        } else {
+          this._file = file;
+          this._readFile(file).then((dataUrl) => {
+            if (this._file) {
+              this.imageUrl = dataUrl;
+            }
+          }).catch((err) => {
+            this.$.filePicker.clear();
+            this._file = null;
+            this.imageUrl = this._profileImage;
+            console.error(err);
+            this._setError("Failed to load image file");
+          });
+        }
+      }
+
+      _readFile(file) {
+        return new Promise((resolve, reject) => {
+          let reader = new FileReader();
+          reader.addEventListener('load', () => {
+            resolve(reader.result);
+          });
+          reader.addEventListener("error", () => {
+            reject();
+          });
+          reader.addEventListener("abort", () => {
+            reject();
+          });
+          reader.readAsDataURL(file);
+        });
+      }
+
       _onSave() {
         this._onInput();
         if (this.$.btnSave.disabled) {
@@ -243,8 +349,24 @@
         }
         let name = this.$.name.value.trim();
         let email = this.$.email.value.trim();
-        this._setMessage("Saving profile");
-        $core.updateUserProfile(name, null, null, null, email, null).then(() => {
+        if (this._file) {
+          this._setMessage("Uploading image");
+          $core.uploadFile(this._file).then((fileInfo) => {
+            let url = fileInfo.url;
+            this._setMessage("Saving profile");
+            this._updateProfile(name, email, url);
+          }).catch((err) => {
+            console.error(err);
+            this._setError(err || "Oops. Something went wrong.");
+          });
+        } else {
+          this._setMessage("Saving profile");
+          this._updateProfile(name, email, null);
+        }
+      }
+
+      _updateProfile(name, email, imageUrl) {
+        $core.updateUserProfile(name, null, null, imageUrl, email, null).then(() => {
           $router.goto("account");
         }).catch((err) => {
           console.error(err);
