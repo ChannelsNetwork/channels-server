@@ -93,13 +93,8 @@
         }
       }
 
-      .mainBar {
-        height: 60px;
-        padding: 0 0 0 16px;
-      }
-
       #feedsBar {
-        padding: 0 0 0 16px;
+        padding: 0 16px;
         background-color: #333;
         height: 40px;
       }
@@ -149,6 +144,26 @@
           </button>
         </a>
       </div>
+      <a href="#balance">
+        <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
+      </a>
+    </div>
+    <div id="feedsBar" class="flex horizontal layout center hidden">
+      <a href="#feed/recommended">
+        <button id="recommended">Recommended</button>
+      </a>
+      <a href="#feed/new">
+        <button id="new">New</button>
+      </a>
+      <a href="#feed/top">
+        <button id="top">Top</button>
+      </a>
+      <a href="#feed/mine">
+        <button id="mine">Mine</button>
+      </a>
+      <a href="#feed/opened">
+        <button id="opened">Opened</button>
+      </a>
     </div>
     <agree-terms-view id="terms" class="hidden"></agree-terms-view>
   </template>
@@ -212,8 +227,8 @@
       }
 
       onRoute(route) {
+        this.$.feedsBar.classList.add("hidden");
         var path = route.segments[0];
-        this.$.feedsBar.style.display = "none";
         var matches = [];
         if (path) {
           let m = this.$[path];
@@ -225,7 +240,7 @@
             matches.push(im);
           }
           if (path === 'feed') {
-            this.$.feedsBar.style.display = "";
+            this.$.feedsBar.classList.remove("hidden");
             this.$.recommended.classList.remove("selected");
             this.$.new.classList.remove("selected");
             this.$.top.classList.remove("selected");

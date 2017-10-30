@@ -23,7 +23,7 @@ export interface UserRecord {
   storage: number;
   admin: boolean;
   recoveryCode?: string;
-  recoveryCodeExpires?: number; ,
+  recoveryCodeExpires?: number;
   ipAddresses: string[];
 }
 

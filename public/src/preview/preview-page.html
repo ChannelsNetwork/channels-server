@@ -18,16 +18,6 @@
         padding: 0 0 20px;
       }
 
-      .header {
-        padding: 20px;
-        max-width: 1180px;
-        margin: 0 auto;
-      }
-
-      .header div {
-        max-width: 800px;
-      }
-
       #feed {
         max-width: 1200px;
         margin: 0 auto;
@@ -42,28 +32,18 @@
         color: black;
       }
 
+      .spacer {
+        height: 50px;
+      }
+
       @media (max-width: 600px) {
-        .header {
-          padding: 5px 10px;
-          font-size: 14px;
-        }
         .composeButton {
           bottom: 24px;
           right: 16px;
         }
       }
     </style>
-    <div class="header" style="display:none;">
-      <div>
-        <p>
-          This is an example of what your feed will look like when we go live.
-        </p>
-        <p>
-          You can see a variety of cards, each with its own price tag. These cards do not yet have content but if they did, when you
-          tap on one, your balance would go down or up accordingly.
-        </p>
-      </div>
-    </div>
+    <div class="spacer"></div>
     <div class="main">
       <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"
         intersection-observer="[[intersectionObserver]]" channel-handle="[[channelHandle]]"></card-feed>
