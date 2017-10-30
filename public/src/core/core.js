@@ -4,19 +4,62 @@ const _CKeys = {
   AGREED_TERMS: "channels-terms-agreed"
 };
 
-class CoreService extends Polymer.Element {
-  static get is() { return "channels-core"; }
+class StorageService {
+  getItem(key, json) {
+    const result = this._getItemFromStorage(window.localStorage, key, json);
+    if (result) {
+      return result;
+    }
+    return this._getItemFromStorage(window.sessionStorage, key, json);
+  }
 
+  _getItemFromStorage(storage, key, json) {
+    if (storage) {
+      let stored = storage.getItem(key) || null;
+      if (json) {
+        if (stored) {
+          return JSON.parse(stored);
+        }
+        return null;
+      }
+      return stored;
+    } else {
+      return null;
+    }
+  }
+
+  setItem(key, value, trust) {
+    this.clearItem(key);
+    const storage = trust ? window.localStorage : window.sessionStorage;
+    if (storage) {
+      if (typeof value === "string") {
+        storage.setItem(key, value);
+      } else {
+        storage.setItem(key, JSON.stringify(value));
+      }
+    }
+  }
+
+  clearItem(key) {
+    if (window.localStorage) {
+      window.localStorage.removeItem(key);
+    }
+    if (window.sessionStorage) {
+      window.sessionStorage.removeItem(key);
+    }
+  }
+}
+
+class CoreService extends Polymer.Element {
+  static get is() { return "core-service"; }
   constructor() {
     super();
-    window.$core = this;
     this.restBase = document.getElementById('restBase').getAttribute('href') || "";
     this.publicBase = document.getElementById('publicBase').getAttribute("href") || "";
 
     // child services
     this.storage = new StorageService();
     this.rest = new RestService();
-    this.dummy = new DummyService(this);
     this.cardManager = new CardManager(this);
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
@@ -289,7 +332,7 @@ class CoreService extends Polymer.Element {
   }
 
   getCard(cardId) {
-    let details = RestUtils.GetCardDetails(this._keys.address, cardId);
+    let details = RestUtils.getCardDetails(this._keys.address, cardId);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card";
     return this.rest.post(url, request);
@@ -532,6 +575,5 @@ class CoreService extends Polymer.Element {
       this._fire("channels-user-status", this._userStatus);
     });
   }
-
 }
 window.customElements.define(CoreService.is, CoreService);

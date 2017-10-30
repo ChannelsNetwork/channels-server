@@ -20,7 +20,10 @@ class RestService {
               if (this._lastServerVersion && this._lastServerVersion !== result.serverVersion) {
                 const oldVersion = this._lastServerVersion;
                 this._lastServerVersion = result.serverVersion;
-                window.dispatchEvent(new CustomEvent('channels-server-version-change', { bubbles: true, composed: true, detail: { oldVersion: oldVersion, newVersion: result.serverVersion } }));
+                var versionChangeEvent = new CustomEvent('channels-server-version-change', { bubbles: true, composed: true, detail: { oldVersion: oldVersion, newVersion: result.serverVersion } });
+                setTimeout(() => {
+                  window.dispatchEvent(versionChangeEvent);
+                }, 1);
               }
               this._lastServerVersion = result.serverVersion;
             }
@@ -149,7 +152,7 @@ class RestUtils {
     };
   }
 
-  static EnsureChannelComponentDetails(address, packageName) {
+  static ensureComponentDetails(address, packageName) {
     return {
       package: packageName,
       address: address,
@@ -183,15 +186,7 @@ class RestUtils {
     };
   }
 
-  static ensureComponentDetails(address, packageName) {
-    return {
-      address: address,
-      timestamp: RestUtils.now(),
-      package: packageName                 // e.g., "ChannelsNetwork/card-hello-world"
-    };
-  }
-
-  static GetCardDetails(address, cardId) {
+  static getCardDetails(address, cardId) {
     return {
       address: address,
       timestamp: RestUtils.now(),

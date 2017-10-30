@@ -1,0 +1,94 @@
+<dom-module id="user-image">
+  <template>
+    <style>
+      :host {
+        display: -ms-inline-flexbox;
+        display: -webkit-inline-flex;
+        display: inline-flex;
+        -ms-flex-align: center;
+        -webkit-align-items: center;
+        align-items: center;
+        -ms-flex-pack: center;
+        -webkit-justify-content: center;
+        justify-content: center;
+        position: relative;
+        vertical-align: middle;
+        width: 90px;
+        height: 90px;
+      }
+
+      #panel {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        border-radius: 50%;
+        background-color: #f8f8f8;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+      }
+
+      .hasImage {
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      .noImage {
+        border: 1px solid #e5e5e5;
+      }
+
+      .noImage::after {
+        content: 'No Photo';
+        font-size: 12px;
+        text-transform: capitalize;
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        top: 50%;
+        margin-top: -9px;
+        color: #555;
+      }
+    </style>
+    <div id="panel"></div>
+  </template>
+  <script>
+    class UserImage extends Polymer.Element {
+      static get is() { return 'user-image'; }
+      static get properties() {
+        return {
+          image: {
+            type: String,
+            observer: '_refresh'
+          }
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._refresh();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _refresh() {
+        if (!this._attached) {
+          return;
+        }
+        if (this.image) {
+          this.$.panel.style.backgroundImage = 'url("' + this.image + '")';
+          this.$.panel.classList.add("hasImage");
+          this.$.panel.classList.remove("noImage");
+        } else {
+          this.$.panel.style.backgroundImage = null;
+          this.$.panel.classList.remove("hasImage");
+          this.$.panel.classList.add("noImage");
+        }
+      }
+    }
+    window.customElements.define(UserImage.is, UserImage);
+  </script>
+</dom-module>

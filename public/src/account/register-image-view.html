@@ -1,8 +1,7 @@
-<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
-<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 
-<dom-module id="recover-account-view">
+<dom-module id="register-image-view">
   <template>
     <style is="custom-style" include="app-styles2">
       :host {
@@ -42,14 +41,6 @@
         padding: 40px;
       }
 
-      soso-text-input {
-        margin-top: 10px;
-      }
-
-      soso-checkbox {
-        margin-top: 20px;
-      }
-
       .bar {
         padding: 10px 16px;
       }
@@ -80,13 +71,18 @@
         background: var(--error-color);
       }
 
-      #errorButtons {
+      .panelButtons {
         margin-top: 20px;
       }
 
       soso-spinner {
         margin-bottom: 20px;
         margin-left: -10px;
+      }
+
+      soso-file-picker {
+        margin: 30px 0 0;
+        min-height: 140px;
       }
 
       @media (max-width: 550px) {
@@ -123,18 +119,15 @@
       <div class="optflex">
         <div id="container" class="card">
           <div class="content">
-            <h2>Recover Account</h2>
-            <p>When you receive your recovery code and handle, enter them here, and choose a new password.</p>
+            <h2>Upload your photo</h2>
+            <p>People get more traction on social media if they use a real photo as an avatar.</p>
             <div>
-              <soso-text-input id="code" label="Recovery code" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-text-input id="handle" label="Handle" placeholder="Your handle" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-text-input id="password" type="password" label="New password" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-checkbox id="trust" checked label="Remember my password"></soso-checkbox>
+              <soso-file-picker id="filePicker" label="Drag an image file" accept="image/*" on-files="_onFile"></soso-file-picker>
             </div>
           </div>
           <div class="buttons">
-            <button style="margin-right: 10px;" on-click="_onCancel">Cancel</button>
-            <button id="btnSave" on-click="_onSave">Sign In</button>
+            <button style="margin-right: 10px;" on-click="_onCancel">Skip</button>
+            <button id="btnSave" on-click="_onSave">Save</button>
           </div>
           <div id="progressPanel" class="fillContainer vertical layout hidden">
             <div class="flex"></div>
@@ -142,12 +135,15 @@
               <soso-spinner id="spinner"></soso-spinner>
             </div>
             <div>[[message]]</div>
+            <div class="panelButtons">
+              <button id="btnCancel" on-click="_onCancel">Cancel</button>
+            </div>
             <div class="flex"></div>
           </div>
           <div id="errorPanel" class="fillContainer vertical layout hidden">
             <div class="flex"></div>
             <div>[[message]]</div>
-            <div id="errorButtons">
+            <div class="panelButtons">
               <button id="btnOk" on-click="_hideError">OK</button>
             </div>
             <div class="flex"></div>
@@ -158,38 +154,44 @@
     </div>
   </template>
   <script>
-    class RecoverAccountView extends Polymer.Element {
-      static get is() { return "recover-account-view"; }
-
+    class RegisterImageView extends Polymer.Element {
+      static get is() { return 'register-image-view'; }
       static get properties() {
         return {
           message: String
         };
       }
 
-      onActivate() {
-        this.$.code.value = "";
-        this.$.handle.value = "";
-        this.$.password.value = "";
+      onActivate(route) {
+        this.$.filePicker.clear();
+        this._file = null;
         this._hideMessage();
         this._hideError();
         this._onInput();
-        $core.register().then((info) => {
-          if ($core.profile && $core.profile.handle) {
+        let returnRoute = (route && route.context) ? route.context.returnRoute : null;
+        this.returnRoute = returnRoute || { success: "account", cancel: "account" };
+        $core.register().then(() => {
+          if (!($core.profile && $core.profile.handle)) {
             setTimeout(() => {
-              $router.goto("");
+              $router.goto(this.returnRoute.success);
             }, 600);
           } else {
             this.$.container.classList.add("containerShowing");
-            requestAnimationFrame(() => {
-              this.$.code.input.focus();
-            });
           }
         });
       }
 
       onDeactivate() {
         this.$.container.classList.remove("containerShowing");
+      }
+
+      _onInput() {
+        let valid = this._file ? true : false;
+        this.$.btnSave.disabled = !valid;
+      }
+
+      _onCancel() {
+        $router.goto(this.returnRoute.success);
       }
 
       _hideMessage() {
@@ -222,8 +224,24 @@
         }
       }
 
-      _onCancel() {
-        $router.goto("");
+      _onFile(event) {
+        let file = event.detail.file;
+        if (!file) {
+          this._file = null;
+          this._onInput();
+          return;
+        }
+        if (file.type.indexOf('image/') != 0) {
+          setTimeout(() => {
+            this.$.filePicker.clear();
+            this._file = null;
+            this._onInput();
+            this._setError("Invalid image");
+          });
+        } else {
+          this._file = file;
+          this._onInput();
+        }
       }
 
       _onSave() {
@@ -231,31 +249,20 @@
         if (this.$.btnSave.disabled) {
           return;
         }
-
-        let code = this.$.code.value.trim();
-        let handle = this.$.handle.value.trim();
-        this._setMessage("Signing in");
-        $core.recoverUser(code, handle, this.$.password.value.trim(), this.$.trust.checked).then(() => {
-          $router.goto("");
+        let file = this._file;
+        this._setMessage("Uploading image");
+        $core.uploadFile(file).then((fileInfo) => {
+          let url = fileInfo.url;
+          this._setMessage("Saving profile");
+          return $core.updateUserProfile(null, null, null, url, null, null, null).then(() => {
+            $router.goto(this.returnRoute.success);
+          });
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong.");
         });
       }
-
-      _onInput() {
-        let valid = this.$.code.value && this.$.code.value.trim().length > 0 && this.$.handle.value && this.$.handle.value.trim().length > 0 && this.$.password.value && this.$.password.value.trim().length > 0 ? true : false;
-        this.$.btnSave.disabled = !valid;
-      }
-
-      _onKeyDown(event) {
-        if (event.keyCode === 13) {
-          setTimeout(() => {
-            this._onSave();
-          }, 5);
-        }
-      }
     }
-    window.customElements.define(RecoverAccountView.is, RecoverAccountView);
+    window.customElements.define(RegisterImageView.is, RegisterImageView);
   </script>
 </dom-module>
