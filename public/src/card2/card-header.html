@@ -1,0 +1,125 @@
+<link rel="import" href="../channel-icons.html">
+
+<dom-module id="card-header">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      .bar {
+        padding: 10px;
+        background: #fafafa;
+        font-size: 13px;
+      }
+
+      #authorImage {
+        background: #f0f0f0;
+        width: 40px;
+        height: 40px;
+        border-radius: 100%;
+        margin-right: 10px;
+      }
+
+      #timestamp {
+        font-size: 11px;
+      }
+
+      #revenue {
+        color: var(--highlight-green);
+        font-weight: bold;
+        font-size: 14px;
+        margin-right: 5px;
+      }
+
+      soso-icon {
+        color: #808080;
+      }
+
+      #privateIcon {
+        width: 16px;
+        height: 16px;
+        margin: 0 0 0 5px;
+      }
+    </style>
+    <div class="horizontal layout center bar">
+      <img id="authorImage">
+      <div class="flex vertical layout">
+        <div class="authorName">[[data.by.name]]</div>
+        <div id="timestamp">[[data.postedAtDisplay]]</div>
+      </div>
+      <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
+      <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+    </div>
+  </template>
+  <script>
+    class CardHeader extends Polymer.Element {
+      static get is() { return 'card-header'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_refresh'
+          },
+          iconMap: Object
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this.iconMap = window._channelIcons;
+        this._refresh();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _refresh() {
+        if (this._attached && this.data) {
+          if (!this.data.postedAtDisplay) {
+            this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
+          }
+          if (this._imagesLoaded) {
+            this.loadImages();
+          }
+          if (this.data.pricing.openFeeUnits === 0) {
+            this.$.revenue.classList.add("hidden");
+          } else {
+            this.$.revenue.classList.remove("hidden");
+          }
+          this._refreshRevenue();
+          this._refreshPrivate();
+        }
+      }
+
+      loadImages() {
+        if (!this._imagesLoaded) {
+          this._imagesLoaded = true;
+          this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+        }
+      }
+
+      _refreshRevenue() {
+        if (this.data) {
+          this.set("data.stats.revenueDisplay", this.data.stats.revenue.toFixed(2));
+        }
+      }
+
+      _refreshPrivate() {
+        if (this.data && this.data.private) {
+          this.$.privateIcon.classList.remove("hidden");
+        } else {
+          this.$.privateIcon.classList.add("hidden");
+        }
+      }
+
+      onPrivateUpdated() {
+        this._refreshPrivate();
+      }
+    }
+    window.customElements.define(CardHeader.is, CardHeader);
+  </script>
+</dom-module>

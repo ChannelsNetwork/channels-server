@@ -1,4 +1,4 @@
-<link rel="import" href="card-view.html">
+<link rel="import" href="../card2/card-view.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
 
@@ -30,8 +30,9 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"
-            on-card-deleted="_onCardDeleted" channel-handle="[[channelHandle]]"></card-view>
+          <card-view data="[[item]]" on-impression="_onImpression"></card-view>
+          <!-- <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"
+            on-card-deleted="_onCardDeleted" channel-handle="[[channelHandle]]"></card-view> -->
         </template>
       </dom-repeat>
     </div>
@@ -59,6 +60,14 @@
           '--grid-card-height': ht + "px",
           '--card-img-height': imgHt
         });
+      }
+
+      _onImpression(event) {
+        event.stopPropagation();
+        let card = event.model.item;
+        if (card) {
+          this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true, detail: { card: card } }));
+        }
       }
 
       connectedCallback() {
