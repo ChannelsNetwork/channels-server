@@ -186,7 +186,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(registerResponse);
     } catch (err) {
       console.error("User.handleRegisterUser: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -217,7 +217,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleRegisterDevice: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -240,7 +240,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleSignIn: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -269,7 +269,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   //     response.json(reply);
   //   } catch (err) {
   //     console.error("User.handleRegisterDevice: Failure", err);
-  //     response.status(500).send(err);
+  //     response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
   //   }
   // }
 
@@ -290,7 +290,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(result);
     } catch (err) {
       console.error("User.handleStatus: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -348,7 +348,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateIdentity: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -395,7 +395,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleRequestRecoveryCode: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -448,7 +448,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(result);
     } catch (err) {
       console.error("User.handleRecoverUser: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -472,7 +472,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetIdentity: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -514,7 +514,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleCheckHandle: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 

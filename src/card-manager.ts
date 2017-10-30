@@ -141,7 +141,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(card.id, true, user);
+      const cardState = await this.populateCardState(card.id, true, false, user);
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
         card: cardState
@@ -149,7 +149,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetCard: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -192,7 +192,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handlePostCard: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -259,6 +259,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+        const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable);
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
@@ -271,7 +273,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardImpression: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -301,7 +303,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardOpened: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -352,6 +354,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
+      const newBudgetAvailable = card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent;
+      if (card.budget && card.budget.available !== newBudgetAvailable) {
+        await db.updateCardBudgetAvailable(card, newBudgetAvailable);
+      }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         serverVersion: SERVER_VERSION,
@@ -362,7 +368,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardPay: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -420,6 +426,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+      const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+      await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
@@ -432,7 +440,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleRedeemCardOpen: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -458,7 +466,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardClosed: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -530,7 +538,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateCardLike: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -562,7 +570,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateCardPrivate: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -589,7 +597,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleDeleteCard: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -630,7 +638,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardStatHistory: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -905,7 +913,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(cardId, false, user);
+    const cardDescriptor = await this.populateCardState(cardId, false, false, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -930,7 +938,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, includeState: boolean, user?: UserRecord): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -969,6 +977,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFeeUnits: record.pricing.openFeeUnits,
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
+        promoted: promoted,
         couponId: record.couponId,
         stats: {
           revenue: record.stats.revenue.value,

@@ -39,7 +39,7 @@ export class MediumManager implements RestServer {
       await this.loadMedium(url, response);
     } catch (err) {
       console.error("Medium.handleMediumLoad: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 

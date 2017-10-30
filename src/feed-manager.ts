@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
@@ -19,6 +19,7 @@ import { SignedObject } from "./interfaces/signed-object";
 import { bank } from "./bank";
 import { networkEntity } from "./network-entity";
 import { SERVER_VERSION } from "./server-version";
+import * as LRU from 'lru-cache';
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -42,12 +43,21 @@ const SCORE_CARD_CONTROVERSY_DOUBLING = 100;
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
 const CARD_SCORE_RANDOM_WEIGHT = 0.5;
+const MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.05;
+const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 1;
+const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
+const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
   private highScoreCards: CardDescriptor[] = [];
   private lastHighScoreCardsAt = 0;
+
+  private adCardsCache: CardRecord[] = [];
+  private lastAdCardsCacheUpdated = 0;
+  private userCardCache = LRU<string, UserCardInfoRecord>({ max: 20000, maxAge: 1000 * 60 * 5 });
+
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
   }
@@ -93,7 +103,7 @@ export class FeedManager implements Initializable, RestServer {
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetFeed: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -124,7 +134,120 @@ export class FeedManager implements Initializable, RestServer {
       default:
         throw new Error("Unhandled feed type " + feed.type);
     }
+
     return result;
+  }
+
+  // This determines how many ad slots should appear in the user's feed and where the first slot will appear
+  private positionAdSlots(user: UserRecord, cardCount: number): AdSlotInfo {
+    if (user.balance > user.targetBalance || cardCount === 0) {
+      return { slotCount: 0, slotSeparation: 0, firstSlotIndex: 0 };
+    }
+    const revenueNeedRatio = 1 - user.balance / user.targetBalance;
+    const adRatio = MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO + (MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO - MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO) * revenueNeedRatio;
+    const slotCount = Math.max(Math.round(cardCount * adRatio), 1);
+    const firstSlotIndex = Math.round((1 / adRatio) * (1 - revenueNeedRatio));
+    const slotSeparation = Math.ceil(1 / adRatio);
+    return {
+      slotCount: slotCount,
+      slotSeparation: slotSeparation,
+      firstSlotIndex: firstSlotIndex
+    };
+  }
+
+  // This essentially runs an auction for ad slots and picks the top N cards
+  private async getAdCards(user: UserRecord): Promise<CardRecord[]> {
+    const cards = await this.getAvailableAdCards();
+    const promises: Array<Promise<UserCardInfoRecord>> = [];
+    for (const card of cards) {
+      promises.push(this.getUserCardInfo(user.id, card.id, false));
+    }
+    const userCardInfos = await Promise.all(promises);
+    const candidates: AdCandidate[] = [];
+    for (let i = 0; i < cards.length; i++) {
+      if (cards[i].budget.available && (!userCardInfos[i] || userCardInfos[i].earnedFromAuthor === 0)) {
+        const candidate: AdCandidate = {
+          card: cards[i],
+          adScore: this.computeAdScore(user, cards[i], userCardInfos[i]),
+          userCard: userCardInfos[i]
+        };
+        candidates.push(candidate);
+        // console.log("FeedManager.getAdCards: Ad", cards[i].summary.title, candidate.adScore);
+      }
+    }
+    candidates.sort((a, b) => {
+      return b.adScore - a.adScore;
+    });
+    const resultCards: CardRecord[] = [];
+    for (const c of candidates) {
+      resultCards.push(c.card);
+    }
+    return resultCards;
+  }
+
+  private async getUserCardInfo(userId: string, cardId: string, force: boolean): Promise<UserCardInfoRecord> {
+    const key = userId + '/' + cardId;
+    let entry = this.userCardCache.get(key);
+    if (force || typeof entry === 'undefined') {
+      entry = await db.findUserCardInfo(userId, cardId);
+      if (!force || entry) {
+        this.userCardCache.set(key, entry ? entry : null);
+      }
+    }
+    return entry;
+  }
+
+  private async getAvailableAdCards(): Promise<CardRecord[]> {
+    if (Date.now() - this.lastAdCardsCacheUpdated > MAX_AD_CARD_CACHE_LIFETIME) {
+      this.adCardsCache = await db.findRevenueGeneratingCards(2500);
+    }
+    return this.adCardsCache;
+  }
+
+  private computeAdScore(user: UserRecord, card: CardRecord, userCardInfo: UserCardInfoRecord): number {
+    let openProbability = card.pricing.openFeeUnits > 0 ? 0.2 : 0.02;
+    if (card.stats.uniqueImpressions.value > 50) {
+      openProbability = Math.max(card.pricing.openFeeUnits > 0 ? 0.01 : 0.0001, card.stats.uniqueOpens.value / card.stats.uniqueImpressions.value);
+    }
+    const revenuePotential = card.pricing.promotionFee + card.pricing.openPayment * openProbability;
+    const needRevenueRatio = 1 - user.balance / user.targetBalance;
+    // We reduce the score for recently viewed cards;
+    const ageFactor = userCardInfo && userCardInfo.lastImpression ? 1 - Math.pow(2, -(Date.now() - userCardInfo.lastImpression) / AD_IMPRESSION_HALF_LIFE) : 1;
+    // TODO: Theoretically, the second term may need a multiplier to normalize openProbability to similar units as revenuePotential
+    const score = ageFactor * (needRevenueRatio * revenuePotential + (1 - needRevenueRatio) * openProbability);
+    return score;
+  }
+
+  private async mergeWithAdCards(user: UserRecord, cards: CardDescriptor[]): Promise<CardDescriptor[]> {
+    // Now we have to inject ad slots if necessary, and populate those ad slots with cards that offer
+    // the user some revenue-generating potential
+    const adSlots = this.positionAdSlots(user, cards.length);
+    if (adSlots.slotCount > 0) {
+      const adCards = await this.getAdCards(user);
+      const maxAdCards = Math.min(adSlots.slotCount, adCards.length);
+      const amalgamated: CardDescriptor[] = [];
+      let adIndex = 0;
+      let cardIndex = 0;
+      let slotIndex = 0;
+      let nextAdIndex = adSlots.firstSlotIndex;
+      while (adIndex < maxAdCards || cardIndex < cards.length) {
+        if (slotIndex >= nextAdIndex && adIndex < adCards.length) {
+          const adDescriptor = await this.populateCard(adCards[adIndex++], true, user);
+          amalgamated.push(adDescriptor);
+          nextAdIndex += adSlots.slotSeparation;
+          // We flush this ad from the userCard cache, because if we get an impression, we don't want
+          // to depend on the cached version which won't have the impression recorded
+          this.userCardCache.del(user.id + '/' + adDescriptor.id);
+          console.log("FeedManager.mergeWithAdCards: Populating ad: ", adDescriptor.summary.title);
+        } else if (cardIndex < cards.length) {
+          amalgamated.push(cards[cardIndex++]);
+        }
+        slotIndex++;
+      }
+      return amalgamated;
+    } else {
+      return cards;
+    }
   }
 
   private async getRecommendedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
@@ -133,7 +256,7 @@ export class FeedManager implements Initializable, RestServer {
     // the highest overall scores (determined independent of any one user).  For each of these cards, we
     // adjust the scores based on factors that are specific to this user.  And we add a random variable
     // resulting in some churn across the set.  Then we take the top N based on how many were requested.
-    const highScores = await this.getCardsWithHighestScores(user, startWithCardId);
+    const highScores = await this.getCardsWithHighestScores(user, false, startWithCardId);
     const promises: Array<Promise<CardWithUserScore>> = [];
     for (const highScore of highScores) {
       if (user.address !== highScore.by.address) {
@@ -155,17 +278,17 @@ export class FeedManager implements Initializable, RestServer {
         break;
       }
     }
-    return result;
+    return await this.mergeWithAdCards(user, result);
   }
 
-  private async getCardsWithHighestScores(user: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
+  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, startWithCardId?: string): Promise<CardDescriptor[]> {
     const now = Date.now();
     if (now - this.lastHighScoreCardsAt < HIGH_SCORE_CARD_CACHE_LIFE) {
       return this.highScoreCards;
     }
     this.lastHighScoreCardsAt = now;
-    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT, user.id);
-    this.highScoreCards = await this.populateCards(cards, user, startWithCardId);
+    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT, user.id, ads);
+    this.highScoreCards = await this.populateCards(cards, false, user, startWithCardId);
     return this.highScoreCards;
   }
 
@@ -182,18 +305,21 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getRecentlyAddedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const cards = await db.findAccessibleCardsByTime(Date.now(), 0, limit, user.id);
-    return await this.populateCards(cards, user, startWithCardId);
+    const cards = await db.findAccessibleCardsByTime(Date.now(), 0, limit, user.id, false);
+    const result = await this.populateCards(cards, false, user, startWithCardId);
+    return await this.mergeWithAdCards(user, result);
   }
 
   private async getTopFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const cards = await db.findCardsByRevenue(limit, user.id);
-    return await this.populateCards(cards, user, startWithCardId);
+    const result = await this.populateCards(cards, false, user, startWithCardId);
+    return await this.mergeWithAdCards(user, result);
   }
 
   private async getRecentlyPostedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, user.id, false);
-    return await this.populateCards(cards, user, startWithCardId);
+    const result = await this.populateCards(cards, false, user, startWithCardId);
+    return await this.mergeWithAdCards(user, result);
   }
 
   private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId?: string): Promise<CardDescriptor[]> {
@@ -202,7 +328,8 @@ export class FeedManager implements Initializable, RestServer {
     if (author) {
       cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, author.id, true);
     }
-    return await this.populateCards(cards, user, startWithCardId);
+    const result = await this.populateCards(cards, false, user, startWithCardId);
+    return await this.mergeWithAdCards(user, result);
   }
 
   private async getRecentlyOpenedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
@@ -214,10 +341,11 @@ export class FeedManager implements Initializable, RestServer {
         cards.push(card);
       }
     }
-    return await this.populateCards(cards, user, startWithCardId);
+    const result = await this.populateCards(cards, false, user, startWithCardId);
+    return await this.mergeWithAdCards(user, result);
   }
 
-  private async populateCards(cards: CardRecord[], user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
+  private async populateCards(cards: CardRecord[], promoted: boolean, user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
     const promises: Array<Promise<CardDescriptor>> = [];
     const orderedCards: CardRecord[] = [];
     let found = false;
@@ -236,10 +364,14 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     for (const card of orderedCards) {
-      promises.push(cardManager.populateCardState(card.id, false, user));
+      promises.push(cardManager.populateCardState(card.id, false, promoted, user));
     }
     const result = await Promise.all(promises);
     return result;
+  }
+
+  private async populateCard(card: CardRecord, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
+    return await cardManager.populateCardState(card.id, false, promoted, user);
   }
 
   private async poll(): Promise<void> {
@@ -657,4 +789,16 @@ export interface UserWithKeyUtils {
 interface CouponInfo {
   signedObject: SignedObject;
   id: string;
+}
+
+interface AdSlotInfo {
+  slotCount: number;
+  slotSeparation: number;
+  firstSlotIndex: number;
+}
+
+interface AdCandidate {
+  card: CardRecord;
+  userCard: UserCardInfoRecord;
+  adScore: number;
 }

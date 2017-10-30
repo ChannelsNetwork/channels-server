@@ -179,7 +179,7 @@ export class Bank implements RestServer, Initializable {
       response.json(reply);
     } catch (err) {
       console.error("Bank.handleWithdraw: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -215,7 +215,7 @@ export class Bank implements RestServer, Initializable {
       response.json(reply);
     } catch (err) {
       console.error("Bank.handleStatement: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 

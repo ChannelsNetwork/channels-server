@@ -23,7 +23,7 @@ export interface UserRecord {
   storage: number;
   admin: boolean;
   recoveryCode?: string;
-  recoveryCodeExpires?: number; ,
+  recoveryCodeExpires?: number;
   ipAddresses: string[];
 }
 
@@ -79,6 +79,7 @@ export interface CardRecord {
     royaltyFraction: number;
   };
   pricing: {
+    hasReaderRevenue: boolean;
     promotionFee: number;
     openPayment: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10
@@ -89,6 +90,7 @@ export interface CardRecord {
     amount: number;
     plusPercent: number;
     spent: number;
+    available: boolean;
   };
   stats: CardStatistics;
   score: number;
