@@ -1,73 +1,153 @@
-<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 
 <dom-module id="request-recovery-view">
   <template>
-    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles2">
       :host {
         display: block;
-        background: white;
-        color: black;
+        background: var(--bg-dark) !important;
       }
 
       .shell {
         min-height: 100vh;
       }
 
-      #container,
-      #progressPanel {
-        max-width: 400px;
+      .card {
+        position: relative;
+        max-width: 500px;
         width: 100%;
-        padding: 16px;
         margin: 0 auto;
         box-sizing: border-box;
+        background: white;
+        font-size: 16px;
+        opacity: 0;
+        transform: translateY(200px);
+        transition: transform 0.8s ease, opacity 0.4s ease;
       }
 
-      #progressPanel {
-        text-align: center;
-        font-size: 20px;
-      }
-
-      text-input {
-        margin-top: 20px;
+      .containerShowing {
+        opacity: 1;
+        transform: none;
       }
 
       .buttons {
         text-align: right;
-        padding: 30px 0 5px;
+        padding: 16px 40px;
+        border-top: 1px solid #e8e8e8;
       }
 
-      paper-checkbox {
-        margin: 15px 0;
+      .content {
+        padding: 40px;
       }
 
-      .morePanel {
-        margin: 25px 0;
-        font-size: 14px;
+      soso-text-input {
+        margin-top: 10px;
       }
 
-      .moreOption {
-        margin: 20px 0;
+      .bar {
+        padding: 10px 16px;
+      }
+
+      .logo {
+        display: block;
+        height: 40px;
+      }
+
+      #progressPanel {
+        background: rgba(255, 255, 255, 0.97);
+        text-align: center;
+        border-radius: 3px;
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      #errorPanel {
+        background: rgba(255, 255, 255, 0.97);
+        text-align: center;
+        border-radius: 3px;
+        font-size: 16px;
+      }
+
+      #errorPanel button {
+        min-width: 80px;
+        background: var(--error-color);
+      }
+
+      #errorButtons {
+        margin-top: 20px;
+      }
+
+      soso-spinner {
+        margin-bottom: 20px;
+        margin-left: -10px;
+      }
+
+      @media (max-width: 550px) {
+        .dialog .card {
+          box-shadow: none;
+        }
+        .card {
+          border-radius: 0;
+        }
+        .content {
+          padding: 20px 16px;
+        }
+        .buttons {
+          padding: 16px;
+        }
+        .spacer {
+          display: none;
+        }
+        .optflex {
+          -ms-flex: 1 1 0.000000001px;
+          -webkit-flex: 1;
+          flex: 1;
+          -webkit-flex-basis: 0.000000001px;
+          flex-basis: 0.000000001px;
+          background: white;
+        }
       }
     </style>
-    <div class="shell horizontal layout center">
-      <div id="container">
-        <h2>Request Account Recovery</h2>
-        <p>If you've forgotten your handle and/or password, you can recover your account, as long as you provided an email address
-          in your profile.</p>
-        <div>
-          <paper-input id="handleOrEmail" label="Handle or email address" on-input="_onInput"></paper-input>
+    <div class="shell vertical layout dialog">
+      <div class="bar">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+      </div>
+      <div class="flex spacer"></div>
+      <div class="optflex">
+        <div id="container" class="card">
+          <div class="content">
+            <h2>Request Account Recovery</h2>
+            <p>If you've forgotten your handle and/or password, you can recover your account, as long as you provided an email
+              address in your profile.</p>
+            <div>
+              <soso-text-input id="handleOrEmail" label="Handle or email address" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
+            </div>
+          </div>
           <div class="buttons">
-            <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
-            <button id="btnSave" on-click="_onSave" disabled>Request</button>
+            <button style="margin-right: 10px;" on-click="_onCancel">Cancel</button>
+            <button id="btnSave" on-click="_onSave">Request</button>
+          </div>
+          <div id="progressPanel" class="fillContainer vertical layout hidden">
+            <div class="flex"></div>
+            <div>
+              <soso-spinner id="spinner"></soso-spinner>
+            </div>
+            <div>[[message]]</div>
+            <div class="flex"></div>
+          </div>
+          <div id="errorPanel" class="fillContainer vertical layout hidden">
+            <div class="flex"></div>
+            <div>[[message]]</div>
+            <div id="errorButtons">
+              <button id="btnOk" on-click="_hideError">OK</button>
+            </div>
+            <div class="flex"></div>
           </div>
         </div>
       </div>
-      <div id="progressPanel" style="display: none;">
-        <p>[[progress]]</p>
-        <p id="errorPanel" style="display: none;">
-          <button on-click="_onOk">OK</button>
-        </p>
-      </div>
+      <div class="flex spacer"></div>
     </div>
   </template>
   <script>
@@ -76,31 +156,60 @@
 
       static get properties() {
         return {
-          progress: String
+          message: String
         };
       }
 
       onActivate() {
         this.$.handleOrEmail.value = "";
+        this._hideMessage();
+        this._hideError();
+        this._onInput();
         $core.register().then((info) => {
           if ($core.profile && $core.profile.handle) {
-            $router.goto("");
+            setTimeout(() => {
+              $router.goto("");
+            }, 600);
+          } else {
+            this.$.container.classList.add("containerShowing");
+            requestAnimationFrame(() => {
+              this.$.handleOrEmail.input.focus();
+            });
           }
-          this._hideProgress();
-          this.$.handleOrEmail.focus();
-          this._onInput();
         });
       }
 
-      _progress(progress, error) {
-        if (progress) {
-          this.set("progress", progress);
-          this.$.errorPanel.style.display = error ? "" : "none";
-          this.$.progressPanel.style.display = "";
-          this.$.container.style.display = "none";
+      onDeactivate() {
+        this.$.container.classList.remove("containerShowing");
+      }
+
+      _hideMessage() {
+        this._setMessage(null);
+      }
+
+      _hideError() {
+        this._setError(null);
+      }
+
+      _setMessage(message) {
+        if (message) {
+          this._hideError();
+          this.message = message;
+          this.$.spinner.spinning = true;
+          this.$.progressPanel.classList.remove("hidden");
         } else {
-          this.$.progressPanel.style.display = "none";
-          this.$.container.style.display = "";
+          this.$.spinner.spinning = false;
+          this.$.progressPanel.classList.add("hidden");
+        }
+      }
+
+      _setError(message) {
+        if (message) {
+          this._hideMessage();
+          this.message = message;
+          this.$.errorPanel.classList.remove("hidden");
+        } else {
+          this.$.errorPanel.classList.add("hidden");
         }
       }
 
@@ -109,22 +218,22 @@
       }
 
       _onSave() {
-        let handleOrEmail = this.$.handleOrEmail.value.trim();
+        this._onInput();
+        if (this.$.btnSave.disabled) {
+          return;
+        }
 
+        let handleOrEmail = this.$.handleOrEmail.value.trim();
         const email = $core.isValidEmail(handleOrEmail) ? handleOrEmail : null;
         const handle = $core.isValidEmail(handleOrEmail) ? null : handleOrEmail;
-        this._progress("Checking...");
+        this._setMessage("Validating");
 
         $core.requestRecoveryCode(handle, email).then(() => {
           $router.goto("recover");
         }).catch((err) => {
           console.error(err);
-          this._progress(err || "Oops. Something went wrong.", true);
+          this._setError(err || "Oops. Something went wrong.", true);
         });
-      }
-
-      _hideProgress() {
-        this._progress(null);
       }
 
       _onInput() {
@@ -132,8 +241,12 @@
         this.$.btnSave.disabled = !valid;
       }
 
-      _onOk() {
-        this._hideProgress();
+      _onKeyDown(event) {
+        if (event.keyCode === 13) {
+          setTimeout(() => {
+            this._onSave();
+          }, 5);
+        }
       }
     }
     window.customElements.define(RequestRecoveryView.is, RequestRecoveryView);

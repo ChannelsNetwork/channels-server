@@ -1,10 +1,12 @@
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../card/card-feed.html">
 <link rel="import" href="../../bower_components/paper-fab/paper-fab.html">
 <link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../app-icons.html">
 
 <dom-module id="preview-page">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles2">
       :host {
         display: block;
         background: #fafafa;
@@ -14,16 +16,6 @@
 
       .main {
         padding: 0 0 20px;
-      }
-
-      .header {
-        padding: 20px;
-        max-width: 1180px;
-        margin: 0 auto;
-      }
-
-      .header div {
-        max-width: 800px;
       }
 
       #feed {
@@ -40,29 +32,18 @@
         color: black;
       }
 
+      .spacer {
+        height: 50px;
+      }
+
       @media (max-width: 600px) {
-        .header {
-          padding: 5px 10px;
-          font-size: 14px;
-        }
         .composeButton {
           bottom: 24px;
           right: 16px;
         }
       }
     </style>
-    <div class="fullbarspace"></div>
-    <div class="header" style="display:none;">
-      <div>
-        <p>
-          This is an example of what your feed will look like when we go live.
-        </p>
-        <p>
-          You can see a variety of cards, each with its own price tag. These cards do not yet have content but if they did, when you
-          tap on one, your balance would go down or up accordingly.
-        </p>
-      </div>
-    </div>
+    <div class="spacer"></div>
     <div class="main">
       <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"
         intersection-observer="[[intersectionObserver]]" channel-handle="[[channelHandle]]"></card-feed>

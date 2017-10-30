@@ -1,8 +1,9 @@
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
-<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="../controls/user-image.html">
 
-<dom-module id="register-view">
+<dom-module id="edit-profile-view">
   <template>
     <style is="custom-style" include="app-styles2">
       :host {
@@ -66,6 +67,7 @@
         font-size: 18px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
+        z-index: 2;
       }
 
       #errorPanel {
@@ -73,6 +75,7 @@
         text-align: center;
         border-radius: 3px;
         font-size: 16px;
+        z-index: 2;
       }
 
       #errorPanel button {
@@ -87,6 +90,37 @@
       soso-spinner {
         margin-bottom: 20px;
         margin-left: -10px;
+      }
+
+      soso-file-picker {
+        height: 130px;
+        width: 130px;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+        font-size: 13px;
+        color: #555;
+        border-radius: 50%;
+        position: relative;
+        z-index: 1;
+        font-weight: bold;
+      }
+
+      #userImage {
+        position: absolute;
+        top: 14px;
+        left: -1px;
+        width: 132px;
+        height: 132px;
+        pointer-events: none;
+      }
+
+      .darken {
+        background: rgba(0, 0, 0, 0.55);
+        color: white;
+        --soso-link-color: white;
+        border-color: white;
       }
 
       @media (max-width: 550px) {
@@ -123,24 +157,19 @@
       <div class="optflex">
         <div id="container" class="card">
           <div class="content">
-            <h2>Register</h2>
-            <p id="subtitle" class="hidden">[[subtitle]]</p>
+            <h2>Edit Profile</h2>
+            <div style="padding: 15px 0; position: relative;">
+              <soso-file-picker id="filePicker" label="Drag an image" accept="image/*" on-files="_onFile"></soso-file-picker>
+              <user-image id="userImage" image="[[imageUrl]]"></user-image>
+            </div>
             <div>
-              <soso-text-input id="handle" label="Handle" placeholder="Your Channels handle" on-input="_onHandleInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-text-input id="password" type="password" label="Password" placeholder="Your password" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
               <soso-text-input id="name" label="Full name" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
               <soso-text-input id="email" type="email" label="Email address" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-checkbox id="trust" checked label="Remember my password"></soso-checkbox>
             </div>
           </div>
           <div class="buttons">
             <button style="margin-right: 10px;" on-click="_onCancel">Cancel</button>
             <button id="btnSave" on-click="_onSave">Save</button>
-          </div>
-          <div class="buttons">
-            <div>
-              <button class="link" on-click="_onSignIn">I already have an account</button>
-            </div>
           </div>
           <div id="progressPanel" class="fillContainer vertical layout hidden">
             <div class="flex"></div>
@@ -164,45 +193,52 @@
     </div>
   </template>
   <script>
-    class RegisterView extends Polymer.Element {
-      static get is() { return 'register-view'; }
+    class EditProfileView extends Polymer.Element {
+      static get is() { return 'edit-profile-view'; }
       static get properties() {
         return {
           message: String,
-          subtitle: {
+          imageUrl: {
             type: String,
-            observer: '_onSubtitle'
+            observer: '_onImageSet'
           }
         };
       }
 
-      onActivate(route) {
-        this._handleValid = false;
-        this.subtitle = "";
-        this.$.handle.value = "";
-        this.$.password.value = "";
+      _onImageSet() {
+        if (this.imageUrl) {
+          this.$.filePicker.classList.add("darken");
+          this.$.userImage.style.opacity = 1;
+        } else {
+          this.$.filePicker.classList.remove("darken");
+          this.$.userImage.style.opacity = 0;
+        }
+      }
+
+      onActivate() {
         this.$.name.value = "";
         this.$.email.value = "";
+        this.$.filePicker.clear();
+        this.imageUrl = null;
+        this._file = null;
         this._hideMessage();
         this._hideError();
         this._onInput();
-
-        let context = route ? route.context : null;
-        let contextMessage = context ? route.context.message : "";
-        let returnRoute = context ? route.context.returnRoute : null;
-        this._defaultReturnRoute = returnRoute ? false : true;
-        this.returnRoute = returnRoute || { success: "account", cancel: "account" };
-
+        this._onImageSet();
         $core.register().then(() => {
-          this.subtitle = contextMessage;
-          if ($core.profile && $core.profile.handle) {
+          if (!($core.profile && $core.profile.handle)) {
             setTimeout(() => {
-              $router.goto(this.returnRoute.success);
+              this._onCancel();
             }, 600);
           } else {
+            this.$.name.value = $core.profile.name || "";
+            this.$.email.value = $core.profile.emailAddress || "";
+            this.imageUrl = $core.profile.imageUrl;
+            this._profileImage = $core.profile.imageUrl;
+            this._onInput();
             this.$.container.classList.add("containerShowing");
             requestAnimationFrame(() => {
-              this.$.handle.input.focus();
+              this.$.name.input.focus();
             });
           }
         });
@@ -210,29 +246,6 @@
 
       onDeactivate() {
         this.$.container.classList.remove("containerShowing");
-      }
-
-      _onSave() {
-        this._handleValid = true;
-        this._onInput();
-        if (this.$.btnSave.disabled) {
-          return;
-        }
-        let handle = this.$.handle.value.trim();
-        let name = this.$.name.value.trim();
-        let email = this.$.email.value.trim();
-        let password = this.$.password.value.trim() || null;
-        this._setMessage("Registering");
-        $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
-          if (this._defaultReturnRoute) {
-            $router.goto("register-photo", { returnRoute: this.returnRoute });
-          } else {
-            $router.goto(this.returnRoute.success);
-          }
-        }).catch((err) => {
-          console.error(err);
-          this._setError(err || "Oops. Something went wrong when registering your handle.");
-        });
       }
 
       _hideMessage() {
@@ -266,27 +279,12 @@
       }
 
       _onCancel() {
-        $router.goto(this.returnRoute.cancel);
-      }
-
-      _onSubtitle() {
-        if (this.$.subtitle) {
-          if (this.subtitle) {
-            this.$.subtitle.classList.remove("hidden");
-          } else {
-            this.$.subtitle.classList.add("hidden");
-          }
-        }
+        $router.goto("account");
       }
 
       _onInput() {
-        let valid = this.$.handle.value.trim() && this.$.name.value.trim() && this.$.password.value.trim() && this._handleValid;
+        let valid = this.$.name.value.trim() ? true : false;
         this.$.btnSave.disabled = !valid;
-      }
-
-      _onHandleInput() {
-        this._handleValid = false;
-        this._validateHandle();
       }
 
       _onKeyDown(event) {
@@ -297,59 +295,85 @@
         }
       }
 
-      _onSignIn() {
-        $router.goto("signin");
-      }
-
-      _validateHandle() {
-        if (this._handleValidationPending) {
+      _onFile(event) {
+        let file = event.detail.file;
+        if (!file) {
+          this._file = null;
+          this.$.filePicker.clear();
+          this.imageUrl = this._profileImage;
           return;
         }
-        if (this._handleValidationInProgress) {
-          this._handleValidationRequested = true;
+        if (file.type.indexOf('image/') != 0) {
+          setTimeout(() => {
+            this.$.filePicker.clear();
+            this._file = null;
+            this.imageUrl = this._profileImage;
+            this._setError("Invalid image");
+          });
         } else {
-          this._scheduleValidation();
+          this._file = file;
+          this._readFile(file).then((dataUrl) => {
+            if (this._file) {
+              this.imageUrl = dataUrl;
+            }
+          }).catch((err) => {
+            this.$.filePicker.clear();
+            this._file = null;
+            this.imageUrl = this._profileImage;
+            console.error(err);
+            this._setError("Failed to load image file");
+          });
         }
       }
 
-      _scheduleValidation() {
-        this._handleValidationInProgress = true;
-        this._handleValidationRequested = false;
-        this._handleValidationPending = true;
-        var _complete = () => {
-          this._handleValidationInProgress = false;
-          if (this._handleValidationRequested) {
-            this._scheduleValidation();
-          } else {
-            this._onInput();
-          }
-        };
-        setTimeout(() => {
-          this._handleValidationPending = false;
-          let handle = this.$.handle.value.trim();
-          if (handle) {
-            $core.checkHandle(handle).then((response) => {
-              this._handleValid = false;
-              if (!response.valid) {
-                this.$.handle.validate("Invalid handle", true);
-              } else if (response.inUse) {
-                this.$.handle.validate("Not available", true);
-              } else {
-                this._handleValid = true;
-                this.$.handle.validate("Available", false);
-              }
-              _complete();
-            }).catch((err) => {
-              console.error(err);
-              _complete();
-            });
-          } else {
-            this.$.handle.validate(null);
-            _complete();
-          }
-        }, 700);
+      _readFile(file) {
+        return new Promise((resolve, reject) => {
+          let reader = new FileReader();
+          reader.addEventListener('load', () => {
+            resolve(reader.result);
+          });
+          reader.addEventListener("error", () => {
+            reject();
+          });
+          reader.addEventListener("abort", () => {
+            reject();
+          });
+          reader.readAsDataURL(file);
+        });
+      }
+
+      _onSave() {
+        this._onInput();
+        if (this.$.btnSave.disabled) {
+          return;
+        }
+        let name = this.$.name.value.trim();
+        let email = this.$.email.value.trim();
+        if (this._file) {
+          this._setMessage("Uploading image");
+          $core.uploadFile(this._file).then((fileInfo) => {
+            let url = fileInfo.url;
+            this._setMessage("Saving profile");
+            this._updateProfile(name, email, url);
+          }).catch((err) => {
+            console.error(err);
+            this._setError(err || "Oops. Something went wrong.");
+          });
+        } else {
+          this._setMessage("Saving profile");
+          this._updateProfile(name, email, null);
+        }
+      }
+
+      _updateProfile(name, email, imageUrl) {
+        $core.updateUserProfile(name, null, null, imageUrl, email, null).then(() => {
+          $router.goto("account");
+        }).catch((err) => {
+          console.error(err);
+          this._setError(err || "Oops. Something went wrong.");
+        });
       }
     }
-    window.customElements.define(RegisterView.is, RegisterView);
+    window.customElements.define(EditProfileView.is, EditProfileView);
   </script>
 </dom-module>

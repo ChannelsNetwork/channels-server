@@ -1,29 +1,46 @@
-<link rel="import" href="app-icons.html" async>
-
+<link rel="import" href="channel-icons.html">
 <dom-module id="app-bar">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles2">
       :host {
         display: block;
-        background: rgba(33, 33, 33, 1);
+        background: #213034;
+        color: white;
+        height: 60px;
+        transition: top 0.3s ease, height 0.5s ease;
+        position: relative;
+      }
+
+      #container {
+        height: 60px;
+        padding: 0 0 0 16px;
+        transition: opacity 0.3s ease;
+      }
+
+      .mute {
+        pointer-events: none;
+        opacity: 0;
       }
 
       .logo {
         display: block;
         height: 40px;
+        width: auto;
       }
 
       button {
         color: white;
         font-size: 14px;
+        background: none;
+        font-weight: 400;
       }
 
       button:hover {
-        color: var(--highlight-blue);
+        color: var(--bg-yellow);
       }
 
       .selected {
-        color: var(--highlight-blue);
+        color: var(--bg-yellow) !important;
         font-weight: bold;
       }
 
@@ -36,6 +53,10 @@
         margin-left: 10px;
       }
 
+      a {
+        text-align: center;
+      }
+
       a:hover {
         box-shadow: none;
       }
@@ -44,7 +65,14 @@
         display: none;
       }
 
+      #iconsBar button:hover {
+        color: white;
+      }
+
       @media (max-width: 600px) {
+        #container {
+          padding: 0 0 0 5px;
+        }
         #logoLink,
         #spacer,
         #linksBar {
@@ -53,9 +81,6 @@
         #iconsBar {
           display: flex;
         }
-        #container {
-          padding: 0 0 0 5px;
-        }
         button {
           letter-spacing: initial;
           font-size: 10px;
@@ -63,123 +88,102 @@
         #balancePanel {
           letter-spacing: initial;
           margin-left: 2px;
-          padding: 0 5px;
+          padding: 0 10px;
           font-size: 15px;
         }
       }
 
-      .mainBar {
-        height: 60px;
-        padding: 0 0 0 16px;
-      }
-
       #feedsBar {
-        padding: 0 0 0 16px;
+        padding: 0 16px;
         background-color: #333;
         height: 40px;
       }
     </style>
-    <div id="container" on-click="_onClick">
-      <div class="mainBar horizontal layout center">
-        <a id="logoLink" href="/">
-          <img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png">
+    <div id="container" class="horizontal layout center" on-click="_onClick">
+      <a id="logoLink" href="/">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+      </a>
+      <div id="spacer" class="flex"></div>
+      <div id="linksBar" class="horizontal layout center">
+        <a href="#feed">
+          <button id="feed">Feed</button>
         </a>
-        <div id="spacer" class="flex"></div>
-        <div id="linksBar" class="horizontal layout center">
-          <a href="/">
-            <button id="home">Home</button>
-          </a>
-          <a href="#feed">
-            <button id="feed">Feed</button>
-          </a>
-          <a href="#launch">
-            <button id="launch">Launch</button>
-          </a>
-          <a href="https://medium.com/channels-network" target="_blank">
-            <button id="blog">Blog</button>
-          </a>
-          <a id="accountLink" href="#account" style="display:none;">
-            <button id="account">Account</button>
-          </a>
-          <a id="signInLink" href="#signin" style="display:none;">
-            <button id="signin">Sign In</button>
-          </a>
-        </div>
-        <div id="iconsBar" class="flex horizontal layout center">
-          <a class="flex" href="/">
-            <button>
-              <iron-icon icon="ch:home"></iron-icon>
-              <div>Home</div>
-            </button>
-          </a>
-          <a class="flex" href="#feed">
-            <button id="ifeed">
-              <iron-icon icon="ch:apps"></iron-icon>
-              <div>Feed</div>
-            </button>
-          </a>
-          <a class="flex" href="#launch">
-            <button id="ilaunch">
-              <iron-icon icon="ch:near-me"></iron-icon>
-              <div>Launch</div>
-            </button>
-          </a>
-          <a id="accountButton" class="flex" href="#account">
-            <button id="iaccount">
-              <iron-icon icon="ch:account-circle"></iron-icon>
-              <div>Account</div>
-            </button>
-          </a>
-          <a id="signInButton" class="flex" href="#signin">
-            <button id="isignin">
-              <iron-icon icon="ch:account-circle"></iron-icon>
-              <div>Sign In</div>
-            </button>
-          </a>
-          <!-- <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a> -->
-        </div>
-        <a href="#balance">
-          <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
+        <a href="#about">
+          <button id="about">About</button>
+        </a>
+        <a id="accountLink" href="#account" class="hidden">
+          <button id="account">Account</button>
+        </a>
+        <a id="signInLink" href="#signin">
+          <button id="signin">Sign In</button>
         </a>
       </div>
-      <div id="feedsBar" class="horizontal layout center">
-        <a href="#feed/recommended">
-          <button id="recommended">Recommended</button>
+      <div id="iconsBar" class="flex horizontal layout center">
+        <a class="flex" href="#feed">
+          <button id="ifeed">
+            <soso-icon icon="apps" icon-map="[[iconMap]]"></soso-icon>
+            <div>Feed</div>
+          </button>
         </a>
-        <a href="#feed/new">
-          <button id="new">New</button>
+        <a class="flex" href="#about">
+          <button id="iabout">
+            <soso-icon icon="info" icon-map="[[iconMap]]"></soso-icon>
+            <div>About</div>
+          </button>
         </a>
-        <a href="#feed/top">
-          <button id="top">Top</button>
+        <a id="accountButton" class="flex hidden" href="#account">
+          <button id="iaccount">
+            <soso-icon icon="account" icon-map="[[iconMap]]"></soso-icon>
+            <div>Account</div>
+          </button>
         </a>
-        <a href="#feed/mine">
-          <button id="mine">Mine</button>
-        </a>
-        <a href="#feed/opened">
-          <button id="opened">Opened</button>
+        <a id="signInButton" class="flex" href="#signin">
+          <button id="isignin">
+            <soso-icon icon="account" icon-map="[[iconMap]]"></soso-icon>
+            <div>Sign In</div>
+          </button>
         </a>
       </div>
+      <a href="#balance">
+        <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
+      </a>
     </div>
+    <div id="feedsBar" class="flex horizontal layout center hidden">
+      <a href="#feed/recommended">
+        <button id="recommended">Recommended</button>
+      </a>
+      <a href="#feed/new">
+        <button id="new">New</button>
+      </a>
+      <a href="#feed/top">
+        <button id="top">Top</button>
+      </a>
+      <a href="#feed/mine">
+        <button id="mine">Mine</button>
+      </a>
+      <a href="#feed/opened">
+        <button id="opened">Opened</button>
+      </a>
+    </div>
+    <agree-terms-view id="terms" class="hidden"></agree-terms-view>
   </template>
   <script>
     class AppBar extends Polymer.Element {
       static get is() { return "app-bar"; }
       static get properties() {
         return {
-          balance: String
+          balance: String,
+          iconMap: Object,
+          _pending: Boolean
         };
       }
 
       connectedCallback() {
         super.connectedCallback();
-        if ($core.registration) {
-          this._refreshBalance($core.registration);
-        }
+        this.balance = "ℂ0.000";
+        this.iconMap = window._channelIcons;
         window.addEventListener("channels-registration", (event) => {
-          var reg = event.detail;
-          if (reg) {
-            this._refreshBalance(reg);
-          }
+          this._refreshBalance();
         });
         window.addEventListener("channels-profile", (event) => {
           this._refreshSignIn();
@@ -190,19 +194,20 @@
         setInterval(() => {
           this._refreshBalance();
         }, 1000);
+        this._refreshBalance();
       }
 
       _refreshSignIn() {
         if ($core.profile && $core.profile.handle) {
-          this.$.accountLink.style.display = "";
-          this.$.accountButton.style.display = "";
-          this.$.signInLink.style.display = "none";
-          this.$.signInButton.style.display = "none";
+          this.$.accountLink.classList.remove("hidden");
+          this.$.accountButton.classList.remove("hidden");
+          this.$.signInLink.classList.add("hidden");
+          this.$.signInButton.classList.add("hidden");
         } else {
-          this.$.accountLink.style.display = "none";
-          this.$.accountButton.style.display = "none";
-          this.$.signInLink.style.display = "";
-          this.$.signInButton.style.display = "";
+          this.$.accountLink.classList.add("hidden");
+          this.$.accountButton.classList.add("hidden");
+          this.$.signInLink.classList.remove("hidden");
+          this.$.signInButton.classList.remove("hidden");
         }
       }
 
@@ -222,8 +227,8 @@
       }
 
       onRoute(route) {
+        this.$.feedsBar.classList.add("hidden");
         var path = route.segments[0];
-        this.$.feedsBar.style.display = "none";
         var matches = [];
         if (path) {
           let m = this.$[path];
@@ -235,20 +240,10 @@
             matches.push(im);
           }
           if (path === 'feed') {
-            this.$.feedsBar.style.display = "";
-            this.$.recommended.classList.remove("selected");
-            this.$.new.classList.remove("selected");
-            this.$.top.classList.remove("selected");
-            this.$.mine.classList.remove("selected");
-            this.$.opened.classList.remove("selected");
-            if (route.segments.length > 1) {
-              if (this.$[route.segments[1]]) {
-                this.$[route.segments[1]].classList.add("selected");
-              }
-            } else {
-              this.$.recommended.classList.add("selected");
-            }
+            this._showFeedsBar(route.segments[1] || "");
           }
+        } else {
+          this._showFeedsBar("");
         }
         if (this._prevMatches && this._prevMatches.length) {
           for (var i = 0; i < this._prevMatches.length; i++) {
@@ -259,6 +254,46 @@
         if (matches.length) {
           for (var i = 0; i < matches.length; i++) {
             matches[i].classList.add("selected");
+          }
+        }
+      }
+
+      _showFeedsBar(subpath) {
+        this.$.feedsBar.classList.remove("hidden");
+        this.$.recommended.classList.remove("selected");
+        this.$.new.classList.remove("selected");
+        this.$.top.classList.remove("selected");
+        this.$.mine.classList.remove("selected");
+        this.$.opened.classList.remove("selected");
+        if (subpath && this.$[subpath]) {
+          this.$[subpath].classList.add("selected");
+        } else {
+          this.$.recommended.classList.add("selected");
+        }
+      }
+
+      setPendingMode(value) {
+        if (value != this._pending) {
+          this._pending = value;
+          if (this._pending) {
+            this.style.height = "100vh";
+            this.$.container.classList.add("mute");
+            Polymer.importHref(this.resolveUrl('account/agree-terms-view.html'), () => {
+              this.$.terms.classList.remove('hidden');
+              this.$.terms.reset();
+              setTimeout(() => {
+                this.$.terms.style.opacity = 1;
+              }, 300);
+            });
+          } else {
+            this.style.height = "60px";
+            this.$.container.classList.remove("mute");
+            if (this.$.terms) {
+              this.$.terms.style.opacity = 0;
+              setTimeout(() => {
+                this.$.terms.classList.add('hidden');
+              }, 300);
+            }
           }
         }
       }
