@@ -79,7 +79,6 @@ export interface CardRecord {
     royaltyFraction: number;
   };
   pricing: {
-    hasReaderRevenue: boolean;
     promotionFee: number;
     openPayment: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10

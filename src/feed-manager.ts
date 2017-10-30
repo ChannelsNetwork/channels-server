@@ -156,23 +156,30 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   // This essentially runs an auction for ad slots and picks the top N cards
-  private async getAdCards(user: UserRecord): Promise<CardRecord[]> {
+  private async getAdCards(user: UserRecord, nonAdCards: CardDescriptor[]): Promise<CardRecord[]> {
     const cards = await this.getAvailableAdCards();
     const promises: Array<Promise<UserCardInfoRecord>> = [];
+    const nonAdCardIds: string[] = [];
+    for (const nonAdCard of nonAdCards) {
+      nonAdCardIds.push(nonAdCard.id);
+    }
     for (const card of cards) {
-      promises.push(this.getUserCardInfo(user.id, card.id, false));
+      // Exclude ad cards that are already part of the feed being returned
+      if (nonAdCardIds.indexOf(card.id) < 0) {
+        promises.push(this.getUserCardInfo(user.id, card.id, false));
+      }
     }
     const userCardInfos = await Promise.all(promises);
     const candidates: AdCandidate[] = [];
     for (let i = 0; i < cards.length; i++) {
-      if (cards[i].budget.available && (!userCardInfos[i] || userCardInfos[i].earnedFromAuthor === 0)) {
+      if (cards[i].budget.available && nonAdCardIds.indexOf(cards[i].id) < 0 && (!userCardInfos[i] || userCardInfos[i].earnedFromAuthor === 0)) {
         const candidate: AdCandidate = {
           card: cards[i],
           adScore: this.computeAdScore(user, cards[i], userCardInfos[i]),
           userCard: userCardInfos[i]
         };
         candidates.push(candidate);
-        // console.log("FeedManager.getAdCards: Ad", cards[i].summary.title, candidate.adScore);
+        console.log("FeedManager.getAdCards: Ad", cards[i].summary.title, candidate.adScore);
       }
     }
     candidates.sort((a, b) => {
@@ -199,7 +206,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async getAvailableAdCards(): Promise<CardRecord[]> {
     if (Date.now() - this.lastAdCardsCacheUpdated > MAX_AD_CARD_CACHE_LIFETIME) {
-      this.adCardsCache = await db.findRevenueGeneratingCards(2500);
+      this.adCardsCache = await db.findCardsWithAvailableBudget(2500);
     }
     return this.adCardsCache;
   }
@@ -223,7 +230,7 @@ export class FeedManager implements Initializable, RestServer {
     // the user some revenue-generating potential
     const adSlots = this.positionAdSlots(user, cards.length);
     if (adSlots.slotCount > 0) {
-      const adCards = await this.getAdCards(user);
+      const adCards = await this.getAdCards(user, cards);
       const maxAdCards = Math.min(adSlots.slotCount, adCards.length);
       const amalgamated: CardDescriptor[] = [];
       let adIndex = 0;
@@ -305,7 +312,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getRecentlyAddedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const cards = await db.findAccessibleCardsByTime(Date.now(), 0, limit, user.id, false);
+    const cards = await db.findAccessibleCardsByTime(Date.now(), 0, limit, user.id);
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result);
   }

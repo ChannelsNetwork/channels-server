@@ -117,16 +117,11 @@ export class Database {
   private async initializeCards(): Promise<void> {
     this.cards = this.db.collection('cards');
     await this.cards.createIndex({ id: 1 }, { unique: true });
-    await this.cards.createIndex({ state: 1, postedAt: -1, "by.id": -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "by.id": 1, postedAt: -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "by.id": 1, "private": 1, postedAt: -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "private": 1, postedAt: -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, postedAt: 1, lastScored: -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "by.id": 1, "score": -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "private": 1, "score": -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "by.id": 1, "stats.revenue.value": -1 });
-    await this.cards.createIndex({ state: 1, "pricing.hasReaderRevenue": 1, "private": 1, "stats.revenue.value": -1 });
-    await this.cards.createIndex({ state: 1, private: 1, "budget.available": 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });
+    await this.cards.createIndex({ state: 1, "budget.available": 1, private: 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "stats.revenue.value": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "pricing.openFeeUnits": 1, "stats.score.value": -1 });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -525,7 +520,6 @@ export class Database {
         royaltyFraction: cardTypeRoyaltyFraction
       },
       pricing: {
-        hasReaderRevenue: promotionFee + openPayment > 0,
         promotionFee: promotionFee,
         openPayment: openPayment,
         openFeeUnits: openFeeUnits
@@ -611,14 +605,6 @@ export class Database {
     return await this.cards.findOne<CardRecord>(query);
   }
 
-  async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
-  }
-
-  async findRevenueGeneratingCards(limit: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", private: false, "budget.available": true }).sort({ postedAt: -1 }).limit(limit).toArray();
-  }
-
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
     const now = Date.now();
     await this.cards.updateOne({ id: card.id }, { $set: { score: score, lastScored: now } });
@@ -694,12 +680,20 @@ export class Database {
     card.state = state;
   }
 
+  async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
+  }
+
+  async findCardsWithAvailableBudget(limit: number): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ state: "active", "budget.available": true, private: false }).sort({ postedAt: -1 }).limit(limit).toArray();
+  }
+
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["by.id"] = byUserId;
     if (excludePrivate) {
       query.private = false;
     }
+    query["by.id"] = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
     } else if (before) {
@@ -710,9 +704,8 @@ export class Database {
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
-  async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string, ads: boolean): Promise<CardRecord[]> {
+  async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["pricing.hasReaderRevenue"] = ads;
     query.$or = [
       { "by.id": userId },
       { "private": false }
@@ -729,21 +722,21 @@ export class Database {
 
   async findCardsByRevenue(maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["pricing.hasReaderRevenue"] = false;
     query.$or = [
       { "by.id": userId },
       { "private": false }
     ];
+    query["stats.revenue.value"] = { $gt: 0 };
     return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByScore(limit: number, userId: string, ads: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["pricing.hasReaderRevenue"] = ads;
     query.$or = [
       { "by.id": userId },
       { "private": false }
     ];
+    query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     return await this.cards.find(query).sort({ "stats.score.value": -1 }).limit(limit).toArray();
   }
 
