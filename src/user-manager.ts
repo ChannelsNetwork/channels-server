@@ -106,6 +106,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       console.log("UserManager.register-user", requestBody.detailsObject.address);
       const ipAddress = request.headers['X-Forwarded-For'];
+      console.log("UserManager.register-user: ip address", request.headers);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
         if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
