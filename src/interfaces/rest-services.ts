@@ -134,10 +134,11 @@ export interface GetFeedDetails extends Signable {
 
 export interface RequestedFeedDescriptor {
   type: CardFeedType;
+  channelHandle?: string;
   maxCount: number;
 }
 
-export type CardFeedType = 'recommended' | 'new' | 'mine' | 'opened';
+export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel';
 
 export interface GetFeedResponse extends RestResponse {
   feeds: CardFeedSet[];
@@ -145,6 +146,7 @@ export interface GetFeedResponse extends RestResponse {
 
 export interface CardFeedSet {
   type: CardFeedType;
+  channelHandle?: string;
   cards: CardDescriptor[];
 }
 

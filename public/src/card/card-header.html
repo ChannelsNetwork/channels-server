@@ -59,12 +59,18 @@
       #menuButton {
         cursor: pointer;
       }
+
+      #authorPanel {
+        cursor: pointer;
+      }
     </style>
     <div class="horizontal layout center bar">
-      <img id="authorImage">
-      <div class="flex vertical layout">
-        <div class="authorName">[[data.by.name]]</div>
-        <div id="timestamp">[[data.postedAtDisplay]]</div>
+      <div id="authorPanel" class="flex horizontal layout" on-click="_onAuthorClick">
+        <img id="authorImage">
+        <div class="flex vertical layout">
+          <div class="authorName">[[data.by.name]]</div>
+          <div id="timestamp">[[data.postedAtDisplay]]</div>
+        </div>
       </div>
       <div id="revenue" class="revenue">ℂ[[data.stats.revenueDisplay]]</div>
       <iron-icon id="privateIcon" icon="lock-outline"></iron-icon>
@@ -158,6 +164,11 @@
             this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
           });
         }
+      }
+
+      _onAuthorClick(event) {
+        event.stopPropagation();
+        $router.goto("feed/channel/" + this.data.by.handle);
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);

@@ -315,8 +315,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getFeed(type, maxCards, startWithCardId) {  // type = "recommended" | "new" | "mine" | "opened"
-    let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type, startWithCardId);
+  getFeed(type, maxCards, startWithCardId, channelHandle) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
+    let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type, startWithCardId, channelHandle);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-feed";
     return this.rest.post(url, request).then((response) => {

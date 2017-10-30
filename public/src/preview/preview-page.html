@@ -66,7 +66,7 @@
     </div>
     <div class="main">
       <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"
-        intersection-observer="[[intersectionObserver]]"></card-feed>
+        intersection-observer="[[intersectionObserver]]" channel-handle="[[channelHandle]]"></card-feed>
     </div>
     <paper-fab class="composeButton" icon="add" on-tap="onCompose"></paper-fab>
   </template>
@@ -76,7 +76,8 @@
       static get properties() {
         return {
           items: Array,
-          intersectionObserver: Object
+          intersectionObserver: Object,
+          channelHandle: String
         }
       }
 
@@ -126,7 +127,23 @@
           this.onResize();
           this._visibleCards = {};
           this.set('items', []);
-          return $core.getFeed('new', 25, route && route.segments && route.segments.length > 1 ? route.segments[1] : null).then((cards) => {
+          let feedName = "recommended";
+          let cardId = null;
+          if (route && route.segments && route.segments.length > 1) {
+            feedName = route.segments[1];
+          }
+          this.set('channelHandle', null);
+          if (feedName === 'channel') {
+            if (route && route.segments && route.segments.length > 2) {
+              this.set('channelHandle', route.segments[2]);
+              if (route.segments.length > 3) {
+                cardId = route.segments[3];
+              }
+            }
+          } else if (route && route.segments && route.segments.length > 2) {
+            cardId = route.segments[2];
+          }
+          return $core.getFeed(feedName, 25, cardId, this.channelHandle).then((cards) => {
             this.set('items', cards);
             this._timer = setInterval(() => {
               this._onTimer();
@@ -253,7 +270,7 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId) {
+            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId && (!this.channelHandle || this.channelHandle !== card.data.by.handle)) {
               $core.cardImpression(id, card.data.couponId);
               card.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
               card.onImpressionPaid();

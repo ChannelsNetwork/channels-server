@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { RestRequest, PostCardDetails, PostCardResponse, GetFeedDetails, GetFeedResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
@@ -109,11 +109,17 @@ export class FeedManager implements Initializable, RestServer {
       case 'new':
         result.cards = await this.getRecentlyAddedFeed(user, feed.maxCount, startWithCardId);
         break;
+      case 'top':
+        result.cards = await this.getTopFeed(user, feed.maxCount, startWithCardId);
+        break;
       case 'mine':
         result.cards = await this.getRecentlyPostedFeed(user, feed.maxCount, startWithCardId);
         break;
       case 'opened':
         result.cards = await this.getRecentlyOpenedFeed(user, feed.maxCount, startWithCardId);
+        break;
+      case 'channel':
+        result.cards = await this.getChannelFeed(user, feed.maxCount, feed.channelHandle, startWithCardId);
         break;
       default:
         throw new Error("Unhandled feed type " + feed.type);
@@ -180,8 +186,22 @@ export class FeedManager implements Initializable, RestServer {
     return await this.populateCards(cards, user, startWithCardId);
   }
 
+  private async getTopFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
+    const cards = await db.findCardsByRevenue(limit, user.id);
+    return await this.populateCards(cards, user, startWithCardId);
+  }
+
   private async getRecentlyPostedFeed(user: UserRecord, limit: number, startWithCardId?: string): Promise<CardDescriptor[]> {
     const cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, user.id, false);
+    return await this.populateCards(cards, user, startWithCardId);
+  }
+
+  private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId?: string): Promise<CardDescriptor[]> {
+    const author = await db.findUserByHandle(channelHandle);
+    let cards: CardRecord[] = [];
+    if (author) {
+      cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, author.id, true);
+    }
     return await this.populateCards(cards, user, startWithCardId);
   }
 
@@ -584,7 +604,14 @@ export class FeedManager implements Initializable, RestServer {
     const privateKey = KeyUtils.generatePrivateKey();
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 0, id);
+    const identity: UserIdentity = {
+      name: name,
+      handle: handle,
+      imageUrl: imageUrl,
+      emailAddress: null,
+      location: null
+    };
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 0, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,

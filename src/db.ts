@@ -124,6 +124,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, "score": -1 });
     await this.cards.createIndex({ state: 1, "private": 1, "score": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "stats.revenue.value": -1 });
+    await this.cards.createIndex({ state: 1, "private": 1, "stats.revenue.value": -1 });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -272,7 +274,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -295,6 +297,15 @@ export class Database {
       admin: false,
       ipAddresses: []
     };
+    if (identity) {
+      if (!identity.emailAddress) {
+        delete identity.emailAddress;
+      }
+      if (!identity.handle) {
+        delete identity.handle;
+      }
+      record.identity = identity;
+    }
     if (ipAddress) {
       record.ipAddresses.push(ipAddress);
     }
@@ -688,6 +699,15 @@ export class Database {
       query.postedAt = { $gt: after };
     }
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
+  }
+
+  async findCardsByRevenue(maxCount: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    query.$or = [
+      { "by.id": userId },
+      { "private": false }
+    ];
+    return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByScore(limit: number, userId: string): Promise<CardRecord[]> {

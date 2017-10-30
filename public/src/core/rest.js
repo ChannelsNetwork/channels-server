@@ -160,15 +160,23 @@ class RestUtils {
     };
   }
 
-  static getFeedDetails(address, maxCount, type, startWithCardId) {  // type = "recommended" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedDetails(address, maxCount, type, startWithCardId, channelHandle) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
-      feeds.push({ type: type, maxCount: maxCount });
+      const feed = { type: type, maxCount: maxCount };
+      if (channelHandle) {
+        feed.channelHandle = channelHandle;
+      }
+      feeds.push(feed);
     } else {
       feeds.push({ type: 'recommended', maxCount: maxCount });
+      feeds.push({ type: 'top', maxCount: maxCount });
       feeds.push({ type: 'new', maxCount: maxCount });
       feeds.push({ type: 'mine', maxCount: maxCount });
       feeds.push({ type: 'opened', maxCount: maxCount });
+      if (channelHandle) {
+        feeds.push({ type: 'opened', maxCount: maxCount, channelHandle: channelHandle });
+      }
     }
     return {
       address: address,

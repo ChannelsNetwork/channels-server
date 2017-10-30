@@ -92,6 +92,17 @@
           font-size: 15px;
         }
       }
+
+      .mainBar {
+        height: 60px;
+        padding: 0 0 0 16px;
+      }
+
+      #feedsBar {
+        padding: 0 0 0 16px;
+        background-color: #333;
+        height: 40px;
+      }
     </style>
     <div id="container" class="horizontal layout center" on-click="_onClick">
       <a id="logoLink" href="/">
@@ -138,9 +149,6 @@
           </button>
         </a>
       </div>
-      <a href="#balance">
-        <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
-      </a>
     </div>
     <agree-terms-view id="terms" class="hidden"></agree-terms-view>
   </template>
@@ -205,6 +213,7 @@
 
       onRoute(route) {
         var path = route.segments[0];
+        this.$.feedsBar.style.display = "none";
         var matches = [];
         if (path) {
           let m = this.$[path];
@@ -214,6 +223,21 @@
           }
           if (im) {
             matches.push(im);
+          }
+          if (path === 'feed') {
+            this.$.feedsBar.style.display = "";
+            this.$.recommended.classList.remove("selected");
+            this.$.new.classList.remove("selected");
+            this.$.top.classList.remove("selected");
+            this.$.mine.classList.remove("selected");
+            this.$.opened.classList.remove("selected");
+            if (route.segments.length > 1) {
+              if (this.$[route.segments[1]]) {
+                this.$[route.segments[1]].classList.add("selected");
+              }
+            } else {
+              this.$.recommended.classList.add("selected");
+            }
           }
         }
         if (this._prevMatches && this._prevMatches.length) {

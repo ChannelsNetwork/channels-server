@@ -31,7 +31,7 @@
       <dom-repeat items="[[items]]">
         <template>
           <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"
-            on-card-deleted="_onCardDeleted"></card-view>
+            on-card-deleted="_onCardDeleted" channel-handle="[[channelHandle]]"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -46,7 +46,8 @@
             value: 300
           },
           items: Array,
-          intersectionObserver: Object
+          intersectionObserver: Object,
+          channelHandle: String
         };
       }
 
