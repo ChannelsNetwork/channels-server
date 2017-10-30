@@ -1,160 +1,105 @@
-<link rel="import" href="../../bower_components/iron-image/iron-image.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="account-view">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles2">
       :host {
         display: block;
-        background: #424242;
-        min-height: 100vh;
       }
 
-      .content {
-        padding: 30px 15px 20px;
-        max-width: 400px;
+      #container {
+        max-width: 450px;
         margin: 0 auto;
-        position: relative;
+        padding: 20px 16px;
+      }
+
+      #imagePanel {
+        padding-right: 20px;
+      }
+
+      .header {
+        margin-bottom: 20px;
       }
 
       .row {
-        margin-top: 20px;
-        font-size: 20px;
-      }
-
-      .buttons {
-        padding: 30px 0 5px;
+        margin-top: 10px;
       }
 
       label {
-        display: block;
-        font-size: 16px;
+        font-size: 90%;
+        text-transform: capitalize;
+        padding-right: 10px;
         letter-spacing: 0.05em;
-        margin-bottom: 5px;
-        color: var(--highlight-blue);
+        opacity: 0.87;
+        width: 75px;
       }
 
-      button {
-        padding: 10px 0;
+      .buttons {
+        padding: 40px 0 10px;
       }
 
-      .value {
-        color: white;
-      }
-
-      .leftSide {
-        margin-right: 10px;
-      }
-
-      #photoContainer {
-        width: 64px;
-        height: 64px;
-        border-radius: 32px;
-        border: 1px solid white;
-        text-align: center;
-        font-size: 12px;
-        margin-top: 50px;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .photoForeground {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        opacity: 0;
-        overflow: hidden;
-      }
-
-      #photoInput {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        opacity: 0;
-        cursor: pointer;
-      }
-
-      #userPhoto {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-      }
-
-      button {
-        margin: 0 15px;
+      @media (max-width: 490px) {
+        .row {
+          font-size: 14px;
+        }
+        user-image {
+          width: 70px;
+          height: 70px;
+        }
+        .buttons {
+          text-align: center;
+        }
       }
     </style>
-    <div class="barspace"></div>
-    <div class="content horizontal layout">
-      <div>
-        <div class="leftSide">
-          <div id="photoContainer" class="vertical layout center" on-click="_onEdit">
-            <div class="flex"></div>
-            <div>no photo</div>
-            <div class="flex"></div>
-            <iron-image sizing="cover" id="userPhoto" src="[[imageUrl]]" style="display:none"></iron-image>
-          </div>
+    <div id="container">
+      <div class="horizontal layout center header">
+        <div id="imagePanel">
+          <user-image image="[[profile.image]]"></user-image>
+        </div>
+        <div class="flex">
+          <h2>[[profile.name]]</h2>
+          <em>[[profile.handle]]</em>
         </div>
       </div>
-      <div class="flex">
-        <h3>My Account</h3>
-        <div class="row">
-          <label>Handle</label>
-          <div class="value">[[profile.handle]]</div>
-        </div>
-        <div class="row">
-          <label>Name</label>
-          <div class="value">[[profile.name]]</div>
-        </div>
-        <!-- <div class="row">
-          <label>Location</label>
-          <div class="value">[[profile.location]]</div>
-        </div> -->
-        <div class="row">
-          <label>Email</label>
-          <div class="value">[[profile.emailAddress]]</div>
-        </div>
-        <div class="row">
-          <label>Account Address</label>
-          <div class="value">[[accountAddress]]</div>
-        </div>
-        <div class="buttons">
-          <button on-click="_onEdit">Edit profile</button>
-          <button on-click="_onSignOut">Sign out</button>
-        </div>
+      <div class="row horizontal layout center">
+        <label>Email: </label>
+        <div class="flex">[[profile.email]]</div>
+      </div>
+      <div class="row horizontal layout center">
+        <label>Address: </label>
+        <div class="flex">[[profile.address]]</div>
+      </div>
+      <div class="buttons">
+        <button style="margin-right: 10px;" on-click="_onEdit">Edit profile</button>
+        <button on-click="_onSignOut">Sign out</button>
       </div>
     </div>
   </template>
   <script>
     class AccountView extends Polymer.Element {
-      static get is() { return "account-view"; }
+      static get is() { return 'account-view'; }
       static get properties() {
         return {
-          profile: Object,
-          imageUrl: String,
-          accountAddress: String
+          profile: Object
         };
       }
 
       onActivate() {
+        this.profile = {};
         $core.register().then((info) => {
           if (!$core.profile || !$core.profile.handle) {
-            $router.goto("feed");
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
             return;
           }
-          var profile = {
-            handle: "Not specified",
-            name: "Not specified",
-            location: "Unknown",
-            emailAddress: "Not specified"
+          const profile = {
+            handle: 'No handle',
+            name: 'No name specified',
+            email: 'No email provided',
+            address: $core.address || 'Unknown address'
           };
-          this.set('accountAddress', $core.address);
           let p = $core.profile;
           if (p) {
             if (p.handle) {
@@ -163,16 +108,11 @@
             if (p.name) {
               profile.name = p.name;
             }
-            if (p.location) {
-              profile.location = p.location;
-            }
             if (p.emailAddress) {
-              profile.emailAddress = p.emailAddress;
+              profile.email = p.emailAddress;
             }
             if (p.imageUrl) {
-              this.set('imageUrl', p.imageUrl);
-              this.$.userPhoto.style.display = "";
-              this.$.photoContainer.style.border = "0";
+              profile.image = p.imageUrl;
             }
           }
           this.profile = profile;
@@ -190,9 +130,13 @@
 
       _onSignOut() {
         $core.signOut().then(() => {
-          $router.goto("feed");
-        });
+          $router.goto("");
+        }).catch((err) => {
+          console.error(err);
+          $router.goto("");
+        })
       }
+
     }
     window.customElements.define(AccountView.is, AccountView);
   </script>

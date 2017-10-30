@@ -1,8 +1,7 @@
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
-<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 
-<dom-module id="sign-in-view">
+<dom-module id="edit-profile-view">
   <template>
     <style is="custom-style" include="app-styles2">
       :host {
@@ -123,24 +122,15 @@
       <div class="optflex">
         <div id="container" class="card">
           <div class="content">
-            <h1>Sign In</h1>
+            <h2>Edit Profile</h2>
             <div>
-              <soso-text-input id="handle" label="Handle" placeholder="Your Channels handle" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-text-input id="password" type="password" label="Password" placeholder="Your password" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-              <soso-checkbox id="trust" checked label="Remember my password"></soso-checkbox>
+              <soso-text-input id="name" label="Full name" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
+              <soso-text-input id="email" type="email" label="Email address" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
             </div>
           </div>
           <div class="buttons">
             <button style="margin-right: 10px;" on-click="_onCancel">Cancel</button>
-            <button id="btnSave" on-click="_onSave">Sign In</button>
-          </div>
-          <div class="buttons">
-            <div>
-              <button class="link" on-click="_onRegister">I haven't registered yet</button>
-            </div>
-            <div style="margin-top: 7px;">
-              <button class="link" on-click="_onRequestRecovery">I forgot my handle or password</button>
-            </div>
+            <button id="btnSave" on-click="_onSave">Save</button>
           </div>
           <div id="progressPanel" class="fillContainer vertical layout hidden">
             <div class="flex"></div>
@@ -164,9 +154,8 @@
     </div>
   </template>
   <script>
-    class SignInView extends Polymer.Element {
-      static get is() { return "sign-in-view"; }
-
+    class EditProfileView extends Polymer.Element {
+      static get is() { return 'edit-profile-view'; }
       static get properties() {
         return {
           message: String
@@ -174,20 +163,23 @@
       }
 
       onActivate() {
-        this.$.handle.value = "";
-        this.$.password.value = "";
+        this.$.name.value = "";
+        this.$.email.value = "";
         this._hideMessage();
         this._hideError();
         this._onInput();
         $core.register().then(() => {
-          if ($core.profile && $core.profile.handle) {
+          if (!($core.profile && $core.profile.handle)) {
             setTimeout(() => {
-              $router.goto("");
+              this._onCancel();
             }, 600);
           } else {
+            this.$.name.value = $core.profile.name || "";
+            this.$.email.value = $core.profile.emailAddress || "";
+            this._onInput();
             this.$.container.classList.add("containerShowing");
             requestAnimationFrame(() => {
-              this.$.handle.input.focus();
+              this.$.name.input.focus();
             });
           }
         });
@@ -228,26 +220,11 @@
       }
 
       _onCancel() {
-        $router.goto("");
-      }
-
-      _onSave() {
-        this._onInput();
-        if (this.$.btnSave.disabled) {
-          return;
-        }
-        let handle = this.$.handle.value.trim();
-        this._setMessage("Signing in");
-        $core.signIn(handle, this.$.password.value.trim(), this.$.trust.checked).then(() => {
-          $router.goto("");
-        }).catch((err) => {
-          console.error(err);
-          this._setError(err || "Oops. Something went wrong.");
-        });
+        $router.goto("account");
       }
 
       _onInput() {
-        let valid = this.$.handle.value && this.$.handle.value.trim().length > 0 && this.$.password.value && this.$.password.value.trim().length > 0 ? true : false;
+        let valid = this.$.name.value.trim() ? true : false;
         this.$.btnSave.disabled = !valid;
       }
 
@@ -259,14 +236,22 @@
         }
       }
 
-      _onRegister() {
-        $router.goto("register");
-      }
-
-      _onRequestRecovery() {
-        $router.goto("request-recovery");
+      _onSave() {
+        this._onInput();
+        if (this.$.btnSave.disabled) {
+          return;
+        }
+        let name = this.$.name.value.trim();
+        let email = this.$.email.value.trim();
+        this._setMessage("Saving profile");
+        $core.updateUserProfile(name, null, null, null, email, null).then(() => {
+          $router.goto("account");
+        }).catch((err) => {
+          console.error(err);
+          this._setError(err || "Oops. Something went wrong.");
+        });
       }
     }
-    window.customElements.define(SignInView.is, SignInView);
+    window.customElements.define(EditProfileView.is, EditProfileView);
   </script>
 </dom-module>
