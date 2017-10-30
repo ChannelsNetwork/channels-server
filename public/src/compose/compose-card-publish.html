@@ -1,4 +1,3 @@
-<link rel="import" href="../card/card-view.html">
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 
 <dom-module id="compose-card-publish">
@@ -148,6 +147,7 @@
           cardData.pricing.openFee = -data.promotion.amount;
         }
         this.set('cardData', cardData);
+        Polymer.importHref(this.resolveUrl('../card/card-view.html'));
       }
     }
     window.customElements.define(ComposeCardPublish.is, ComposeCardPublish);
