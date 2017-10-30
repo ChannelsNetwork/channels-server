@@ -8,11 +8,6 @@
         background: rgba(33, 33, 33, 1);
       }
 
-      #container {
-        height: 60px;
-        padding: 0 0 0 16px;
-      }
-
       .logo {
         display: block;
         height: 40px;
@@ -72,68 +67,98 @@
           font-size: 15px;
         }
       }
+
+      .mainBar {
+        height: 60px;
+        padding: 0 0 0 16px;
+      }
+
+      #feedsBar {
+        padding: 0 0 0 16px;
+        background-color: #333;
+        height: 40px;
+      }
     </style>
-    <div id="container" class="horizontal layout center" on-click="_onClick">
-      <a id="logoLink" href="/">
-        <img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png">
-      </a>
-      <div id="spacer" class="flex"></div>
-      <div id="linksBar" class="horizontal layout center">
-        <a href="/">
-          <button id="home">Home</button>
+    <div id="container" on-click="_onClick">
+      <div class="mainBar horizontal layout center">
+        <a id="logoLink" href="/">
+          <img class="logo" alt="channels" src="/s/images/logos/logo_full_60.png">
         </a>
-        <a href="#feed">
-          <button id="feed">Feed</button>
-        </a>
-        <a href="#launch">
-          <button id="launch">Launch</button>
-        </a>
-        <a href="https://medium.com/channels-network" target="_blank">
-          <button id="blog">Blog</button>
-        </a>
-        <a id="accountLink" href="#account" style="display:none;">
-          <button id="account">Account</button>
-        </a>
-        <a id="signInLink" href="#signin" style="display:none;">
-          <button id="signin">Sign In</button>
+        <div id="spacer" class="flex"></div>
+        <div id="linksBar" class="horizontal layout center">
+          <a href="/">
+            <button id="home">Home</button>
+          </a>
+          <a href="#feed">
+            <button id="feed">Feed</button>
+          </a>
+          <a href="#launch">
+            <button id="launch">Launch</button>
+          </a>
+          <a href="https://medium.com/channels-network" target="_blank">
+            <button id="blog">Blog</button>
+          </a>
+          <a id="accountLink" href="#account" style="display:none;">
+            <button id="account">Account</button>
+          </a>
+          <a id="signInLink" href="#signin" style="display:none;">
+            <button id="signin">Sign In</button>
+          </a>
+        </div>
+        <div id="iconsBar" class="flex horizontal layout center">
+          <a class="flex" href="/">
+            <button>
+              <iron-icon icon="ch:home"></iron-icon>
+              <div>Home</div>
+            </button>
+          </a>
+          <a class="flex" href="#feed">
+            <button id="ifeed">
+              <iron-icon icon="ch:apps"></iron-icon>
+              <div>Feed</div>
+            </button>
+          </a>
+          <a class="flex" href="#launch">
+            <button id="ilaunch">
+              <iron-icon icon="ch:near-me"></iron-icon>
+              <div>Launch</div>
+            </button>
+          </a>
+          <a id="accountButton" class="flex" href="#account">
+            <button id="iaccount">
+              <iron-icon icon="ch:account-circle"></iron-icon>
+              <div>Account</div>
+            </button>
+          </a>
+          <a id="signInButton" class="flex" href="#signin">
+            <button id="isignin">
+              <iron-icon icon="ch:account-circle"></iron-icon>
+              <div>Sign In</div>
+            </button>
+          </a>
+          <!-- <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a> -->
+        </div>
+        <a href="#balance">
+          <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
         </a>
       </div>
-      <div id="iconsBar" class="flex horizontal layout center">
-        <a class="flex" href="/">
-          <button>
-            <iron-icon icon="ch:home"></iron-icon>
-            <div>Home</div>
-          </button>
+      <div id="feedsBar" class="horizontal layout center">
+        <a href="#feed/recommended">
+          <button id="recommended">Recommended</button>
         </a>
-        <a class="flex" href="#feed">
-          <button id="ifeed">
-            <iron-icon icon="ch:apps"></iron-icon>
-            <div>Feed</div>
-          </button>
+        <a href="#feed/new">
+          <button id="new">New</button>
         </a>
-        <a class="flex" href="#launch">
-          <button id="ilaunch">
-            <iron-icon icon="ch:near-me"></iron-icon>
-            <div>Launch</div>
-          </button>
+        <a href="#feed/top">
+          <button id="top">Top</button>
         </a>
-        <a id="accountButton" class="flex" href="#account">
-          <button id="iaccount">
-            <iron-icon icon="ch:account-circle"></iron-icon>
-            <div>Account</div>
-          </button>
+        <a href="#feed/mine">
+          <button id="mine">Mine</button>
         </a>
-        <a id="signInButton" class="flex" href="#signin">
-          <button id="isignin">
-            <iron-icon icon="ch:account-circle"></iron-icon>
-            <div>Sign In</div>
-          </button>
+        <a href="#feed/opened">
+          <button id="opened">Opened</button>
         </a>
-        <!-- <a class="flex" href="https://medium.com/channels-network" target="_blank"><button><iron-icon icon="ch:description"></iron-icon><div>Blog</div></button></a> -->
       </div>
-      <a href="#balance">
-        <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
-      </a>
     </div>
   </template>
   <script>
@@ -198,6 +223,7 @@
 
       onRoute(route) {
         var path = route.segments[0];
+        this.$.feedsBar.style.display = "none";
         var matches = [];
         if (path) {
           let m = this.$[path];
@@ -207,6 +233,21 @@
           }
           if (im) {
             matches.push(im);
+          }
+          if (path === 'feed') {
+            this.$.feedsBar.style.display = "";
+            this.$.recommended.classList.remove("selected");
+            this.$.new.classList.remove("selected");
+            this.$.top.classList.remove("selected");
+            this.$.mine.classList.remove("selected");
+            this.$.opened.classList.remove("selected");
+            if (route.segments.length > 1) {
+              if (this.$[route.segments[1]]) {
+                this.$[route.segments[1]].classList.add("selected");
+              }
+            } else {
+              this.$.recommended.classList.add("selected");
+            }
           }
         }
         if (this._prevMatches && this._prevMatches.length) {

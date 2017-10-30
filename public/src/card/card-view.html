@@ -262,7 +262,8 @@
           },
           preview: Boolean,
           price: String,
-          intersectionObserver: Object
+          intersectionObserver: Object,
+          channelHandle: String
         };
       }
 
@@ -327,6 +328,11 @@
           this.$.container.classList.remove("negative");
           this.$.price.classList.remove("negative");
         }
+        if (this.channelHandle && this.data.by.handle === this.channelHandle && cost <= 0) {
+          this.$.price.style.display = "none";
+        } else {
+          this.$.price.style.display = "";
+        }
         let uc = this.data.stats.likes;
         let dc = this.data.stats.dislikes;
         let tc = uc + dc;
@@ -351,7 +357,7 @@
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
         this.openedAt = Date.now();
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor == 0)) {
+        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor == 0 && (!this.channelHandle || this.data.by.handle !== this.channelHandle))) {
           this.paymentTimer = setInterval(() => {
             this._checkPaymentDue();
           }, 100);
@@ -382,7 +388,7 @@
       }
 
       _checkPaymentDue() {
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor === 0)) {
+        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor === 0 && (!this.channelHandle || this.channelHandle !== this.data.by.handle))) {
           const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
           this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
           if (openDuration > 10000) {
