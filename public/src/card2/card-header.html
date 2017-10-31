@@ -41,6 +41,14 @@
         height: 16px;
         margin: 0 0 0 5px;
       }
+
+      #moreIcon {
+        width: 28px;
+        height: 28px;
+        padding: 10px;
+        cursor: pointer;
+        margin-right: -8px;
+      }
     </style>
     <div class="horizontal layout center bar">
       <img id="authorImage">
@@ -50,6 +58,7 @@
       </div>
       <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
       <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+      <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
     </div>
   </template>
   <script>
@@ -92,6 +101,7 @@
           }
           this._refreshRevenue();
           this._refreshPrivate();
+          this._refreshMore();
         }
       }
 
@@ -113,6 +123,15 @@
           this.$.privateIcon.classList.remove("hidden");
         } else {
           this.$.privateIcon.classList.add("hidden");
+        }
+      }
+
+      _refreshMore() {
+        let owner = this.data && (this.data.by.address === $core.address);
+        if (owner) {
+          this.$.moreIcon.classList.remove("hidden");
+        } else {
+          this.$.moreIcon.classList.add("hidden");
         }
       }
 
