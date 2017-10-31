@@ -38,6 +38,10 @@
         background-position: 50% 50%;
       }
 
+      #imagePanel.noimage {
+        height: 55px;
+      }
+
       .textPanel {
         padding: 10px 14px;
       }
@@ -314,10 +318,11 @@
           this._imageLoaded = true;
           let img = this.data.summary.imageUrl;
           if (img) {
-            this.$.imagePanel.classList.remove("hidden");
+            this.$.imagePanel.classList.remove("noimage");
             this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
           } else {
-            this.$.imagePanel.classList.add("hidden");
+            this.$.imagePanel.classList.add("noimage");
+            this.$.imagePanel.style.backgroundImage = 'url("/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg")';
           }
         }
         this.$.cardHeader.loadImages();
