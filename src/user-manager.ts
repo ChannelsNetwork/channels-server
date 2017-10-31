@@ -106,15 +106,17 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       console.log("UserManager.register-user", requestBody.detailsObject.address);
       const ipAddressHeader = request.headers['x-forwarded-for'];
+      let ipAddress: string;
       console.log("UserManager.register-user: ip address", request.headers);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
         if (ipAddressHeader) {
           const ipAddresses = ipAddressHeader.split(',');
-          for (let ipAddress of ipAddresses) {
-            ipAddress = ipAddress.trim();
-            if (ipAddress.length > 0 && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
-              await db.addUserIpAddress(userRecord, ipAddress);
+          for (let ip of ipAddresses) {
+            ip = ip.trim();
+            if (ip.length > 0 && userRecord.ipAddresses.indexOf(ip) < 0) {
+              ipAddress = ip;
+              await db.addUserIpAddress(userRecord, ip);
               if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
                 await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
               }
