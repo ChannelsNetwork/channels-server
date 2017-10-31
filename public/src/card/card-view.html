@@ -359,7 +359,7 @@
         this.$.cardShell.style.opacity = 0;
         this.style.pointerEvents = "none";
         this.openedAt = Date.now();
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor == 0 && (!this.channelHandle || this.data.by.handle !== this.channelHandle))) {
+        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor == 0 && (!this.channelHandle || this.data.by.handle !== this.channelHandle))) {
           this.paymentTimer = setInterval(() => {
             this._checkPaymentDue();
           }, 100);
@@ -390,7 +390,7 @@
       }
 
       _checkPaymentDue() {
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor === 0 && (!this.channelHandle || this.channelHandle !== this.data.by.handle))) {
+        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor === 0 && (!this.channelHandle || this.channelHandle !== this.data.by.handle))) {
           const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
           this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
           if (openDuration > 10000) {
@@ -402,7 +402,7 @@
       }
 
       _refreshPaidCheck() {
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee === 0 && this.data.pricing.promotionFee > 0 && this.data.userSpecific.earnedFromAuthor > 0 || this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor > 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor > 0)) {
+        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee === 0 && this.data.pricing.promotionFee > 0 && this.data.userSpecific.earnedFromAuthor > 0 || this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor > 0 || this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor > 0)) {
           this.$.paidCheck.style.display = "";
         } else {
           this.$.paidCheck.style.display = "none";

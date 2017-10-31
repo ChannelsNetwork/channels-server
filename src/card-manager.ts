@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -260,7 +260,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable);
+        card.budget.available = budgetAvailable;
+        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
@@ -356,7 +357,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const newBudgetAvailable = card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent;
       if (card.budget && card.budget.available !== newBudgetAvailable) {
-        await db.updateCardBudgetAvailable(card, newBudgetAvailable);
+        card.budget.available = newBudgetAvailable;
+        await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
@@ -427,7 +429,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-      await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable);
+      card.budget.available = budgetAvailable;
+      await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
@@ -704,7 +707,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
       couponId = couponRecord.id;
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
+    const promotionScores = this.getPromotionScoresFromData(details.budget && details.budget.amount > 0, details.promotionFee, details.openPayment, 0, 0);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, promotionScores, cardId);
     await this.announceCard(card, user);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -1077,7 +1081,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.insertCardStatsHistory(card.id, statName, cardStatistic.value, at);
         lastSnapshot = at;
       }
-      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot);
+      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot, this.getPromotionScores(card));
     } else {
       await db.addCardStat(card, statName, incrementBy);
     }
@@ -1086,6 +1090,34 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
     await db.updateCardScore(card, score);
   }
+
+  getPromotionScores(card: CardRecord): CardPromotionScores {
+    return this.getPromotionScoresFromData(card.budget.available, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value);
+  }
+
+  private getPromotionScoresFromData(budgetAvailable: boolean, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): CardPromotionScores {
+    return {
+      a: this.getPromotionScoreFromData(0.9, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      b: this.getPromotionScoreFromData(0.7, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      c: this.getPromotionScoreFromData(0.5, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      d: this.getPromotionScoreFromData(0.3, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      e: this.getPromotionScoreFromData(0.1, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens)
+    };
+  }
+
+  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): number {
+    if (!budgetAvailable) {
+      return 0;
+    }
+    let openProbability = promotionFee > 0 ? 0.01 : 0.1;
+    if (uniqueImpressions > 100) {
+      openProbability = Math.max(promotionFee > 0 ? 0.001 : 0.01, uniqueOpens / uniqueImpressions);
+    }
+    const revenuePotential = promotionFee + openPayment * openProbability;
+    const desirability = openProbability;
+    return (1 - ratio) * revenuePotential + ratio * openProbability;
+  }
+
 }
 
 const cardManager = new CardManager();
