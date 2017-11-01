@@ -60,5 +60,4 @@ class _CardHelper {
 
 if (!window.$cardHelper) {
   window.$cardHelper = new _CardHelper();
-  console.log("card helper loaded");
 }
