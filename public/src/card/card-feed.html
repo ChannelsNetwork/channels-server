@@ -63,7 +63,7 @@
         event.stopPropagation();
         let card = event.model.item;
         if (card) {
-          this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true, detail: { card: card } }));
+          this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true, detail: { card: card, view: event.target } }));
         }
       }
 

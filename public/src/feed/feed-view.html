@@ -116,6 +116,7 @@
         if (cardItem) {
           $core.cardClosed(cardItem.id);
         }
+        // TODO: show app bar??
       }
 
       _onCardOpenRequest(event) {
@@ -130,7 +131,17 @@
         }
       }
 
-      _onCardImpression() {
+      _onCardImpression(event) {
+        let card = event.detail.card;
+        let view = event.detail.view;
+        if (card && view) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId && (!card.userSpecific.earnedFromAuthor)) {
+            $core.cardImpression(card.id, card.couponId);
+            view.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
+          } else {
+            $core.cardImpression(card.id);
+          }
+        }
       }
 
       _onCardPay() {
