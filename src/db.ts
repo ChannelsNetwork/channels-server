@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, Cursor } from "mongodb";
+import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
@@ -31,11 +31,8 @@ export class Database {
   private cardStatsHistory: Collection;
 
   async initialize(): Promise<void> {
-    const serverOptions = configuration.get('mongo.serverOptions');
-    const options: any = { db: { w: 1 } };
-    if (serverOptions) {
-      options.server = serverOptions;
-    }
+    const serverOptions = configuration.get('mongo.serverOptions') as MongoClientOptions;
+    const options: MongoClientOptions = serverOptions ? serverOptions : { w: 1 };
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
     await this.initializeUsers();

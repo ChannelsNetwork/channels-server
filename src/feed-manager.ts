@@ -55,8 +55,6 @@ const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 5;
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
-  private highScoreCards: CardDescriptor[] = [];
-  private lastHighScoreCardsAt = 0;
   private userCardInfoCache = LRU<string, UserCardInfoRecord>({ max: 25000, maxAge: 1000 * 60 });
   private userEarnedAdCardIds = LRU<string, string[]>({ max: 5000, maxAge: 1000 * 60 * 60 });
 
@@ -306,14 +304,11 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getCardsWithHighestScores(user: UserRecord, ads: boolean, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const now = Date.now();
-    if (now - this.lastHighScoreCardsAt < HIGH_SCORE_CARD_CACHE_LIFE) {
-      return this.highScoreCards;
-    }
-    this.lastHighScoreCardsAt = now;
     const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT, user.id, ads);
-    this.highScoreCards = await this.populateCards(cards, false, user, startWithCardId);
-    return this.highScoreCards;
+    for (const card of cards) {
+      console.log("FeedManager.getCardsWithHighestScores: card revenue", card.stats.revenue.value, card.id);
+    }
+    return await this.populateCards(cards, false, user, startWithCardId);
   }
 
   private async scoreCandidateCard(user: UserRecord, candidate: CardWithUserScore): Promise<CardWithUserScore> {
