@@ -22,6 +22,7 @@ import { SERVER_VERSION } from "./server-version";
 import * as LRU from 'lru-cache';
 import * as path from "path";
 import * as fs from 'fs';
+import { Cursor } from "mongodb";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -168,10 +169,11 @@ export class FeedManager implements Initializable, RestServer {
       let cardIndex = 0;
       let slotIndex = 0;
       let nextAdIndex = adSlots.firstSlotIndex;
+      const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
       while (cardIndex < cards.length || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds);
+          const adCard = await this.getNextAdCard(user, adIds, adCursor);
           if (adCard) {
             const adDescriptor = await this.populateCard(adCard, true, user);
             amalgamated.push(adDescriptor);
@@ -188,21 +190,21 @@ export class FeedManager implements Initializable, RestServer {
         }
         slotIndex++;
       }
+      await adCursor.close();
       return amalgamated;
     } else {
       return cards;
     }
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[]): Promise<CardRecord> {
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>): Promise<CardRecord> {
     let earnedAdCardIds = this.userEarnedAdCardIds.get(user.id);
     if (!earnedAdCardIds) {
       earnedAdCardIds = [];
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
     }
-    const cursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
-    while (await cursor.hasNext()) {
-      const card = await cursor.next();
+    while (await adCursor.hasNext()) {
+      const card = await adCursor.next();
       if (alreadyPopulatedAdCardIds.indexOf(card.id) >= 0) {
         continue;
       }
@@ -531,8 +533,8 @@ export class FeedManager implements Initializable, RestServer {
       const user = users[sample.handle];
       const cardId = uuid.v4();
       let couponPromo: CouponInfo;
-      if (sample.impressionFee + sample.openPrice > 0) {
-        couponPromo = await this.createPromotionCoupon(user, cardId, sample.impressionFee + sample.openPrice, 3, 25);
+      if (sample.impressionFee - sample.openPrice > 0) {
+        couponPromo = await this.createPromotionCoupon(user, cardId, sample.impressionFee - sample.openPrice, 3, 25);
       }
       const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
         user.user.identity.imageUrl,
@@ -544,8 +546,8 @@ export class FeedManager implements Initializable, RestServer {
         null,
         null,
         null, 0,
-        sample.impressionFee, sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee + sample.openPrice > 0 ? 5 : 0, 0, couponPromo ? couponPromo.signedObject : null, couponPromo ? couponPromo.id : null, null, cardId);
+        sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, couponPromo ? couponPromo.signedObject : null, couponPromo ? couponPromo.id : null, null, cardId);
       await db.updateCardStats_Preview(card.id, sample.age, sample.revenue, sample.likes, sample.dislikes);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
     }
