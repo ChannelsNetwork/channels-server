@@ -499,14 +499,17 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async addSampleEntries(): Promise<void> {
+    console.log("FeedManager.addSampleEntries");
     if (configuration.get("debug.useSamples")) {
       const sampleUsersPath = path.join(__dirname, '../sample-users.json');
       let users: { [handle: string]: UserWithKeyUtils };
+      console.log("FeedManager.addSampleEntries: adding users");
       if (fs.existsSync(sampleUsersPath)) {
         const sampleUsers = JSON.parse(fs.readFileSync(sampleUsersPath, 'utf8')) as SampleUser[];
         users = await this.loadSampleUsers(sampleUsers);
       }
       const sampleCardsPath = path.join(__dirname, '../sample-cards.json');
+      console.log("FeedManager.addSampleEntries: adding cards");
       if (fs.existsSync(sampleCardsPath)) {
         const sampleCards = JSON.parse(fs.readFileSync(sampleCardsPath, 'utf8')) as SampleCard[];
         await this.loadSampleCards(sampleCards, users);
