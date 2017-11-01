@@ -28,6 +28,7 @@ import * as Mustache from 'mustache';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as escapeHtml from 'escape-html';
+import * as LRU from 'lru-cache';
 
 const promiseLimit = require('promise-limit');
 
@@ -48,6 +49,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
   private cardTemplate: string;
+  private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
@@ -218,7 +220,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
-        author = await db.findUserById(card.by.id);
+        author = await this.getUser(card.by.id, true);
         if (!author) {
           response.status(404).send("The author no longer has an account.");
           return;
@@ -276,6 +278,18 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.error("User.handleCardImpression: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  async getUser(userId: string, force: boolean): Promise<UserRecord> {
+    let result = this.userCache.get(userId);
+    if (result && !force) {
+      return result;
+    }
+    result = await db.findUserById(userId);
+    if (result) {
+      this.userCache.set(userId, result);
+    }
+    return result;
   }
 
   private async handleCardOpened(request: Request, response: Response): Promise<void> {
@@ -394,7 +408,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("You have already been paid for opening this card");
         return;
       }
-      const author = await db.findUserById(card.by.id);
+      const author = await this.getUser(card.by.id, true);
       if (!author) {
         response.status(404).send("The author no longer has an account.");
         return;
@@ -949,15 +963,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const basePrice = await priceRegulator.getBaseCardFee();
     const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
+    const author = await this.getUser(record.by.id, false);
     try {
       const card: CardDescriptor = {
         id: record.id,
         postedAt: record.postedAt,
         by: {
-          address: record.by.address,
-          handle: record.by.handle,
-          name: record.by.name,
-          imageUrl: record.by.imageUrl,
+          address: author ? author.address : record.by.address,
+          handle: author ? author.identity.handle : record.by.handle,
+          name: author ? author.identity.name : record.by.name,
+          imageUrl: author ? author.identity.imageUrl : record.by.imageUrl,
           isFollowing: false,
           isBlocked: false
         },
