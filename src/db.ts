@@ -623,14 +623,18 @@ export class Database {
     card.lastScored = now;
   }
 
-  async updateCardStats_Preview(cardId: string, postedAgo: number, revenue: number, likes: number, dislikes: number): Promise<void> {
+  async updateCardStats_Preview(cardId: string, postedAgo: number, revenue: number, likes: number, dislikes: number, impressions: number, opens: number): Promise<void> {
     const now = Date.now();
     await this.cards.updateOne({ id: cardId }, {
       $set: {
         postedAt: now - postedAgo,
         "stats.revenue.value": revenue,
         "stats.likes.value": likes,
-        "stats.dislikes.value": dislikes
+        "stats.dislikes.value": dislikes,
+        "stats.impressions.value": impressions,
+        "stats.uniqueImpressions.value": impressions,
+        "stats.opens.value": opens,
+        "stats.uniqueOpens.value": opens
       }
     });
   }
