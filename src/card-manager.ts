@@ -707,7 +707,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
       couponId = couponRecord.id;
     }
-    const promotionScores = this.getPromotionScoresFromData(details.budget && details.budget.amount > 0, details.promotionFee, details.openPayment, 0, 0);
+    const promotionScores = this.getPromotionScoresFromData(details.budget && details.budget.amount > 0, details.openFeeUnits, details.promotionFee, details.openPayment, 0, 0);
     const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, promotionScores, cardId);
     await this.announceCard(card, user);
     if (configuration.get("notifications.postCard")) {
@@ -1092,26 +1092,26 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   getPromotionScores(card: CardRecord): CardPromotionScores {
-    return this.getPromotionScoresFromData(card.budget.available, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value);
+    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value);
   }
 
-  private getPromotionScoresFromData(budgetAvailable: boolean, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): CardPromotionScores {
+  private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): CardPromotionScores {
     return {
-      a: this.getPromotionScoreFromData(0.9, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      b: this.getPromotionScoreFromData(0.7, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      c: this.getPromotionScoreFromData(0.5, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      d: this.getPromotionScoreFromData(0.3, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      e: this.getPromotionScoreFromData(0.1, budgetAvailable, promotionFee, openPayment, uniqueImpressions, uniqueOpens)
+      a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens)
     };
   }
 
-  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): number {
+  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): number {
     if (!budgetAvailable) {
       return 0;
     }
-    let openProbability = promotionFee > 0 ? 0.01 : 0.1;
+    let openProbability = openFeeUnits > 0 ? 0.1 : 0.01;
     if (uniqueImpressions > 100) {
-      openProbability = Math.max(promotionFee > 0 ? 0.001 : 0.01, uniqueOpens / uniqueImpressions);
+      openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
     }
     const revenuePotential = promotionFee + openPayment * openProbability;
     const desirability = openProbability;
