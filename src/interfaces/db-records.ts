@@ -89,15 +89,27 @@ export interface CardRecord {
     amount: number;
     plusPercent: number;
     spent: number;
+    available: boolean;
   };
   stats: CardStatistics;
   score: number;
   lastScored: number;
+  promotionScores: CardPromotionScores;
   lock: {
     server: string;
     at: number;
   };
 }
+
+export interface CardPromotionScores {
+  a: number;  // balance/target > 80%
+  b: number;
+  c: number;
+  d: number;
+  e: number;  // balance/target < 20%
+}
+
+export type CardPromotionBin = "a" | "b" | "c" | "d" | "e";
 
 export interface CardStatistics {
   revenue: CardStatistic;

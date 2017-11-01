@@ -78,7 +78,7 @@ export class NewsManager implements RestServer {
       response.json(reply);
     } catch (err) {
       console.error("User.handleStatus: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 }

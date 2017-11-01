@@ -361,6 +361,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
+    }).catch((err) => {
+      console.warn("Card impression call failed: " + err);
     });
   }
 

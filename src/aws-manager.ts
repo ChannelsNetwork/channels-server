@@ -116,7 +116,7 @@ export class AwsManager implements RestServer, Initializable {
       }
     } catch (err) {
       console.error("Aws.handleSnsNotify: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 

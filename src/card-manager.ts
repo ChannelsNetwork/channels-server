@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -28,6 +28,7 @@ import * as Mustache from 'mustache';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as escapeHtml from 'escape-html';
+import * as LRU from 'lru-cache';
 
 const promiseLimit = require('promise-limit');
 
@@ -48,6 +49,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
   private cardTemplate: string;
+  private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
@@ -141,7 +143,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(card.id, true, user);
+      const cardState = await this.populateCardState(card.id, true, false, user);
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
         card: cardState
@@ -149,7 +151,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetCard: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -192,7 +194,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handlePostCard: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -218,7 +220,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
-        author = await db.findUserById(card.by.id);
+        author = await this.getUser(card.by.id, true);
         if (!author) {
           response.status(404).send("The author no longer has an account.");
           return;
@@ -259,6 +261,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+        const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        card.budget.available = budgetAvailable;
+        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
@@ -271,8 +276,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardImpression: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  async getUser(userId: string, force: boolean): Promise<UserRecord> {
+    let result = this.userCache.get(userId);
+    if (result && !force) {
+      return result;
+    }
+    result = await db.findUserById(userId);
+    if (result) {
+      this.userCache.set(userId, result);
+    }
+    return result;
   }
 
   private async handleCardOpened(request: Request, response: Response): Promise<void> {
@@ -301,7 +318,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardOpened: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -352,6 +369,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
+      const newBudgetAvailable = card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent;
+      if (card.budget && card.budget.available !== newBudgetAvailable) {
+        card.budget.available = newBudgetAvailable;
+        await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
+      }
       const userStatus = await userManager.getUserStatus(user);
       const reply: CardPayResponse = {
         serverVersion: SERVER_VERSION,
@@ -362,7 +384,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardPay: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -386,7 +408,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("You have already been paid for opening this card");
         return;
       }
-      const author = await db.findUserById(card.by.id);
+      const author = await this.getUser(card.by.id, true);
       if (!author) {
         response.status(404).send("The author no longer has an account.");
         return;
@@ -420,6 +442,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+      const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+      card.budget.available = budgetAvailable;
+      await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
@@ -432,7 +457,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleRedeemCardOpen: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -458,7 +483,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardClosed: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -530,7 +555,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateCardLike: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -562,7 +587,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateCardPrivate: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -589,7 +614,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleDeleteCard: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -630,7 +655,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       console.error("User.handleCardStatHistory: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -696,7 +721,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
       couponId = couponRecord.id;
     }
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, cardId);
+    const promotionScores = this.getPromotionScoresFromData(details.budget && details.budget.amount > 0, details.openFeeUnits, details.promotionFee, details.openPayment, 0, 0);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, promotionScores, cardId);
     await this.announceCard(card, user);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -905,7 +931,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(cardId, false, user);
+    const cardDescriptor = await this.populateCardState(cardId, false, false, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -930,22 +956,23 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, includeState: boolean, user?: UserRecord): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
     }
     const basePrice = await priceRegulator.getBaseCardFee();
     const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
+    const author = await this.getUser(record.by.id, false);
     try {
       const card: CardDescriptor = {
         id: record.id,
         postedAt: record.postedAt,
         by: {
-          address: record.by.address,
-          handle: record.by.handle,
-          name: record.by.name,
-          imageUrl: record.by.imageUrl,
+          address: author ? author.address : record.by.address,
+          handle: author ? author.identity.handle : record.by.handle,
+          name: author ? author.identity.name : record.by.name,
+          imageUrl: author ? author.identity.imageUrl : record.by.imageUrl,
           isFollowing: false,
           isBlocked: false
         },
@@ -969,6 +996,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFeeUnits: record.pricing.openFeeUnits,
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
+        promoted: promoted,
         couponId: record.couponId,
         stats: {
           revenue: record.stats.revenue.value,
@@ -1068,7 +1096,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.insertCardStatsHistory(card.id, statName, cardStatistic.value, at);
         lastSnapshot = at;
       }
-      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot);
+      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot, this.getPromotionScores(card));
     } else {
       await db.addCardStat(card, statName, incrementBy);
     }
@@ -1077,6 +1105,39 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
     await db.updateCardScore(card, score);
   }
+
+  getPromotionScores(card: CardRecord): CardPromotionScores {
+    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value);
+  }
+
+  private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): CardPromotionScores {
+    return {
+      a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
+      e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens)
+    };
+  }
+
+  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): number {
+    if (!budgetAvailable) {
+      return 0;
+    }
+    let openProbability = openFeeUnits > 0 ? 0.1 : 0.01;
+    if (uniqueImpressions > 100) {
+      openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
+    }
+    // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
+    // if the card pays based on opens
+    let boost = 1;
+    if (openPayment > 0) {
+      boost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
+    }
+    const revenuePotential = promotionFee + openPayment * openProbability * boost;
+    return (1 - ratio) * revenuePotential + ratio * openProbability;
+  }
+
 }
 
 const cardManager = new CardManager();
