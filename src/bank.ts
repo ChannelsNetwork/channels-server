@@ -126,7 +126,7 @@ export class Bank implements RestServer, Initializable {
       const feeDescription = "USD$" + this.paypalFixedPayoutFee.toFixed(2);
       const paidAmount = amountInUSD - feeAmount;
       const now = Date.now();
-      const transactionResult = await bank.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now);
+      const transactionResult = await this.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now);
 
       // const note = "Your withdrawal request from your Channels balance has been accepted.";
       // let payoutResult: PaypalPayoutResponse;
