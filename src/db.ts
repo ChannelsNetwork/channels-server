@@ -31,8 +31,8 @@ export class Database {
   private cardStatsHistory: Collection;
 
   async initialize(): Promise<void> {
-    const serverOptions = configuration.get('mongo.serverOptions') as MongoClientOptions;
-    const options: MongoClientOptions = serverOptions ? serverOptions : { w: 1 };
+    const configOptions = configuration.get('mongo.options') as MongoClientOptions;
+    const options: MongoClientOptions = configOptions ? configOptions : { w: 1 };
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
     await this.initializeUsers();
