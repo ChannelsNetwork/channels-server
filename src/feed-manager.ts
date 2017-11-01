@@ -20,6 +20,8 @@ import { bank } from "./bank";
 import { networkEntity } from "./network-entity";
 import { SERVER_VERSION } from "./server-version";
 import * as LRU from 'lru-cache';
+import * as path from "path";
+import * as fs from 'fs';
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -75,7 +77,8 @@ export class FeedManager implements Initializable, RestServer {
   async initialize2(): Promise<void> {
     const cardCount = await db.countCards();
     if (cardCount === 0) {
-      await this.addPreviewCards();
+      await this.addSampleEntries();
+      // await this.addPreviewCards();
     }
     setInterval(() => {
       void this.poll();
@@ -495,6 +498,56 @@ export class FeedManager implements Initializable, RestServer {
     return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
   }
 
+  private async addSampleEntries(): Promise<void> {
+    if (configuration.get("debug.useSamples")) {
+      const sampleUsersPath = path.join(__dirname, '../sample-users.json');
+      let users: { [handle: string]: UserWithKeyUtils };
+      if (fs.existsSync(sampleUsersPath)) {
+        const sampleUsers = JSON.parse(fs.readFileSync(sampleUsersPath, 'utf8')) as SampleUser[];
+        users = await this.loadSampleUsers(sampleUsers);
+      }
+      const sampleCardsPath = path.join(__dirname, '../sample-cards.json');
+      if (fs.existsSync(sampleCardsPath)) {
+        const sampleCards = JSON.parse(fs.readFileSync(sampleCardsPath, 'utf8')) as SampleCard[];
+        await this.loadSampleCards(sampleCards, users);
+      }
+    }
+  }
+
+  private async loadSampleUsers(users: SampleUser[]): Promise<{ [handle: string]: UserWithKeyUtils }> {
+    const usersByHandle: { [handle: string]: UserWithKeyUtils } = {};
+    for (const sample of users) {
+      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, null);
+      usersByHandle[sample.handle] = user;
+    }
+    return usersByHandle;
+  }
+
+  private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
+    for (const sample of cards) {
+      const user = users[sample.handle];
+      const cardId = uuid.v4();
+      let couponPromo: CouponInfo;
+      if (sample.impressionFee + sample.openPrice > 0) {
+        couponPromo = await this.createPromotionCoupon(user, cardId, sample.impressionFee + sample.openPrice, 3, 25);
+      }
+      const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
+        user.user.identity.imageUrl,
+        null, 0, 0,
+        null,
+        sample.title,
+        sample.text,
+        false,
+        null,
+        null,
+        null, 0,
+        sample.impressionFee, sample.openPrice, sample.openFeeUnits,
+        sample.impressionFee + sample.openPrice > 0 ? 5 : 0, 0, couponPromo ? couponPromo.signedObject : null, couponPromo ? couponPromo.id : null, null, cardId);
+      await db.updateCardStats_Preview(card.id, sample.age, sample.revenue, sample.likes, sample.dislikes);
+      await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+    }
+  }
+
   private async addPreviewCards(): Promise<void> {
     const now = Date.now();
     let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"));
@@ -847,4 +900,25 @@ interface UserAdInfo {
 interface UserCardInfoRecordPlusCached {
   userCardInfo: UserCardInfoRecord;
   fromCache: boolean;
+}
+
+interface SampleUser {
+  handle: string;
+  name: string;
+  email: string;
+}
+
+interface SampleCard {
+  handle: string;
+  title: string;
+  text: string;
+  age: number;
+  impressionFee: number;
+  openFeeUnits: number;
+  openPrice: number;
+  revenue: number;
+  impressions: number;
+  opens: number;
+  likes: number;
+  dislikes: number;
 }
