@@ -1,5 +1,6 @@
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
+<link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 
 <dom-module id="card-header">
   <template>
@@ -12,6 +13,7 @@
         padding: 10px;
         background: #fafafa;
         font-size: 13px;
+        border-radius: 0 0 3px 3px;
       }
 
       #authorImage {
@@ -71,6 +73,10 @@
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
+
+      <soso-tooltip for="privateIcon" position="top" offset="10">
+        <b>Private:</b> Only you can see this card
+      </soso-tooltip>
     </div>
   </template>
   <script>
@@ -177,6 +183,16 @@
             this._refreshPrivate();
           }).catch((err) => {
             console.error("Failed to updated private flag", err);
+          });
+        }
+      }
+
+      _deleteCard() {
+        if (window.confirm("This will delete this card permanently.  Are you sure?")) {
+          $core.deleteCard(this.data.id).then((response) => {
+            this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
+          }).catch((err) => {
+            console.error("Failed to delete card".err);
           });
         }
       }

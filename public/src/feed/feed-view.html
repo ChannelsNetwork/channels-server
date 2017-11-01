@@ -1,0 +1,149 @@
+<link rel="import" href="../card/card-feed.html">
+<link rel="import" href="../channel-icons.html">
+
+<dom-module id="feed-view">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+        background: #fafafa !important;
+      }
+
+      .main {
+        padding: 0 0 90px;
+      }
+
+      .spacer {
+        height: 50px;
+      }
+
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      @media (max-width: 600px) {
+        .composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+      }
+    </style>
+    <div class="spacer"></div>
+    <div class="main">
+      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
+        on-card-payment-due="_onCardPay"></card-feed>
+    </div>
+    <soso-icon id="composeButton" on-click="_compose" icon="add" icon-map="[[iconMap]]"></soso-icon>
+  </template>
+  <script>
+    class FeedView extends Polymer.Element {
+      static get is() { return 'feed-view'; }
+      static get properties() {
+        return {
+          items: Array,
+          iconMap: Object
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.iconMap = window._channelIcons;
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          // register event handlers
+          this._resizeListener = _debounce(() => {
+            this._onResize();
+          }, 350);
+          window.addEventListener("resize", this._resizeListener);
+          this._onResize();
+          this.set('items', []);
+
+          // parse route
+          let feedName = "recommended";
+          let cardId = null;
+          let channelHandle = null;
+          if (route && route.segments && route.segments.length > 1) {
+            feedName = route.segments[1];
+          }
+          if (feedName === 'channel') {
+            if (route && route.segments && route.segments.length > 2) {
+              channelHandle = route.segments[2];
+              if (route.segments.length > 3) {
+                cardId = route.segments[3];
+              }
+            }
+          } else if (route && route.segments && route.segments.length > 2) {
+            cardId = route.segments[2];
+          }
+
+          // fetch cards
+          return $core.getFeed(feedName, 25, cardId, channelHandle).then((cards) => {
+            this.set('items', cards);
+          });
+        }).catch((err) => {
+          console.error(err);
+        });
+      }
+
+      onDeactivate() {
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      _onResize() {
+        this.$.feed.refreshLayout();
+      }
+
+      _onCardClosed(event) {
+        let cardItem = event.detail.item;
+        if (cardItem) {
+          $core.cardClosed(cardItem.id);
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.card;
+        if (card) {
+          let cardItem = event.detail.item;
+          if (cardItem) {
+            $core.cardOpened(cardItem.id);
+          }
+          // TODO: prevent scroll - bar hide when animating
+          this.$.feed.openCard(card);
+        }
+      }
+
+      _onCardImpression() {
+      }
+
+      _onCardPay() {
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        $router.goto("compose");
+      }
+    }
+    window.customElements.define(FeedView.is, FeedView);
+  </script>
+</dom-module>
