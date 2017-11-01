@@ -1,8 +1,8 @@
-import { MongoClient, Db, Collection, Cursor } from "mongodb";
+import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -31,11 +31,8 @@ export class Database {
   private cardStatsHistory: Collection;
 
   async initialize(): Promise<void> {
-    const serverOptions = configuration.get('mongo.serverOptions');
-    const options: any = { db: { w: 1 } };
-    if (serverOptions) {
-      options.server = serverOptions;
-    }
+    const configOptions = configuration.get('mongo.options') as MongoClientOptions;
+    const options: MongoClientOptions = configOptions ? configOptions : { w: 1 };
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
     await this.initializeUsers();
@@ -117,15 +114,18 @@ export class Database {
   private async initializeCards(): Promise<void> {
     this.cards = this.db.collection('cards');
     await this.cards.createIndex({ id: 1 }, { unique: true });
-    await this.cards.createIndex({ state: 1, postedAt: -1, "by.id": -1 });
-    await this.cards.createIndex({ state: 1, "by.id": 1, postedAt: -1 });
-    await this.cards.createIndex({ state: 1, "by.id": 1, "private": 1, postedAt: -1 });
-    await this.cards.createIndex({ state: 1, "private": 1, postedAt: -1 });
     await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });
-    await this.cards.createIndex({ state: 1, "by.id": 1, "score": -1 });
-    await this.cards.createIndex({ state: 1, "private": 1, "score": -1 });
+    await this.cards.createIndex({ state: 1, "budget.available": 1, private: 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, postedAt: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, "stats.revenue.value": -1 });
-    await this.cards.createIndex({ state: 1, "private": 1, "stats.revenue.value": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "pricing.openFeeUnits": 1, "stats.score.value": -1 });
+
+    await this.cards.updateMany({ promotionScores: { $exists: false } }, { $set: { promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 } } });
+    await this.cards.createIndex({ state: 1, private: 1, "promotionScores.a": -1 });
+    await this.cards.createIndex({ state: 1, private: 1, "promotionScores.b": -1 });
+    await this.cards.createIndex({ state: 1, private: 1, "promotionScores.c": -1 });
+    await this.cards.createIndex({ state: 1, private: 1, "promotionScores.d": -1 });
+    await this.cards.createIndex({ state: 1, private: 1, "promotionScores.e": -1 });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -495,7 +495,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, id?: string): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, promotionScores?: CardPromotionScores, id?: string): Promise<CardRecord> {
     const now = Date.now();
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -531,7 +531,8 @@ export class Database {
       budget: {
         amount: budgetAmount,
         plusPercent: budgetPlusPercent,
-        spent: 0
+        spent: 0,
+        available: budgetAmount > 0
       },
       coupon: coupon,
       couponId: couponId,
@@ -547,12 +548,16 @@ export class Database {
         dislikes: { value: 0, lastSnapshot: 0 }
       },
       score: 0,
+      promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
       lastScored: now,
       lock: {
         server: '',
         at: 0
       }
     };
+    if (promotionScores) {
+      record.promotionScores = promotionScores;
+    }
     await this.cards.insert(record);
     return record;
   }
@@ -608,10 +613,6 @@ export class Database {
     return await this.cards.findOne<CardRecord>(query);
   }
 
-  async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
-  }
-
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
     const now = Date.now();
     await this.cards.updateOne({ id: card.id }, { $set: { score: score, lastScored: now } });
@@ -619,16 +620,45 @@ export class Database {
     card.lastScored = now;
   }
 
-  async updateCardStats_Preview(cardId: string, postedAgo: number, revenue: number, likes: number, dislikes: number): Promise<void> {
+  async updateCardStats_Preview(cardId: string, postedAgo: number, revenue: number, likes: number, dislikes: number, impressions: number, opens: number): Promise<void> {
     const now = Date.now();
     await this.cards.updateOne({ id: cardId }, {
       $set: {
         postedAt: now - postedAgo,
         "stats.revenue.value": revenue,
         "stats.likes.value": likes,
-        "stats.dislikes.value": dislikes
+        "stats.dislikes.value": dislikes,
+        "stats.impressions.value": impressions,
+        "stats.uniqueImpressions.value": impressions,
+        "stats.opens.value": opens,
+        "stats.uniqueOpens.value": opens
       }
     });
+  }
+
+  async updateCardBudgetUsage(card: CardRecord, incSpent: number, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, {
+      $inc: {
+        spent: incSpent
+      },
+      $set: {
+        available: available,
+        promotionScores: promotionScores
+      }
+    });
+    card.budget.spent += incSpent;
+    card.budget.available = available;
+  }
+
+  async updateCardBudgetAvailable(card: CardRecord, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, { $set: { "budget.available": available, promotionScores: promotionScores } });
+    card.budget.available = available;
+    card.promotionScores = promotionScores;
+  }
+
+  async updateCardPromotionScores(card: CardRecord, promotionScores: CardPromotionScores): Promise<void> {
+    await this.cards.updateOne({ id: card.id }, { $set: { promotionScores: promotionScores } });
+    card.promotionScores = promotionScores;
   }
 
   async addCardStat(card: CardRecord, statName: string, value: number): Promise<void> {
@@ -638,7 +668,7 @@ export class Database {
     (card.stats as any)[statName] = { value: value, lastSnapshot: 0 };
   }
 
-  async incrementCardStat(card: CardRecord, statName: string, incrementBy: number, lastSnapshot?: number): Promise<void> {
+  async incrementCardStat(card: CardRecord, statName: string, incrementBy: number, lastSnapshot?: number, promotionScores?: CardPromotionScores): Promise<void> {
     const incClause: any = {};
     incClause["stats." + statName + ".value"] = incrementBy;
     const update: any = { $inc: incClause };
@@ -646,6 +676,12 @@ export class Database {
       const snapClause: any = {};
       snapClause["stats." + statName + ".lastSnapshot"] = lastSnapshot;
       update.$set = snapClause;
+    }
+    if (promotionScores) {
+      if (!update.$set) {
+        update.$set = {};
+      }
+      update.$set.promotionScores = promotionScores;
     }
     await this.cards.updateOne({ id: card.id }, update);
     let stat = (card.stats as any)[statName] as CardStatistic;
@@ -656,6 +692,9 @@ export class Database {
     stat.value += incrementBy;
     if (lastSnapshot) {
       stat.lastSnapshot = lastSnapshot;
+    }
+    if (promotionScores) {
+      card.promotionScores = promotionScores;
     }
   }
 
@@ -669,12 +708,20 @@ export class Database {
     card.state = state;
   }
 
+  async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
+  }
+
+  async findCardsWithAvailableBudget(limit: number): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ state: "active", "budget.available": true, private: false }).sort({ postedAt: -1 }).limit(limit).toArray();
+  }
+
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["by.id"] = byUserId;
     if (excludePrivate) {
       query.private = false;
     }
+    query["by.id"] = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
     } else if (before) {
@@ -707,16 +754,24 @@ export class Database {
       { "by.id": userId },
       { "private": false }
     ];
+    query["stats.revenue.value"] = { $gt: 0 };
     return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
-  async findCardsByScore(limit: number, userId: string): Promise<CardRecord[]> {
+  async findCardsByScore(limit: number, userId: string, ads: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
     query.$or = [
       { "by.id": userId },
       { "private": false }
     ];
+    query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     return await this.cards.find(query).sort({ "stats.score.value": -1 }).limit(limit).toArray();
+  }
+
+  findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
+    const sort: any = {};
+    sort["promotionScores." + bin] = -1;
+    return this.cards.find<CardRecord>({ state: "active", private: false }).sort(sort);
   }
 
   async ensureMutationIndex(): Promise<void> {

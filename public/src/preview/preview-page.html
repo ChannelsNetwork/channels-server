@@ -215,7 +215,7 @@
               card.stats.revenue = response.totalCardRevenue;
               cardView.onPayment();
             });
-          } else if (card.pricing.openFee < 0 && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
             card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
             $core.cardOpenPaymentRedeem(card.id, card.couponId);
             cardView.onPayment();
@@ -248,7 +248,7 @@
           const card = this._visibleCards[id];
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
-            if (!card.data.userSpecific.isPoster && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId && (!this.channelHandle || this.channelHandle !== card.data.by.handle)) {
+            if (!card.data.userSpecific.isPoster && card.data.promoted && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId && (!this.channelHandle || this.channelHandle !== card.data.by.handle)) {
               $core.cardImpression(id, card.data.couponId);
               card.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
               card.onImpressionPaid();

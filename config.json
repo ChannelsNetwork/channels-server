@@ -5,8 +5,8 @@
   "baseSocketUri": "ws://localhost:33111",
   "mongo": {
     "mongoUrl": "mongodb://localhost:27017/channels-server",
-    "options": {},
-    "serverOptions": {
+    "options": {
+      "w": 1,
       "socketOptions": {
         "socketTimeoutMS": 300000,
         "connectTimeoutMS": 300000
@@ -35,7 +35,8 @@
     },
     "clientTester": {
       "enabled": true
-    }
+    },
+    "useSamples": true
   },
   "components": {},
   "networkEntity": {

@@ -32,7 +32,7 @@ const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
-const MAX_USER_IP_ADDRESSES = 12;
+const MAX_USER_IP_ADDRESSES = 32;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -105,13 +105,22 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.register-user", requestBody.detailsObject.address);
-      const ipAddress = request.headers['X-Forwarded-For'];
+      const ipAddressHeader = request.headers['x-forwarded-for'] as string;
+      let ipAddress: string;
+      console.log("UserManager.register-user: ip address", request.headers);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
-        if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
-          await db.addUserIpAddress(userRecord, ipAddress);
-          if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
-            await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
+        if (ipAddressHeader) {
+          const ipAddresses = ipAddressHeader.split(',');
+          if (ipAddresses.length >= 2) {
+            const ip = ipAddresses[0].trim();
+            if (ip.length > 0 && userRecord.ipAddresses.indexOf(ip) < 0) {
+              ipAddress = ip;
+              await db.addUserIpAddress(userRecord, ip);
+              if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
+                await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
+              }
+            }
           }
         }
       } else {
@@ -186,7 +195,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(registerResponse);
     } catch (err) {
       console.error("User.handleRegisterUser: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -217,7 +226,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleRegisterDevice: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -240,7 +249,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleSignIn: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -269,7 +278,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   //     response.json(reply);
   //   } catch (err) {
   //     console.error("User.handleRegisterDevice: Failure", err);
-  //     response.status(500).send(err);
+  //     response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
   //   }
   // }
 
@@ -290,7 +299,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(result);
     } catch (err) {
       console.error("User.handleStatus: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -348,7 +357,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleUpdateIdentity: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -395,7 +404,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleRequestRecoveryCode: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -448,7 +457,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(result);
     } catch (err) {
       console.error("User.handleRecoverUser: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -472,7 +481,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetIdentity: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
@@ -514,7 +523,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleCheckHandle: Failure", err);
-      response.status(500).send(err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 

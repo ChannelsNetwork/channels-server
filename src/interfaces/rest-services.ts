@@ -187,6 +187,7 @@ export interface CardDescriptor {
     openFee: number;  // in ChannelCoin, -ve for ads
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
+  promoted: boolean;
   couponId: string;
   stats: CardDescriptorStatistics;
   score: number;
