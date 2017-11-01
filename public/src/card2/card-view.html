@@ -94,6 +94,23 @@
         background: #2196F3;
       }
 
+      #promoted {
+        position: absolute;
+        right: 10px;
+        left: initial;
+        border-radius: 50%;
+        top: 10px;
+      }
+
+      #promoted soso-icon {
+        background: #4CAF50;
+        color: white;
+        padding: 5px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+      }
+
       #price {
         display: inline-block;
         position: absolute;
@@ -209,6 +226,9 @@
         <label>Pays</label>
         <span>[[price]]</span>
       </div>
+      <div id="promoted" class="hidden">
+        <soso-icon icon="navigation" icon-map="[[iconMap]]"></soso-icon>
+      </div>
     </div>
   </template>
   <script src="card-view-helper.js"></script>
@@ -221,13 +241,15 @@
             type: Object,
             observer: "_onData"
           },
-          price: String
+          price: String,
+          iconMap: Object
         };
       }
 
       connectedCallback() {
         super.connectedCallback();
         this._attached = true;
+        this.iconMap = window._channelIcons;
         requestAnimationFrame(() => {
           this.style.opacity = 1;
         });
@@ -281,6 +303,8 @@
 
           this._refreshRating();
           this._refreshPrice();
+
+          console.log(this.data.summary.text || "", this.data);
         }
       }
 
@@ -291,7 +315,11 @@
           absCost = this.data.pricing.promotionFee.toFixed(2);
         }
         this.price = 'ℂ' + absCost;
-        if (this.channelHandle && (this.data.by.handle === this.channelHandle) && cost <= 0) {
+
+        // Price tag visibility
+        // TODO - NOT PROMOTED
+        let hidePriceTag = (cost === 0) || (cost < 0 && (this.data.promoted));
+        if (hidePriceTag) {
           this.$.price.classList.add("hidden");
         } else {
           this.$.price.classList.remove("hidden");
@@ -300,6 +328,15 @@
           } else {
             this.$.price.classList.remove("negative");
           }
+        }
+
+        // Promoted tag visibility
+        // TODO: - PROMOTED FLAG CHECK
+        let promotedVisible = (cost >= 0) && (this.data.pricing.promotionFee > 0) && (!this.data.promoted);
+        if (promotedVisible) {
+          this.$.promoted.classList.remove("hidden");
+        } else {
+          this.$.promoted.classList.add("hidden");
         }
       }
 
