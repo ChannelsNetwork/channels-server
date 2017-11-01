@@ -1113,8 +1113,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (uniqueImpressions > 100) {
       openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
     }
-    const revenuePotential = promotionFee + openPayment * openProbability;
-    const desirability = openProbability;
+    // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
+    // if the card pays based on opens
+    let boost = 1;
+    if (openPayment > 0) {
+      boost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
+    }
+    const revenuePotential = promotionFee + openPayment * openProbability * boost;
     return (1 - ratio) * revenuePotential + ratio * openProbability;
   }
 

@@ -222,6 +222,12 @@
         width: 12px;
         height: 12px;
       }
+
+      .promoted {
+        font-weight: bold;
+        background-color: blue !important;
+        color: white !important;
+      }
     </style>
     <div id="cardShell">
       <div id="container" class="container">
@@ -334,6 +340,9 @@
           this.$.price.style.display = "none";
         } else {
           this.$.price.style.display = "";
+        }
+        if (this.data.promoted) {
+          this.$.price.classList.add("promoted");
         }
         let uc = this.data.stats.likes;
         let dc = this.data.stats.dislikes;

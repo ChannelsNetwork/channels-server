@@ -532,9 +532,11 @@ export class FeedManager implements Initializable, RestServer {
     for (const sample of cards) {
       const user = users[sample.handle];
       const cardId = uuid.v4();
-      let couponPromo: CouponInfo;
-      if (sample.impressionFee - sample.openPrice > 0) {
-        couponPromo = await this.createPromotionCoupon(user, cardId, sample.impressionFee - sample.openPrice, 3, 25);
+      let coupon: CouponInfo;
+      if (sample.impressionFee > 0) {
+        coupon = await this.createPromotionCoupon(user, cardId, sample.impressionFee - sample.openPrice, 3, 25);
+      } else if (sample.openPrice < 0) {
+        coupon = await this.createOpenCoupon(user, cardId, -sample.openPrice, 3);
       }
       const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
         user.user.identity.imageUrl,
@@ -547,7 +549,7 @@ export class FeedManager implements Initializable, RestServer {
         null,
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, couponPromo ? couponPromo.signedObject : null, couponPromo ? couponPromo.id : null, null, cardId);
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null, cardId);
       await db.updateCardStats_Preview(card.id, sample.age, sample.revenue, sample.likes, sample.dislikes);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
     }
