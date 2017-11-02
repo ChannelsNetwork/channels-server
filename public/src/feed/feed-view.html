@@ -143,7 +143,7 @@
         if (card && view) {
           if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId && (!card.userSpecific.earnedFromAuthor)) {
             $core.cardImpression(card.id, card.couponId);
-            view.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
+            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
           } else {
             $core.cardImpression(card.id);
           }
@@ -151,6 +151,26 @@
       }
 
       _onCardPay() {
+        const card = event.detail.item;
+        const cardView = event.detail.card;
+        if (!card.userSpecific.isPoster) {
+          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
+            card.userSpecific.paidToAuthor = card.pricing.openFee;
+            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
+              card.stats.revenue = response.totalCardRevenue;
+              cardView.onPayment();
+            }).catch((err) => {
+              console.error("Failed to make card payment", err);
+            });
+          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
+            $core.cardOpenPaymentRedeem(card.id, card.couponId).then(() => {
+              cardView.onPayment();
+            }).catch((err) => {
+              console.error("Failed to make card payment", err);
+            });
+          }
+        }
       }
 
       _compose() {

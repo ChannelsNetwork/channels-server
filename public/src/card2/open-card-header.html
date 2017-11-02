@@ -1,6 +1,7 @@
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
+<link rel="import" href="../controls/progress-icon.html">
 
 <dom-module id="open-card-header">
   <template>
@@ -23,6 +24,8 @@
         font-size: 15px;
         height: 100%;
         box-sizing: border-box;
+        position: relative;
+        width: 66px;
       }
 
       #pricePanel .pays {
@@ -45,6 +48,19 @@
         padding: 3px 6px;
       }
 
+      #pricePanel #paidCheck {
+        display: none;
+      }
+
+      #pricePanel.paid #paidCheck {
+        height: 15px;
+        width: 15px;
+        color: var(--dark-green);
+        display: block;
+        margin: 0 auto 2px;
+        cursor: initial;
+      }
+
       #timestamp {
         font-size: 11px;
       }
@@ -64,6 +80,14 @@
         margin: 0 10px;
       }
 
+      #payTimerProgress {
+        position: absolute;
+        top: 0;
+        left: 3px;
+        --soso-progress-negative-color: rgba(0, 0, 0, 0.1);
+        --soso-progress-positive-color: var(--highlight-green);
+      }
+
       @media (max-width: 600px) {
         soso-icon {
           padding: 0 6px 0 4px;
@@ -72,9 +96,11 @@
     </style>
     <div class="horizontal layout center bar">
       <div id="pricePanel" class="horizontal layout center">
-        <div>
-          <label class="pays hidden">Pays</label>[[price]]
+        <div class="flex" style="text-align: center;">
+          <label class="pays">Pays</label>[[price]]
+          <soso-icon id="paidCheck" icon="check-circle" icon-map="[[iconMap]]"></soso-icon>
         </div>
+        <progress-icon id="payTimerProgress" class="hidden"></progress-icon>
       </div>
       <img id="authorImage">
       <div class="flex vertical layout">
@@ -113,8 +139,7 @@
         }
         this._refreshPrice();
         this._refreshRating();
-        // TODO: refresh paid check
-        // TDOO: start payment timer
+        this._refreshPaidCheck();
       }
 
       _refreshPrice() {
@@ -139,8 +164,39 @@
 
       }
 
+      _refreshPaidCheck() {
+        let showCheck = (!this.data.userSpecific.isPoster) &&
+          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+        if (showCheck) {
+          this.$.pricePanel.classList.add("paid");
+        } else {
+          this.$.pricePanel.classList.remove("paid");
+        }
+      }
+
       _onCloseCard(event) {
         this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true }));
+      }
+
+      showTimer(value) {
+        if (!this._timerVisible) {
+          this._timerVisible = true;
+          this.$.payTimerProgress.classList.remove("hidden");
+          this.$.pricePanel.style.fontSize = "11px";
+        }
+        this.$.payTimerProgress.value = Math.max(0, Math.min(value, 100));
+      }
+
+      hideTimer() {
+        if (this._timerVisible) {
+          this._timerVisible = false;
+          this.$.payTimerProgress.classList.add("hidden");
+          this.$.pricePanel.style.fontSize = "";
+        }
+      }
+
+      onPayment() {
+        this._refreshPaidCheck();
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);
