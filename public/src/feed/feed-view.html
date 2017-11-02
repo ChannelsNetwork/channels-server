@@ -122,18 +122,25 @@
         if (cardItem) {
           $core.cardClosed(cardItem.id);
         }
-        // TODO: show app bar??
+        $app.setBarVisible(true);
       }
 
       _onCardOpenRequest(event) {
         let card = event.detail.card;
         if (card) {
+          $app.setBarVisible(false);
+          $app.preventScrollBehavior = true;
+
           let cardItem = event.detail.item;
           if (cardItem) {
             $core.cardOpened(cardItem.id);
           }
-          // TODO: prevent scroll - bar hide when animating
-          this.$.feed.openCard(card);
+          this.$.feed.openCard(card).then(() => {
+            $app.preventScrollBehavior = false;
+          }).catch((err) => {
+            console.error(err);
+            $app.preventScrollBehavior = false;
+          });
         }
       }
 

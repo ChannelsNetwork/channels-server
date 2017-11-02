@@ -102,6 +102,7 @@
         super();
         window.$app = this;
         window.$core = new CoreService();
+        this._barShowing = true;
       }
 
       connectedCallback() {
@@ -213,6 +214,10 @@
 
         // scroll to top
         this.$.shell.scrollTop = 0;
+        this._prevScrollValue = 0;
+        this._preventScroll = false;
+        this._attachScrollListener();
+
         // notify toolbar
         this.$.toolbar.onRoute(route);
 
@@ -224,7 +229,50 @@
         }
       }
 
+      _attachScrollListener() {
+        if (!this._scrollListener) {
+          this._scrollListener = () => {
+            if (!this._preventScroll) {
+              this._onScroll();
+            }
+          };
+          this.$.shell.addEventListener("scroll", this._scrollListener)
+        }
+      }
+
+      _onScroll() {
+        const shell = this.$.shell;
+        if (!this._prevScrollValue) {
+          this._prevScrollValue = shell.scrollTop;
+        } else {
+          if (shell.scrollTop <= 0) {
+            this._prevScrollValue = 0;
+            if (!this._barShowing) {
+              this.setBarVisible(true);
+            }
+            return;
+          }
+          let diff = shell.scrollTop - this._prevScrollValue;
+          if (diff > 10) {
+            this._prevScrollValue = shell.scrollTop;
+            if (this._barShowing) {
+              this.setBarVisible(false);
+            }
+          } else if (diff < -5) {
+            this._prevScrollValue = shell.scrollTop;
+            if (!this._barShowing) {
+              this.setBarVisible(true);
+            }
+          }
+        }
+      }
+
+      set preventScrollBehavior(value) {
+        this._preventScroll = value;
+      }
+
       setBarVisible(visible) {
+        this._barShowing = visible;
         this.$.toolbar.style.top = visible ? "0px" : "-105px";
       }
 
