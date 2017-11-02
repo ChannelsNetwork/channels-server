@@ -1,5 +1,4 @@
 <link rel="import" href="open-card-header.html">
-
 <dom-module id="open-card">
   <template>
     <style is="custom-style" include="app-styles2">
@@ -11,7 +10,7 @@
         height: 100%;
         width: 100%;
         box-sizing: border-box;
-        transition: all 1s ease;
+        transition: all 0.8s ease;
         z-index: 1;
         pointer-events: auto;
       }
@@ -26,7 +25,13 @@
         position: relative;
         background: white;
         opacity: 0;
-        transition: opacity 1.2s ease;
+        transition: opacity 1s ease;
+      }
+
+      #headerBuffer {
+        display: block;
+        box-sizing: border-box;
+        height: 60px;
       }
 
       #header {
@@ -36,18 +41,7 @@
         bottom: 0;
         box-sizing: border-box;
         border-radius: 3px 3px 0 0;
-        overflow: hidden;
         box-shadow: 0 1px 5px -1px rgba(0, 0, 0, 0.2);
-      }
-
-      #headerBuffer {
-        display: block;
-        box-sizing: border-box;
-        height: 60px;
-      }
-
-      .animatable {
-        transition: all 1s ease;
       }
 
       .content {
@@ -57,7 +51,7 @@
         -webkit-overflow-scrolling: touch;
       }
 
-      #dummyContent {
+      #loadingPanel {
         max-width: 800px;
         margin: 0 auto;
         padding: 10px;
@@ -66,26 +60,14 @@
         text-align: center;
       }
 
-      em {
-        color: #1E88E5;
-        font-style: normal;
-        font-weight: bold;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      @media (max-width: 600px) {
-        #dummyContent {
-          font-size: 16px;
-        }
+      .animatable {
+        transition: all 0.8s ease;
       }
     </style>
     <div id="container" class="vertical layout">
       <div id="headerBuffer"></div>
       <div class="content flex">
-        <div id="dummyContent">
+        <div id="loadingPanel">
           <p>Loading...</p>
         </div>
         <div id="cardView" class="hidden"></div>
@@ -95,7 +77,7 @@
   </template>
   <script>
     class OpenCard extends Polymer.Element {
-      static get is() { return "open-card"; }
+      static get is() { return 'open-card'; }
       static get properties() {
         return {
           data: Object
@@ -103,6 +85,10 @@
       }
 
       open(node) {
+        if (this._open) {
+          return;
+        }
+        this._open = true;
         this._refNode = node;
         return new Promise((resolve, reject) => {
           this.style.display = "block";
@@ -110,10 +96,6 @@
             this.$.header.style.bottom = "initial";
             this.$.header.style.top = (this.offsetHeight - 60) + "px";
             this.$.header.classList.add("animatable");
-            requestAnimationFrame(() => {
-              this.$.header.style.top = "0px";
-              resolve();
-            });
             this.$.container.style.opacity = 1;
             let nodeRect = node.getBoundingClientRect();
             let cardRect = this.getBoundingClientRect();
@@ -121,13 +103,21 @@
             this.style.left = (nodeRect.left - cardRect.left) + "px";
             this.style.width = nodeRect.width + "px"
             this.style.height = nodeRect.height + "px";
-
+            requestAnimationFrame(() => {
+              this.$.header.style.top = "0px";
+              resolve();
+            });
             this._loadCard();
           });
         });
       }
 
-      close(animate) {
+      close() {
+        if (!this._open) {
+          return;
+        }
+        this._open = false;
+        this._stopPaymentTimer();
         this._refNode = null;
         this.style.display = "none";
         this.$.header.style.bottom = "0";
@@ -138,14 +128,6 @@
         this.style.left = 0;
         this.style.width = "100%";
         this.style.height = "100%";
-      }
-
-      onPayment() {
-        this.$.header.onPayment();
-      }
-
-      onImpressionPaid() {
-        this.$.header.onImpressionPaid();
       }
 
       refreshLayout(cardNode) {
@@ -159,10 +141,6 @@
         }
       }
 
-      setPaymentStatus(value, negative) {
-        this.$.header.setPaymentStatus(value, negative);
-      }
-
       _clearNode(node) {
         while (node.hasChildNodes()) {
           node.removeChild(node.lastChild);
@@ -174,51 +152,63 @@
           return;
         }
         this._loading = true;
-        this.$.dummyContent.classList.remove("hidden");
+        this._loadingStart = (new Date()).getTime();
+        this.$.loadingPanel.classList.remove("hidden");
         this.$.cardView.classList.add("hidden");
         this._clearNode(this.$.cardView);
-
-        let onLoaded = () => {
-          this._loading = false;
-          this.$.dummyContent.classList.add("hidden");
-          this.$.cardView.classList.remove("hidden");
-        };
-
         let cardId = this.data.id;
         if (!cardId) {
           this._loading = false;
-          this.$.dummyContent.classList.add("hidden");
+          this.$.loadingPanel.classList.add("hidden");
           return;
         }
+        let promoted = this.data.promoted;
 
         // Fetch the card, then ensure the card package is on the serever, 
         // then import the viewer component, then insert the viewer component
         $core.getCard(cardId).then((cardData) => {
+          cardData.card.promoted = promoted;
           this.set("data", cardData.card);
           let packageName = this.data.cardType.package;
           if (!packageName) {
             this._loading = false;
-            this.$.dummyContent.classList.add("hidden");
+            this.$.loadingPanel.classList.add("hidden");
             return;
           }
           // Import card package
           return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
-            return new Promise((resolve, reject) => {
-              // Import viewer
-              Polymer.importHref(packageInfo.importHref, () => {
-                onLoaded();
-                // Insert node
-                this._insertCardNode(packageInfo);
-                resolve();
-              }, (err) => {
-                reject(err);
-              })
+            // Import viewer
+            return this._import(packageInfo.importHref).then(() => {
+              let now = (new Date()).getTime();
+              let diff = now - (this._loadingStart || 0);
+              if (diff >= 1100) {
+                this._onCardLoaded(true, packageInfo);
+              } else {
+                setTimeout(() => {
+                  this._onCardLoaded(true, packageInfo);
+                }, diff);
+              }
             });
           });
         }).catch((err) => {
-          onLoaded();
-          console.error("Failed to open card '" + packageName + "'", err);
+          this._onCardLoaded(false);
+          console.error("Failed to open card", err);
         });
+      }
+
+      _onCardLoaded(success, packageInfo) {
+        this._loading = false;
+        this.$.loadingPanel.classList.add("hidden");
+        this.$.cardView.classList.remove("hidden");
+
+        if (success && packageInfo) {
+          this._insertCardNode(packageInfo);
+          requestAnimationFrame(() => {
+            if (this._open) {
+              this._startPaymentTimer();
+            }
+          });
+        }
       }
 
       _insertCardNode(packageInfo) {
@@ -228,6 +218,72 @@
         cardNode.author = this.data.by;
         cardNode.user = $core.profile;
         this.$.cardView.appendChild(cardNode);
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(url, () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      _stopPaymentTimer() {
+        if (this._paymentTimer) {
+          clearTimeout(this._paymentTimer);
+          this._paymentTimer = null;
+          this._prevOpenDuration = (new Date()).getTime() - this._paymentTimerStart;
+        }
+        this.$.header.hideTimer();
+      }
+
+      _startPaymentTimer() {
+        if (this._paymentTimer) {
+          return;
+        }
+        let startTimer = false;
+        if (!this.data.userSpecific.isPoster) {
+          if ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0) ||
+            (this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor == 0)) {
+            startTimer = true;
+          }
+        }
+        if (!startTimer) {
+          return;
+        }
+        this._prevOpenDuration = this._prevOpenDuration || 0;
+        if (this._prevOpenDuration >= 10000) {
+          this._onPaymentDue();
+        } else {
+          this._paymentTimerStart = (new Date()).getTime();
+          this._paymentTimerInterval = 10000 - this._prevOpenDuration;
+          this._paymentTimer = setInterval(() => {
+            if (this._open) {
+              let now = (new Date()).getTime();
+              if ((now - this._paymentTimerStart) >= this._paymentTimerInterval) {
+                this._onPaymentDue();
+              } else {
+                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / 10000) * 100;
+                this.$.header.showTimer(value);
+              }
+            }
+          }, 100);
+        }
+      }
+
+      _onPaymentDue() {
+        if (this._paymentTimer) {
+          clearInterval(this._paymentTimer);
+          this._paymentTimer = null;
+        }
+        this.$.header.hideTimer();
+        this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true }));
+      }
+
+      onPayment() {
+        this.$.header.onPayment();
       }
     }
     window.customElements.define(OpenCard.is, OpenCard);
