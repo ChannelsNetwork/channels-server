@@ -78,6 +78,7 @@
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
           this.set('items', []);
+          this.$.feed.closeCard();
 
           // parse route
           let feedName = "recommended";
