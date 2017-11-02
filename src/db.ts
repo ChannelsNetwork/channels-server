@@ -1392,13 +1392,15 @@ export class Database {
     return await this.cardStatsHistory.find({ cardId: cardId, statName: statName }).sort({ at: -1 }).limit(maxCount ? maxCount : 50).toArray();
   }
 
-  async insertBankDeposit(status: BankDepositStatus, at: number, userId: string, amount: number, paymentMethodNonce: string, lastUpdatedAt: number, result: BraintreeTransactionResult): Promise<BankDepositRecord> {
+  async insertBankDeposit(status: BankDepositStatus, at: number, userId: string, amount: number, fees: number, coins: number, paymentMethodNonce: string, lastUpdatedAt: number, result: BraintreeTransactionResult): Promise<BankDepositRecord> {
     const record: BankDepositRecord = {
       id: uuid.v4(),
       status: status,
       at: at,
       userId: userId,
       amount: amount,
+      fees: fees,
+      coins: coins,
       paymentMethodNonce: paymentMethodNonce,
       lastUpdatedAt: lastUpdatedAt,
       result: result,

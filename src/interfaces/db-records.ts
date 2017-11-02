@@ -394,6 +394,8 @@ export interface BankDepositRecord {
   at: number;
   userId: string;
   amount: number;
+  fees: number;
+  coins: number;
   paymentMethodNonce: string;
   lastUpdatedAt: number;
   result: BraintreeTransactionResult;

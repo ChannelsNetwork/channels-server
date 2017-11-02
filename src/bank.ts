@@ -291,8 +291,11 @@ export class Bank implements RestServer, Initializable {
         return;
       }
       const now = Date.now();
-      const depositRecord = await db.insertBankDeposit("pending", now, user.id, requestBody.detailsObject.amount, requestBody.detailsObject.paymentMethodNonce, now, null);
-      const transactionResponse = await this.braintreeTransaction(requestBody.detailsObject.paymentMethodNonce, requestBody.detailsObject.amount);
+      const amount = requestBody.detailsObject.amount;
+      const fees = amount * 0.029 + 0.3;
+      const netAmount = amount - fees;
+      const depositRecord = await db.insertBankDeposit("pending", now, user.id, amount, fees, netAmount, requestBody.detailsObject.paymentMethodNonce, now, null);
+      const transactionResponse = await this.braintreeTransaction(requestBody.detailsObject.paymentMethodNonce, amount);
       console.log("Bank.handleClientCheckout:  transaction response from Braintree", transactionResponse);
       if (transactionResponse.success) {
         const transaction: BankTransactionDetails = {
@@ -302,7 +305,7 @@ export class Bank implements RestServer, Initializable {
           reason: "deposit",
           relatedCardId: null,
           relatedCouponId: null,
-          amount: requestBody.detailsObject.amount,
+          amount: netAmount,
           toRecipients: []
         };
         const recipient: BankTransactionRecipientDirective = {
