@@ -176,7 +176,7 @@ export class FeedManager implements Initializable, RestServer {
       while (cardIndex < cards.length || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds);
+          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards);
           if (adCard) {
             const adDescriptor = await this.populateCard(adCard, true, user);
             amalgamated.push(adDescriptor);
@@ -201,7 +201,7 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[]): Promise<CardRecord> {
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[]): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();
       if (alreadyPopulatedAdCardIds.indexOf(card.id) >= 0) {
@@ -215,6 +215,11 @@ export class FeedManager implements Initializable, RestServer {
       }
       if (card.by.id === user.id) {
         continue;
+      }
+      for (const existing of existingCards) {
+        if (existing.id === card.id) {
+          continue;
+        }
       }
       let info = await this.getUserCardInfo(user.id, card.id, false);
       if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
