@@ -213,6 +213,9 @@ export class FeedManager implements Initializable, RestServer {
       if (earnedAdCardIds.indexOf(card.id) >= 0) {
         continue;
       }
+      if (card.by.id === user.id) {
+        continue;
+      }
       let info = await this.getUserCardInfo(user.id, card.id, false);
       if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
         // This card is not eligible because the user has already been paid for it (based on our cache)
@@ -551,7 +554,7 @@ export class FeedManager implements Initializable, RestServer {
         sample.title,
         sample.text,
         false,
-        null,
+        "ChannelsNetwork/card-hello-world",
         null,
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
