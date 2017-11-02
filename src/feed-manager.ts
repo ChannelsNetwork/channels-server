@@ -531,7 +531,7 @@ export class FeedManager implements Initializable, RestServer {
   private async loadSampleUsers(users: SampleUser[]): Promise<{ [handle: string]: UserWithKeyUtils }> {
     const usersByHandle: { [handle: string]: UserWithKeyUtils } = {};
     for (const sample of users) {
-      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, null);
+      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, null, sample.email);
       usersByHandle[sample.handle] = user;
     }
     return usersByHandle;
@@ -566,7 +566,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async addPreviewCards(): Promise<void> {
     const now = Date.now();
-    let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"));
+    let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"), null);
     let card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimes', 'New York Times',
       this.getPreviewUrl("nytimes.jpg"),
       this.getPreviewUrl("puerto_rico.jpg"), 1024, 683,
@@ -582,7 +582,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"));
+    user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, '80sgames', "80's Games",
       this.getPreviewUrl("80s_games.png"),
       this.getPreviewUrl("galaga.png"), 1332, 998,
@@ -598,7 +598,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"));
+    user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"), null);
     const cardId1 = uuid.v4();
     const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
@@ -618,7 +618,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"));
+    user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'jmodell', 'Josh Modell',
       this.getPreviewUrl("josh_modell.jpg"),
       this.getPreviewUrl("the_national.png"), 800, 532,
@@ -634,7 +634,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"));
+    user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimescw', 'NY Times Crosswords',
       this.getPreviewUrl("nytimes.jpg"),
       this.getPreviewUrl("crossword1.jpg"), 640, 480,
@@ -650,7 +650,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"));
+    user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"), null);
     const cardId2 = uuid.v4();
     const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
@@ -670,7 +670,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"));
+    user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'tyler', 'Tyler McGrath',
       this.getPreviewUrl("tyler.jpg"),
       this.getPreviewUrl("ascension.jpg"), 1280, 532,
@@ -686,7 +686,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"));
+    user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'roadw', 'Road Warrior',
       this.getPreviewUrl("road-warrior.jpg"),
       this.getPreviewUrl("dangerous_road.png"), 917, 481,
@@ -702,7 +702,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"));
+    user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'brightside', 'Bright Side',
       this.getPreviewUrl("brightside.png"),
       this.getPreviewUrl("amsterdam.jpg"), 1000, 1413,
@@ -718,7 +718,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"));
+    user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'aperrotta', 'Anthony Perrotta',
       this.getPreviewUrl("anthony.jpg"),
       this.getPreviewUrl("rage_cover.jpg"), 400, 600,
@@ -734,7 +734,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"));
+    user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'uhaque', 'Umair Haque',
       this.getPreviewUrl("umair.jpg"),
       this.getPreviewUrl("uber_explosion.jpg"), 1200, 779,
@@ -750,7 +750,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"));
+    user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"), null);
     const cardId3 = uuid.v4();
     const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
@@ -770,7 +770,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"));
+    user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'jigsaw', 'Jigsaw',
       this.getPreviewUrl("jigsaw.jpg"),
       this.getPreviewUrl("unfiltered_news.jpg"), 1001, 571,
@@ -786,7 +786,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"));
+    user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"), null);
     const cardId4 = uuid.v4();
     const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
@@ -838,7 +838,7 @@ export class FeedManager implements Initializable, RestServer {
     };
   }
 
-  private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string): Promise<UserWithKeyUtils> {
+  private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string, emailAddress: string): Promise<UserWithKeyUtils> {
     const privateKey = KeyUtils.generatePrivateKey();
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
@@ -846,7 +846,7 @@ export class FeedManager implements Initializable, RestServer {
       name: name,
       handle: handle,
       imageUrl: imageUrl,
-      emailAddress: null,
+      emailAddress: emailAddress,
       location: null
     };
     const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 0, null, id, identity);
