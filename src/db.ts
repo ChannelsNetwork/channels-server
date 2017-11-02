@@ -639,15 +639,16 @@ export class Database {
   async updateCardBudgetUsage(card: CardRecord, incSpent: number, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
     await this.cards.updateOne({ id: card.id }, {
       $inc: {
-        spent: incSpent
+        "budget.spent": incSpent
       },
       $set: {
-        available: available,
+        "budget.available": available,
         promotionScores: promotionScores
       }
     });
     card.budget.spent += incSpent;
     card.budget.available = available;
+    card.promotionScores = promotionScores;
   }
 
   async updateCardBudgetAvailable(card: CardRecord, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
