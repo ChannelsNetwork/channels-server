@@ -1,4 +1,4 @@
-<link rel="import" href="card-view.html">
+<link rel="import" href="../card/card-view.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
 
@@ -30,8 +30,8 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-click="_onCardClick" on-card-close="_onCardClosed" intersection-observer="[[intersectionObserver]]"
-            on-card-deleted="_onCardDeleted" channel-handle="[[channelHandle]]"></card-view>
+          <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-close="_onCardCloseRequest"
+            on-card-deleted="_onCardDeleted"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -45,9 +45,7 @@
             type: Number,
             value: 300
           },
-          items: Array,
-          intersectionObserver: Object,
-          channelHandle: String
+          items: Array
         };
       }
 
@@ -59,6 +57,14 @@
           '--grid-card-height': ht + "px",
           '--card-img-height': imgHt
         });
+      }
+
+      _onImpression(event) {
+        event.stopPropagation();
+        let card = event.model.item;
+        if (card) {
+          this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true, detail: { card: card, view: event.target } }));
+        }
       }
 
       connectedCallback() {
@@ -102,11 +108,13 @@
         }
       }
 
-      _onCardClick(event) {
-        this.dispatchEvent(new CustomEvent('card-click', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
+      _onCardOpenRequest(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('card-open-request', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
       }
 
-      _onCardClosed(event) {
+      _onCardCloseRequest(event) {
+        event.stopPropagation();
         this.closeCard();
         this.dispatchEvent(new CustomEvent('card-closed', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
       }
