@@ -16,51 +16,116 @@
   <script src="https://js.braintreegateway.com/web/dropin/1.6.1/js/dropin.js"></script>
 
   <script>
-    window.addEventListener('WebComponentsReady', () => {
-      const $core = new CoreService();
-      const button = document.querySelector('#submit');
-      const amountInput = document.querySelector("#amount");
-      amountInput.addEventListener('input', (event) => {
-        let valid = /^[0-9]+$/.test(amountInput.value.trim());
-        if (valid) {
-          const value = Number(amountInput.value.trim());
-          if (value < 1 || value >= 10000) {
-            valid = false;
-          }
-        }
-        button.disabled = !valid;
-        if (valid) {
-          amountInput.classList.remove('error');
-        } else {
-          amountInput.classList.add('error');
-        }
+    let $core = null;
+    let cancel = null;
+    let button = null;
+    let retry = null;
+    let amountInput = null;
+    let errorMessage = null;
+    let paymentInstance = null;
+    let dropinContainer = null;
 
-      });
-      const cancel = document.querySelector("#cancel");
-      cancel.addEventListener('click', () => {
-        window.location = "/app/#balance";
-      });
+
+    function initialize() {
+      $core = new CoreService();
+      cancel = document.querySelector("#cancel");
+      button = document.querySelector('#submit');
+      retry = document.querySelector('#retry');
+      amountInput = document.querySelector("#amount");
+      errorMessage = document.querySelector("#errorMessage");
+      dropinContainer = document.querySelector("#dropinContainer");
+
+      amountInput.addEventListener('input', onAmountInput);
+      cancel.addEventListener('click', onCancelClick);
+      retry.addEventListener('click', onRetryClick);
+      button.addEventListener('click', onSubmitClick);
       amountInput.focus();
       $core.register().then(() => {
-        $core.generateDepositClientToken().then((tokenResponse) => {
-          braintree.dropin.create({
-            authorization: tokenResponse.clientToken,
-            selector: "#dropinContainer"
-          }, (err, instance) => {
-            button.addEventListener('click', () => {
-              button.disabled = true;
-              instance.requestPaymentMethod((err, payload) => {
-                $core.depositCheckout(Number(amountInput.value.trim()), payload.nonce).then((depositResponse) => {
-                  console.log("Deposited!", depositResponse);
-                  window.location = "/app/#balance";
-                }).catch((err) => {
-                  alert("Purchase failed: " + err);
-                });
-              });
-            });
+        resetForm();
+      });
+    }
+
+    function onAmountInput() {
+      let valid = /^[0-9]+$/.test(amountInput.value.trim());
+      if (valid) {
+        const value = Number(amountInput.value.trim());
+        if (value < 1 || value >= 10000) {
+          valid = false;
+        }
+      }
+      button.disabled = !valid;
+      if (valid) {
+        amountInput.classList.remove('error');
+      } else {
+        amountInput.classList.add('error');
+      }
+    }
+
+    function onCancelClick() {
+      window.location = "/app/#balance";
+    }
+
+    function onError(message) {
+      retry.classList.remove('hidden');
+      button.classList.add('hidden');
+      dropinContainer.classList.add('hidden');
+      const msgNode = document.createTextNode(message.toString());
+      errorMessage.appendChild(msgNode);
+    }
+
+    function onSubmitClick() {
+      button.disabled = true;
+      paymentInstance.requestPaymentMethod((err, payload) => {
+        if (err) {
+          onAmountInput();
+        } else {
+          $core.depositCheckout(Number(amountInput.value.trim()), payload.nonce).then((depositResponse) => {
+            if (depositResponse.transaction.success) {
+              console.log("Deposited!", depositResponse);
+              window.location = "/app/#balance";
+            } else {
+              const message = depositResponse.transaction && depositResponse.transaction.errors && depositResponse.transactionResult.errors.length > 0 && depositResponse.transactionResult.errors[0].message ? depositResponse.transactionResult.errors[0].message : "Your payment was not approved.";
+              onError(message);
+            }
+          }).catch((err) => {
+            onError(err);
           });
+        }
+      });
+    }
+
+    function onRetryClick() {
+      resetForm();
+    }
+
+    function resetForm() {
+      while (errorMessage.hasChildNodes()) {
+        errorMessage.removeChild(errorMessage.firstChild);
+      }
+      button.disabled = true;
+      button.classList.remove('hidden');
+      retry.classList.add('hidden');
+      dropinContainer.classList.remove('hidden');
+      while (dropinContainer.hasChildNodes()) {
+        dropinContainer.removeChild(dropinContainer.firstChild);
+      }
+      $core.generateDepositClientToken().then((tokenResponse) => {
+        braintree.dropin.create({
+          authorization: tokenResponse.clientToken,
+          selector: "#dropinContainer"
+        }, (err, instance) => {
+          if (err) {
+            onError(err);
+          } else {
+            onAmountInput();
+            paymentInstance = instance;
+          }
         });
       });
+    }
+
+    window.addEventListener('WebComponentsReady', () => {
+      initialize();
     });
   </script>
 
@@ -120,6 +185,7 @@
     .explain {
       font-size: 14px;
       text-align: left;
+      margin: 15px 0;
     }
 
     .amountPanel {
@@ -129,7 +195,7 @@
 
     #amount {
       font-size: 16px;
-      width: 50px;
+      width: 60px;
     }
 
     .error {
@@ -138,6 +204,16 @@
 
     .buttons {
       text-align: center;
+    }
+
+    #errorMessage {
+      font-size: 16px;
+      color: red;
+      text-align: left;
+    }
+
+    .hidden {
+      display: none;
     }
   </style>
 </head>
@@ -148,13 +224,16 @@
     <div class="explain">When you purchase coins, they will be added to your balance and can be used for any purpose including paying for content,
       promoting your content, or making withdrawals.
     </div>
+    <div class="explain">The credit card transaction fee ($0.30 plus 2.9%) will be deducted from your payment.</div>
     <div class="amountPanel">
       Amount to deposit US$
       <input id="amount" type=number min="1" max="9999">
     </div>
     <div id="dropinContainer"></div>
+    <div id="errorMessage"></div>
     <div class="buttons">
-      <button id="cancel" class="button button--small button--green">Cancel</button>
+      <button id="cancel" class="button button--small">Cancel</button>
+      <button id="retry" class="button button--small hidden">Retry</button>
       <button id="submit" disabled class="button button--small button--green">Purchase Tokens</button>
     </div>
   </div>
