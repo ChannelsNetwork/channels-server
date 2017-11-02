@@ -1,4 +1,3 @@
-<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../card/card-feed.html">
 <link rel="import" href="../../bower_components/paper-fab/paper-fab.html">
 <link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
@@ -45,8 +44,7 @@
     </style>
     <div class="spacer"></div>
     <div class="main">
-      <card-feed id="feed" items="[[items]]" on-card-click="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"
-        intersection-observer="[[intersectionObserver]]" channel-handle="[[channelHandle]]"></card-feed>
+      <card-feed id="feed" items="[[items]]" on-card-open-request="onCardClick" on-card-closed="onCardClosed" on-card-payment-due="onCardPay"></card-feed>
     </div>
     <paper-fab class="composeButton" icon="add" on-tap="onCompose"></paper-fab>
   </template>

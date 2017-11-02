@@ -1,20 +1,13 @@
 <dom-module id="progress-icon">
   <template>
     <style>
-       :host {
+      :host {
         display: inline-block;
         position: relative;
         text-align: center;
         width: 60px;
         height: 60px;
-        line-height: 60px;
         cursor: pointer;
-      }
-
-      iron-icon {
-        color: #808080;
-        width: 28px;
-        height: 28px;
       }
 
       svg {
@@ -30,17 +23,16 @@
 
       .posCircle {
         fill: transparent;
-        stroke: #2196F3;
-        stroke-width: 3;
+        stroke: var(--soso-progress-positive-color, #2196F3);
+        stroke-width: var(--soso-progress-stroke-width, 3);
       }
 
       .negCircle {
         fill: transparent;
-        stroke: #F44336;
-        stroke-width: 3;
+        stroke: var(--soso-progress-negative-color, #F44336);
+        stroke-width: var(--soso-progress-stroke-width, 3);
       }
     </style>
-    <iron-icon icon="[[icon]]"></iron-icon>
     <svg id="svg">
       <circle class="negCircle" r="24" cx="30" cy="30"></circle>
       <circle class="posCircle" r="24" cx="30" cy="30" stroke-dasharray$="[[_dasharray]]" stroke-dashoffset$="[[_dashoffset]]"
@@ -52,33 +44,42 @@
       static get is() { return "progress-icon"; }
       static get properties() {
         return {
-          icon: String,
           value: {
             type: Number,
+            value: 0,
             observer: '_onValue'
           },
           max: {
             type: Number,
             value: 100
           },
-          percent: Boolean,
+          hideOnZero: {
+            type: Boolean,
+            value: false
+          },
           _dasharray: String,
           _dashoffset: String,
           _transform: String
         };
       }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._onValue();
+      }
+
       _onValue() {
-        this.$.svg.style.display = this.value ? "block" : "none";
+        if (!this.$.svg) {
+          return;
+        }
+        let hide = this.hideOnZero && (!this.value);
+        this.$.svg.style.display = hide ? "none" : "block";
         let radius = 24;
         let cx = 30;
         let cy = 30;
         this._dasharray = 2 * Math.PI * radius;
         this._dashoffset = (1 - this.value / this.max) * this._dasharray
         this._transform = 'rotate(' + -90 + "," + cx + "," + cy + ")";
-
-        // return cx && cy
-        //             ? 'rotate(' + angle + ', ' + cx + ', ' + cy + ')'
-        //             : '';
       }
     }
     window.customElements.define(ProgressIcon.is, ProgressIcon);
