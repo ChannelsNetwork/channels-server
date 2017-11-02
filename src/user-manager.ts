@@ -190,7 +190,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
         networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
         referralFraction: networkEntity.getReferralFraction(),
-        withdrawalsEnabled: bank.withdrawalsEnabled
+        withdrawalsEnabled: bank.withdrawalsEnabled,
+        depositUrl: this.urlManager.getPublicUrl('deposit')
       };
       response.json(registerResponse);
     } catch (err) {

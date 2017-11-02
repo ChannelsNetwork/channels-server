@@ -539,6 +539,10 @@ class CoreService extends Polymer.Element {
     return 1;
   }
 
+  get depositUrl() {
+    return this._registration.depositUrl;
+  }
+
   get withdrawalsEnabled() {
     if (!this._registration) {
       return false;

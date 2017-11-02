@@ -18,7 +18,7 @@ export class DepositPageHandler implements RestServer {
       const contentPath = path.join(__dirname, '../../public/deposit-page.html');
       this.content = fs.readFileSync(contentPath, 'utf8');
     }
-    app.get('/deposit.html', this.handleDepositPage.bind(this));
+    app.get(this.urlManager.getPublicUrl('deposit'), this.handleDepositPage.bind(this));
   }
 
   private handleDepositPage(request: Request, response: Response) {
@@ -28,7 +28,7 @@ export class DepositPageHandler implements RestServer {
       rest_base: this.urlManager.getDynamicBaseUrl()
     };
     const output = Mustache.render(this.content, view);
-    response.setHeader("Cache-Control", 'public, max-age=' + 5);
+    response.setHeader("Cache-Control", 'public, max-age=' + 60);
     response.contentType('text/html');
     response.status(200);
     response.send(output);

@@ -33,6 +33,7 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   networkDeveloperAddress: string;
   referralFraction: number;
   withdrawalsEnabled: boolean;
+  depositUrl: string;
 }
 
 export interface RegisterDeviceDetails extends Signable {
