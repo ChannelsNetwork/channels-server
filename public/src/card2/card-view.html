@@ -339,8 +339,7 @@
         }
 
         // Price tag visibility
-        // TODO - NOT PROMOTED
-        let hidePriceTag = (cost === 0) || (cost < 0 && (this.data.promoted));
+        let hidePriceTag = (cost === 0) || (cost < 0 && (!this.data.promoted));
         if (hidePriceTag) {
           this.$.price.classList.add("hidden");
         } else {
@@ -353,8 +352,7 @@
         }
 
         // Promoted tag visibility
-        // TODO: - PROMOTED FLAG CHECK
-        let promotedVisible = (cost >= 0) && (this.data.pricing.promotionFee > 0) && (!this.data.promoted);
+        let promotedVisible = (cost >= 0) && (this.data.pricing.promotionFee > 0) && this.data.promoted;
         if (promotedVisible) {
           this.$.promoted.classList.remove("hidden");
         } else {

@@ -172,10 +172,10 @@
               let now = (new Date()).getTime();
               let diff = now - (this._loadingStart || 0);
               if (diff >= 1100) {
-                this._onCardLoaded(true);
+                this._onCardLoaded(true, packageInfo);
               } else {
                 setTimeout(() => {
-                  this._onCardLoaded(true);
+                  this._onCardLoaded(true, packageInfo);
                 }, diff);
               }
             });
@@ -186,11 +186,23 @@
         });
       }
 
-      _onCardLoaded(success) {
+      _onCardLoaded(success, packageInfo) {
         this._loading = false;
         this.$.loadingPanel.classList.add("hidden");
         this.$.cardView.classList.remove("hidden");
-        // TODO: 
+
+        if (success && packageInfo) {
+          this._insertCardNode(packageInfo);
+        }
+      }
+
+      _insertCardNode(packageInfo) {
+        let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
+        cardNode.sharedState = this.data.state.shared;
+        cardNode.userState = this.data.state.user;
+        cardNode.author = this.data.by;
+        cardNode.user = $core.profile;
+        this.$.cardView.appendChild(cardNode);
       }
 
       _import(url) {
@@ -202,7 +214,6 @@
           });
         });
       }
-
     }
     window.customElements.define(OpenCard.is, OpenCard);
   </script>
