@@ -298,7 +298,11 @@ export class FeedManager implements Initializable, RestServer {
     }
     const candidates = await Promise.all(promises);
     candidates.sort((a, b) => {
-      return b.fullScore - a.fullScore;
+      if (startWithCardId && a.card.id === startWithCardId) {
+        return -1;
+      } else {
+        return b.fullScore - a.fullScore;
+      }
     });
     const result: CardDescriptor[] = [];
     for (const candidate of candidates) {
