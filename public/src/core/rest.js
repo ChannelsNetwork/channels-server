@@ -365,4 +365,20 @@ class RestUtils {
       historyLimit: historyLimit
     };
   }
+
+  static generateClientToken(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static clientCheckout(address, amount, nonce) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      amount: amount,
+      paymentMethodNonce: nonce
+    };
+  }
 }

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+  <title>Channels: Deposit</title>
+  <link rel="icon" href="/s/images/fav2.png" type="image/png">
+  <link id="restBase" rel="session" href="{{&rest_base}}">
+  <link id="publicBase" rel="session" href="{{&public_base}}">
+
+  <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js"></script>
+  <link rel="import" href="{{&public_base}}/bower_components/polymer/polymer-element.html">
+  <link rel="import" href="{{&public_base}}/bower_components/polymer/lib/utils/import-href.html">
+  <link rel="import" href="{{&public_base}}/src/core/core.html">
+  <script src="https://js.braintreegateway.com/web/dropin/1.6.1/js/dropin.js"></script>
+
+  <script>
+    window.addEventListener('WebComponentsReady', () => {
+      const $core = new CoreService();
+      $core.register().then(() => {
+        $core.generateDepositClientToken().then((tokenResponse) => {
+          braintree.dropin.create({
+            authorization: tokenResponse.clientToken,
+            selector: "#dropinContainer"
+          }, (err, instance) => {
+            const button = document.querySelector('#submit');
+            button.addEventListener('click', () => {
+              instance.requestPaymentMethod((err, payload) => {
+                $core.depositCheckout(10, payload.nonce).then((depositResponse) => {
+                  console.log("Deposited!", depositResponse);
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  </script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Open Sans', 'Roboto', sans-serif;
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      color: #292929;
+      font-size: 18px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 15px;
+      text-align: center;
+    }
+
+    .button {
+      cursor: pointer;
+      font-weight: 500;
+      left: 3px;
+      line-height: inherit;
+      position: relative;
+      text-decoration: none;
+      text-align: center;
+      border-style: solid;
+      border-width: 1px;
+      border-radius: 3px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      display: inline-block;
+      margin: 25px;
+    }
+
+    .button--small {
+      padding: 10px 20px;
+      font-size: 0.875rem;
+    }
+
+    .button--green {
+      outline: none;
+      background-color: #64d18a;
+      border-color: #64d18a;
+      color: white;
+      transition: all 200ms ease;
+    }
+
+    .button--green:hover {
+      background-color: #8bdda8;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div id="dropinContainer"></div>
+    <button id="submit" class="button button--small button--green">Purchase Tokens</button>
+  </div>
+</body>
+
+</html>

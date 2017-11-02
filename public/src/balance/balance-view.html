@@ -1,3 +1,5 @@
+<link rel="import" href="../controls/braintree-payment.html">
+
 <dom-module id="balance-view">
   <template>
     <style is="custom-style" include="app-styles2">
@@ -158,43 +160,48 @@
             <div class="availableNote">Coins you have earned from your cards are available for withdrawal.</div>
             <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
           </div>
-        </div>
-        <div class="footer" style="display:none;">
-          <p>Want to earn extra coins for you and your friends?</p>
-          <p>
-            <a on-click="onInvite">Invite a friend</a>
-          </p>
-        </div>
-      </div>
-      <div id="bankStatement" style="display:none;">
-        <h3>Recent Transactions</h3>
-        <div class="statementSubtitle">Interest and subsidy payments have been omitted for clarity</div>
-        <div style="display:table; width:100%;">
-          <div class="transactionHeader">
-            <div class="transactionHeaderCell">Date</div>
-            <div class="transactionHeaderCell">Type</div>
-            <div class="transactionHeaderCell right">Amount</div>
-            <div class="transactionHeaderCell">Reason</div>
-            <div class="transactionHeaderCell">Other Party</div>
-            <div class="transactionHeaderCell">Card</div>
-          </div>
-          <template is="dom-repeat" items="[[bankTransactions]]">
-            <div class="transactionItem" style="display:table-row;">
-              <div class="transactionCell">[[item.date]]</div>
-              <div class="transactionCell">[[item.type]]</div>
-              <div class="transactionCell right">[[item.amount]]</div>
-              <div class="transactionCell">[[item.reason]]</div>
-              <div class="transactionCell">[[item.address]]</div>
-              <div class="transactionCell">
-                <a href$="[[item.cardHref]]" class="cardTitle" style$="[[item.cardStyle]]">
-                  <div class="cardTitleInner">[[item.cardTitle]]</div>
-                </a>
-              </div>
+          <div id="depositPanel">
+            <div>Amount: $10.00</div>
+            <div>
+              <braintree-payment on-deposit-completed="_onDepositCompleted" amount="10"></braintree-payment>
             </div>
-          </template>
+          </div>
+          <div class="footer" style="display:none;">
+            <p>Want to earn extra coins for you and your friends?</p>
+            <p>
+              <a on-click="onInvite">Invite a friend</a>
+            </p>
+          </div>
+        </div>
+        <div id="bankStatement" style="display:none;">
+          <h3>Recent Transactions</h3>
+          <div class="statementSubtitle">Interest and subsidy payments have been omitted for clarity</div>
+          <div style="display:table; width:100%;">
+            <div class="transactionHeader">
+              <div class="transactionHeaderCell">Date</div>
+              <div class="transactionHeaderCell">Type</div>
+              <div class="transactionHeaderCell right">Amount</div>
+              <div class="transactionHeaderCell">Reason</div>
+              <div class="transactionHeaderCell">Other Party</div>
+              <div class="transactionHeaderCell">Card</div>
+            </div>
+            <template is="dom-repeat" items="[[bankTransactions]]">
+              <div class="transactionItem" style="display:table-row;">
+                <div class="transactionCell">[[item.date]]</div>
+                <div class="transactionCell">[[item.type]]</div>
+                <div class="transactionCell right">[[item.amount]]</div>
+                <div class="transactionCell">[[item.reason]]</div>
+                <div class="transactionCell">[[item.address]]</div>
+                <div class="transactionCell">
+                  <a href$="[[item.cardHref]]" class="cardTitle" style$="[[item.cardStyle]]">
+                    <div class="cardTitleInner">[[item.cardTitle]]</div>
+                  </a>
+                </div>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
-    </div>
   </template>
   <script>
     class BalanceView extends Polymer.Element {

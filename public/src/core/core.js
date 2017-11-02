@@ -467,6 +467,20 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  generateDepositClientToken() {
+    let details = RestUtils.generateClientToken(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/bank-client-token";
+    return this.rest.post(url, request);
+  }
+
+  depositCheckout(amount, nonce) {
+    let details = RestUtils.clientCheckout(this._keys.address, amount, nonce);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/bank-client-checkout";
+    return this.rest.post(url, request);
+  }
+
   uploadFile(file) {
     var formData = new FormData();
 

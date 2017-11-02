@@ -450,7 +450,7 @@ export interface BankTransactionDetails extends Signable {
   withdrawalRecipient?: BankWithdrawalRecipient;
 }
 
-export type BankTransactionType = "transfer" | "coupon-redemption" | "withdrawal";  // others to come such as "coupon-create"
+export type BankTransactionType = "transfer" | "coupon-redemption" | "withdrawal" | "deposit";  // others to come such as "coupon-create"
 
 export interface BankWithdrawalRecipient {
   mechanism: WithdrawalMechanism;
@@ -468,4 +468,67 @@ export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolu
 
 export interface BankCouponRequestDetails extends Signable {
   coupon: SignedObject;  // BankCouponDetails
+}
+
+export interface BankGenerateClientTokenDetails extends Signable { }
+
+export interface BankGenerateClientTokenResponse extends RestResponse {
+  clientToken: string;
+}
+
+export interface BankClientCheckoutDetails extends Signable {
+  amount: number;
+  paymentMethodNonce: string;
+}
+
+export interface BankClientCheckoutResponse extends RestResponseWithUserStatus {
+  transactionResult: BraintreeTransactionResult;
+}
+
+export interface BraintreeTransactionResult {
+  params: any;
+  success: boolean;
+  errors: BraintreeTransactionError[];
+  transaction: {
+    id: string;
+    amount: string;
+    createdAt: string;
+    creditCard: {
+      token: string;
+      bin: string;
+      last4: string;
+      cardType: string;
+      expirationDate: string;
+      expirationMonth: string;
+      expirationYear: string;
+      imageUrl: string;
+      maskedNumber: string;
+    };
+    currencyIsoCode: string;  // "USD"
+    cvvResponseCode: string;
+    merchantAccountId: string;
+    paymentInstrumentType: string;
+    processorAuthorizationCode: string;
+    processorResponseCode: string;
+    processorResponseText: string;
+    processorSettlementResponseCode: string;
+    processorSettlementResponseText: string;
+    status: string;
+    statusHistory: BraintreeTransactionStatusItem[];
+    updatedAt: string;
+  };
+}
+
+export interface BraintreeTransactionStatusItem {
+  timestamp: string;
+  status: string;
+  amount: string;
+  user: string;
+  transactionSource: string;
+}
+
+export interface BraintreeTransactionError {
+  attribute: string;
+  code: string;
+  message: string;
 }

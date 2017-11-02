@@ -8,7 +8,7 @@ import { KeyUtils } from "./key-utils";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankClientCheckoutDetails, BraintreeTransactionResult, BankClientCheckoutResponse, BankGenerateClientTokenResponse } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import { SignedObject } from "./interfaces/signed-object";
 import * as paypal from 'paypal-rest-sdk';
@@ -19,6 +19,7 @@ import { networkEntity } from "./network-entity";
 import { userManager } from "./user-manager";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
+const braintree = require('braintree');
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 const MINIMUM_TARGET_BALANCE = 5;
@@ -31,6 +32,7 @@ export class Bank implements RestServer, Initializable {
   private exchangeRate = 1;
   private paypalFixedPayoutFee = 0;
   private paypalVariablePayoutFraction = 0;
+  private braintreeGateway: any;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     if (configuration.get('paypal.enabled') && configuration.get('paypal.clientId') && configuration.get('paypal.secret')) {
@@ -42,6 +44,15 @@ export class Bank implements RestServer, Initializable {
       });
       this.paypalEnabled = true;
       console.log("Bank.initialize:  Paypal operations enabled", mode);
+    }
+    if (configuration.get('braintree.privateKey')) {
+      this.braintreeGateway = braintree.connect({
+        environment: braintree.Environment[configuration.get('braintree.environment')],
+        merchantId: configuration.get('braintree.merchantId'),
+        publicKey: configuration.get('braintree.publicKey'),
+        privateKey: configuration.get('braintree.privateKey')
+      });
+      console.log("Bank.initialize:  Braintree payment operations enabled", configuration.get('braintree.environment'));
     }
   }
 
@@ -61,6 +72,12 @@ export class Bank implements RestServer, Initializable {
     });
     this.app.post(this.urlManager.getDynamicUrl('bank-statement'), (request: Request, response: Response) => {
       void this.handleStatement(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('bank-client-token'), (request: Request, response: Response) => {
+      void this.handleClientTokenRequest(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('bank-client-checkout'), (request: Request, response: Response) => {
+      void this.handleClientCheckout(request, response);
     });
   }
 
@@ -219,6 +236,125 @@ export class Bank implements RestServer, Initializable {
     }
   }
 
+  private async handleClientTokenRequest(request: Request, response: Response): Promise<void> {
+    try {
+      if (!this.braintreeGateway) {
+        response.status(502).send("Braintree payments are not configured");
+        return;
+      }
+      await this.generateBraintreeToken(response);
+    } catch (err) {
+      console.error("Bank.handleClientTokenRequest: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private generateBraintreeToken(response: Response): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.braintreeGateway.clientToken.generate({}, (err: any, gatewayResponse: any) => {
+        if (err) {
+          reject(err);
+        } else {
+          const result: BankGenerateClientTokenResponse = {
+            serverVersion: SERVER_VERSION,
+            clientToken: gatewayResponse.clientToken
+          };
+          response.json(result);
+          resolve();
+        }
+      });
+    });
+  }
+
+  private async handleClientCheckout(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<BankClientCheckoutDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("Bank.bank-client-checkout", requestBody.detailsObject);
+      if (!requestBody.detailsObject.paymentMethodNonce) {
+        response.status(400).send("Payment method nonce missing");
+        return;
+      }
+      if (!requestBody.detailsObject.amount || requestBody.detailsObject.amount < 0) {
+        response.status(400).send("Amount is missing or invalid");
+        return;
+      }
+      if (requestBody.detailsObject.amount < 1) {
+        response.status(400).send("Amount is too small");
+        return;
+      }
+      if (requestBody.detailsObject.amount > 10000) {
+        response.status(400).send("Amount exceeds maximum allowed");
+        return;
+      }
+      const now = Date.now();
+      const depositRecord = await db.insertBankDeposit("pending", now, user.id, requestBody.detailsObject.amount, requestBody.detailsObject.paymentMethodNonce, now, null);
+      const transactionResponse = await this.braintreeTransaction(requestBody.detailsObject.paymentMethodNonce, requestBody.detailsObject.amount);
+      console.log("Bank.handleClientCheckout:  transaction response from Braintree", transactionResponse);
+      if (transactionResponse.success) {
+        const transaction: BankTransactionDetails = {
+          address: null,
+          timestamp: null,
+          type: "deposit",
+          reason: "deposit",
+          relatedCardId: null,
+          relatedCouponId: null,
+          amount: requestBody.detailsObject.amount,
+          toRecipients: []
+        };
+        const recipient: BankTransactionRecipientDirective = {
+          address: user.address,
+          portion: "remainder"
+        };
+        transaction.toRecipients.push(recipient);
+        const transactionResult = await networkEntity.performBankTransaction(transaction, null, false, true);
+        await db.updateBankDeposit(depositRecord.id, "completed", transactionResult.record.at, transactionResponse, transactionResult.record.id);
+      } else {
+        await db.updateBankDeposit(depositRecord.id, "failed", Date.now(), transactionResponse, null);
+        response.json(transactionResponse);
+      }
+      const result: BankClientCheckoutResponse = {
+        serverVersion: SERVER_VERSION,
+        status: await userManager.getUserStatus(user),
+        transactionResult: transactionResponse
+      };
+      response.json(result);
+    } catch (err) {
+      console.error("Bank.handleClientCheckout: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private braintreeTransaction(nonce: string, amount: number): Promise<BraintreeTransactionResult> {
+    return new Promise<any>((resolve, reject) => {
+      this.braintreeGateway.transaction.sale({
+        amount: amount.toFixed(2),
+        paymentMethodNonce: nonce,
+        options: {
+          submitForSettlement: true
+        }
+      }, (err: any, result: any) => {
+        if (err) {
+          reject(err);
+        } else {
+          const transactionResult: BraintreeTransactionResult = {
+            params: result.params,
+            success: result.success,
+            errors: [],
+            transaction: result.transaction
+          };
+          if (!result.success) {
+            transactionResult.errors = result.errors.deepErrors();
+          }
+          resolve(transactionResult);
+        }
+      });
+    });
+  }
+
   async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
@@ -239,10 +375,10 @@ export class Bank implements RestServer, Initializable {
     if (!details.type || !details.reason || !details.amount || !details.toRecipients) {
       throw new ErrorWithStatusCode(400, "Invalid details:  missing one or more fields");
     }
-    if (["transfer"].indexOf(details.type) < 0) {
+    if (["transfer", "deposit"].indexOf(details.type) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction type");
     }
-    if (["card-open-fee", "interest", "subsidy", "grant"].indexOf(details.reason) < 0) {
+    if (["card-open-fee", "interest", "subsidy", "grant", "deposit"].indexOf(details.reason) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction reasons");
     }
     switch (details.reason) {
