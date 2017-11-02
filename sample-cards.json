@@ -2,7 +2,7 @@
   {
     "handle": "user2",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.011  Consumption fee: 3 units",
+    "text": "Card PC1  Impression fee: 0.011  Consumption fee: 3 units",
     "age": 338827,
     "impressionFee": 0.011,
     "openFeeUnits": 3,
@@ -16,7 +16,7 @@
   {
     "handle": "user1",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -2.3",
+    "text": "Card PA1  Impression fee: 0  Consumption fee: -2.3",
     "age": 548488,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -30,7 +30,7 @@
   {
     "handle": "user8",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -0.8",
+    "text": "Card PA2  Impression fee: 0  Consumption fee: -0.8",
     "age": 469385,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -44,7 +44,7 @@
   {
     "handle": "user2",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.027  Consumption fee: 0",
+    "text": "Card IA1  Impression fee: 0.027  Consumption fee: 0",
     "age": 202737,
     "impressionFee": 0.027,
     "openFeeUnits": 0,
@@ -58,7 +58,7 @@
   {
     "handle": "user9",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.044  Consumption fee: 2 units",
+    "text": "Card PC2  Impression fee: 0.044  Consumption fee: 2 units",
     "age": 511273,
     "impressionFee": 0.044,
     "openFeeUnits": 2,
@@ -72,7 +72,7 @@
   {
     "handle": "user2",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.016  Consumption fee: 4 units",
+    "text": "Card PC3  Impression fee: 0.016  Consumption fee: 4 units",
     "age": 592486,
     "impressionFee": 0.016,
     "openFeeUnits": 4,
@@ -86,7 +86,7 @@
   {
     "handle": "user2",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 10 units",
+    "text": "Card C1  Impression fee: 0  Consumption fee: 10 units",
     "age": 154942,
     "impressionFee": 0,
     "openFeeUnits": 10,
@@ -100,7 +100,7 @@
   {
     "handle": "user3",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.045  Consumption fee: 0",
+    "text": "Card IA2  Impression fee: 0.045  Consumption fee: 0",
     "age": 212914,
     "impressionFee": 0.045,
     "openFeeUnits": 0,
@@ -114,7 +114,7 @@
   {
     "handle": "user6",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.047  Consumption fee: 0",
+    "text": "Card IA3  Impression fee: 0.047  Consumption fee: 0",
     "age": 413855,
     "impressionFee": 0.047,
     "openFeeUnits": 0,
@@ -128,7 +128,7 @@
   {
     "handle": "user10",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.02  Consumption fee: 7 units",
+    "text": "Card PC4  Impression fee: 0.02  Consumption fee: 7 units",
     "age": 490554,
     "impressionFee": 0.02,
     "openFeeUnits": 7,
@@ -142,7 +142,7 @@
   {
     "handle": "user3",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -1",
+    "text": "Card PA3  Impression fee: 0  Consumption fee: -1",
     "age": 53761,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -156,7 +156,7 @@
   {
     "handle": "user2",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.022  Consumption fee: 0",
+    "text": "Card IA4  Impression fee: 0.022  Consumption fee: 0",
     "age": 153097,
     "impressionFee": 0.022,
     "openFeeUnits": 0,
@@ -170,7 +170,7 @@
   {
     "handle": "user2",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.044  Consumption fee: 3 units",
+    "text": "Card PC5  Impression fee: 0.044  Consumption fee: 3 units",
     "age": 312768,
     "impressionFee": 0.044,
     "openFeeUnits": 3,
@@ -184,7 +184,7 @@
   {
     "handle": "user2",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -2.4",
+    "text": "Card PA4  Impression fee: 0  Consumption fee: -2.4",
     "age": 365326,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -198,7 +198,7 @@
   {
     "handle": "user6",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -2.1",
+    "text": "Card PA5  Impression fee: 0  Consumption fee: -2.1",
     "age": 212138,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -212,7 +212,7 @@
   {
     "handle": "user7",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -1.3",
+    "text": "Card PA6  Impression fee: 0  Consumption fee: -1.3",
     "age": 539927,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -226,7 +226,7 @@
   {
     "handle": "user8",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.016  Consumption fee: 0",
+    "text": "Card IA5  Impression fee: 0.016  Consumption fee: 0",
     "age": 311022,
     "impressionFee": 0.016,
     "openFeeUnits": 0,
@@ -240,7 +240,7 @@
   {
     "handle": "user9",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -0.7",
+    "text": "Card PA7  Impression fee: 0  Consumption fee: -0.7",
     "age": 465861,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -254,7 +254,7 @@
   {
     "handle": "user8",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.015  Consumption fee: 4 units",
+    "text": "Card PC10  Impression fee: 0.015  Consumption fee: 4 units",
     "age": 55718,
     "impressionFee": 0.015,
     "openFeeUnits": 4,
@@ -268,7 +268,7 @@
   {
     "handle": "user7",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 10 units",
+    "text": "Card C2  Impression fee: 0  Consumption fee: 10 units",
     "age": 170432,
     "impressionFee": 0,
     "openFeeUnits": 10,
@@ -282,7 +282,7 @@
   {
     "handle": "user6",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.038  Consumption fee: 1 units",
+    "text": "Card PC6  Impression fee: 0.038  Consumption fee: 1 units",
     "age": 56290,
     "impressionFee": 0.038,
     "openFeeUnits": 1,
@@ -296,7 +296,7 @@
   {
     "handle": "user8",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 6 units",
+    "text": "Card C3  Impression fee: 0  Consumption fee: 6 units",
     "age": 466699,
     "impressionFee": 0,
     "openFeeUnits": 6,
@@ -310,7 +310,7 @@
   {
     "handle": "user8",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.012  Consumption fee: 0",
+    "text": "Card IA6  Impression fee: 0.012  Consumption fee: 0",
     "age": 604087,
     "impressionFee": 0.012,
     "openFeeUnits": 0,
@@ -324,7 +324,7 @@
   {
     "handle": "user3",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 5 units",
+    "text": "Card C4  Impression fee: 0  Consumption fee: 5 units",
     "age": 367788,
     "impressionFee": 0,
     "openFeeUnits": 5,
@@ -338,7 +338,7 @@
   {
     "handle": "user7",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 9 units",
+    "text": "Card C5  Impression fee: 0  Consumption fee: 9 units",
     "age": 495939,
     "impressionFee": 0,
     "openFeeUnits": 9,
@@ -352,7 +352,7 @@
   {
     "handle": "user8",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.026  Consumption fee: 0",
+    "text": "Card IA7  Impression fee: 0.026  Consumption fee: 0",
     "age": 90886,
     "impressionFee": 0.026,
     "openFeeUnits": 0,
@@ -366,7 +366,7 @@
   {
     "handle": "user10",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.046  Consumption fee: 0",
+    "text": "Card IA8  Impression fee: 0.046  Consumption fee: 0",
     "age": 529162,
     "impressionFee": 0.046,
     "openFeeUnits": 0,
@@ -380,7 +380,7 @@
   {
     "handle": "user9",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.024  Consumption fee: 4 units",
+    "text": "Card PC7  Impression fee: 0.024  Consumption fee: 4 units",
     "age": 508087,
     "impressionFee": 0.024,
     "openFeeUnits": 4,
@@ -394,7 +394,7 @@
   {
     "handle": "user7",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.013  Consumption fee: 0",
+    "text": "Card IA9  Impression fee: 0.013  Consumption fee: 0",
     "age": 243341,
     "impressionFee": 0.013,
     "openFeeUnits": 0,
@@ -408,7 +408,7 @@
   {
     "handle": "user7",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.039  Consumption fee: 0",
+    "text": "Card IA10  Impression fee: 0.039  Consumption fee: 0",
     "age": 140503,
     "impressionFee": 0.039,
     "openFeeUnits": 0,
@@ -422,7 +422,7 @@
   {
     "handle": "user3",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 3 units",
+    "text": "Card C6  Impression fee: 0  Consumption fee: 3 units",
     "age": 239569,
     "impressionFee": 0,
     "openFeeUnits": 3,
@@ -436,7 +436,7 @@
   {
     "handle": "user8",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.046  Consumption fee: 9 units",
+    "text": "Card PC8  Impression fee: 0.046  Consumption fee: 9 units",
     "age": 506555,
     "impressionFee": 0.046,
     "openFeeUnits": 9,
@@ -450,7 +450,7 @@
   {
     "handle": "user1",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 6 units",
+    "text": "Card C7  Impression fee: 0  Consumption fee: 6 units",
     "age": 449595,
     "impressionFee": 0,
     "openFeeUnits": 6,
@@ -464,7 +464,7 @@
   {
     "handle": "user8",
     "title": "Paying Ad",
-    "text": "Impression fee: 0  Consumption fee: -1.1",
+    "text": "Card PA8  Impression fee: 0  Consumption fee: -1.1",
     "age": 268702,
     "impressionFee": 0,
     "openFeeUnits": 0,
@@ -478,7 +478,7 @@
   {
     "handle": "user7",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 3 units",
+    "text": "Card C8  Impression fee: 0  Consumption fee: 3 units",
     "age": 299878,
     "impressionFee": 0,
     "openFeeUnits": 3,
@@ -492,7 +492,7 @@
   {
     "handle": "user1",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 6 units",
+    "text": "Card C9  Impression fee: 0  Consumption fee: 6 units",
     "age": 286811,
     "impressionFee": 0,
     "openFeeUnits": 6,
@@ -506,7 +506,7 @@
   {
     "handle": "user5",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 2 units",
+    "text": "Card C10  Impression fee: 0  Consumption fee: 2 units",
     "age": 90809,
     "impressionFee": 0,
     "openFeeUnits": 2,
@@ -520,7 +520,7 @@
   {
     "handle": "user6",
     "title": "Impression Ad",
-    "text": "Impression fee: 0.022  Consumption fee: 0",
+    "text": "Card IA11  Impression fee: 0.022  Consumption fee: 0",
     "age": 204383,
     "impressionFee": 0.022,
     "openFeeUnits": 0,
@@ -534,7 +534,7 @@
   {
     "handle": "user10",
     "title": "Promoted Content",
-    "text": "Impression fee: 0.021  Consumption fee: 6 units",
+    "text": "Card PC9  Impression fee: 0.021  Consumption fee: 6 units",
     "age": 126223,
     "impressionFee": 0.021,
     "openFeeUnits": 6,
@@ -548,7 +548,7 @@
   {
     "handle": "user8",
     "title": "Content",
-    "text": "Impression fee: 0  Consumption fee: 9 units",
+    "text": "Card C11  Impression fee: 0  Consumption fee: 9 units",
     "age": 268838,
     "impressionFee": 0,
     "openFeeUnits": 9,
