@@ -1,6 +1,6 @@
-<link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
+<link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../controls/progress-icon.html">
 
 <dom-module id="open-card-header">
@@ -14,6 +14,7 @@
         background: #fafafa;
         font-size: 14px;
         height: 60px;
+        border-radius: 3px 3px 0 0;
       }
 
       #pricePanel {
@@ -107,7 +108,14 @@
         <div>[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
+      <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
+
+      <soso-dropdown for="moreIcon" alignment="right" offset="0">
+        <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
+        <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_deleteCard">Delete</li>
+      </soso-dropdown>
     </div>
   </template>
   <script>
@@ -140,6 +148,8 @@
         this._refreshPrice();
         this._refreshRating();
         this._refreshPaidCheck();
+        this._refreshMore();
+        this._refreshMenu();
       }
 
       _refreshPrice() {
@@ -162,6 +172,25 @@
 
       _refreshRating() {
 
+      }
+
+      _refreshMore() {
+        let owner = this.data && (this.data.by.address === $core.address);
+        if (owner) {
+          this.$.moreIcon.classList.remove("hidden");
+        } else {
+          this.$.moreIcon.classList.add("hidden");
+        }
+      }
+
+      _refreshMenu() {
+        if (this.data && this.data.private) {
+          this.$.liPrivate.classList.add("hidden");
+          this.$.liPublic.classList.remove("hidden");
+        } else {
+          this.$.liPrivate.classList.remove("hidden");
+          this.$.liPublic.classList.add("hidden");
+        }
       }
 
       _refreshPaidCheck() {
@@ -197,6 +226,38 @@
 
       onPayment() {
         this._refreshPaidCheck();
+      }
+
+      _makePrivate() {
+        this._updatePrivate(true);
+      }
+
+      _makePublic() {
+        this._updatePrivate(false);
+      }
+
+      _updatePrivate(isPrivate) {
+        if (this.data) {
+          $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
+            this.data.private = response.newValue;
+            this._refreshMenu();
+          }).catch((err) => {
+            console.error("Failed to updated private flag", err);
+          });
+        }
+      }
+
+      _deleteCard() {
+        if (window.confirm("This will delete this card permanently.  Are you sure?")) {
+          this._onCloseCard();
+          requestAnimationFrame(() => {
+            $core.deleteCard(this.data.id).then((response) => {
+              this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
+            }).catch((err) => {
+              console.error("Failed to delete card".err);
+            });
+          });
+        }
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);
