@@ -1135,7 +1135,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       boost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
     }
     const revenuePotential = promotionFee + openPayment * openProbability * boost;
-    return (1 - ratio) * revenuePotential + ratio * openProbability;
+    const desireability = openProbability * 5;
+    return ((1 - ratio) * revenuePotential) + (ratio * desireability);
   }
 
 }
