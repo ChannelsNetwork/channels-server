@@ -18,17 +18,43 @@
   <script>
     window.addEventListener('WebComponentsReady', () => {
       const $core = new CoreService();
+      const button = document.querySelector('#submit');
+      const amountInput = document.querySelector("#amount");
+      amountInput.addEventListener('input', (event) => {
+        let valid = /^[0-9]+$/.test(amountInput.value.trim());
+        if (valid) {
+          const value = Number(amountInput.value.trim());
+          if (value < 1 || value >= 10000) {
+            valid = false;
+          }
+        }
+        button.disabled = !valid;
+        if (valid) {
+          amountInput.classList.remove('error');
+        } else {
+          amountInput.classList.add('error');
+        }
+
+      });
+      const cancel = document.querySelector("#cancel");
+      cancel.addEventListener('click', () => {
+        window.location = "/app/#balance";
+      });
+      amountInput.focus();
       $core.register().then(() => {
         $core.generateDepositClientToken().then((tokenResponse) => {
           braintree.dropin.create({
             authorization: tokenResponse.clientToken,
             selector: "#dropinContainer"
           }, (err, instance) => {
-            const button = document.querySelector('#submit');
             button.addEventListener('click', () => {
+              button.disabled = true;
               instance.requestPaymentMethod((err, payload) => {
-                $core.depositCheckout(10, payload.nonce).then((depositResponse) => {
+                $core.depositCheckout(Number(amountInput.value.trim()), payload.nonce).then((depositResponse) => {
                   console.log("Deposited!", depositResponse);
+                  window.location = "/app/#balance";
+                }).catch((err) => {
+                  alert("Purchase failed: " + err);
                 });
               });
             });
@@ -90,13 +116,47 @@
       background-color: #8bdda8;
       color: white;
     }
+
+    .explain {
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .amountPanel {
+      font-size: 16px;
+      margin: 25px 0;
+    }
+
+    #amount {
+      font-size: 16px;
+      width: 50px;
+    }
+
+    .error {
+      background: #fcc;
+    }
+
+    .buttons {
+      text-align: center;
+    }
   </style>
 </head>
 
 <body>
   <div class="container">
+    <h3>Purchase ChannelCoins</h3>
+    <div class="explain">When you purchase coins, they will be added to your balance and can be used for any purpose including paying for content,
+      promoting your content, or making withdrawals.
+    </div>
+    <div class="amountPanel">
+      Amount to deposit US$
+      <input id="amount" type=number min="1" max="9999">
+    </div>
     <div id="dropinContainer"></div>
-    <button id="submit" class="button button--small button--green">Purchase Tokens</button>
+    <div class="buttons">
+      <button id="cancel" class="button button--small button--green">Cancel</button>
+      <button id="submit" disabled class="button button--small button--green">Purchase Tokens</button>
+    </div>
   </div>
 </body>
 

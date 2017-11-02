@@ -1,5 +1,3 @@
-<link rel="import" href="../controls/braintree-payment.html">
-
 <dom-module id="balance-view">
   <template>
     <style is="custom-style" include="app-styles2">
@@ -130,15 +128,15 @@
         text-overflow: ellipsis;
       }
 
-      #withdrawableBalancePanel {
-        margin: 30px 0 0;
-        font-size: 16px;
-      }
-
       .availableNote {
         font-size: 12px;
         font-style: italic;
         margin: 0 0 10px;
+      }
+
+      .wdPanel {
+        margin: 30px 0 0;
+        font-size: 16px;
       }
     </style>
     <div id="fullContent">
@@ -153,17 +151,17 @@
             <label>Balance</label>
             <div>[[balance]]</div>
           </div>
-          <div id="withdrawableBalancePanel" style="display:none;">
-            <label>Available for withdrawal:
-              <span>[[withdrawableBalance]]</span>
-            </label>
-            <div class="availableNote">Coins you have earned from your cards are available for withdrawal.</div>
-            <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
-          </div>
-          <div id="depositPanel">
-            <div>Amount: $10.00</div>
-            <div>
-              <braintree-payment on-deposit-completed="_onDepositCompleted" amount="10"></braintree-payment>
+          <div class="wdPanel horizontal layout end">
+            <div id="depositPanel">
+              <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
+            </div>
+            <div class="flex"></div>
+            <div id="withdrawableBalancePanel" style="display:none;">
+              <label>Available for withdrawal:
+                <span>[[withdrawableBalance]]</span>
+              </label>
+              <div class="availableNote">Coins you have earned from your cards are available for withdrawal.</div>
+              <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
             </div>
           </div>
           <div class="footer" style="display:none;">
@@ -374,6 +372,14 @@
 
       _onWithdrawClick() {
         $router.goto("withdraw")
+      }
+
+      _onDepositClick() {
+        if ($core.profile && $core.profile.handle) {
+          window.location = "/deposit.html";
+        } else {
+          $router.goto("register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
+        }
       }
     }
     window.customElements.define(BalanceView.is, BalanceView);
