@@ -147,12 +147,12 @@
         }
         this._refreshPrice();
         this._refreshRating();
-        this._refreshPaidCheck();
         this._refreshMore();
         this._refreshMenu();
       }
 
       _refreshPrice() {
+        this._refreshPaidCheck();
         let cost = this.data.pricing.openFee;
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
@@ -163,6 +163,9 @@
         }
         // check if the price needs to be shown
         let hidePrice = (cost === 0) || (cost < 0 && (!this.data.promoted));
+        if (hidePrice && this._cardConsumed && cost) {
+          hidePrice = false;
+        }
         if (hidePrice) {
           this.$.pricePanel.classList.add("hidden");
         } else {
@@ -201,6 +204,7 @@
         } else {
           this.$.pricePanel.classList.remove("paid");
         }
+        this._cardConsumed = showCheck;
       }
 
       _onCloseCard(event) {

@@ -354,11 +354,11 @@
           this._cardConsumed = false;
           this._refreshRating();
           this._refreshPrice();
-          this._refreshPaidCheck();
         }
       }
 
       _refreshPrice() {
+        this._refreshPaidCheck();
         let cost = this.data.pricing.openFee;
         let absCost = Math.abs(cost).toFixed(2);
         if (cost === 0) {
@@ -375,6 +375,9 @@
 
         // Price tag visibility
         let hidePriceTag = (cost === 0) || (cost < 0 && (!this.data.promoted));
+        if (hidePriceTag && this._cardConsumed && cost) {
+          hidePriceTag = false;
+        }
         if (hidePriceTag) {
           this.$.price.classList.add("hidden");
         } else {
