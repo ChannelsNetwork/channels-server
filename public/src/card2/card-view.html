@@ -393,7 +393,7 @@
       }
 
       open(node) {
-        return this._import("../card/open-card.html").then(() => {
+        return this._import("open-card.html").then(() => {
           this._cardOpen = true;
           this.$.cardHeader.style.opacity = 0;
           this.$.rating.style.opacity = 0;

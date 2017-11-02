@@ -1,0 +1,76 @@
+<link rel="import" href="../channel-icons.html">
+<link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
+<link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
+
+<dom-module id="open-card-header">
+  <template>
+    <style is="custom-style" include="app-styles2">
+      :host {
+        display: block;
+      }
+
+      #pricePanel {
+        padding: 0 8px;
+        background: var(--bg-yellow);
+        color: #000;
+        letter-spacing: 0.05em;
+        font-size: 15px;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      #timestamp {
+        font-size: 11px;
+      }
+
+      soso-icon {
+        color: #808080;
+        width: 28px;
+        height: 28px;
+        padding: 0 8px;
+        cursor: pointer;
+      }
+    </style>
+    <div class="horizontal layout center bar">
+      <div id="pricePanel" class="horizontal layout center">
+      </div>
+      <div class="flex vertical layout">
+        <div>[[data.by.name]]</div>
+        <div id="timestamp">[[data.postedAtDisplay]]</div>
+      </div>
+
+      <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
+    </div>
+  </template>
+  <script>
+    class OpenCardHeader extends Polymer.Element {
+      static get is() { return 'open-card-header'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_refresh'
+          },
+          iconMap: Object
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.iconMap = window._channelIcons;
+        this._refresh();
+      }
+
+      _refresh() {
+        if (!this.data) {
+          return;
+        }
+      }
+
+      _onCloseCard(event) {
+        this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true }));
+      }
+    }
+    window.customElements.define(OpenCardHeader.is, OpenCardHeader);
+  </script>
+</dom-module>
