@@ -2,9 +2,10 @@
 class EncryptionUtils {
   static encryptString(value, password) {
     const vector = crypto.getRandomValues(new Uint8Array(16));
-    return crypto.subtle.digest({ name: "SHA-256" }, this._convertStringToArrayBufferView(password)).then((digest) => {
-      return window.crypto.subtle.importKey("raw", digest, { name: "AES-CBC" }, false, ["encrypt"]).then((key) => {
-        return crypto.subtle.encrypt({
+    const subtle = crypto.subtle || crypto.webkitSubtle;
+    return subtle.digest({ name: "SHA-256" }, this._convertStringToArrayBufferView(password)).then((digest) => {
+      return subtle.importKey("raw", digest, { name: "AES-CBC" }, false, ["encrypt"]).then((key) => {
+        return subtle.encrypt({
           name: "AES-CBC",
           iv: vector
         },
@@ -22,9 +23,10 @@ class EncryptionUtils {
     const combined = this.hexStringToByteArray(encryptedHex);
     const vector = combined.subarray(0, 16);
     const encrypted = combined.subarray(16);
-    return crypto.subtle.digest({ name: "SHA-256" }, this._convertStringToArrayBufferView(password)).then((digest) => {
-      return window.crypto.subtle.importKey("raw", digest, { name: "AES-CBC" }, false, ["decrypt"]).then((key) => {
-        return crypto.subtle.decrypt({
+    const subtle = crypto.subtle || crypto.webkitSubtle;
+    return subtle.digest({ name: "SHA-256" }, this._convertStringToArrayBufferView(password)).then((digest) => {
+      return subtle.importKey("raw", digest, { name: "AES-CBC" }, false, ["decrypt"]).then((key) => {
+        return subtle.decrypt({
           name: "AES-CBC",
           iv: vector
         },
