@@ -218,6 +218,7 @@
           this.balanceTimer = setInterval(() => {
             this.balance = "ℂ" + $core.balance.toFixed(8);
           }, 250);
+          // TODO: STYLE should never be set like this
           this.$.withdrawableBalancePanel.style = $core.withdrawalsEnabled ? "" : "display:none;";
           let maxWithdrawable = $core.withdrawableBalance;
           if ($core.balance - $core.withdrawableBalance < 2) {
