@@ -36,6 +36,22 @@ var _loadAnalytics = function () {
 
 var _onLoad = function () {
   _loadAnalytics();
+
+  document.addEventListener("scroll", () => {
+    console.log("doc scroll");
+  });
+
+  document.documentElement.addEventListener("scroll", () => {
+    console.log("doc element scroll");
+  });
+
+  document.body.addEventListener("scroll", () => {
+    console.log("doc body scroll");
+  });
+
+  window.addEventListener("scroll", () => {
+    console.log("win scroll");
+  });
 };
 
 if (document.readyState === 'complete') {

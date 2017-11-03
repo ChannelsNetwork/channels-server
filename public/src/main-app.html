@@ -231,16 +231,19 @@
 
       _attachScrollListener() {
         if (!this._scrollListener) {
-          this._scrollListener = () => {
+          this._scrollListener = (event) => {
             if (!this._preventScroll) {
-              this._onScroll();
+              this._onScroll(event);
+              if (!event.bubbles) {
+                window.dispatchEvent(new CustomEvent())
+              }
             }
           };
           this.$.shell.addEventListener("scroll", this._scrollListener)
         }
       }
 
-      _onScroll() {
+      _onScroll(event) {
         const shell = this.$.shell;
         if (!this._prevScrollValue) {
           this._prevScrollValue = shell.scrollTop;
