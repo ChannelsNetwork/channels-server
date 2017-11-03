@@ -75,7 +75,7 @@
         </div>
       </section>
       <div>
-        <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivareChanged"></soso-checkbox>
+        <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
       </div>
       <div class="buttons">
         <button id="publish" on-click="_onPublish">Publish</button>
@@ -96,7 +96,7 @@
         };
       }
 
-      _onPrivareChanged() {
+      _onPrivateChanged() {
         this.set('cardData.private', this.$.chkboxPrivate.checked);
         this.wizard.data.isPrivate = this.$.chkboxPrivate.checked;
         this.$.cardView.onPrivateUpdated();

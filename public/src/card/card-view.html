@@ -492,6 +492,10 @@
         this.$.openCard.onPayment();
       }
 
+      onPrivateUpdated() {
+        this.$.cardHeader.onPrivateUpdated();
+      }
+
       _refreshPaidCheck() {
         let showCheck = (!this.data.userSpecific.isPoster) &&
           ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
