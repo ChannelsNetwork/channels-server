@@ -26,22 +26,22 @@ import { Cursor } from "mongodb";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 5;
-const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 12;
-const SCORE_CARD_WEIGHT_REVENUE = 2;
-const SCORE_CARD_REVENUE_DOUBLING = 25;
-const SCORE_CARD_REVENUE_RECENT_INTERVAL = 1000 * 60 * 60 * 12;
-const SCORE_CARD_WEIGHT_RECENT_REVENUE = 4;
-const SCORE_CARD_RECENT_REVENUE_DOUBLING = 5;
+const SCORE_CARD_WEIGHT_AGE = 10;
+const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
+const SCORE_CARD_WEIGHT_REVENUE = 1;
+const SCORE_CARD_REVENUE_DOUBLING = 100;
+const SCORE_CARD_REVENUE_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
+const SCORE_CARD_WEIGHT_RECENT_REVENUE = 1;
+const SCORE_CARD_RECENT_REVENUE_DOUBLING = 10;
 const SCORE_CARD_WEIGHT_OPENS = 1;
-const SCORE_CARD_OPENS_DOUBLING = 500;
-const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 12;
+const SCORE_CARD_OPENS_DOUBLING = 250;
+const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_OPENS = 1;
-const SCORE_CARD_RECENT_OPENS_DOUBLING = 50;
-const SCORE_CARD_WEIGHT_LIKES = 8;
-const SCORE_CARD_LIKES_DOUBLING = 25;
-const SCORE_CARD_WEIGHT_CONTROVERSY = 6;
-const SCORE_CARD_CONTROVERSY_DOUBLING = 100;
+const SCORE_CARD_RECENT_OPENS_DOUBLING = 25;
+const SCORE_CARD_WEIGHT_LIKES = 1;
+const SCORE_CARD_LIKES_DOUBLING = 0.1;
+const SCORE_CARD_WEIGHT_CONTROVERSY = 1;
+const SCORE_CARD_CONTROVERSY_DOUBLING = 10;
 
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
@@ -79,6 +79,7 @@ export class FeedManager implements Initializable, RestServer {
       await this.addSampleEntries();
       // await this.addPreviewCards();
     }
+    await this.poll();
     setInterval(() => {
       void this.poll();
     }, POLLING_INTERVAL);
@@ -293,40 +294,40 @@ export class FeedManager implements Initializable, RestServer {
     // the highest overall scores (determined independent of any one user).  For each of these cards, we
     // adjust the scores based on factors that are specific to this user.  And we add a random variable
     // resulting in some churn across the set.  Then we take the top N based on how many were requested.
-    const highScores = await this.getCardsWithHighestScores(user, false, startWithCardId);
-    const promises: Array<Promise<CardWithUserScore>> = [];
-    for (const highScore of highScores) {
-      if (user.address !== highScore.by.address) {
-        const candidate: CardWithUserScore = {
-          card: highScore,
-          fullScore: highScore.score
-        };
-        promises.push(this.scoreCandidateCard(user, candidate));
-      }
+    const result = await this.getCardsWithHighestScores(user, false, limit, startWithCardId);
+    for (const r of result) {
+      console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
     }
-    const candidates = await Promise.all(promises);
-    candidates.sort((a, b) => {
-      if (startWithCardId && a.card.id === startWithCardId) {
-        return -1;
-      } else {
-        return b.fullScore - a.fullScore;
-      }
-    });
-    const result: CardDescriptor[] = [];
-    for (const candidate of candidates) {
-      result.push(candidate.card);
-      if (result.length >= limit) {
-        break;
-      }
-    }
+    // const promises: Array<Promise<CardWithUserScore>> = [];
+    // for (const highScore of highScores) {
+    //   if (user.address !== highScore.by.address) {
+    //     const candidate: CardWithUserScore = {
+    //       card: highScore,
+    //       fullScore: highScore.score
+    //     };
+    //     promises.push(this.scoreCandidateCard(user, candidate));
+    //   }
+    // }
+    // const candidates = await Promise.all(promises);
+    // candidates.sort((a, b) => {
+    //   if (startWithCardId && a.card.id === startWithCardId) {
+    //     return -1;
+    //   } else {
+    //     return b.fullScore - a.fullScore;
+    //   }
+    // });
+    // const result: CardDescriptor[] = [];
+    // for (const candidate of candidates) {
+    //   result.push(candidate.card);
+    //   if (result.length >= limit) {
+    //     break;
+    //   }
+    // }
     return await this.mergeWithAdCards(user, result);
   }
 
-  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT, user.id, ads);
-    for (const card of cards) {
-      console.log("FeedManager.getCardsWithHighestScores: card revenue", card.stats.revenue.value, card.id);
-    }
+  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, count: number, startWithCardId?: string): Promise<CardDescriptor[]> {
+    const cards = await db.findCardsByScore(count, user.id, ads);
     return await this.populateCards(cards, false, user, startWithCardId);
   }
 
@@ -413,12 +414,13 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async poll(): Promise<void> {
+    console.log("Feed.poll: Rescoring cards...");
     await this.pollCardScoring(1000 * 60, 1000 * 60);
     await this.pollCardScoring(1000 * 60 * 5, 1000 * 60 * 2);
     await this.pollCardScoring(1000 * 60 * 15, 1000 * 60 * 5);
     await this.pollCardScoring(1000 * 60 * 60, 1000 * 60 * 30);
     await this.pollCardScoring(1000 * 60 * 60 * 3, 1000 * 60 * 60);
-    await this.pollCardScoring(1000 * 60 * 60 * 24, 1000 * 60 * 60 * 6, true);
+    await this.pollCardScoring(1000 * 60 * 60 * 24, 1000 * 60 * 60 * 3, true);
     await this.pollCardScoring(1000 * 60 * 60 * 24 * 365, 1000 * 60 * 60 * 12, true);
   }
 
@@ -426,6 +428,7 @@ export class FeedManager implements Initializable, RestServer {
     // This will find all of the cards that have were posted within the last postInterval specified
     // but have not been rescored within last scoreInterval
     const cards = await db.findCardsForScoring(Date.now() - postInterval, Date.now() - scoreInterval);
+    console.log("Feed.pollCardScoring: scoring " + cards.length + " cards");
     for (const card of cards) {
       await this.rescoreCard(card, addHistory);
     }
@@ -505,13 +508,21 @@ export class FeedManager implements Initializable, RestServer {
     return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
   }
   private getCardLikesScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value, SCORE_CARD_LIKES_DOUBLING);
+    if (card.stats.uniqueOpens.value > 0) {
+      return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value / card.stats.uniqueOpens.value, SCORE_CARD_LIKES_DOUBLING);
+    } else {
+      return 0;
+    }
   }
   private getCardControversyScore(card: CardRecord): number {
-    const likes = card.stats.likes.value;
-    const dislikes = card.stats.dislikes.value;
-    const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
-    return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
+    if (card.stats.uniqueOpens.value > 0) {
+      const likes = card.stats.likes.value / card.stats.uniqueOpens.value;
+      const dislikes = card.stats.dislikes.value / card.stats.uniqueOpens.value;
+      const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
+      return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
+    } else {
+      return 0;
+    }
   }
 
   private async addSampleEntries(): Promise<void> {
