@@ -67,7 +67,6 @@
       _onPublish() {
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
-        console.debug("Publishing card", data);
         $core.postCard(data.summary.imageURL,
           data.summary.linkURL,
           data.summary.title,
