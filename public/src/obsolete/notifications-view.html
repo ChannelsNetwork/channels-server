@@ -1,10 +1,9 @@
-<link rel="import" href="../controls/text-input.html">
 <link rel="import" href="onesignal-lib.html" async>
 
 <dom-module id="notifications-view">
   <template>
-    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
-       :host {
+    <style is="custom-style" include="app-styles">
+      :host {
         display: block;
         background: #4E342E;
         font-size: 20px;
@@ -33,7 +32,7 @@
           font-size: 16px;
           letter-spacing: initial;
         }
-         :host {
+        :host {
           font-size: 16px;
         }
       }
@@ -43,12 +42,18 @@
         <h2>Stay connected</h2>
         <p>We'd like to let you know when the network goes live and about other important events.</p>
         <section id="pushPanel" style="display: none;">
-          <p><button on-click="enableNotifications">Enable push notifications</button></p>
+          <p>
+            <button on-click="enableNotifications">Enable push notifications</button>
+          </p>
           <p>or give us your email address and we will keep you updated</p>
         </section>
-        <text-input id="email" type="email" label="Email" placeholder="Your email" on-input="_onInput"></text-input>
-        <p><button id="btnSubmit" on-click="submitEmail" disabled>Submit</button></p>
-        <p><button on-click="skip">I don't want any notifications</button></p>
+        <soso-text-input id="email" type="email" label="Email" placeholder="Your email" on-input="_onInput"></soso-text-input>
+        <p>
+          <button id="btnSubmit" on-click="submitEmail" disabled>Submit</button>
+        </p>
+        <p>
+          <button on-click="skip">I don't want any notifications</button>
+        </p>
       </div>
     </div>
   </template>

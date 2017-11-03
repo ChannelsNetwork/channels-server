@@ -2,172 +2,211 @@
   <template>
     <style>
       :host {
-        --button-yellow: #f9ed00;
-        --highlight-blue: #81D4FA;
+        --highlight-green: #4CAF50;
+        --dark-green: #2E7D32;
+        --error-color: #D32F2F;
         --bg-yellow: #ffeb3b;
+        --bg-dark: #213034;
       }
 
       h1,
       h2,
       h3 {
-        font-family: 'Raleway', sans-serif;
+        font-family: 'Raleway', 'Roboto', sans-serif;
         margin: 0;
         font-weight: 400;
-        line-height: 1.3;
+        line-height: 1.4;
+        color: #212121;
+        font-display: optional;
       }
 
       h1 {
-        font-size: 50px;
+        font-size: 36px;
       }
 
       h2 {
-        font-size: 41px;
+        font-size: 28px;
       }
 
-      h3 {
-        font-size: 31px;
+      button {
+        outline: none;
+        letter-spacing: 0.03em;
+        text-decoration: none;
+        text-transform: uppercase;
+        border: none;
+        font-size: 17px;
+        padding: 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        background: var(--highlight-green);
+        color: white;
+      }
+
+      button:active {
+        box-shadow: 0 0 10px 0px rgba(0, 0, 0, 0.4) inset;
+      }
+
+      button:disabled {
+        cursor: inherit;
+        background: #000;
+        opacity: 0.38;
+      }
+
+      button.link {
+        background: transparent;
+        letter-spacing: initial;
+        color: #2E7D32;
+        border-radius: 0;
+        padding: 3px 0;
+      }
+
+      button.link:hover {
+        box-shadow: 0 1px 0px 0;
       }
 
       a,
       a:visited,
       a:hover {
-        color: var(--button-yellow);
+        color: inherit;
         outline: none;
         letter-spacing: 0.05em;
         text-decoration: none;
-        text-transform: uppercase;
       }
 
       a:hover {
         box-shadow: 0 1px 0px 0;
       }
 
-      .floatingPage {
+      soso-wizard {
+        --soso-stepper-active-color: var(--highlight-green);
+        --soso-wizard-button-color: var(--dark-green);
+        --soso-wizard-button-weight: 600;
+      }
+
+      soso-text-input {
+        --soso-label-color: var(--dark-green);
+        --soso-label-size: 90%;
+        --soso-valid-color: var(--dark-green);
+      }
+
+      soso-spinner {
+        --soso-spinner-thickness: 6px;
+        --sosos-spinner-major-color: var(--highlight-green);
+        width: 42px;
+        height: 42px;
+      }
+
+      soso-radio-button {
+        --soso-radio-color: var(--highlight-green);
+      }
+
+      soso-checkbox {
+        --soso-checkbox-color: var(--highlight-green);
+      }
+
+      soso-slider {
+        --soso-knob-color: var(--highlight-green);
+      }
+
+      soso-number-input {
+        --soso-button-color: var(--highlight-green);
+      }
+
+      soso-tooltip {
+        line-height: 1.2em;
+        font-size: 13px;
+        color: #000;
+        --soso-tip-background: rgba(255, 255, 255, 0.95);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .layout.horizontal,
+      .layout.vertical {
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+      }
+
+      .layout.horizontal {
+        -ms-flex-direction: row;
+        -webkit-flex-direction: row;
+        flex-direction: row;
+      }
+
+      .layout.vertical {
+        -ms-flex-direction: column;
+        -webkit-flex-direction: column;
+        flex-direction: column;
+      }
+
+      .layout.center,
+      .layout.center-center {
+        -ms-flex-align: center;
+        -webkit-align-items: center;
+        align-items: center;
+      }
+
+      .layout.center-justified,
+      .layout.center-center {
+        -ms-flex-pack: center;
+        -webkit-justify-content: center;
+        justify-content: center;
+      }
+
+      .layout.end {
+        -ms-flex-align: end;
+        -webkit-align-items: flex-end;
+        align-items: flex-end;
+      }
+
+      .layout.wrap {
+        -ms-flex-wrap: wrap;
+        -webkit-flex-wrap: wrap;
+        flex-wrap: wrap;
+      }
+
+      .flex {
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+      }
+
+      .fillContainer {
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
-        transition: transform 0.5s ease-out;
+        bottom: 0;
       }
 
-      button {
-        color: var(--button-yellow);
-        outline: none;
-        letter-spacing: 0.03em;
-        text-decoration: none;
-        text-transform: uppercase;
-        background: none;
-        border: none;
-        font-size: 20px;
-        padding: 10px;
+      .card {
         border-radius: 3px;
-        cursor: pointer;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14),
+        0 1px 5px 0 rgba(0, 0, 0, 0.12),
+        0 3px 1px -2px rgba(0, 0, 0, 0.2);
       }
 
-      button:active {
-        color: var(--highlight-blue);
-        background: none;
+      .dialog .card {
+        box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
       }
 
-      button:disabled {
-        cursor: inherit;
-        color: #808080;
-      }
+      @media (max-width: 600px) {
+        h2 {
+          font-size: 24px;
+        }
 
-      .barspace {
-        height: 60px;
-      }
+        h1 {
+          font-size: 30px;
+        }
 
-      .fullbarspace {
-        height: 100px;
-      }
-
-      .error {
-        color: red;
-        font-weight: 400;
-      }
-    </style>
-  </template>
-</dom-module>
-
-<dom-module id="app-styles-light">
-  <template>
-    <style>
-      h1,
-      h2,
-      h3 {
-        font-family: 'Raleway', sans-serif;
-        margin: 0;
-        font-weight: 400;
-        line-height: 1.3;
-      }
-
-      h1 {
-        font-size: 50px;
-      }
-
-      h2 {
-        font-size: 41px;
-      }
-
-      h3 {
-        font-size: 31px;
-      }
-
-      a,
-      a:visited,
-      a:hover {
-        color: black;
-        outline: none;
-        letter-spacing: 0.05em;
-        text-decoration: none;
-        text-transform: uppercase;
-      }
-
-      a:hover {
-        box-shadow: 0 1px 0px 0;
-      }
-
-      .floatingPage {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        transition: transform 0.5s ease-out;
-      }
-
-      button {
-        color: black;
-        outline: none;
-        letter-spacing: 0.03em;
-        text-decoration: none;
-        text-transform: uppercase;
-        background: none;
-        border: none;
-        font-size: 20px;
-        padding: 10px;
-        border-radius: 3px;
-        cursor: pointer;
-      }
-
-      button:active {
-        color: var(--highlight-blue);
-        background: none;
-      }
-
-      button:disabled {
-        cursor: inherit;
-        color: #808080;
-      }
-
-      .barspace {
-        height: 60px;
-      }
-
-      .error {
-        margin: 10px 0;
-        color: red;
-        font-weight: 400;
+        button {
+          font-size: 15px;
+        }
       }
     </style>
   </template>
