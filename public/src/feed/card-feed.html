@@ -17,7 +17,7 @@
       card-view {
         width: var(--grid-card-width);
         height: var(--grid-card-height, 500px);
-        margin: 1.1%;
+        margin: var(--grid-card-margin, 8px);
         box-sizing: border-box;
       }
 
@@ -95,7 +95,8 @@
         if (this._colWidth != colWidth) {
           this._colWidth = colWidth;
           this.updateStyles({
-            '--grid-card-width': colWidth + "%"
+            '--grid-card-width': colWidth + "%",
+            '--grid-card-margin': Math.floor((1.1 * w) / 100) + "px"
           });
         }
         this._refreshAttempts = 0;

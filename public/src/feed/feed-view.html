@@ -170,7 +170,7 @@
         }
       }
 
-      _onCardPay() {
+      _onCardPay(event) {
         const card = event.detail.item;
         const cardView = event.detail.card;
         if (!card.userSpecific.isPoster) {
