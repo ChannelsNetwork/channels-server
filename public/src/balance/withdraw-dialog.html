@@ -168,14 +168,11 @@
           return;
         }
         $core.register().then((info) => {
-          if (!$core.withdrawalsEnabled || $core.withdrawableBalance < 1) {
+          if (!$core.withdrawalsEnabled || $core.balance < $core.minBalanceAfterWithdrawal + 1) {
             $router.goto("balance");
             return;
           }
-          let maxWithdrawable = $core.withdrawableBalance;
-          if ($core.balance - $core.withdrawableBalance < 2) {
-            maxWithdrawable -= 2 - ($core.balance - $core.withdrawableBalance);
-          }
+          let maxWithdrawable = $core.balance - $core.minBalanceAfterWithdrawal;
           this.set('maxWithdrawal', maxWithdrawable.toFixed(2));
           this.$.withdrawalAmount.value = this.maxWithdrawal;
           this.set('exchangeRate', $core.coinSellExchangeRate.toFixed(6));
@@ -201,10 +198,11 @@
           return;
         }
         const amount = Number(this.$.withdrawalAmount.value);
-        if (amount < 1 || amount > $core.withdrawableBalance) {
+        if (amount < 1 || $core.balance - amount > $core.minBalanceAfterWithdrawal) {
           return;
         }
-        this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(3));
+        let maxWithdrawable = $core.balance - $core.minBalanceAfterWithdrawal;
+        this.set('maxWithdrawal', maxWithdrawable.toFixed(3));
         const withdrawal = amount * $core.coinSellExchangeRate;
         this.set('withdrawalAmount', 'US$' + withdrawal.toFixed(2));
         const fees = 0; //+ withdrawal * 0.029;

@@ -274,7 +274,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -287,9 +287,9 @@ export class Database {
       inviterCode: inviterCode,
       balanceLastUpdated: now,
       balance: 0,
-      targetBalance: 0,
+      targetBalance: targetBalance,
       balanceBelowTarget: false,
-      withdrawableBalance: withdrawableBalance,
+      minBalanceAfterWithdrawal: minBalanceAfterWithdrawal,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
@@ -452,7 +452,7 @@ export class Database {
     return await this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
   }
 
-  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, incrementWithdrawableBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
+  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
     const query: any = {
       id: user.id
     };
@@ -460,21 +460,17 @@ export class Database {
       query.balanceLastUpdated = onlyIfLastBalanceUpdated;
     }
     const result = await this.users.updateOne(query, {
-      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy, withdrawableBalance: incrementWithdrawableBalanceBy },
+      $inc: { balance: incrementBalanceBy },
       $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
     });
     if (result.modifiedCount > 0) {
       user.balance += incrementBalanceBy;
-      user.targetBalance += incrementTargetBy;
-      user.withdrawableBalance += incrementWithdrawableBalanceBy;
       user.balanceBelowTarget = balanceBelowTarget;
       user.balanceLastUpdated = now;
     } else {
       const updatedUser = await this.findUserById(user.id);
       if (updatedUser) {
         user.balance = updatedUser.balance;
-        user.targetBalance = updatedUser.targetBalance;
-        user.withdrawableBalance = updatedUser.withdrawableBalance;
         user.balanceBelowTarget = updatedUser.balanceBelowTarget;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
