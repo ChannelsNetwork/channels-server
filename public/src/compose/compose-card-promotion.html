@@ -91,7 +91,7 @@
         };
       }
 
-      onCancel() {
+      _onCancel() {
         this.wizard.cancel();
       }
       _onNext() {
@@ -99,6 +99,9 @@
       }
 
       onTransitioningIn(forward) {
+        if (!forward) {
+          return;
+        }
         let pricing = this.wizard.data.pricing;
         let notValid = false;
         if (pricing) {
