@@ -21,8 +21,7 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
-const MINIMUM_TARGET_BALANCE = 5;
-const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 2;
+const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
 
 export class Bank implements RestServer, Initializable {
   private app: express.Application;
@@ -92,11 +91,11 @@ export class Bank implements RestServer, Initializable {
         response.status(400).send("Invalid withdrawal details:  missing fields");
         return;
       }
-      if (details.amount < 1 || details.amount > user.withdrawableBalance) {
-        response.status(400).send("Invalid withdrawal amount.  Must be at least ℂ1 and no more than your available withdrawable balance.");
+      if (details.amount < 1) {
+        response.status(400).send("Invalid withdrawal amount.  Must be at least ℂ1.");
         return;
       }
-      if (user.balance - details.amount < MINIMUM_BALANCE_AFTER_WITHDRAWAL) {
+      if (user.balance - details.amount < user.minBalanceAfterWithdrawal) {
         response.status(400).send("Invalid withdrawal amount.  You must maintain a minimum balance in your account.");
         return;
       }
@@ -314,8 +313,7 @@ export class Bank implements RestServer, Initializable {
     const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
 
     // We may need to decrement withdrawable balance to make sure it is never more than your balance
-    const incrWB = user.withdrawableBalance > user.balance - details.amount ? user.balance - user.withdrawableBalance - details.amount : 0;
-    await db.incrementUserBalance(user, -details.amount, 0, incrWB, balanceBelowTarget, now);
+    await db.incrementUserBalance(user, -details.amount, balanceBelowTarget, now);
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
@@ -353,7 +351,7 @@ export class Bank implements RestServer, Initializable {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
       console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
-      await db.incrementUserBalance(recipientUser, creditAmount, increaseTargetBalance ? creditAmount : 0, increaseWithdrawableBalance ? creditAmount : 0, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
+      await db.incrementUserBalance(recipientUser, creditAmount, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
       if (recipientUser.id === user.id) {
         user.balance += creditAmount;
       }
@@ -361,7 +359,6 @@ export class Bank implements RestServer, Initializable {
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,
-      updatedWithdrawableBalance: user.withdrawableBalance,
       balanceAt: now
     };
     return result;
@@ -405,15 +402,14 @@ export class Bank implements RestServer, Initializable {
     transactionDetails.toRecipients.push(recipient);
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
-    await db.incrementUserBalance(from, -coupon.amount, 0, from.withdrawableBalance < coupon.amount ? -from.withdrawableBalance : -coupon.amount, balanceBelowTarget, now);
+    await db.incrementUserBalance(from, -coupon.amount, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, [to.id], null, 0, 1, null);
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
-    await db.incrementUserBalance(to, coupon.amount, 0, 0, to.balance + coupon.amount < to.targetBalance, now);
+    await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: from.id === to.id ? originalBalance : to.balance,
-      updatedWithdrawableBalance: to.withdrawableBalance,
       balanceAt: now
     };
     return result;
@@ -496,13 +492,11 @@ export class Bank implements RestServer, Initializable {
 
   private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number): Promise<BankTransactionResult> {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
-    const incrTB = user.targetBalance - details.amount < MINIMUM_TARGET_BALANCE ? MINIMUM_TARGET_BALANCE - details.amount : -details.amount;
-    await db.incrementUserBalance(user, -details.amount, incrTB, -details.amount, user.balance - details.amount < user.targetBalance, now);
+    await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < user.targetBalance, now);
     const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,
-      updatedWithdrawableBalance: user.withdrawableBalance,
       balanceAt: now
     };
     return result;

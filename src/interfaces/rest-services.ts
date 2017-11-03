@@ -60,7 +60,7 @@ export interface UserStatus {
   goLive: number;
   userBalance: number;
   userBalanceAt: number;
-  withdrawableBalance: number;
+  minBalanceAfterWithdrawal: number;
   targetBalance: number;
   inviteCode: string;
   invitationsUsed: number;

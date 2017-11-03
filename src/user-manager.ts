@@ -33,6 +33,7 @@ const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (36
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
 const MAX_USER_IP_ADDRESSES = 32;
+const DEFAULT_TARGET_BALANCE = 5;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -146,7 +147,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE, ipAddress);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder"
@@ -538,7 +539,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       goLive: this.goLiveDate,
       userBalance: user.balance,
       userBalanceAt: user.balanceLastUpdated,
-      withdrawableBalance: user.withdrawableBalance,
+      minBalanceAfterWithdrawal: user.minBalanceAfterWithdrawal,
       targetBalance: user.targetBalance,
       inviteCode: user.inviterCode.toUpperCase(),
       invitationsUsed: user.invitationsAccepted,
