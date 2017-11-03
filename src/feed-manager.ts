@@ -536,13 +536,14 @@ export class FeedManager implements Initializable, RestServer {
   private async loadSampleUsers(users: SampleUser[]): Promise<{ [handle: string]: UserWithKeyUtils }> {
     const usersByHandle: { [handle: string]: UserWithKeyUtils } = {};
     for (const sample of users) {
-      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, null, sample.email);
+      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, sample.imageUrl, sample.email);
       usersByHandle[sample.handle] = user;
     }
     return usersByHandle;
   }
 
   private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
+    let index = 0;
     for (const sample of cards) {
       const user = users[sample.handle];
       const cardId = uuid.v4();
@@ -554,7 +555,7 @@ export class FeedManager implements Initializable, RestServer {
       }
       const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
         user.user.identity.imageUrl,
-        null, 0, 0,
+        this.getPreviewUrl("canned/" + (index++ + 10) + ".jpg"), 0, 0,
         null,
         sample.title,
         sample.text,
@@ -927,6 +928,7 @@ interface SampleUser {
   handle: string;
   name: string;
   email: string;
+  imageUrl: string;
 }
 
 interface SampleCard {
