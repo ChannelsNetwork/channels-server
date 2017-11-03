@@ -1,3 +1,5 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
 <dom-module id="balance-view">
   <template>
     <style is="custom-style" include="app-styles">
@@ -61,8 +63,6 @@
         font-size: 14px;
         background-color: white;
         color: black;
-        border: 1px solid black;
-        border-radius: 5px;
         padding: 10px;
         box-sizing: border-box;
         max-width: 1100px;
@@ -152,10 +152,6 @@
             <div>[[balance]]</div>
           </div>
           <div id="withdrawableBalancePanel" style="display:none;">
-            <label>Available for withdrawal:
-              <span>[[withdrawableBalance]]</span>
-            </label>
-            <div class="availableNote">Coins you have earned from your cards are available for withdrawal.</div>
             <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
           </div>
         </div>
@@ -169,7 +165,7 @@
       <div id="bankStatement" style="display:none;">
         <h3>Recent Transactions</h3>
         <div class="statementSubtitle">Interest and subsidy payments have been omitted for clarity</div>
-        <div style="display:table; width:100%;">
+        <div style="display:table;border-collapse:collapse;width:100%;">
           <div class="transactionHeader">
             <div class="transactionHeaderCell">Date</div>
             <div class="transactionHeaderCell">Type</div>
@@ -218,14 +214,7 @@
           this.balanceTimer = setInterval(() => {
             this.balance = "ℂ" + $core.balance.toFixed(8);
           }, 250);
-          // TODO: STYLE should never be set like this
-          this.$.withdrawableBalancePanel.style = $core.withdrawalsEnabled ? "" : "display:none;";
-          let maxWithdrawable = $core.withdrawableBalance;
-          if ($core.balance - $core.withdrawableBalance < 2) {
-            maxWithdrawable -= 2 - ($core.balance - $core.withdrawableBalance);
-          }
-          this.set('withdrawableBalance', "ℂ" + maxWithdrawable.toFixed(3));
-          this.$.btnWithdraw.disabled = $core.withdrawableBalance < 1 || $core.balance < 3;
+          this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
           this._refreshTransactions();
         }).catch((err) => {
           console.error(err);
@@ -367,7 +356,11 @@
       }
 
       _onWithdrawClick() {
-        $router.goto("withdraw")
+        if ($core.balance >= $core.minBalanceAfterWithdrawal + 1) {
+          $router.goto("withdraw")
+        } else {
+          this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
+        }
       }
     }
     window.customElements.define(BalanceView.is, BalanceView);

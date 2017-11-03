@@ -866,7 +866,7 @@ export class FeedManager implements Initializable, RestServer {
       emailAddress: emailAddress,
       location: null
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 0, null, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,

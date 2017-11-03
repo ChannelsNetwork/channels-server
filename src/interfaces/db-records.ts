@@ -12,7 +12,7 @@ export interface UserRecord {
   inviteeCode: string;
   inviterCode: string;
   balance: number;
-  withdrawableBalance: number;
+  minBalanceAfterWithdrawal: number;
   targetBalance: number;
   balanceLastUpdated: number;
   balanceBelowTarget: boolean;

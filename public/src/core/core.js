@@ -538,17 +538,22 @@ class CoreService extends Polymer.Element {
     }
     let result = this._userStatus.userBalance * (1 + (Date.now() - this._userStatus.userBalanceAt) * this.registration.interestRatePerMillisecond);
     if (result < this._userStatus.targetBalance) {
-      result += (Date.now() - this._userStatus.userBalanceAt) * this.registration.subsidyRate;
-      result = Math.min(result, this._userStatus.targetBalance);
+      const addition = (Date.now() - this._userStatus.userBalanceAt) * this.registration.subsidyRate;
+      if (result + addition >= this._userStatus.targetBalance) {
+        this._userStatus.userBalance = this._userStatus.targetBalance;
+        this._userStatus.userBalanceAt = Date.now();
+      } else {
+        result += addition;
+      }
     }
     return result;
   }
 
-  get withdrawableBalance() {
+  get minBalanceAfterWithdrawal() {
     if (!this._userStatus) {
       return 0;
     }
-    return this._userStatus.withdrawableBalance;
+    return this._userStatus.minBalanceAfterWithdrawal;
   }
 
   get baseCardPrice() {
