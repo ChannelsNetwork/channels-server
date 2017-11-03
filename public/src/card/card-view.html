@@ -350,10 +350,14 @@
       _onData() {
         if (this.data && this._attached) {
           this._imageLoaded = false;
-          this._attachIntersectionObservers();
           this._cardConsumed = false;
           this._refreshRating();
           this._refreshPrice();
+          requestAnimationFrame(() => {
+            if (this._attached) {
+              this._attachIntersectionObservers();
+            }
+          });
         }
       }
 
