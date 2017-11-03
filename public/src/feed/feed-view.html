@@ -40,6 +40,12 @@
         box-sizing: border-box;
       }
 
+      #noItems {
+        padding: 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+      }
+
       @media (max-width: 600px) {
         .composeButton {
           bottom: 24px;
@@ -49,6 +55,7 @@
     </style>
     <div class="spacer"></div>
     <div class="main">
+      <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
         on-card-payment-due="_onCardPay"></card-feed>
     </div>
@@ -101,6 +108,11 @@
           // fetch cards
           return $core.getFeed(feedName, 25, cardId, channelHandle).then((cards) => {
             this.set('items', cards);
+            if (cards && cards.length) {
+              this.$.noItems.classList.add("hidden");
+            } else {
+              this.$.noItems.classList.remove("hidden");
+            }
           });
         }).catch((err) => {
           console.error(err);
