@@ -118,7 +118,7 @@ export class Database {
     await this.cards.createIndex({ state: 1, "budget.available": 1, private: 1, postedAt: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, postedAt: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, "stats.revenue.value": -1 });
-    await this.cards.createIndex({ state: 1, "by.id": 1, "pricing.openFeeUnits": 1, "stats.score.value": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "pricing.openFeeUnits": 1, score: -1 });
 
     await this.cards.updateMany({ promotionScores: { $exists: false } }, { $set: { promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 } } });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.a": -1 });
@@ -549,7 +549,7 @@ export class Database {
       },
       score: 0,
       promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
-      lastScored: now,
+      lastScored: 0,
       lock: {
         server: '',
         at: 0
@@ -766,7 +766,7 @@ export class Database {
       { "private": false }
     ];
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
-    return await this.cards.find(query).sort({ "stats.score.value": -1 }).limit(limit).toArray();
+    return await this.cards.find(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
   findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
