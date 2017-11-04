@@ -269,6 +269,13 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  getHandleInfo(handle) {
+    const details = RestUtils.getHandleDetails(this._keys.address, handle);
+    const request = this._createRequest(details);
+    const url = this.restBase + "/get-handle";
+    return this.rest.post(url, request);
+  }
+
   checkHandle(handle) {
     return this._loadKeyLib().then(() => {
       let request;

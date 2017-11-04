@@ -1,0 +1,103 @@
+<link rel="import" href="feed-mixin.html">
+<link rel="import" href="card-feed.html">
+<link rel="import" href="../controls/user-image.html">
+
+<dom-module id="channel-view">
+  <template>
+    <style is="custom-style" include="app-styles feed-styles">
+      #userPanel {
+        padding: 16px;
+        margin-bottom: 10px;
+      }
+
+      #imagePanel {
+        padding-right: 20px;
+      }
+
+      .userContent {
+        max-width: 1200px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 550px) {
+        user-image {
+          width: 70px;
+          height: 70px;
+        }
+      }
+    </style>
+    <div class="main">
+      <div id="userPanel" class="hidden">
+        <div class="horizontal layout center userContent">
+          <div id="imagePanel">
+            <user-image image="[[handleInfo.imageUrl]]"></user-image>
+          </div>
+          <div class="flex">
+            <h2>Cards by
+              <span style="text-transform: capitalize;">[[handleInfo.name]]</span>
+            </h2>
+          </div>
+        </div>
+      </div>
+      <div id="noItems" class="hidden">There are no matching cards in this category.</div>
+      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
+        on-card-payment-due="_onCardPay"></card-feed>
+    </div>
+  </template>
+  <script>
+    class ChannelView extends FeedMixin(Polymer.Element) {
+      static get is() { return 'channel-view'; }
+
+      static get properties() {
+        return {
+          handleInfo: {
+            type: Object,
+            observer: '_onHandleInfo'
+          }
+        };
+      }
+
+      _parseRoute(route) {
+        let cardId = null;
+        let handle = null;
+        if (route && route.segments) {
+          if (route.segments.length > 1) {
+            handle = route.segments[1];
+          }
+          if (route.segments.length > 2) {
+            cardId = route.segments[2];
+          }
+        }
+        return {
+          feedName: "channel",
+          count: 25,
+          cardId: cardId,
+          channel: handle
+        };
+      }
+
+      _onDataFetch(parsedRoute) {
+        let handle = parsedRoute.channel;
+        if (!handle) {
+          this.set("handleInfo", null);
+        } else {
+          $core.getHandleInfo(handle).then((info) => {
+            this.set("handleInfo", info);
+          }).catch((err) => {
+            this.set("handleInfo", null);
+          })
+        }
+      }
+
+      _onHandleInfo() {
+        if (this.handleInfo) {
+          this.$.userPanel.classList.remove("hidden");
+        } else {
+          this.$.userPanel.classList.add("hidden");
+        }
+      }
+    }
+    window.customElements.define(ChannelView.is, ChannelView);
+  </script>
+</dom-module>

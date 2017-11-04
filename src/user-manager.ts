@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -87,6 +87,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('check-handle'), (request: Request, response: Response) => {
       void this.handleCheckHandle(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-handle'), (request: Request, response: Response) => {
+      void this.handleGetHandle(request, response);
     });
   }
 
@@ -482,6 +485,37 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetIdentity: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleGetHandle(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetHandleDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      const handle = requestBody.detailsObject ? requestBody.detailsObject.handle : null;
+      if (!handle) {
+        response.status(400).send("Missing handle");
+        return;
+      }
+      console.log("UserManager.get-handle", user.id, requestBody.detailsObject);
+      const found = await db.findUserByHandle(handle);
+      if (!found) {
+        response.status(404).send("Handle not found");
+        return;
+      }
+      const reply: GetHandleResponse = {
+        serverVersion: SERVER_VERSION,
+        handle: found.identity ? found.identity.handle : null,
+        name: found.identity ? found.identity.name : null,
+        imageUrl: found.identity ? found.identity.imageUrl : null
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleGetHandle: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

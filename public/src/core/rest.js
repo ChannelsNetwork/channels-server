@@ -144,6 +144,14 @@ class RestUtils {
     };
   }
 
+  static getHandleDetails(address, handle) {
+    return {
+      handle: handle,
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static checkHandleDetails(address, handle) {
     return {
       handle: handle,
