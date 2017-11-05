@@ -20,11 +20,9 @@
         box-sizing: border-box;
       }
 
-      @media (max-width: 550px) {
-        user-image {
-          width: 70px;
-          height: 70px;
-        }
+      user-image {
+        width: 70px;
+        height: 70px;
       }
     </style>
     <div class="main">
@@ -82,11 +80,11 @@
         if (!handle) {
           this.set("handleInfo", null);
         } else {
-          $core.getHandleInfo(handle).then((info) => {
+          $core.userManager.getHandleinfo(handle).then((info) => {
             this.set("handleInfo", info);
           }).catch((err) => {
             this.set("handleInfo", null);
-          })
+          });
         }
       }
 

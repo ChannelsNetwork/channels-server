@@ -131,7 +131,7 @@
       loadImages() {
         if (!this._imagesLoaded) {
           this._imagesLoaded = true;
-          this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+          this.$.authorImage.src = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
         }
       }
 
