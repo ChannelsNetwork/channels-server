@@ -61,6 +61,7 @@ class CoreService extends Polymer.Element {
     this.storage = new StorageService();
     this.rest = new RestService();
     this.cardManager = new CardManager(this);
+    this.userManager = new UserManager(this);
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
@@ -267,6 +268,13 @@ class CoreService extends Polymer.Element {
       this._fire("channels-profile", this._profile);
       return profile;
     });
+  }
+
+  getHandleInfo(handle) {
+    const details = RestUtils.getHandleDetails(this._keys.address, handle);
+    const request = this._createRequest(details);
+    const url = this.restBase + "/get-handle";
+    return this.rest.post(url, request);
   }
 
   checkHandle(handle) {

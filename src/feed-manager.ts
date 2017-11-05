@@ -362,7 +362,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const author = await db.findUserByHandle(channelHandle);
+    const author = channelHandle ? await db.findUserByHandle(channelHandle) : null;
     let cards: CardRecord[] = [];
     if (author) {
       cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, author.id, true);

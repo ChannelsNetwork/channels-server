@@ -72,6 +72,9 @@
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
+      <soso-dropdown for="authorImage" alignment="left">
+        <li on-click="_openUserChannel">More by [[data.by.name]]</li>
+      </soso-dropdown>
 
       <soso-tooltip for="privateIcon" position="top" offset="10">
         <b>Private:</b> Only you can see this card
@@ -128,7 +131,7 @@
       loadImages() {
         if (!this._imagesLoaded) {
           this._imagesLoaded = true;
-          this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+          this.$.authorImage.src = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
         }
       }
 
@@ -197,6 +200,10 @@
             console.error("Failed to delete card".err);
           });
         }
+      }
+
+      _openUserChannel() {
+        $router.goto(["channel", this.data.by.handle]);
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);

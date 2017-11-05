@@ -107,6 +107,14 @@ export interface GetUserIdentityResponse extends RestResponse {
   encryptedPrivateKey: string;
 }
 
+export interface GetHandleDetails extends CheckHandleDetails { }
+
+export interface GetHandleResponse extends RestResponse {
+  name: string;
+  handle: string;
+  imageUrl: string;
+}
+
 export interface CheckHandleDetails extends Signable {
   handle: string;
 }
