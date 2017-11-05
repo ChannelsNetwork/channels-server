@@ -414,7 +414,6 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async poll(): Promise<void> {
-    console.log("Feed.poll: Rescoring cards...");
     await this.pollCardScoring(1000 * 60, 1000 * 60);
     await this.pollCardScoring(1000 * 60 * 5, 1000 * 60 * 2);
     await this.pollCardScoring(1000 * 60 * 15, 1000 * 60 * 5);
@@ -428,7 +427,6 @@ export class FeedManager implements Initializable, RestServer {
     // This will find all of the cards that have were posted within the last postInterval specified
     // but have not been rescored within last scoreInterval
     const cards = await db.findCardsForScoring(Date.now() - postInterval, Date.now() - scoreInterval);
-    console.log("Feed.pollCardScoring: scoring " + cards.length + " cards");
     for (const card of cards) {
       await this.rescoreCard(card, addHistory);
     }
