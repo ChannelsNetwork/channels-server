@@ -294,7 +294,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.status", requestBody.detailsObject.address);
-      const status = await this.getUserStatus(user, true);
+      const status = await this.getUserStatus(user, false);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
