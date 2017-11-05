@@ -78,6 +78,7 @@ export class Bank implements RestServer, Initializable {
       if (!user) {
         return;
       }
+      userManager.updateUserBalance(user);
       if (!requestBody.detailsObject.transaction) {
         response.status(400).send("Missing details");
         return;
@@ -93,10 +94,6 @@ export class Bank implements RestServer, Initializable {
       }
       if (details.amount < 1) {
         response.status(400).send("Invalid withdrawal amount.  Must be at least ℂ1.");
-        return;
-      }
-      if (user.balance - details.amount < user.minBalanceAfterWithdrawal) {
-        response.status(400).send("Invalid withdrawal amount.  You must maintain a minimum balance in your account.");
         return;
       }
       if (details.reason !== "withdrawal" || details.type !== 'withdrawal') {
@@ -117,6 +114,10 @@ export class Bank implements RestServer, Initializable {
       }
       if (details.withdrawalRecipient.mechanism !== 'Paypal') {
         response.status(400).send("Invalid withdrawal mechanism.  Currently we only support Paypal.");
+        return;
+      }
+      if (user.balance - details.amount < user.minBalanceAfterWithdrawal) {
+        response.status(400).send("Invalid withdrawal amount.  You must maintain a minimum balance in your account.");
         return;
       }
       console.log("Bank.bank-withdraw", details);
@@ -162,7 +163,7 @@ export class Bank implements RestServer, Initializable {
       html += "</div>";
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
 
-      const userStatus = await userManager.getUserStatus(user);
+      const userStatus = await userManager.getUserStatus(user, false);
       const reply: BankWithdrawResponse = {
         serverVersion: SERVER_VERSION,
         paidAmount: paidAmount,

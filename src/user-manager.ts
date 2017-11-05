@@ -183,7 +183,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
 
-      const userStatus = await this.getUserStatus(userRecord);
+      const userStatus = await this.getUserStatus(userRecord, true);
       const registerResponse: RegisterUserResponse = {
         serverVersion: SERVER_VERSION,
         status: userStatus,
@@ -294,8 +294,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.status", requestBody.detailsObject.address);
-      await this.updateUserBalance(user);
-      const status = await this.getUserStatus(user);
+      const status = await this.getUserStatus(user, true);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
@@ -447,7 +446,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.recover-user", requestBody.detailsObject);
       await db.deleteUser(registeredUser.id);
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
-      const status = await this.getUserStatus(user);
+      const status = await this.getUserStatus(user, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
         status: status,
@@ -562,13 +561,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
-    await this.updateUserBalance(user);
-    const result = await this.getUserStatus(user);
-    response.json(result);
-  }
-
-  async getUserStatus(user: UserRecord): Promise<UserStatus> {
+  async getUserStatus(user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
+    if (updateBalance) {
+      await this.updateUserBalance(user);
+    }
     const result: UserStatus = {
       goLive: this.goLiveDate,
       userBalance: user.balance,
@@ -622,7 +618,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private async updateUserBalance(user: UserRecord): Promise<void> {
+  async updateUserBalance(user: UserRecord): Promise<void> {
     const now = Date.now();
     let subsidy = 0;
     let balanceBelowTarget = false;

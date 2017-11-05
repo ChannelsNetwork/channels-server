@@ -257,7 +257,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.insertUserCardAction(user.id, card.id, now, "impression", 0, null, 0, null, 0, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
-      if (requestBody.detailsObject.couponId) {
+      if (requestBody.detailsObject.couponId && author) {
+        await userManager.updateUserBalance(user);
+        await userManager.updateUserBalance(author);
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
@@ -267,7 +269,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
-      const userStatus = await userManager.getUserStatus(user);
+      const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardImpressionResponse = {
         serverVersion: SERVER_VERSION,
         transactionId: transactionResult ? transactionResult.record.id : null,
@@ -355,7 +357,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       for (const recipient of transaction.toRecipients) {
         if (recipient.address === card.by.address && recipient.portion === 'remainder') {
           authorRecipient = true;
-          break;
+        }
+        const recipientUser = await db.findUserByAddress(recipient.address);
+        if (recipientUser) {
+          await userManager.updateUserBalance(recipientUser);
+        } else {
+          response.status(404).send("One of the recipients is missing");
         }
       }
       if (!authorRecipient) {
@@ -363,6 +370,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
+      await userManager.updateUserBalance(user);
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, transaction.amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, transaction.amount, transactionResult.record.id);
@@ -374,7 +382,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         card.budget.available = newBudgetAvailable;
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
-      const userStatus = await userManager.getUserStatus(user);
+      const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardPayResponse = {
         serverVersion: SERVER_VERSION,
         transactionId: transactionResult.record.id,
@@ -439,6 +447,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-redeem-open-payment", requestBody.detailsObject);
+      await userManager.updateUserBalance(user);
+      await userManager.updateUserBalance(author);
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
@@ -448,7 +458,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
-      const userStatus = await userManager.getUserStatus(user);
+      const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardRedeemOpenResponse = {
         serverVersion: SERVER_VERSION,
         transactionId: transactionResult.record.id,
