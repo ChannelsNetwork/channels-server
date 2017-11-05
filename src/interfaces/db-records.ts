@@ -1,5 +1,5 @@
 
-import { Signable, BankTransactionDetails } from "./rest-services";
+import { Signable, BankTransactionDetails, BraintreeTransactionResult } from "./rest-services";
 import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
@@ -362,7 +362,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -387,3 +387,19 @@ export interface ManualWithdrawalRecord {
 }
 
 export type ManualWithdrawalState = "pending" | "canceled" | "paid";
+
+export interface BankDepositRecord {
+  id: string;
+  status: BankDepositStatus;
+  at: number;
+  userId: string;
+  amount: number;
+  fees: number;
+  coins: number;
+  paymentMethodNonce: string;
+  lastUpdatedAt: number;
+  result: BraintreeTransactionResult;
+  bankTransactionId: string;
+}
+
+export type BankDepositStatus = "pending" | "failed" | "completed";

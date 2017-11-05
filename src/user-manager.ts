@@ -146,7 +146,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(reward, null, true);
+          await networkEntity.performBankTransaction(reward, null, true, false);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -165,7 +165,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(grant, null, true);
+        await networkEntity.performBankTransaction(grant, null, true, false);
         userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
@@ -178,7 +178,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(inviteeRewardDetails, null, true);
+          await networkEntity.performBankTransaction(inviteeRewardDetails, null, true, false);
           userRecord.balance += inviteeReward;
         }
       }
@@ -194,7 +194,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
         networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
         referralFraction: networkEntity.getReferralFraction(),
-        withdrawalsEnabled: bank.withdrawalsEnabled
+        withdrawalsEnabled: bank.withdrawalsEnabled,
+        depositUrl: this.urlManager.getPublicUrl('deposit')
       };
       response.json(registerResponse);
     } catch (err) {
@@ -645,7 +646,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(subsidyDetails, null, false);
+        await networkEntity.performBankTransaction(subsidyDetails, null, false, false);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -665,7 +666,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         relatedCouponId: null,
         toRecipients: [interestRecipient]
       };
-      await networkEntity.performBankTransaction(grant, null, true);
+      await networkEntity.performBankTransaction(grant, null, true, false);
     }
   }
 

@@ -128,15 +128,23 @@
         text-overflow: ellipsis;
       }
 
-      #withdrawableBalancePanel {
-        margin: 30px 0 0;
-        font-size: 16px;
-      }
-
       .availableNote {
         font-size: 12px;
         font-style: italic;
         margin: 0 0 10px;
+      }
+
+      .wdPanel {
+        margin: 30px 0 0;
+        font-size: 16px;
+      }
+
+      .buttonPanel {
+        margin: 25px 0;
+      }
+
+      #btnWithdraw {
+        margin-left: 30px;
       }
     </style>
     <div id="fullContent">
@@ -151,7 +159,8 @@
             <label>Balance</label>
             <div>[[balance]]</div>
           </div>
-          <div id="withdrawableBalancePanel" style="display:none;">
+          <div class="buttonPanel">
+            <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
             <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
           </div>
         </div>
@@ -360,6 +369,14 @@
           $router.goto("withdraw")
         } else {
           this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
+        }
+      }
+
+      _onDepositClick() {
+        if ($core.profile && $core.profile.handle) {
+          window.location = $core.depositUrl;
+        } else {
+          $router.goto("register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
         }
       }
     }

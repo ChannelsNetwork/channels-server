@@ -75,7 +75,7 @@ export class NetworkEntity implements Initializable {
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
-        await this.performBankTransaction(grant, null, true);
+        await this.performBankTransaction(grant, null, true, false);
         const interest = Math.max(user.balance - grant.amount, 0);
         if (interest > 0) {
           const interestPayment: BankTransactionDetails = {
@@ -88,7 +88,7 @@ export class NetworkEntity implements Initializable {
             relatedCouponId: null,
             toRecipients: [recipient]
           };
-          await this.performBankTransaction(interestPayment, null, true);
+          await this.performBankTransaction(interestPayment, null, true, false);
         }
       }
     }
@@ -114,7 +114,7 @@ export class NetworkEntity implements Initializable {
     return 0.02;
   }
 
-  async performBankTransaction(details: BankTransactionDetails, relatedCardTitle: string, increaseTargetBalance: boolean): Promise<BankTransactionResult> {
+  async performBankTransaction(details: BankTransactionDetails, relatedCardTitle: string, increaseTargetBalance: boolean, increaseWithdrawableBalance: boolean): Promise<BankTransactionResult> {
     details.address = this.networkEntityKeyInfo.address;
     details.timestamp = Date.now();
     const detailsString = JSON.stringify(details);
@@ -124,7 +124,7 @@ export class NetworkEntity implements Initializable {
       objectString: detailsString,
       signature: signature
     };
-    return await bank.performTransfer(networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, true, increaseTargetBalance);
+    return await bank.performTransfer(networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, true, increaseTargetBalance, increaseWithdrawableBalance);
   }
 }
 

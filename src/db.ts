@@ -2,9 +2,9 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails } from "./interfaces/rest-services";
+import { BankTransactionDetails, BraintreeTransactionResult } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 
 export class Database {
@@ -29,6 +29,7 @@ export class Database {
   private bankCoupons: Collection;
   private manualWithdrawals: Collection;
   private cardStatsHistory: Collection;
+  private bankDeposits: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -54,6 +55,7 @@ export class Database {
     await this.initializeBankCoupons();
     await this.initializeManualWithdrawals();
     await this.initializeCardStatsHistory();
+    await this.initializeBankDeposits();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -258,6 +260,12 @@ export class Database {
   private async initializeCardStatsHistory(): Promise<void> {
     this.cardStatsHistory = this.db.collection('cardStatsHistory');
     await this.cardStatsHistory.createIndex({ cardId: 1, statName: 1, at: -1 });
+  }
+
+  private async initializeBankDeposits(): Promise<void> {
+    this.bankDeposits = this.db.collection('bankDeposits');
+    await this.bankDeposits.createIndex({ id: 1 }, { unique: true });
+    await this.bankDeposits.createIndex({ status: 1, at: -1 });
   }
 
   async ensureNetwork(balance: number): Promise<NetworkRecord> {
@@ -1380,6 +1388,36 @@ export class Database {
   async findCardStatsHistory(cardId: string, statName: string, maxCount: number): Promise<CardStatisticHistoryRecord[]> {
     return await this.cardStatsHistory.find({ cardId: cardId, statName: statName }).sort({ at: -1 }).limit(maxCount ? maxCount : 50).toArray();
   }
+
+  async insertBankDeposit(status: BankDepositStatus, at: number, userId: string, amount: number, fees: number, coins: number, paymentMethodNonce: string, lastUpdatedAt: number, result: BraintreeTransactionResult): Promise<BankDepositRecord> {
+    const record: BankDepositRecord = {
+      id: uuid.v4(),
+      status: status,
+      at: at,
+      userId: userId,
+      amount: amount,
+      fees: fees,
+      coins: coins,
+      paymentMethodNonce: paymentMethodNonce,
+      lastUpdatedAt: lastUpdatedAt,
+      result: result,
+      bankTransactionId: null
+    };
+    await this.bankDeposits.insert(record);
+    return record;
+  }
+
+  async updateBankDeposit(id: string, status: BankDepositStatus, lastUpdatedAt: number, result: BraintreeTransactionResult, bankTransactionId: string): Promise<void> {
+    await this.bankDeposits.updateOne({ id: id }, {
+      $set: {
+        status: status,
+        lastUpdatedAt: lastUpdatedAt,
+        result: result,
+        bankTransactionId: bankTransactionId
+      }
+    });
+  }
+
 }
 
 const db = new Database();
