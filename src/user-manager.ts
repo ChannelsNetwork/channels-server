@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -33,6 +33,7 @@ const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (36
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
 const MAX_USER_IP_ADDRESSES = 32;
+const DEFAULT_TARGET_BALANCE = 5;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -86,6 +87,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('check-handle'), (request: Request, response: Response) => {
       void this.handleCheckHandle(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-handle'), (request: Request, response: Response) => {
+      void this.handleGetHandle(request, response);
     });
   }
 
@@ -146,7 +150,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, INITIAL_WITHDRAWABLE_BALANCE, ipAddress);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder"
@@ -179,7 +183,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
 
-      const userStatus = await this.getUserStatus(userRecord);
+      const userStatus = await this.getUserStatus(userRecord, true);
       const registerResponse: RegisterUserResponse = {
         serverVersion: SERVER_VERSION,
         status: userStatus,
@@ -291,8 +295,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.status", requestBody.detailsObject.address);
-      await this.updateUserBalance(user);
-      const status = await this.getUserStatus(user);
+      const status = await this.getUserStatus(user, false);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
@@ -444,7 +447,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.recover-user", requestBody.detailsObject);
       await db.deleteUser(registeredUser.id);
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
-      const status = await this.getUserStatus(user);
+      const status = await this.getUserStatus(user, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
         status: status,
@@ -482,6 +485,37 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetIdentity: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleGetHandle(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetHandleDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      const handle = requestBody.detailsObject ? requestBody.detailsObject.handle : null;
+      if (!handle) {
+        response.status(400).send("Missing handle");
+        return;
+      }
+      console.log("UserManager.get-handle", user.id, requestBody.detailsObject);
+      const found = await db.findUserByHandle(handle);
+      if (!found) {
+        response.status(404).send("Handle not found");
+        return;
+      }
+      const reply: GetHandleResponse = {
+        serverVersion: SERVER_VERSION,
+        handle: found.identity ? found.identity.handle : null,
+        name: found.identity ? found.identity.name : null,
+        imageUrl: found.identity ? found.identity.imageUrl : null
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleGetHandle: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -528,18 +562,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private async returnUserStatus(user: UserRecord, response: Response): Promise<void> {
-    await this.updateUserBalance(user);
-    const result = await this.getUserStatus(user);
-    response.json(result);
-  }
-
-  async getUserStatus(user: UserRecord): Promise<UserStatus> {
+  async getUserStatus(user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
+    if (updateBalance) {
+      await this.updateUserBalance(user);
+    }
     const result: UserStatus = {
       goLive: this.goLiveDate,
       userBalance: user.balance,
       userBalanceAt: user.balanceLastUpdated,
-      withdrawableBalance: user.withdrawableBalance,
+      minBalanceAfterWithdrawal: user.minBalanceAfterWithdrawal,
       targetBalance: user.targetBalance,
       inviteCode: user.inviterCode.toUpperCase(),
       invitationsUsed: user.invitationsAccepted,
@@ -588,7 +619,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private async updateUserBalance(user: UserRecord): Promise<void> {
+  async updateUserBalance(user: UserRecord): Promise<void> {
     const now = Date.now();
     let subsidy = 0;
     let balanceBelowTarget = false;

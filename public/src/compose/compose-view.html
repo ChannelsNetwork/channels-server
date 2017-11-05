@@ -7,7 +7,7 @@
 
 <dom-module id="compose-view">
   <template>
-    <style is="custom-style" include="app-styles2">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
         height: 100vh;
@@ -67,7 +67,6 @@
       _onPublish() {
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
-        console.debug("Publishing card", data);
         $core.postCard(data.summary.imageURL,
           data.summary.linkURL,
           data.summary.title,

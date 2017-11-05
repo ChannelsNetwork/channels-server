@@ -1,0 +1,163 @@
+<dom-module id="feed-styles">
+  <template>
+    <style>
+      :host {
+        display: block;
+        background: #fafafa !important;
+      }
+
+      .main {
+        padding: 0 0 90px;
+      }
+
+      .spacer {
+        height: 50px;
+      }
+
+      #feed {
+        max-width: 1200px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      #noItems {
+        padding: 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+      }
+    </style>
+  </template>
+</dom-module>
+<script>
+  (function () {
+    window.FeedMixin = (base) => class extends base {
+      static get properties() {
+        return {
+          items: Array,
+          iconMap: Object
+        };
+      }
+
+      constructor() {
+        super();
+        this.iconMap = window._channelIcons;
+      }
+
+      _parseRoute(route) {
+        // TODO: super class needs to reimplement
+      }
+
+      _onDataFetch(parsedRoute) {
+        // TODO: super class may implement this to fetch specific data
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          // register event handlers
+          this._resizeListener = _debounce(() => {
+            this._onResize();
+          }, 350);
+          window.addEventListener("resize", this._resizeListener);
+          this._onResize();
+
+          // clear state
+          this.set('items', []);
+          this.$.feed.closeCard();
+
+          // parse route and fetch
+          let parsedRoute = this._parseRoute(route);
+          if (parsedRoute) {
+            this._onDataFetch(parsedRoute);
+            return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, parsedRoute.channel).then((cards) => {
+              this.set("items", cards);
+              if (cards && cards.length) {
+                this.$.noItems.classList.add("hidden");
+              } else {
+                this.$.noItems.classList.remove("hidden");
+              }
+            });
+          }
+        });
+      }
+
+      onDeactivate() {
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      _onResize() {
+        this.$.feed.refreshLayout();
+      }
+
+      _onCardClosed(event) {
+        let cardItem = event.detail.item;
+        if (cardItem) {
+          $core.cardClosed(cardItem.id);
+        }
+        $app.setBarVisible(true);
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.card;
+        if (card) {
+          // hide toolbar and prevent 
+          // toolbar auto scroll-hide behavior
+          $app.setBarVisible(false);
+          $app.preventScrollBehavior = true;
+
+          // let server know card opened
+          let cardItem = event.detail.item;
+          if (cardItem) {
+            $core.cardOpened(cardItem.id);
+          }
+
+          // open the card in the UI
+          this.$.feed.openCard(card).then(() => {
+            $app.preventScrollBehavior = false;
+          }).catch((err) => {
+            console.error(err);
+            $app.preventScrollBehavior = false;
+          });
+        }
+      }
+
+      _onCardImpression(event) {
+        let card = event.detail.card;
+        let view = event.detail.view;
+        if (card && view) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId && (!card.userSpecific.earnedFromAuthor)) {
+            $core.cardImpression(card.id, card.couponId);
+            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+          } else {
+            $core.cardImpression(card.id);
+          }
+        }
+      }
+
+      _onCardPay(event) {
+        const card = event.detail.item;
+        const cardView = event.detail.card;
+        if (!card.userSpecific.isPoster) {
+          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
+            card.userSpecific.paidToAuthor = card.pricing.openFee;
+            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
+              card.stats.revenue = response.totalCardRevenue;
+              cardView.onPayment();
+            }).catch((err) => {
+              console.error("Failed to make card payment", err);
+            });
+          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
+            $core.cardOpenPaymentRedeem(card.id, card.couponId).then(() => {
+              cardView.onPayment();
+            }).catch((err) => {
+              console.error("Failed to make card payment", err);
+            });
+          }
+        }
+      }
+    };
+  })();
+</script>

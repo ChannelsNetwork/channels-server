@@ -61,6 +61,7 @@ class CoreService extends Polymer.Element {
     this.storage = new StorageService();
     this.rest = new RestService();
     this.cardManager = new CardManager(this);
+    this.userManager = new UserManager(this);
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
@@ -267,6 +268,13 @@ class CoreService extends Polymer.Element {
       this._fire("channels-profile", this._profile);
       return profile;
     });
+  }
+
+  getHandleInfo(handle) {
+    const details = RestUtils.getHandleDetails(this._keys.address, handle);
+    const request = this._createRequest(details);
+    const url = this.restBase + "/get-handle";
+    return this.rest.post(url, request);
   }
 
   checkHandle(handle) {
@@ -556,17 +564,22 @@ class CoreService extends Polymer.Element {
     }
     let result = this._userStatus.userBalance * (1 + (Date.now() - this._userStatus.userBalanceAt) * this.registration.interestRatePerMillisecond);
     if (result < this._userStatus.targetBalance) {
-      result += (Date.now() - this._userStatus.userBalanceAt) * this.registration.subsidyRate;
-      result = Math.min(result, this._userStatus.targetBalance);
+      const addition = (Date.now() - this._userStatus.userBalanceAt) * this.registration.subsidyRate;
+      if (result + addition >= this._userStatus.targetBalance) {
+        this._userStatus.userBalance = this._userStatus.targetBalance;
+        this._userStatus.userBalanceAt = Date.now();
+      } else {
+        result += addition;
+      }
     }
     return result;
   }
 
-  get withdrawableBalance() {
+  get minBalanceAfterWithdrawal() {
     if (!this._userStatus) {
       return 0;
     }
-    return this._userStatus.withdrawableBalance;
+    return this._userStatus.minBalanceAfterWithdrawal;
   }
 
   get baseCardPrice() {

@@ -1,0 +1,74 @@
+<link rel="import" href="feed-mixin.html">
+<link rel="import" href="card-feed.html">
+<link rel="import" href="../channel-icons.html">
+
+<dom-module id="feed-view">
+  <template>
+    <style is="custom-style" include="app-styles feed-styles">
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      @media (max-width: 600px) {
+        .composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+      }
+    </style>
+    <div class="spacer"></div>
+    <div class="main">
+      <div id="noItems" class="hidden">There are no matching cards in this category.</div>
+      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
+        on-card-payment-due="_onCardPay"></card-feed>
+    </div>
+    <soso-icon id="composeButton" on-click="_compose" icon="add" icon-map="[[iconMap]]"></soso-icon>
+  </template>
+  <script>
+    class FeedView extends FeedMixin(Polymer.Element) {
+      static get is() { return 'feed-view'; }
+
+      _parseRoute(route) {
+        let feedName = "recommended";
+        let cardId = null;
+        if (route && route.segments) {
+          if (route.segments.length > 1) {
+            feedName = route.segments[1];
+          }
+          if (route.segments.length > 2) {
+            cardId = route.segments[2];
+          }
+        }
+        return {
+          feedName: feedName,
+          count: 25,
+          cardId: cardId,
+          channel: null
+        };
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        $router.goto("compose");
+      }
+    }
+    window.customElements.define(FeedView.is, FeedView);
+  </script>
+</dom-module>

@@ -1,15 +1,11 @@
-<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
-<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
-<link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
-<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 <link rel="import" href="card-header.html">
-<link rel="import" href="open-card.html">
-<link rel="import" href="../app-icons.html">
+<link rel="import" href="../channel-icons.html">
 
 <dom-module id="card-view">
   <template>
-    <style is="custom-style" include="app-styles2 iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
         opacity: 0;
@@ -24,16 +20,14 @@
         transition: opacity 0.3s ease;
       }
 
-      .container {
+      #container {
         width: 100%;
         height: 100%;
         box-sizing: border-box;
         box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
         border-radius: 3px;
-        overflow: hidden;
         background: white;
-        position: relative;
-        @apply --layout-vertical;
+        position: relative
       }
 
       #imagePanel {
@@ -43,10 +37,11 @@
         background-size: cover;
         background-origin: border-box;
         background-position: 50% 50%;
+        border-radius: 3px 3px 0 0;
       }
 
-      .hidden {
-        display: none;
+      #imagePanel.noimage {
+        height: 55px;
       }
 
       .textPanel {
@@ -61,7 +56,7 @@
       #headline img {
         float: left;
         margin: 0 8px 1px 0;
-        height: 26px;
+        height: 1.4em;
         opacity: 0.6;
         width: auto;
       }
@@ -71,9 +66,7 @@
         color: #424242;
       }
 
-
-
-      .rating {
+      #rating {
         height: 3px;
         background: #f5f5f5;
         position: relative;
@@ -103,20 +96,42 @@
         background: #2196F3;
       }
 
+      #promoted {
+        position: absolute;
+        right: 10px;
+        left: initial;
+        border-radius: 50%;
+        top: 10px;
+      }
+
+      #promoted soso-icon {
+        background: #69F0AE;
+        color: rgba(0, 0, 0, 0.7);
+        padding: 3px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        display: block;
+      }
+
       #price {
         display: inline-block;
         position: absolute;
         left: -3px;
         top: 10px;
-        padding: 6px 0px 6px 8px;
+        padding: 5px 0px 5px 8px;
         background: var(--bg-yellow);
         -moz-border-radius: 0 3px 2px 0px;
         -webkit-border-radius: 0;
         border-radius: 3px 0 0 3px;
         color: #000;
         letter-spacing: 0.05em;
-        font-size: 15px;
-        line-height: 20px;
+        font-size: 12px;
+        line-height: 10px;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
       }
 
       #price::before {
@@ -128,10 +143,11 @@
         height: 0;
         display: inline-block;
         line-height: 0;
-        border-width: 16px;
+        border-width: 10px;
         border-style: solid;
         border-color: var(--bg-yellow);
         border-right-color: transparent;
+        border-left-width: 3px;
       }
 
       #price::after {
@@ -139,10 +155,10 @@
         position: absolute;
         left: 3px;
         bottom: 0px;
-        right: -32px;
+        right: -11px;
         height: 0;
-        border-bottom: 2px solid rgba(0, 0, 0, 0.0);
-        box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
+        border-bottom: 3px solid rgba(0, 0, 0, 0.0);
+        box-shadow: 0px 2px 3px 0px rgba(0, 0, 0, 0.3);
         transform: translate3d(0, 0, 0);
       }
 
@@ -155,7 +171,7 @@
         right: -3px;
         left: initial;
         border-radius: 0 3px 3px 0;
-        padding: 6px 8px 6px 0px;
+        padding: 5px 8px 5px 0px;
         top: 10px;
       }
 
@@ -164,18 +180,20 @@
         border-left-color: transparent;
         left: initial;
         right: 100%;
+        border-left-width: 10px;
+        border-right-width: 3px;
       }
 
       #price.negative::after {
         right: 3px;
-        left: -32px;
+        left: -11px;
       }
 
       #price.negative label {
         text-transform: uppercase;
-        font-size: 11px;
-        line-height: 14px;
-        height: 14px;
+        font-size: 9px;
+        line-height: 10px;
+        height: 10px;
         letter-spacing: 0.2em;
         color: rgba(0, 0, 0, 0.8);
         display: block;
@@ -184,61 +202,55 @@
         right: 0;
         top: -10px;
         background: #69F0AE;
-        padding: 3px 6px;
+        padding: 2px 6px;
         border-radius: 0 3px 0 0;
+        overflow: hidden;
       }
 
-      .container.wide {
-        @apply --layout-horizontal;
+      #price #paidCheck {
+        display: none;
       }
 
-      .container.wide #imagePanel {
-        @apply --layout-flex;
-        height: 100%;
-        width: auto;
+      #price.paid {
+        padding: 5px 18px 5px 8px;
       }
 
-      .container.wide .textPanel {
-        padding: 15px 14px;
+      #price.negative.paid {
+        padding: 5px 8px 5px 18px;
       }
 
-      .container.wide.negative .textPanel {
-        padding: 45px 14px 10px;
+      #price.paid #paidCheck {
+        display: block;
+        height: 15px;
+        width: 15px;
+        color: var(--dark-green);
+        position: absolute;
+        top: 2px;
+        right: 0;
       }
 
-      .container.wide #headline {
-        font-size: 22px;
-      }
-
-      .container.wide #headline img {
-        width: 30px;
-      }
-
-      .container.wide #description {
-        font-size: 16px;
-      }
-
-      .paidCheck {
-        width: 12px;
-        height: 12px;
-      }
-
-      .promoted {
-        border: 1px solid green;
+      #price.negative.paid #paidCheck {
+        display: block;
+        height: 15px;
+        width: 15px;
+        color: var(--dark-green);
+        position: absolute;
+        top: 2.5px;
+        left: 0;
       }
     </style>
     <div id="cardShell">
-      <div id="container" class="container">
-        <div id="imagePanel"></div>
+      <div id="container" class="vertical layout">
+        <div id="imagePanel" on-click="_onContentClick"></div>
         <div class="vertical layout flex">
-          <div class="flex vertical layout textPanel">
+          <div class="flex vertical layout textPanel" on-click="_onContentClick">
             <div id="headline">
               <img src$="[[data.cardType.iconUrl]]">
               <span>[[data.summary.title]]</span>
             </div>
             <soso-truncated-text id="description" class="flex" text="[[data.summary.text]]"></soso-truncated-text>
           </div>
-          <div id="rating" class="rating horizontal layout">
+          <div id="rating" class="horizontal layout">
             <div class="flex barCell">
               <div id="negBar"></div>
             </div>
@@ -250,98 +262,165 @@
         </div>
       </div>
       <div id="price">
-        <label>Pays</label>[[price]]
-        <iron-icon id="paidCheck" style="display:none;" class="paidCheck" icon="check"></iron-icon>
+        <label>Pays</label>
+        <span>[[price]]</span>
+        <soso-icon id="paidCheck" icon="check-circle" icon-map="[[iconMap]]"></soso-icon>
       </div>
+      <div id="promoted" class="hidden">
+        <soso-icon icon="navigation" icon-map="[[iconMap]]"></soso-icon>
+      </div>
+
+      <soso-tooltip for="price" position="[[priceTipPosition]]" offset="20">
+        <div style="max-width: 210px;">[[priceTip]]</div>
+      </soso-tooltip>
+      <soso-tooltip for="promoted" position="left" offset="10">
+        <div style="max-width: 210px;">[[promotedTip]]</div>
+      </soso-tooltip>
     </div>
-    <open-card id="openCard" data="[[data]]" on-click="openCardClick"></open-card>
+    <open-card id="openCard" data="[[data]]" on-card-payment-due="_onCardPaymentDue"></open-card>
   </template>
-  <script src="../../bower_components/moment/moment.js"></script>
+  <script src="card-view-helper.js"></script>
   <script>
     class CardView extends Polymer.Element {
-      static get is() { return "card-view"; }
+      static get is() { return 'card-view'; }
       static get properties() {
         return {
           data: {
             type: Object,
             observer: "_onData"
           },
-          preview: Boolean,
           price: String,
-          intersectionObserver: Object,
-          channelHandle: String
+          priceTip: String,
+          priceTipPosition: String,
+          promotedTip: String,
+          iconMap: Object
         };
       }
 
       connectedCallback() {
         super.connectedCallback();
-        this.previouslyOpenedDuration = 0;
-        this.openedAt = Date.now();
-        Polymer.RenderStatus.beforeNextRender(this, function () {
-          setTimeout(() => {
-            if (this.offsetWidth > 600) {
-              this.$.container.classList.add("wide");
-            }
-            this.style.opacity = 1;
-          }, 50);
+        this._attached = true;
+        this.iconMap = window._channelIcons;
+        requestAnimationFrame(() => {
+          this.style.opacity = 1;
         });
-        if (this.intersectionObserver) {
-          this.intersectionObserver.observe(this);
-        }
+        this._onData();
       }
 
       disconnectedCallback() {
-        if (this.paymentTimer) {
-          clearInterval(this.paymentTimer);
-        }
-        if (this.intersectionObserver) {
-          this.intersectionObserver.unobserve(this);
-        }
+        super.disconnectedCallback();
+        this._attached = false;
+        this._detachIntersectionObservers();
       }
 
-      onPayment() {
-        this._refreshPaidCheck();
-        this.$.openCard.onPayment();
-        this.$.cardHeader.onPayment();
+      _attachIntersectionObservers() {
+        this._detachIntersectionObservers();
+        $cardHelper.addIntersectionObserver(this, (entry) => {
+          // impression check
+          if ((!this._impressionFired) && entry.isIntersecting && entry.intersectionRatio > 0.9) {
+            if (!this._impressionStarted) {
+              this._impressionStarted = (new Date()).getTime();
+              this._impressionTimeout = setTimeout(() => {
+                if (this._impressionStarted && (!this._impressionFired)) {
+                  this._impressionFired = true;
+                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true }));
+                }
+                this._impressionStarted = null;
+                this._impressionTimeout = null;
+              }, 2000);
+            }
+          } else {
+            this._impressionStarted = null;
+            if (this._impressionTimeout) {
+              clearTimeout(this._impressionTimeout);
+            }
+          }
+
+          // Image load check
+          if (entry.isIntersecting) {
+            this._loadImage();
+          }
+        });
       }
 
-      onImpressionPaid() {
-        this._refreshPaidCheck();
-        this.$.openCard.onImpressionPaid();
-        this.$.cardHeader.onImpressionPaid();
-      }
-
-      onPrivateUpdated() {
-        this.$.cardHeader.onPrivateUpdated();
+      _detachIntersectionObservers() {
+        $cardHelper.removeIntersectionObserver(this);
       }
 
       _onData() {
-        if (!this.data) {
-          return;
+        if (this.data && this._attached) {
+          this._imageLoaded = false;
+          this._cardConsumed = false;
+          this._refreshRating();
+          this._refreshPrice();
+          requestAnimationFrame(() => {
+            if (this._attached) {
+              this._attachIntersectionObservers();
+            }
+          });
         }
+      }
+
+      _refreshPrice() {
+        this._refreshPaidCheck();
         let cost = this.data.pricing.openFee;
-        var img = this.data.summary.imageUrl;
-        if (img) {
-          this.$.imagePanel.style.display = "";
-          this.$.imagePanel.style.backgroundImage = "url(" + img + ")";
+        let absCost = Math.abs(cost).toFixed(2);
+        if (cost === 0) {
+          absCost = this.data.pricing.promotionFee.toFixed(2);
+        }
+        this.price = 'ℂ' + absCost;
+        if (cost < 0) {
+          this.priceTip = "The author will pay you ℂ" + absCost + " after you open this card."
+          this.priceTipPosition = "left";
         } else {
-          this.$.imagePanel.style.display = "none";
+          this.priceTip = "The author will receive ℂ" + absCost + " when you open this card."
+          this.priceTipPosition = "right";
         }
-        if (cost <= 0) {
-          this.$.container.classList.add("negative");
-          this.$.price.classList.add("negative");
+
+        // Price tag visibility
+        let hidePriceTag = (cost === 0) || (cost < 0 && (!this.data.promoted));
+        if (hidePriceTag && this._cardConsumed && cost) {
+          hidePriceTag = false;
+        }
+        if (hidePriceTag) {
+          this.$.price.classList.add("hidden");
         } else {
-          this.$.container.classList.remove("negative");
-          this.$.price.classList.remove("negative");
+          this.$.price.classList.remove("hidden");
+          if (cost <= 0) {
+            this.$.price.classList.add("negative");
+          } else {
+            this.$.price.classList.remove("negative");
+          }
         }
-        if (this.channelHandle && this.data.by.handle === this.channelHandle && cost <= 0) {
-          this.$.price.style.display = "none";
+
+        // Promoted tag visibility
+        let promotedVisible = (cost >= 0) && (this.data.pricing.promotionFee > 0) && this.data.promoted;
+        if (promotedVisible) {
+          this.$.promoted.classList.remove("hidden");
         } else {
-          this.$.price.style.display = "";
+          this.$.promoted.classList.add("hidden");
         }
-        if (this.data.promoted) {
-          this.$.container.classList.add("promoted");
+        this.promotedTip = "The author has paid you ℂ" + this.data.pricing.promotionFee + " to see this card";
+
+        this._refreshPriceTip();
+      }
+
+      _refreshPriceTip() {
+        let cost = this.data.pricing.openFee;
+        let absCost = Math.abs(cost).toFixed(2);
+        if (cost === 0) {
+          absCost = this.data.pricing.promotionFee.toFixed(2);
         }
+        if (cost < 0) {
+          this.priceTip = this._cardConsumed ? ("The author paid you ℂ" + absCost + " for opening this card.") : ("The author will pay you ℂ" + absCost + " after you open this card.");
+          this.priceTipPosition = "left";
+        } else {
+          this.priceTip = this._cardConsumed ? ("You paid the author ℂ" + absCost + " when you opened this card.") : ("The author will receive ℂ" + absCost + " when you open this card.");
+          this.priceTipPosition = "right";
+        }
+      }
+
+      _refreshRating() {
         let uc = this.data.stats.likes;
         let dc = this.data.stats.dislikes;
         let tc = uc + dc;
@@ -349,29 +428,36 @@
         let negRating = tc ? (dc / tc) * 100 : 0;
         this.$.posBar.style.width = rating + "%";
         this.$.negBar.style.width = negRating + "%";
+      }
 
-        this.$.description.text = this.data.summary.text;
-        let absCost = Math.abs(cost).toFixed(2);
-        if (cost === 0) {
-          absCost = this.data.pricing.promotionFee.toFixed(2);
+      _loadImage() {
+        if (!this._imageLoaded) {
+          this._imageLoaded = true;
+          let img = this.data.summary.imageUrl;
+          if (img) {
+            this.$.imagePanel.classList.remove("noimage");
+            this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
+          } else {
+            this.$.imagePanel.classList.add("noimage");
+            this.$.imagePanel.style.backgroundImage = 'url("/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg")';
+          }
         }
-        this.price = 'ℂ' + absCost;
-        this._refreshPaidCheck();
+        this.$.cardHeader.loadImages();
+      }
+
+      _onContentClick() {
+        this.dispatchEvent(new CustomEvent("card-open", { bubbles: true, composed: true, detail: { id: this.data ? this.data.id : "" } }));
       }
 
       open(node) {
-        this._cardOpen = true;
-        this.$.cardHeader.style.opacity = 0;
-        this.$.rating.style.opacity = 0;
-        this.$.cardShell.style.opacity = 0;
-        this.style.pointerEvents = "none";
-        this.openedAt = Date.now();
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor == 0 && (!this.channelHandle || this.data.by.handle !== this.channelHandle))) {
-          this.paymentTimer = setInterval(() => {
-            this._checkPaymentDue();
-          }, 100);
-        }
-        return this.$.openCard.open(node);
+        return this._import("open-card.html").then(() => {
+          this._cardOpen = true;
+          this.$.cardHeader.style.opacity = 0;
+          this.$.rating.style.opacity = 0;
+          this.$.cardShell.style.opacity = 0;
+          this.style.pointerEvents = "none";
+          return this.$.openCard.open(node);
+        });
       }
 
       close(animate) {
@@ -379,15 +465,8 @@
         this.$.cardHeader.style.opacity = 1;
         this.$.rating.style.opacity = 1;
         this.$.cardShell.style.opacity = 1;
-        this.$.openCard.close(animate);
         this.style.pointerEvents = "";
-        this.previouslyOpenedDuration += Date.now() - this.openedAt;
-        clearInterval(this.paymentTimer);
-        this.paymentTimer = null;
-      }
-
-      openCardClick(event) {
-        event.stopPropagation();
+        this.$.openCard.close(animate);
       }
 
       refreshLayout() {
@@ -396,24 +475,41 @@
         }
       }
 
-      _checkPaymentDue() {
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0 || this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor === 0 && (!this.channelHandle || this.channelHandle !== this.data.by.handle))) {
-          const openDuration = Date.now() - this.openedAt + this.previouslyOpenedDuration;
-          this.$.openCard.setPaymentStatus(Math.min(100, 100 * openDuration / 10000));
-          if (openDuration > 10000) {
-            this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
-            clearInterval(this.paymentTimer);
-            this.paymentTimer = null;
-          }
-        }
+      _import(path) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(path), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      _onCardPaymentDue(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
+      }
+
+      onPayment() {
+        this._refreshPaidCheck();
+        this.$.openCard.data = this.data;
+        this.$.openCard.onPayment();
+      }
+
+      onPrivateUpdated() {
+        this.$.cardHeader.onPrivateUpdated();
       }
 
       _refreshPaidCheck() {
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee === 0 && this.data.pricing.promotionFee > 0 && this.data.userSpecific.earnedFromAuthor > 0 || this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor > 0 || this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor > 0)) {
-          this.$.paidCheck.style.display = "";
+        let showCheck = (!this.data.userSpecific.isPoster) &&
+          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+        if (showCheck) {
+          this.$.price.classList.add("paid");
         } else {
-          this.$.paidCheck.style.display = "none";
+          this.$.price.classList.remove("paid");
         }
+        this._cardConsumed = showCheck;
+        this._refreshPriceTip();
       }
     }
     window.customElements.define(CardView.is, CardView);

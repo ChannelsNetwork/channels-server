@@ -61,7 +61,7 @@ export interface UserStatus {
   goLive: number;
   userBalance: number;
   userBalanceAt: number;
-  withdrawableBalance: number;
+  minBalanceAfterWithdrawal: number;
   targetBalance: number;
   inviteCode: string;
   invitationsUsed: number;
@@ -106,6 +106,14 @@ export interface GetUserIdentityResponse extends RestResponse {
   imageUrl: string;
   emailAddress: string;
   encryptedPrivateKey: string;
+}
+
+export interface GetHandleDetails extends CheckHandleDetails { }
+
+export interface GetHandleResponse extends RestResponse {
+  name: string;
+  handle: string;
+  imageUrl: string;
 }
 
 export interface CheckHandleDetails extends Signable {

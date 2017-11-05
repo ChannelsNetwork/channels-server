@@ -26,22 +26,22 @@ import { Cursor } from "mongodb";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 5;
-const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 12;
-const SCORE_CARD_WEIGHT_REVENUE = 2;
-const SCORE_CARD_REVENUE_DOUBLING = 25;
-const SCORE_CARD_REVENUE_RECENT_INTERVAL = 1000 * 60 * 60 * 12;
-const SCORE_CARD_WEIGHT_RECENT_REVENUE = 4;
-const SCORE_CARD_RECENT_REVENUE_DOUBLING = 5;
+const SCORE_CARD_WEIGHT_AGE = 10;
+const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
+const SCORE_CARD_WEIGHT_REVENUE = 1;
+const SCORE_CARD_REVENUE_DOUBLING = 100;
+const SCORE_CARD_REVENUE_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
+const SCORE_CARD_WEIGHT_RECENT_REVENUE = 1;
+const SCORE_CARD_RECENT_REVENUE_DOUBLING = 10;
 const SCORE_CARD_WEIGHT_OPENS = 1;
-const SCORE_CARD_OPENS_DOUBLING = 500;
-const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 12;
+const SCORE_CARD_OPENS_DOUBLING = 250;
+const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_OPENS = 1;
-const SCORE_CARD_RECENT_OPENS_DOUBLING = 50;
-const SCORE_CARD_WEIGHT_LIKES = 8;
-const SCORE_CARD_LIKES_DOUBLING = 25;
-const SCORE_CARD_WEIGHT_CONTROVERSY = 6;
-const SCORE_CARD_CONTROVERSY_DOUBLING = 100;
+const SCORE_CARD_RECENT_OPENS_DOUBLING = 25;
+const SCORE_CARD_WEIGHT_LIKES = 1;
+const SCORE_CARD_LIKES_DOUBLING = 0.1;
+const SCORE_CARD_WEIGHT_CONTROVERSY = 1;
+const SCORE_CARD_CONTROVERSY_DOUBLING = 10;
 
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
@@ -79,6 +79,7 @@ export class FeedManager implements Initializable, RestServer {
       await this.addSampleEntries();
       // await this.addPreviewCards();
     }
+    await this.poll();
     setInterval(() => {
       void this.poll();
     }, POLLING_INTERVAL);
@@ -167,11 +168,16 @@ export class FeedManager implements Initializable, RestServer {
       let cardIndex = 0;
       let slotIndex = 0;
       let nextAdIndex = adSlots.firstSlotIndex;
+      let earnedAdCardIds = this.userEarnedAdCardIds.get(user.id);
+      if (!earnedAdCardIds) {
+        earnedAdCardIds = [];
+        this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
+      }
       const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
       while (cardIndex < cards.length || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds, adCursor);
+          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards);
           if (adCard) {
             const adDescriptor = await this.populateCard(adCard, true, user);
             amalgamated.push(adDescriptor);
@@ -188,6 +194,7 @@ export class FeedManager implements Initializable, RestServer {
         }
         slotIndex++;
       }
+      this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);  // push the list back into the cache
       await adCursor.close();
       return amalgamated;
     } else {
@@ -195,12 +202,7 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>): Promise<CardRecord> {
-    let earnedAdCardIds = this.userEarnedAdCardIds.get(user.id);
-    if (!earnedAdCardIds) {
-      earnedAdCardIds = [];
-      this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
-    }
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[]): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();
       if (alreadyPopulatedAdCardIds.indexOf(card.id) >= 0) {
@@ -212,9 +214,20 @@ export class FeedManager implements Initializable, RestServer {
       if (earnedAdCardIds.indexOf(card.id) >= 0) {
         continue;
       }
+      if (card.by.id === user.id) {
+        continue;
+      }
+      for (const existing of existingCards) {
+        if (existing.id === card.id) {
+          continue;
+        }
+      }
       let info = await this.getUserCardInfo(user.id, card.id, false);
       if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
         // This card is not eligible because the user has already been paid for it (based on our cache)
+        earnedAdCardIds.push(card.id);
+      } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
+        // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
         earnedAdCardIds.push(card.id);
       } else if (info.userCardInfo && Date.now() - info.userCardInfo.lastImpression < MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
         // This isn't eligible because the user recently saw it
@@ -225,6 +238,9 @@ export class FeedManager implements Initializable, RestServer {
         info = await this.getUserCardInfo(user.id, card.id, true);
         if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
           // Check that it is still eligible based on having been paid
+          earnedAdCardIds.push(card.id);
+        } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
+          // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
           earnedAdCardIds.push(card.id);
         } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
           // Check again based on a recent impression
@@ -278,36 +294,40 @@ export class FeedManager implements Initializable, RestServer {
     // the highest overall scores (determined independent of any one user).  For each of these cards, we
     // adjust the scores based on factors that are specific to this user.  And we add a random variable
     // resulting in some churn across the set.  Then we take the top N based on how many were requested.
-    const highScores = await this.getCardsWithHighestScores(user, false, startWithCardId);
-    const promises: Array<Promise<CardWithUserScore>> = [];
-    for (const highScore of highScores) {
-      if (user.address !== highScore.by.address) {
-        const candidate: CardWithUserScore = {
-          card: highScore,
-          fullScore: highScore.score
-        };
-        promises.push(this.scoreCandidateCard(user, candidate));
-      }
+    const result = await this.getCardsWithHighestScores(user, false, limit, startWithCardId);
+    for (const r of result) {
+      console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
     }
-    const candidates = await Promise.all(promises);
-    candidates.sort((a, b) => {
-      return b.fullScore - a.fullScore;
-    });
-    const result: CardDescriptor[] = [];
-    for (const candidate of candidates) {
-      result.push(candidate.card);
-      if (result.length >= limit) {
-        break;
-      }
-    }
+    // const promises: Array<Promise<CardWithUserScore>> = [];
+    // for (const highScore of highScores) {
+    //   if (user.address !== highScore.by.address) {
+    //     const candidate: CardWithUserScore = {
+    //       card: highScore,
+    //       fullScore: highScore.score
+    //     };
+    //     promises.push(this.scoreCandidateCard(user, candidate));
+    //   }
+    // }
+    // const candidates = await Promise.all(promises);
+    // candidates.sort((a, b) => {
+    //   if (startWithCardId && a.card.id === startWithCardId) {
+    //     return -1;
+    //   } else {
+    //     return b.fullScore - a.fullScore;
+    //   }
+    // });
+    // const result: CardDescriptor[] = [];
+    // for (const candidate of candidates) {
+    //   result.push(candidate.card);
+    //   if (result.length >= limit) {
+    //     break;
+    //   }
+    // }
     return await this.mergeWithAdCards(user, result);
   }
 
-  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const cards = await db.findCardsByScore(HIGH_SCORE_CARD_COUNT, user.id, ads);
-    for (const card of cards) {
-      console.log("FeedManager.getCardsWithHighestScores: card revenue", card.stats.revenue.value, card.id);
-    }
+  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, count: number, startWithCardId?: string): Promise<CardDescriptor[]> {
+    const cards = await db.findCardsByScore(count, user.id, ads);
     return await this.populateCards(cards, false, user, startWithCardId);
   }
 
@@ -342,7 +362,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId?: string): Promise<CardDescriptor[]> {
-    const author = await db.findUserByHandle(channelHandle);
+    const author = channelHandle ? await db.findUserByHandle(channelHandle) : null;
     let cards: CardRecord[] = [];
     if (author) {
       cards = await db.findCardsByUserAndTime(Date.now(), 0, limit, author.id, true);
@@ -399,7 +419,7 @@ export class FeedManager implements Initializable, RestServer {
     await this.pollCardScoring(1000 * 60 * 15, 1000 * 60 * 5);
     await this.pollCardScoring(1000 * 60 * 60, 1000 * 60 * 30);
     await this.pollCardScoring(1000 * 60 * 60 * 3, 1000 * 60 * 60);
-    await this.pollCardScoring(1000 * 60 * 60 * 24, 1000 * 60 * 60 * 6, true);
+    await this.pollCardScoring(1000 * 60 * 60 * 24, 1000 * 60 * 60 * 3, true);
     await this.pollCardScoring(1000 * 60 * 60 * 24 * 365, 1000 * 60 * 60 * 12, true);
   }
 
@@ -486,13 +506,21 @@ export class FeedManager implements Initializable, RestServer {
     return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
   }
   private getCardLikesScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value, SCORE_CARD_LIKES_DOUBLING);
+    if (card.stats.uniqueOpens.value > 0) {
+      return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value / card.stats.uniqueOpens.value, SCORE_CARD_LIKES_DOUBLING);
+    } else {
+      return 0;
+    }
   }
   private getCardControversyScore(card: CardRecord): number {
-    const likes = card.stats.likes.value;
-    const dislikes = card.stats.dislikes.value;
-    const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
-    return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
+    if (card.stats.uniqueOpens.value > 0) {
+      const likes = card.stats.likes.value / card.stats.uniqueOpens.value;
+      const dislikes = card.stats.dislikes.value / card.stats.uniqueOpens.value;
+      const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
+      return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
+    } else {
+      return 0;
+    }
   }
 
   private async addSampleEntries(): Promise<void> {
@@ -517,13 +545,14 @@ export class FeedManager implements Initializable, RestServer {
   private async loadSampleUsers(users: SampleUser[]): Promise<{ [handle: string]: UserWithKeyUtils }> {
     const usersByHandle: { [handle: string]: UserWithKeyUtils } = {};
     for (const sample of users) {
-      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, null);
+      const user = await this.insertPreviewUser(sample.handle, sample.handle, sample.name, sample.imageUrl, sample.email);
       usersByHandle[sample.handle] = user;
     }
     return usersByHandle;
   }
 
   private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
+    let index = 0;
     for (const sample of cards) {
       const user = users[sample.handle];
       const cardId = uuid.v4();
@@ -535,24 +564,24 @@ export class FeedManager implements Initializable, RestServer {
       }
       const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
         user.user.identity.imageUrl,
-        null, 0, 0,
+        this.getPreviewUrl("canned/" + (index++ + 10) + ".jpg"), 0, 0,
         null,
         sample.title,
         sample.text,
         false,
-        null,
+        "ChannelsNetwork/card-hello-world",
         null,
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
         sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null, cardId);
-      await db.updateCardStats_Preview(card.id, sample.age, sample.revenue, sample.likes, sample.dislikes, sample.impressions, sample.opens);
+      await db.updateCardStats_Preview(card.id, sample.age, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
     }
   }
 
   private async addPreviewCards(): Promise<void> {
     const now = Date.now();
-    let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"));
+    let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"), null);
     let card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimes', 'New York Times',
       this.getPreviewUrl("nytimes.jpg"),
       this.getPreviewUrl("puerto_rico.jpg"), 1024, 683,
@@ -568,7 +597,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"));
+    user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, '80sgames', "80's Games",
       this.getPreviewUrl("80s_games.png"),
       this.getPreviewUrl("galaga.png"), 1332, 998,
@@ -584,7 +613,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"));
+    user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"), null);
     const cardId1 = uuid.v4();
     const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
@@ -604,7 +633,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"));
+    user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'jmodell', 'Josh Modell',
       this.getPreviewUrl("josh_modell.jpg"),
       this.getPreviewUrl("the_national.png"), 800, 532,
@@ -620,7 +649,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"));
+    user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimescw', 'NY Times Crosswords',
       this.getPreviewUrl("nytimes.jpg"),
       this.getPreviewUrl("crossword1.jpg"), 640, 480,
@@ -636,7 +665,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"));
+    user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"), null);
     const cardId2 = uuid.v4();
     const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
@@ -656,7 +685,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"));
+    user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'tyler', 'Tyler McGrath',
       this.getPreviewUrl("tyler.jpg"),
       this.getPreviewUrl("ascension.jpg"), 1280, 532,
@@ -672,7 +701,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"));
+    user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'roadw', 'Road Warrior',
       this.getPreviewUrl("road-warrior.jpg"),
       this.getPreviewUrl("dangerous_road.png"), 917, 481,
@@ -688,7 +717,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"));
+    user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'brightside', 'Bright Side',
       this.getPreviewUrl("brightside.png"),
       this.getPreviewUrl("amsterdam.jpg"), 1000, 1413,
@@ -704,7 +733,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"));
+    user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'aperrotta', 'Anthony Perrotta',
       this.getPreviewUrl("anthony.jpg"),
       this.getPreviewUrl("rage_cover.jpg"), 400, 600,
@@ -720,7 +749,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"));
+    user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'uhaque', 'Umair Haque',
       this.getPreviewUrl("umair.jpg"),
       this.getPreviewUrl("uber_explosion.jpg"), 1200, 779,
@@ -736,7 +765,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"));
+    user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"), null);
     const cardId3 = uuid.v4();
     const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
@@ -756,7 +785,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"));
+    user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"), null);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'jigsaw', 'Jigsaw',
       this.getPreviewUrl("jigsaw.jpg"),
       this.getPreviewUrl("unfiltered_news.jpg"), 1001, 571,
@@ -772,7 +801,7 @@ export class FeedManager implements Initializable, RestServer {
     await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7, 0, 0);
     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"));
+    user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"), null);
     const cardId4 = uuid.v4();
     const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
     card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
@@ -824,7 +853,7 @@ export class FeedManager implements Initializable, RestServer {
     };
   }
 
-  private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string): Promise<UserWithKeyUtils> {
+  private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string, emailAddress: string): Promise<UserWithKeyUtils> {
     const privateKey = KeyUtils.generatePrivateKey();
     const keyInfo = KeyUtils.getKeyInfo(privateKey);
     const inviteCode = await userManager.generateInviteCode();
@@ -832,10 +861,10 @@ export class FeedManager implements Initializable, RestServer {
       name: name,
       handle: handle,
       imageUrl: imageUrl,
-      emailAddress: null,
+      emailAddress: emailAddress,
       location: null
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 0, null, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,
@@ -908,6 +937,7 @@ interface SampleUser {
   handle: string;
   name: string;
   email: string;
+  imageUrl: string;
 }
 
 interface SampleCard {

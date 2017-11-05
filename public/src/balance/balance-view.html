@@ -1,6 +1,8 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
 <dom-module id="balance-view">
   <template>
-    <style is="custom-style" include="app-styles2">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
       }
@@ -61,8 +63,6 @@
         font-size: 14px;
         background-color: white;
         color: black;
-        border: 1px solid black;
-        border-radius: 5px;
         padding: 10px;
         box-sizing: border-box;
         max-width: 1100px;
@@ -138,6 +138,14 @@
         margin: 30px 0 0;
         font-size: 16px;
       }
+
+      .buttonPanel {
+        margin: 25px 0;
+      }
+
+      #btnWithdraw {
+        margin-left: 30px;
+      }
     </style>
     <div id="fullContent">
       <div class="content">
@@ -151,55 +159,47 @@
             <label>Balance</label>
             <div>[[balance]]</div>
           </div>
-          <div class="wdPanel horizontal layout end">
-            <div id="depositPanel">
-              <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
-            </div>
-            <div class="flex"></div>
-            <div id="withdrawableBalancePanel" style="display:none;">
-              <label>Available for withdrawal:
-                <span>[[withdrawableBalance]]</span>
-              </label>
-              <div class="availableNote">Coins you have earned from your cards are available for withdrawal.</div>
-              <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
-            </div>
-          </div>
-          <div class="footer" style="display:none;">
-            <p>Want to earn extra coins for you and your friends?</p>
-            <p>
-              <a on-click="onInvite">Invite a friend</a>
-            </p>
+          <div class="buttonPanel">
+            <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
+            <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
           </div>
         </div>
-        <div id="bankStatement" style="display:none;">
-          <h3>Recent Transactions</h3>
-          <div class="statementSubtitle">Interest and subsidy payments have been omitted for clarity</div>
-          <div style="display:table; width:100%;">
-            <div class="transactionHeader">
-              <div class="transactionHeaderCell">Date</div>
-              <div class="transactionHeaderCell">Type</div>
-              <div class="transactionHeaderCell right">Amount</div>
-              <div class="transactionHeaderCell">Reason</div>
-              <div class="transactionHeaderCell">Other Party</div>
-              <div class="transactionHeaderCell">Card</div>
-            </div>
-            <template is="dom-repeat" items="[[bankTransactions]]">
-              <div class="transactionItem" style="display:table-row;">
-                <div class="transactionCell">[[item.date]]</div>
-                <div class="transactionCell">[[item.type]]</div>
-                <div class="transactionCell right">[[item.amount]]</div>
-                <div class="transactionCell">[[item.reason]]</div>
-                <div class="transactionCell">[[item.address]]</div>
-                <div class="transactionCell">
-                  <a href$="[[item.cardHref]]" class="cardTitle" style$="[[item.cardStyle]]">
-                    <div class="cardTitleInner">[[item.cardTitle]]</div>
-                  </a>
-                </div>
-              </div>
-            </template>
-          </div>
+        <div class="footer" style="display:none;">
+          <p>Want to earn extra coins for you and your friends?</p>
+          <p>
+            <a on-click="onInvite">Invite a friend</a>
+          </p>
         </div>
       </div>
+      <div id="bankStatement" style="display:none;">
+        <h3>Recent Transactions</h3>
+        <div class="statementSubtitle">Interest and subsidy payments have been omitted for clarity</div>
+        <div style="display:table;border-collapse:collapse;width:100%;">
+          <div class="transactionHeader">
+            <div class="transactionHeaderCell">Date</div>
+            <div class="transactionHeaderCell">Type</div>
+            <div class="transactionHeaderCell right">Amount</div>
+            <div class="transactionHeaderCell">Reason</div>
+            <div class="transactionHeaderCell">Other Party</div>
+            <div class="transactionHeaderCell">Card</div>
+          </div>
+          <template is="dom-repeat" items="[[bankTransactions]]">
+            <div class="transactionItem" style="display:table-row;">
+              <div class="transactionCell">[[item.date]]</div>
+              <div class="transactionCell">[[item.type]]</div>
+              <div class="transactionCell right">[[item.amount]]</div>
+              <div class="transactionCell">[[item.reason]]</div>
+              <div class="transactionCell">[[item.address]]</div>
+              <div class="transactionCell">
+                <a href$="[[item.cardHref]]" class="cardTitle" style$="[[item.cardStyle]]">
+                  <div class="cardTitleInner">[[item.cardTitle]]</div>
+                </a>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
   </template>
   <script>
     class BalanceView extends Polymer.Element {
@@ -223,13 +223,7 @@
           this.balanceTimer = setInterval(() => {
             this.balance = "ℂ" + $core.balance.toFixed(8);
           }, 250);
-          this.$.withdrawableBalancePanel.style = $core.withdrawalsEnabled ? "" : "display:none;";
-          let maxWithdrawable = $core.withdrawableBalance;
-          if ($core.balance - $core.withdrawableBalance < 2) {
-            maxWithdrawable -= 2 - ($core.balance - $core.withdrawableBalance);
-          }
-          this.set('withdrawableBalance', "ℂ" + maxWithdrawable.toFixed(3));
-          this.$.btnWithdraw.disabled = $core.withdrawableBalance < 1 || $core.balance < 3;
+          this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
           this._refreshTransactions();
         }).catch((err) => {
           console.error(err);
@@ -371,7 +365,11 @@
       }
 
       _onWithdrawClick() {
-        $router.goto("withdraw")
+        if ($core.balance >= $core.minBalanceAfterWithdrawal + 1) {
+          $router.goto("withdraw")
+        } else {
+          this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
+        }
       }
 
       _onDepositClick() {

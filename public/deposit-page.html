@@ -80,12 +80,16 @@
           onAmountInput();
         } else {
           $core.depositCheckout(Number(amountInput.value.trim()), payload.nonce).then((depositResponse) => {
-            if (depositResponse.transaction.success) {
-              console.log("Deposited!", depositResponse);
-              window.location = "/app/#balance";
+            if (depositResponse.transactionResult) {
+              if (depositResponse.transactionResult && depositResponse.transactionResult.success) {
+                console.log("Deposited!", depositResponse);
+                window.location = "/app/#balance";
+              } else {
+                const message = depositResponse.transactionResult && depositResponse.transactionResult.errors && depositResponse.transactionResult.errors.length > 0 && depositResponse.transactionResult.errors[0].message ? depositResponse.transactionResult.errors[0].message : "Your payment was not approved.";
+                onError(message);
+              }
             } else {
-              const message = depositResponse.transaction && depositResponse.transaction.errors && depositResponse.transactionResult.errors.length > 0 && depositResponse.transactionResult.errors[0].message ? depositResponse.transactionResult.errors[0].message : "Your payment was not approved.";
-              onError(message);
+              onError("Transaction is missing");
             }
           }).catch((err) => {
             onError(err);

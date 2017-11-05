@@ -2,7 +2,7 @@
 
 <dom-module id="withdraw-dialog">
   <template>
-    <style is="custom-style" include="app-styles-light iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles iron-flex iron-flex-alignment">
       :host {
         display: block;
         background-color: white;
@@ -89,6 +89,10 @@
         font-size: 12px;
         color: #555;
       }
+
+      .explain {
+        font-size: 14px;
+      }
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
@@ -168,14 +172,11 @@
           return;
         }
         $core.register().then((info) => {
-          if (!$core.withdrawalsEnabled || $core.withdrawableBalance < 1) {
+          if (!$core.withdrawalsEnabled || $core.balance < $core.minBalanceAfterWithdrawal + 1) {
             $router.goto("balance");
             return;
           }
-          let maxWithdrawable = $core.withdrawableBalance;
-          if ($core.balance - $core.withdrawableBalance < 2) {
-            maxWithdrawable -= 2 - ($core.balance - $core.withdrawableBalance);
-          }
+          let maxWithdrawable = this._floor2Digits($core.balance - $core.minBalanceAfterWithdrawal);
           this.set('maxWithdrawal', maxWithdrawable.toFixed(2));
           this.$.withdrawalAmount.value = this.maxWithdrawal;
           this.set('exchangeRate', $core.coinSellExchangeRate.toFixed(6));
@@ -192,6 +193,10 @@
         this._refresh();
       }
 
+      _floor2Digits(value) {
+        return Math.floor(value * 100) / 100;
+      }
+
       _refresh() {
         this.$.email.disabled = false;
         this.$.emailConfirm.disabled = false;
@@ -200,16 +205,17 @@
         if (Number.isNaN(this.$.withdrawalAmount.value)) {
           return;
         }
-        const amount = Number(this.$.withdrawalAmount.value);
-        if (amount < 1 || amount > $core.withdrawableBalance) {
+        const amount = this._floor2Digits(Number(this.$.withdrawalAmount.value));
+        if (amount < 1 || $core.balance - amount < $core.minBalanceAfterWithdrawal) {
           return;
         }
-        this.set('maxWithdrawal', $core.withdrawableBalance.toFixed(3));
-        const withdrawal = amount * $core.coinSellExchangeRate;
+        let maxWithdrawable = this._floor2Digits($core.balance - $core.minBalanceAfterWithdrawal);
+        this.set('maxWithdrawal', maxWithdrawable.toFixed(3));
+        const withdrawal = this._floor2Digits(amount * $core.coinSellExchangeRate);
         this.set('withdrawalAmount', 'US$' + withdrawal.toFixed(2));
         const fees = 0; //+ withdrawal * 0.029;
         this.set('fees', 'US$' + fees.toFixed(2));
-        const proceeds = withdrawal - fees;
+        const proceeds = this._floor2Digits(withdrawal - fees);
         this.set('proceeds', 'US$' + proceeds.toFixed(2));
         if (!$core.isValidPaypalRecipient(this.$.email.value) || this.$.email.value !== this.$.emailConfirm.value) {
           return;

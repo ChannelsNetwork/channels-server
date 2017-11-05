@@ -120,7 +120,7 @@ export class Database {
     await this.cards.createIndex({ state: 1, "budget.available": 1, private: 1, postedAt: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, postedAt: -1 });
     await this.cards.createIndex({ state: 1, "by.id": 1, "stats.revenue.value": -1 });
-    await this.cards.createIndex({ state: 1, "by.id": 1, "pricing.openFeeUnits": 1, "stats.score.value": -1 });
+    await this.cards.createIndex({ state: 1, "by.id": 1, "pricing.openFeeUnits": 1, score: -1 });
 
     await this.cards.updateMany({ promotionScores: { $exists: false } }, { $set: { promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 } } });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.a": -1 });
@@ -282,7 +282,7 @@ export class Database {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, withdrawableBalance: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -295,9 +295,9 @@ export class Database {
       inviterCode: inviterCode,
       balanceLastUpdated: now,
       balance: 0,
-      targetBalance: 0,
+      targetBalance: targetBalance,
       balanceBelowTarget: false,
-      withdrawableBalance: withdrawableBalance,
+      minBalanceAfterWithdrawal: minBalanceAfterWithdrawal,
       invitationsRemaining: invitationsRemaining,
       invitationsAccepted: invitationsAccepted,
       lastContact: now,
@@ -460,7 +460,7 @@ export class Database {
     return await this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
   }
 
-  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, incrementTargetBy: number, incrementWithdrawableBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
+  async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
     const query: any = {
       id: user.id
     };
@@ -468,21 +468,17 @@ export class Database {
       query.balanceLastUpdated = onlyIfLastBalanceUpdated;
     }
     const result = await this.users.updateOne(query, {
-      $inc: { balance: incrementBalanceBy, targetBalance: incrementTargetBy, withdrawableBalance: incrementWithdrawableBalanceBy },
+      $inc: { balance: incrementBalanceBy },
       $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
     });
     if (result.modifiedCount > 0) {
       user.balance += incrementBalanceBy;
-      user.targetBalance += incrementTargetBy;
-      user.withdrawableBalance += incrementWithdrawableBalanceBy;
       user.balanceBelowTarget = balanceBelowTarget;
       user.balanceLastUpdated = now;
     } else {
       const updatedUser = await this.findUserById(user.id);
       if (updatedUser) {
         user.balance = updatedUser.balance;
-        user.targetBalance = updatedUser.targetBalance;
-        user.withdrawableBalance = updatedUser.withdrawableBalance;
         user.balanceBelowTarget = updatedUser.balanceBelowTarget;
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
@@ -557,7 +553,7 @@ export class Database {
       },
       score: 0,
       promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
-      lastScored: now,
+      lastScored: 0,
       lock: {
         server: '',
         at: 0
@@ -647,15 +643,16 @@ export class Database {
   async updateCardBudgetUsage(card: CardRecord, incSpent: number, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
     await this.cards.updateOne({ id: card.id }, {
       $inc: {
-        spent: incSpent
+        "budget.spent": incSpent
       },
       $set: {
-        available: available,
+        "budget.available": available,
         promotionScores: promotionScores
       }
     });
     card.budget.spent += incSpent;
     card.budget.available = available;
+    card.promotionScores = promotionScores;
   }
 
   async updateCardBudgetAvailable(card: CardRecord, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
@@ -773,7 +770,7 @@ export class Database {
       { "private": false }
     ];
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
-    return await this.cards.find(query).sort({ "stats.score.value": -1 }).limit(limit).toArray();
+    return await this.cards.find(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
   findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {

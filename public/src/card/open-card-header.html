@@ -1,47 +1,23 @@
+<link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
+<link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
+<link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../controls/progress-icon.html">
-<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
 
 <dom-module id="open-card-header">
   <template>
-    <style is="custom-style" include="iron-flex iron-flex-alignment">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
-      }
-
-      iron-icon {
-        color: #808080;
-        width: 28px;
-        height: 28px;
-        padding: 0 8px;
-        cursor: pointer;
-      }
-
-      progress-icon {
-        margin-right: 5px;
       }
 
       .bar {
         background: #fafafa;
         font-size: 14px;
         height: 60px;
+        border-radius: 3px 3px 0 0;
       }
 
-      #authorImage {
-        width: 40px;
-        height: 40px;
-        border-radius: 100%;
-        margin: 0 10px;
-      }
-
-      #timestamp {
-        font-size: 11px;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      #price {
+      #pricePanel {
         padding: 0 8px;
         background: var(--bg-yellow);
         color: #000;
@@ -49,17 +25,19 @@
         font-size: 15px;
         height: 100%;
         box-sizing: border-box;
+        position: relative;
+        width: 66px;
       }
 
-      #price .pays {
+      #pricePanel .pays {
         display: none;
       }
 
-      #price.negative {
+      #pricePanel.negative {
         background: #69F0AE;
       }
 
-      #price.negative .pays {
+      #pricePanel.negative .pays {
         text-transform: uppercase;
         font-size: 11px;
         line-height: 14px;
@@ -71,122 +49,218 @@
         padding: 3px 6px;
       }
 
+      #pricePanel #paidCheck {
+        display: none;
+      }
+
+      #pricePanel.paid #paidCheck {
+        height: 15px;
+        width: 15px;
+        color: var(--dark-green);
+        display: block;
+        margin: 0 auto 2px;
+        cursor: initial;
+      }
+
+      #timestamp {
+        font-size: 11px;
+      }
+
+      soso-icon {
+        color: #808080;
+        width: 28px;
+        height: 28px;
+        padding: 0 8px;
+        cursor: pointer;
+      }
+
+      #authorImage {
+        width: 40px;
+        height: 40px;
+        border-radius: 100%;
+        margin: 0 10px;
+      }
+
+      #payTimerProgress {
+        position: absolute;
+        top: 0;
+        left: 3px;
+        --soso-progress-negative-color: rgba(0, 0, 0, 0.1);
+        --soso-progress-positive-color: var(--highlight-green);
+      }
+
       @media (max-width: 600px) {
-        iron-icon {
+        soso-icon {
           padding: 0 6px 0 4px;
         }
-        #moreIcon,
-        #fullIcon {
-          display: none;
-        }
-      }
-
-      .paidCheck {
-        display: none;
-        width: 12px;
-        height: 12px;
-        margin: 4px auto 0;
-      }
-
-      .payProgressOuter {
-        width: 2px;
-        height: 100%;
-      }
-
-      #payProgressInner {
-        width: 100%;
-        height: 0%;
-        background-color: #aaa;
       }
     </style>
     <div class="horizontal layout center bar">
-      <div id="price" class="horizontal layout center">
-        <div>
+      <div id="pricePanel" class="horizontal layout center">
+        <div class="flex" style="text-align: center;">
           <label class="pays">Pays</label>[[price]]
-          <label>
-            <iron-icon id="paidCheck" class="paidCheck" icon="check"></iron-icon>
-          </label>
+          <soso-icon id="paidCheck" icon="check-circle" icon-map="[[iconMap]]"></soso-icon>
         </div>
-      </div>
-      <div class="payProgressOuter vertical layout">
-        <div id="payProgressPad" class="flex"></div>
-        <div id="payProgressInner"></div>
+        <progress-icon id="payTimerProgress" class="hidden"></progress-icon>
       </div>
       <img id="authorImage">
       <div class="flex vertical layout">
-        <div class="authorName">[[data.by.name]]</div>
+        <div>[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
-      <progress-icon icon="ch:thumbs-up-down" value="[[rating]]" percent on-click="showToast"></progress-icon>
-      <iron-icon id="moreIcon" icon="ch:expand-more" on-click="showToast"></iron-icon>
-      <iron-icon id="fullIcon" icon="ch:fullscreen" on-click="showToast"></iron-icon>
-      <iron-icon id="closeIcon" icon="ch:close" on-click="onCloseCard"></iron-icon>
+      <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+      <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
+
+      <soso-dropdown for="moreIcon" alignment="right" offset="0">
+        <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
+        <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_deleteCard">Delete</li>
+      </soso-dropdown>
     </div>
   </template>
   <script>
     class OpenCardHeader extends Polymer.Element {
-      static get is() { return "open-card-header"; }
+      static get is() { return 'open-card-header'; }
       static get properties() {
         return {
           data: {
             type: Object,
-            observer: '_onData'
+            observer: '_refresh'
           },
-          price: String,
-          rating: Number
+          iconMap: Object
         };
       }
 
-      _onData() {
+      connectedCallback() {
+        super.connectedCallback();
+        this.iconMap = window._channelIcons;
+        this._refresh();
+      }
+
+      _refresh() {
         if (!this.data) {
           return;
         }
-        this.$.authorImage.src = this.data.by.imageUrl || ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
-        let cost = this.data.pricing.openFee;
-        let absCost = Math.abs(cost).toFixed(2);
-        this.price = 'ℂ' + absCost;
-        if (cost < 0) {
-          this.$.price.classList.add("negative");
-        } else {
-          this.$.price.classList.remove("negative");
-        }
-        let uc = this.data.stats.likes || 0;
-        let dc = this.data.stats.dislikes || 0;
-        let tc = uc + dc;
-        this.rating = tc ? (uc / tc) * 100 : 0;
+        this.$.authorImage.src = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
-        this.$.payProgressPad.style.display = cost < 0 ? "" : "none";
+        this._refreshPrice();
+        this._refreshRating();
+        this._refreshMore();
+        this._refreshMenu();
+      }
+
+      _refreshPrice() {
         this._refreshPaidCheck();
+        let cost = this.data.pricing.openFee;
+        let absCost = Math.abs(cost).toFixed(2);
+        this.price = 'ℂ' + absCost;
+        if (cost <= 0) {
+          this.$.pricePanel.classList.add("negative");
+        } else {
+          this.$.pricePanel.classList.remove("negative");
+        }
+        // check if the price needs to be shown
+        let hidePrice = (cost === 0) || (cost < 0 && (!this.data.promoted));
+        if (hidePrice && this._cardConsumed && cost) {
+          hidePrice = false;
+        }
+        if (hidePrice) {
+          this.$.pricePanel.classList.add("hidden");
+        } else {
+          this.$.pricePanel.classList.remove("hidden");
+        }
       }
 
-      setPaymentStatus(value, negative) {
-        this.$.payProgressInner.style.height = value + "%";
+      _refreshRating() {
+
       }
 
-      onCloseCard(event) {
-        event.stopPropagation();
-        this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true, detail: {} }));
+      _refreshMore() {
+        let owner = this.data && (this.data.by.address === $core.address);
+        if (owner) {
+          this.$.moreIcon.classList.remove("hidden");
+        } else {
+          this.$.moreIcon.classList.add("hidden");
+        }
+      }
+
+      _refreshMenu() {
+        if (this.data && this.data.private) {
+          this.$.liPrivate.classList.add("hidden");
+          this.$.liPublic.classList.remove("hidden");
+        } else {
+          this.$.liPrivate.classList.remove("hidden");
+          this.$.liPublic.classList.add("hidden");
+        }
+      }
+
+      _refreshPaidCheck() {
+        let showCheck = (!this.data.userSpecific.isPoster) &&
+          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+        if (showCheck) {
+          this.$.pricePanel.classList.add("paid");
+        } else {
+          this.$.pricePanel.classList.remove("paid");
+        }
+        this._cardConsumed = showCheck;
+      }
+
+      _onCloseCard(event) {
+        this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true }));
+      }
+
+      showTimer(value) {
+        if (!this._timerVisible) {
+          this._timerVisible = true;
+          this.$.payTimerProgress.classList.remove("hidden");
+          this.$.pricePanel.style.fontSize = "11px";
+        }
+        this.$.payTimerProgress.value = Math.max(0, Math.min(value, 100));
+      }
+
+      hideTimer() {
+        if (this._timerVisible) {
+          this._timerVisible = false;
+          this.$.payTimerProgress.classList.add("hidden");
+          this.$.pricePanel.style.fontSize = "";
+        }
       }
 
       onPayment() {
         this._refreshPaidCheck();
       }
 
-      onImpressionPaid() {
-        this._refreshPaidCheck();
+      _makePrivate() {
+        this._updatePrivate(true);
       }
 
-      showToast() {
-        $app.toast("This action is not enabled in preview mode.");
+      _makePublic() {
+        this._updatePrivate(false);
       }
 
-      _refreshPaidCheck() {
-        if (!this.data.userSpecific.isPoster && (this.data.pricing.openFee === 0 && this.data.pricing.promotionFee > 0 && this.data.userSpecific.earnedFromAuthor > 0 || this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor > 0 || this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor > 0)) {
-          this.$.paidCheck.style.display = "block";
-        } else {
-          this.$.paidCheck.style.display = "none";
+      _updatePrivate(isPrivate) {
+        if (this.data) {
+          $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
+            this.data.private = response.newValue;
+            this._refreshMenu();
+          }).catch((err) => {
+            console.error("Failed to updated private flag", err);
+          });
+        }
+      }
+
+      _deleteCard() {
+        if (window.confirm("This will delete this card permanently.  Are you sure?")) {
+          this._onCloseCard();
+          requestAnimationFrame(() => {
+            $core.deleteCard(this.data.id).then((response) => {
+              this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
+            }).catch((err) => {
+              console.error("Failed to delete card".err);
+            });
+          });
         }
       }
     }

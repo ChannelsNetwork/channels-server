@@ -4,7 +4,7 @@
 
 <dom-module id="register-view">
   <template>
-    <style is="custom-style" include="app-styles2">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
         background: var(--bg-dark) !important;
@@ -224,11 +224,7 @@
         let password = this.$.password.value.trim() || null;
         this._setMessage("Registering");
         $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
-          if (this._defaultReturnRoute) {
-            $router.goto("register-photo", { returnRoute: this.returnRoute });
-          } else {
-            $router.goto(this.returnRoute.success);
-          }
+          $router.goto("register-photo", { returnRoute: this.returnRoute });
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong when registering your handle.");

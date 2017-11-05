@@ -1,14 +1,15 @@
 <link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/shadycss/apply-shim.html">
 <link rel="import" href="../bower_components/polymer/lib/utils/import-href.html">
 <link rel="import" href="../bower_components/soso-pages/soso-pages.html">
 <link rel="import" href="core/core.html">
-<link rel="import" href="app-styles2.html">
+<link rel="import" href="app-styles.html">
 <link rel="import" href="hash-router.html">
 <link rel="import" href="app-bar.html">
 
 <dom-module id="main-app">
   <template>
-    <style is="custom-style" include="app-styles2">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
         position: relative;
@@ -82,7 +83,8 @@
         <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
         <withdraw-dialog class="withdraw page" data-href="balance/withdraw-dialog.html"></withdraw-dialog>
         <!-- Feed/Card Pages -->
-        <preview-page id="feed" class="feed page" data-toolbar="true" data-href="preview/preview-page.html"></preview-page>
+        <feed-view id="feed" class="feed page" data-toolbar="true" data-href="feed/feed-view.html"></feed-view>
+        <channel-view class="channel page" data-toolbar="true" data-href="feed/channel-view.html"></channel-view>
         <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
         <!-- Test pages -->
         <test-page class="test page" data-href="test/test-page.html"></test-page>
@@ -101,6 +103,7 @@
         super();
         window.$app = this;
         window.$core = new CoreService();
+        this._barShowing = true;
       }
 
       connectedCallback() {
@@ -212,6 +215,10 @@
 
         // scroll to top
         this.$.shell.scrollTop = 0;
+        this._prevScrollValue = 0;
+        this._preventScroll = false;
+        this._attachScrollListener();
+
         // notify toolbar
         this.$.toolbar.onRoute(route);
 
@@ -223,7 +230,55 @@
         }
       }
 
+      _attachScrollListener() {
+        if (!this._scrollListener) {
+          this._scrollListener = (event) => {
+            if (!this._preventScroll) {
+              this._onScroll(event);
+            }
+            // Fire a dummy scroll event on the document to trigger IntersectionObserver polyfill
+            // when the event is not bubbling upwards. 
+            if (!event.bubbles) {
+              document.dispatchEvent(new CustomEvent('scroll', { bubbles: true, composed: true }));
+            }
+          };
+          this.$.shell.addEventListener("scroll", this._scrollListener)
+        }
+      }
+
+      _onScroll(event) {
+        const shell = this.$.shell;
+        if (!this._prevScrollValue) {
+          this._prevScrollValue = shell.scrollTop;
+        } else {
+          if (shell.scrollTop <= 0) {
+            this._prevScrollValue = 0;
+            if (!this._barShowing) {
+              this.setBarVisible(true);
+            }
+            return;
+          }
+          let diff = shell.scrollTop - this._prevScrollValue;
+          if (diff > 10) {
+            this._prevScrollValue = shell.scrollTop;
+            if (this._barShowing) {
+              this.setBarVisible(false);
+            }
+          } else if (diff < -5) {
+            this._prevScrollValue = shell.scrollTop;
+            if (!this._barShowing) {
+              this.setBarVisible(true);
+            }
+          }
+        }
+      }
+
+      set preventScrollBehavior(value) {
+        this._preventScroll = value;
+      }
+
       setBarVisible(visible) {
+        this._barShowing = visible;
         this.$.toolbar.style.top = visible ? "0px" : "-105px";
       }
 

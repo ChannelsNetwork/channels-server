@@ -2,7 +2,7 @@
 
 <dom-module id="compose-card-promotion">
   <template>
-    <style is="custom-style" include="app-styles2">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
       }
@@ -48,7 +48,7 @@
             <span>[[paymentAction]]</span>?</div>
           <div class="row">
             ℂ
-            <soso-number-input id="amount" value="0.010" step="0.001" min="0.001" fixed="3" max="1"></soso-number-input>
+            <soso-number-input id="amount" value="0.010" step="0.001" min="0.001" fixed="3" max="[[maxBudget]]"></soso-number-input>
             <span class="recommendation">(Recommended: ℂ
               <span>[[minimumRecommendation]]</span> to ℂ[[maximumRecommendation]])
             </span>
@@ -91,7 +91,7 @@
         };
       }
 
-      onCancel() {
+      _onCancel() {
         this.wizard.cancel();
       }
       _onNext() {
@@ -99,6 +99,9 @@
       }
 
       onTransitioningIn(forward) {
+        if (!forward) {
+          return;
+        }
         let pricing = this.wizard.data.pricing;
         let notValid = false;
         if (pricing) {
