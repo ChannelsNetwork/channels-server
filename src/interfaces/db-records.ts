@@ -7,6 +7,7 @@ export interface UserRecord {
   type: UserAccountType;
   address: string;
   publicKey: string;
+  addressHistory: UserAddressHistory[];
   encryptedPrivateKey: string;
   added: number;
   inviteeCode: string;
@@ -25,6 +26,12 @@ export interface UserRecord {
   recoveryCode?: string;
   recoveryCodeExpires?: number;
   ipAddresses: string[];
+}
+
+export interface UserAddressHistory {
+  address: string;
+  publicKey: string;
+  added: number;
 }
 
 export type UserAccountType = "normal" | "network" | "networkDeveloper";
