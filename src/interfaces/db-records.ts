@@ -28,6 +28,25 @@ export interface UserRecord {
   ipAddresses: string[];
 }
 
+export interface OldUserRecord {
+  id: string;
+  keys: {
+    address: string;
+    publicKey: string;
+    added: number;
+  };
+  added: number;
+  balance: number;
+  balanceLastUpdated: number;
+  lastContact: number;
+  storage: number;
+  admin: boolean;
+  targetBalance: number;
+  withdrawableBalance: number;
+  balanceBelowTarget: boolean;
+  identity?: UserIdentity;
+}
+
 export interface UserAddressHistory {
   address: string;
   publicKey: string;
