@@ -94,6 +94,7 @@
     <div id="reloadingPanel" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
     </div>
+    <confirm-dialog id="dlgConfirm"></confirm-dialog>
   </template>
   <script>
     class MainApp extends Polymer.Element {
@@ -315,6 +316,22 @@
             };
             requestAnimationFrame(_step);
           }
+        });
+      }
+
+      _import(path) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(path), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      confirm(message, cancelText, okText) {
+        return this._import("dialogs/confirm-dialog.html").then(() => {
+          return this.$.dlgConfirm.show(message, cancelText, okText);
         });
       }
     }

@@ -1,0 +1,119 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
+<dom-module id="dialog-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      #shell {
+        min-height: 100vh;
+      }
+
+      .card {
+        position: relative;
+        max-width: var(--soso-dialog-max-width, 500px);
+        width: 100%;
+        margin: 0 auto;
+        box-sizing: border-box;
+        background: white;
+        opacity: 0;
+        transform: translateY(200px);
+        transition: transform 0.8s ease, opacity 0.4s ease;
+      }
+
+      .containerShowing {
+        opacity: 1;
+        transform: none;
+      }
+
+      .content {
+        padding: 40px;
+      }
+
+      .buttons {
+        text-align: right;
+        padding: 16px 30px;
+        border-top: 1px solid #e8e8e8;
+      }
+
+      button {
+        margin-right: 10px;
+      }
+
+      @media (max-width: 550px) {
+        .content {
+          padding: 20px 16px;
+        }
+        .buttons {
+          padding: 16px 6px 16px 16px;
+        }
+      }
+    </style>
+    <div id="shell" class="vertical layout">
+      <div class="flex"></div>
+      <div style="padding: 5px;">
+        <div id="container" class="card">
+          <div class="content">
+            <slot></slot>
+          </div>
+          <div class="buttons">
+            <template is="dom-repeat" items="{{buttons}}">
+              <button on-click="_onButton">[[item.label]]</button>
+            </template>
+          </div>
+        </div>
+      </div>
+      <div class="flex"></div>
+    </div>
+  </template>
+  <script>
+    class DialogView extends Polymer.Element {
+      static get is() { return 'dialog-view'; }
+      static get properties() {
+        return {
+          buttons: Array
+        };
+      }
+
+      _onButton(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('button-click', { bubbles: true, composed: true, detail: { button: event.model.item } }));
+      }
+
+      show() {
+        if (this._showing) {
+          return;
+        }
+        this._showing = true;
+        this.style.display = "block";
+        setTimeout(() => {
+          this.$.container.classList.add("containerShowing");
+        }, 100);
+      }
+
+      hide() {
+        if (!this._showing) {
+          return;
+        }
+        this._showing = false;
+        this.$.container.classList.remove("containerShowing");
+        setTimeout(() => {
+          this.style.display = "none";
+        }, 800);
+      }
+    }
+    window.customElements.define(DialogView.is, DialogView);
+  </script>
+</dom-module>
