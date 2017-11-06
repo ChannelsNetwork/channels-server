@@ -128,6 +128,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           }
         }
       } else {
+        const historicalUser = await db.findUserByHistoricalAddress(requestBody.detailsObject.address);
+        if (historicalUser) {
+          response.status(409).send("This address was registered previously and cannot be reused.");
+          return;
+        }
         const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
         let inviteeReward = 0;
         if (inviter && inviter.invitationsRemaining > 0) {

@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -122,6 +122,13 @@ export class Database {
     for (const u of noTarget) {
       await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
     }
+
+    const noHistory = await this.users.find<UserRecord>({ addressHistory: { $exists: false } }).toArray();
+    for (const u of noHistory) {
+      await this.users.updateOne({ id: u.id }, { $push: { addressHistory: { address: u.address, publicKey: u.publicKey, added: Date.now() } } });
+    }
+
+    await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
 
     await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
   }
@@ -309,6 +316,9 @@ export class Database {
       type: type,
       address: address,
       publicKey: publicKey,
+      addressHistory: [
+        { address: address, publicKey: publicKey, added: now }
+      ],
       encryptedPrivateKey: encryptedPrivateKey,
       added: now,
       inviteeCode: inviteeCode,
@@ -363,6 +373,10 @@ export class Database {
 
   async findUserByAddress(address: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ address: address });
+  }
+
+  async findUserByHistoricalAddress(address: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ "addressHistory.address": address });
   }
 
   async findUserByRecoveryCode(code: string): Promise<UserRecord> {
@@ -444,16 +458,25 @@ export class Database {
   }
 
   async updateUserAddress(userRecord: UserRecord, address: string, publicKey: string, encryptedPrivateKey: string): Promise<void> {
+    const now = Date.now();
     await this.users.updateOne({ id: userRecord.id }, {
       $set: {
         address: address,
         publicKey: publicKey,
         encryptedPrivateKey: encryptedPrivateKey
+      },
+      $push: {
+        addressHistory: { address: address, publicKey: publicKey, added: now }
       }
     });
     userRecord.address = address;
     userRecord.publicKey = publicKey;
     userRecord.encryptedPrivateKey = encryptedPrivateKey;
+    userRecord.addressHistory.push({
+      address: address,
+      publicKey: publicKey,
+      added: now
+    });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
