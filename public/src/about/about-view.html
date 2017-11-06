@@ -1,3 +1,5 @@
+<link rel="import" href="../controls/user-image.html">
+
 <dom-module id="about-view">
   <template>
     <style is="custom-style" include="app-styles">
@@ -5,16 +7,19 @@
         display: block;
       }
 
-      #content {
-        padding: 50px 15px 20px;
+      .content {
+        padding: 50px 16px;
         max-width: 600px;
         margin: 0 auto;
-        text-align: center;
         position: relative;
       }
 
+      .center {
+        text-align: center;
+      }
+
       .count {
-        margin: 50px 0 100px;
+        margin: 50px 0;
       }
 
       .countPanel {
@@ -32,28 +37,41 @@
         font-size: 14px;
       }
 
-      .people {
-        text-align: center;
+      section {
+        border-bottom: 1px solid #e5e5e5;
+      }
+
+      section:nth-child(even) {
+        background: #f5f5f5;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
       }
 
       .person {
         display: inline-block;
         text-align: center;
-        margin: 30px;
+        padding: 5px;
+        vertical-align: top;
+        font-size: 10pt;
+        letter-spacing: 0.05em;
       }
 
-      .photo {
-        width: 125px;
-        height: auto;
-      }
-
-      section {
-        text-align: left;
-        margin: 75px 0;
+      user-image {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 10px;
       }
 
       .lastUpdated {
         font-size: 14px;
+        margin: 10px 0;
+        color: #555;
+        letter-spacing: 0.05em;
       }
 
       @media (max-width: 600px) {
@@ -69,52 +87,61 @@
         .countPanel {
           padding: 10px;
         }
-        h2 {
-          font-size: 21px;
+        user-image {
+          width: 70px;
+          height: 70px;
         }
       }
     </style>
-    <div id="content">
-      <h2>We're holding a spot for you!</h2>
-      <h2>Channels will be going live in</h2>
-      <div class="count horizontal layout center-center">
-        <div class="countPanel">
-          <div class="countValue">[[days]]</div>
-          <div class="countLabel">days</div>
-        </div>
-        <div class="countPanel">
-          <div class="countValue">[[hours]]</div>
-          <div class="countLabel">Hours</div>
-        </div>
-        <div class="countPanel">
-          <div class="countValue">[[minutes]]</div>
-          <div class="countLabel">Minutes</div>
-        </div>
-        <div class="countPanel">
-          <div class="countValue">[[seconds]]</div>
-          <div class="countLabel">Seconds</div>
+    <section>
+      <div class="content center">
+        <h2>We're holding a spot for you!</h2>
+        <h2>Channels will be going live in</h2>
+        <div class="count horizontal layout center-center">
+          <div class="countPanel">
+            <div class="countValue">[[days]]</div>
+            <div class="countLabel">days</div>
+          </div>
+          <div class="countPanel">
+            <div class="countValue">[[hours]]</div>
+            <div class="countLabel">Hours</div>
+          </div>
+          <div class="countPanel">
+            <div class="countValue">[[minutes]]</div>
+            <div class="countLabel">Minutes</div>
+          </div>
+          <div class="countPanel">
+            <div class="countValue">[[seconds]]</div>
+            <div class="countLabel">Seconds</div>
+          </div>
         </div>
       </div>
-      <section>
-        <h2>About us</h2>
-        <p>Channels is built and operated by Hivepoint, Inc. We're located in Palo Alto, California.</p>
-        <div class="people">
-          <div class="person">
-            <img class="photo" src="/s/images/team/kingston.png">
+    </section>
+    <section>
+      <div class="content">
+        <h1>About Us</h1>
+        <p>
+          <a href="/">Channels</a> is built and operated by Hivepoint, Inc. We're located in Palo Alto, California.
+        </p>
+        <div class="horizontal layout">
+          <div class="person flex">
+            <user-image image="/s/images/team/kingston.jpg"></user-image>
             <div>Kingston Duffie</div>
           </div>
-          <div class="person">
-            <img class="photo" src="/s/images/team/carl.png">
+          <div class="person flex">
+            <user-image image="/s/images/team/carl.jpg"></user-image>
             <div>Carl Hubbard</div>
           </div>
-          <div class="person">
-            <img class="photo" src="/s/images/team/preet.png">
+          <div class="person flex">
+            <user-image image="/s/images/team/preet.jpg"></user-image>
             <div>Preet Shihn</div>
           </div>
         </div>
-      </section>
-      <section>
-        <h2>About Channels</h2>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>About Channels</h1>
         <p>This is the world's first hybrid content/attention market. Everyone is free to post content.</p>
         <p>
           <b>Publishers</b> sell content, earning revenue from those who view their work. We want those who create great content
@@ -128,17 +155,22 @@
         <p>
           <b>Consumers</b> buy the content they want, and sell their attention, but only if they choose to.
         </p>
-        <p>Channels is being launched in late 2017.</p>
-      </section>
-      <section>
-        <h2>Contact Us</h2>
+        <p>
+          <a href="/">Channels</a> is being launched in late 2017.</p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>Contact Us</h1>
         <p>The best way to reach us is at
-          <a href="https://twitter.com/channelscc">@channelscc</a> on Twitter. If you have a question or comment, send us a tweet and we'll respond promptly.</p>
+          <a href="https://twitter.com/channelscc" target="_blank">@channelscc</a> on Twitter. If you have a question or comment, send us a tweet and we'll respond promptly.</p>
         <p>If you prefer email, you can reach us at
           <a href="mailto:support@channels.cc">support@channels.cc</a>.</p>
-      </section>
-      <section>
-        <h2>Terms of Service</h2>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>Terms of Service</h1>
         <div class="lastUpdated">Last updated: 11/3/2017</div>
         <p>Our terms of service are not yet fully defined.
           <b>Proceed with caution.</b>
@@ -148,7 +180,8 @@
         <p>All references to currency and any balance you hold is for demonstration purposes only. We may or may not assign
           value to your balance at a future date at our discretion.</p>
         <p>We will not share any information you provide us with any third party other than as part of this service itself.</p>
-      </section>
+      </div>
+    </section>
   </template>
   <script>
     class AboutView extends Polymer.Element {
@@ -170,9 +203,9 @@
             $router.goto("");
           }, 600);
         } else {
-          this.$.content.style.opacity = 0;
+          this.style.opacity = 0;
           $core.register().then((info) => {
-            this.$.content.style.opacity = 1;
+            this.style.opacity = 1;
             this.status = info.status;
             this._refresh();
           }).catch((err) => {
