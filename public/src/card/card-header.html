@@ -1,5 +1,6 @@
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="card-header">
   <template>
@@ -16,11 +17,10 @@
       }
 
       #authorImage {
-        background: #f0f0f0;
         width: 40px;
         height: 40px;
-        border-radius: 100%;
         margin-right: 10px;
+        cursor: pointer;
       }
 
       #timestamp {
@@ -58,7 +58,7 @@
       }
     </style>
     <div class="horizontal layout center bar">
-      <img id="authorImage">
+      <user-image id="authorImage"></user-image>
       <div class="flex vertical layout">
         <div class="authorName">[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
@@ -72,7 +72,7 @@
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
-      <soso-dropdown for="authorImage" alignment="left">
+      <soso-dropdown for="authorImage" alignment="left" offset="5">
         <li on-click="_openUserChannel">More by [[data.by.name]]</li>
       </soso-dropdown>
 
@@ -131,7 +131,7 @@
       loadImages() {
         if (!this._imagesLoaded) {
           this._imagesLoaded = true;
-          this.$.authorImage.src = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
+          this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
         }
       }
 

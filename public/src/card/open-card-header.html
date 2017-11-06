@@ -2,6 +2,7 @@
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../controls/progress-icon.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="open-card-header">
   <template>
@@ -77,7 +78,6 @@
       #authorImage {
         width: 40px;
         height: 40px;
-        border-radius: 100%;
         margin: 0 10px;
       }
 
@@ -103,7 +103,7 @@
         </div>
         <progress-icon id="payTimerProgress" class="hidden"></progress-icon>
       </div>
-      <img id="authorImage">
+      <user-image id="authorImage"></user-image>
       <div class="flex vertical layout">
         <div>[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
@@ -141,7 +141,7 @@
         if (!this.data) {
           return;
         }
-        this.$.authorImage.src = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
+        this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
         }
