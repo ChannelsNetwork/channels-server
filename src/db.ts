@@ -2,13 +2,14 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 
 export class Database {
   private db: Db;
+  private oldUsers: Collection;
   private users: Collection;
   private networks: Collection;
   private cards: Collection;
@@ -36,6 +37,7 @@ export class Database {
     const options: MongoClientOptions = configOptions ? configOptions : { w: 1 };
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
+    await this.initializeOldUsers();
     await this.initializeUsers();
     await this.initializeCards();
     await this.initializeMutationIndexes();
@@ -85,17 +87,13 @@ export class Database {
     }
   }
 
+  private async initializeOldUsers(): Promise<void> {
+    this.oldUsers = this.db.collection('users_old');
+    await this.oldUsers.createIndex({ id: 1 }, { unique: true });
+  }
+
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    // try {
-    //   const exists = await this.users.indexExists("address_1");
-    //   if (exists) {
-    //     await this.users.dropIndex("address_1");
-    //   }
-    // } catch (err) {
-    //   console.log("Db.initializeUsers: error dropping obsolete index address_1", err);
-    // }
-
     const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
     for (const u of noIds) {
       await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
@@ -307,6 +305,10 @@ export class Database {
       update.totalWithdrawals = incrWithdrawals;
     }
     this.networks.updateOne({ id: "1" }, { $inc: update });
+  }
+
+  async getOldUsers(): Promise<OldUserRecord[]> {
+    return await this.oldUsers.find().toArray();
   }
 
   async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {

@@ -20,8 +20,6 @@ import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 
-const INITIAL_BALANCE = 5;
-const INITIAL_WITHDRAWABLE_BALANCE = 0;
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
@@ -33,6 +31,7 @@ const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (36
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
 const MAX_USER_IP_ADDRESSES = 32;
+const INITIAL_BALANCE = 5;
 const DEFAULT_TARGET_BALANCE = 5;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
@@ -52,6 +51,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async initialize2(): Promise<void> {
+    const oldUsers = await db.getOldUsers();
+    for (const oldUser of oldUsers) {
+      const existing = await db.findUserById(oldUser.id);
+      if (!existing) {
+        const user = await db.insertUser("normal", oldUser.keys.address, oldUser.keys.publicKey, null, null, null, 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
+        await db.incrementUserBalance(user, oldUser.balance, false, Date.now());
+        console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
+      }
+    }
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
