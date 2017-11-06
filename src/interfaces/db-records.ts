@@ -50,6 +50,10 @@ export interface NetworkRecord {
   id: string;
   created: number;
   mutationIndex: number;
+  totalPublisherRevenue: number;
+  totalCardDeveloperRevenue: number;
+  totalDeposits: number;
+  totalWithdrawals: number;
 }
 
 export interface CardRecord {

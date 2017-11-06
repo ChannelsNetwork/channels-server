@@ -134,7 +134,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           await db.incrementInvitationsAccepted(inviter, INVITER_REWARD);
           const rewardRecipient: BankTransactionRecipientDirective = {
             address: inviter.address,
-            portion: "remainder"
+            portion: "remainder",
+            reason: "invitation-reward-recipient"
           };
           const reward: BankTransactionDetails = {
             timestamp: null,
@@ -153,7 +154,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
-          portion: "remainder"
+          portion: "remainder",
+          reason: "invitation-reward-recipient"
         };
         const grant: BankTransactionDetails = {
           timestamp: null,
@@ -566,6 +568,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (updateBalance) {
       await this.updateUserBalance(user);
     }
+    const network = await db.getNetwork();
     const result: UserStatus = {
       goLive: this.goLiveDate,
       userBalance: user.balance,
@@ -575,7 +578,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       inviteCode: user.inviterCode.toUpperCase(),
       invitationsUsed: user.invitationsAccepted,
       invitationsRemaining: user.invitationsRemaining,
-      cardBasePrice: await priceRegulator.getBaseCardFee()
+      cardBasePrice: await priceRegulator.getBaseCardFee(),
+      totalPublisherRevenue: network.totalPublisherRevenue,
+      totalCardDeveloperRevenue: network.totalCardDeveloperRevenue
     };
     return result;
   }
@@ -634,7 +639,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (subsidy > 0) {
         const subsidyRecipient: BankTransactionRecipientDirective = {
           address: user.address,
-          portion: "remainder"
+          portion: "remainder",
+          reason: "subsidy-recipient"
         };
         const subsidyDetails: BankTransactionDetails = {
           timestamp: null,
@@ -654,7 +660,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (interest > 0) {
       const interestRecipient: BankTransactionRecipientDirective = {
         address: user.address,
-        portion: "remainder"
+        portion: "remainder",
+        reason: "interest-recipient"
       };
       const grant: BankTransactionDetails = {
         timestamp: null,

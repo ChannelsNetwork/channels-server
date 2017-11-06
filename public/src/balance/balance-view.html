@@ -18,6 +18,7 @@
 
       .balancePanel {
         padding: 30px 0 10px;
+        text-align: center;
       }
 
       .balance {
@@ -146,6 +147,25 @@
       #btnWithdraw {
         margin-left: 30px;
       }
+
+      .totalCard {
+        display: inline-block;
+        text-align: center;
+        max-width: 140px;
+        margin: 10px;
+      }
+
+      .totalCard label {
+        font-size: 12px;
+      }
+
+      .networkTotals {
+        text-align: center;
+      }
+
+      .networkTotal {
+        font-size: 20px;
+      }
     </style>
     <div id="fullContent">
       <div class="content">
@@ -162,6 +182,16 @@
           <div class="buttonPanel">
             <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
             <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
+          </div>
+        </div>
+        <div class="networkTotals">
+          <div class="totalCard">
+            <label>Network-Wide Publisher Revenues</label>
+            <div class="networkTotal">[[totalPublisherRevenues]]</div>
+          </div>
+          <div class="totalCard">
+            <label>Network-Wide Card Developer Revenues</label>
+            <div class="networkTotal">[[totalCardDeveloperRevenues]]</div>
           </div>
         </div>
         <div class="footer" style="display:none;">
@@ -211,20 +241,25 @@
           bankTransactions: {
             type: Array,
             value: function () { return []; }
-          }
+          },
+          totalPublisherRevenues: String,
+          totalCardDeveloperRevenues: String
         };
       }
 
       onActivate() {
         $core.register().then((info) => {
-          this.$.balanceCard.style.opacity = 1;
-          const at = Date.now();
-          const initial = info.status.userBalance || 0;
-          this.balanceTimer = setInterval(() => {
-            this.balance = "ℂ" + $core.balance.toFixed(8);
-          }, 250);
-          this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
-          this._refreshTransactions();
+          $core.updateBalance().then(() => {
+            this.$.balanceCard.style.opacity = 1;
+            const at = Date.now();
+            const initial = info.status.userBalance || 0;
+            this.balanceTimer = setInterval(() => {
+              this.balance = "ℂ" + $core.balance.toFixed(8);
+            }, 250);
+            this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
+            this._refreshTransactions();
+            this._refreshNetworkTotals();
+          });
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -377,6 +412,19 @@
           window.location = $core.depositUrl;
         } else {
           $router.goto("register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
+        }
+      }
+
+      _refreshNetworkTotals() {
+        this.set('totalPublisherRevenues', this._displayCoins($core.networkTotalPublisherRevenue));
+        this.set('totalCardDeveloperRevenues', this._displayCoins($core.networkTotalCardDeveloperRevenue));
+      }
+
+      _displayCoins(value) {
+        if (value >= 10000) {
+          return "ℂ" + Math.round(value);
+        } else {
+          return "ℂ" + value.toFixed(2);
         }
       }
     }

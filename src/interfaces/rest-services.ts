@@ -67,6 +67,8 @@ export interface UserStatus {
   invitationsUsed: number;
   invitationsRemaining: number;
   cardBasePrice: number;
+  totalPublisherRevenue: number;
+  totalCardDeveloperRevenue: number;
 }
 
 export interface RequestRecoveryCodeDetails {
@@ -471,7 +473,10 @@ export interface BankTransactionRecipientDirective {
   address: string;
   portion: BankTransactionRecipientPortion;
   amount?: number;  // ChannelCoin or fraction (0 to 1) depending on portion
+  reason: BankTransactionRecipientReason;
 }
+
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 

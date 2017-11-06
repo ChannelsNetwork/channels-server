@@ -62,7 +62,8 @@ export class NetworkEntity implements Initializable {
       for (const user of users) {
         const recipient: BankTransactionRecipientDirective = {
           address: user.address,
-          portion: "remainder"
+          portion: "remainder",
+          reason: "grant-recipient"
         };
         const grant: BankTransactionDetails = {
           timestamp: null,

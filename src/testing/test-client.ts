@@ -594,7 +594,8 @@ class TestClient implements RestServer {
       amount: card.pricing.openFee,
       toRecipients: [{
         address: card.by.address,
-        portion: "remainder"
+        portion: "remainder",
+        reason: "content-purchase"
       }]
     };
     const transactionString = JSON.stringify(transaction);
