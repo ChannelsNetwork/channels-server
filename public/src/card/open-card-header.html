@@ -98,6 +98,10 @@
         pointer-events: none;
       }
 
+      .novotes {
+        --soso-progress-negative-color: rgba(0, 0, 0, 0.1);
+      }
+
       #likeDropdown {
         --soso-item-hover-color: transparent;
         text-align: center;
@@ -134,7 +138,7 @@
       </div>
       <div style="position: relative;">
         <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
-        <progress-icon id="likeRating"></progress-icon>
+        <progress-icon id="likeRating" class="novotes"></progress-icon>
       </div>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
@@ -222,6 +226,11 @@
         let tc = uc + dc;
         let rating = tc ? (uc / tc) * 100 : 0;
         this.$.likeRating.value = rating;
+        if (tc) {
+          this.$.likeRating.classList.remove("novotes");
+        } else {
+          this.$.likeRating.classList.add("novotes");
+        }
         this.$.downIcon.classList.remove("myvote");
         this.$.upIcon.classList.remove("myvote");
         const likeState = this.data.userSpecific.likeState || "none";
