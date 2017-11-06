@@ -62,11 +62,24 @@ export class Database {
     this.networks = this.db.collection('networks');
     await this.networks.createIndex({ id: 1 }, { unique: true });
     const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
-    if (!existing) {
+    if (existing) {
+      this.networks.updateMany({ totalPublisherRevenue: { $exists: false } }, {
+        $set: {
+          totalPublisherRevenue: 0,
+          totalCardDeveloperRevenue: 0,
+          totalDeposits: 0,
+          totalWithdrawals: 0
+        }
+      });
+    } else {
       const record: NetworkRecord = {
         id: '1',
         created: Date.now(),
-        mutationIndex: 1
+        mutationIndex: 1,
+        totalPublisherRevenue: 0,
+        totalCardDeveloperRevenue: 0,
+        totalDeposits: 0,
+        totalWithdrawals: 0
       };
       await this.networks.insert(record);
     }
@@ -268,18 +281,25 @@ export class Database {
     await this.bankDeposits.createIndex({ status: 1, at: -1 });
   }
 
-  async ensureNetwork(balance: number): Promise<NetworkRecord> {
-    const record: NetworkRecord = {
-      id: '1',
-      created: Date.now(),
-      mutationIndex: 1
-    };
-    await this.networks.insert(record);
-    return record;
-  }
-
   async getNetwork(): Promise<NetworkRecord> {
     return await this.networks.findOne({ id: '1' });
+  }
+
+  async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number): Promise<void> {
+    const update: any = {};
+    if (incrPublisherRev) {
+      update.totalPublisherRevenue = incrPublisherRev;
+    }
+    if (incrCardDeveloperRev) {
+      update.totalCardDeveloperRevenue = incrCardDeveloperRev;
+    }
+    if (incrDeposits) {
+      update.totalDeposits = incrDeposits;
+    }
+    if (incrWithdrawals) {
+      update.totalWithdrawals = incrWithdrawals;
+    }
+    this.networks.updateOne({ id: "1" }, { $inc: update });
   }
 
   async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {

@@ -154,7 +154,7 @@ class CoreService extends Polymer.Element {
         this._fire("channels-registration", this._registration);
         return this.getUserProfile().then((profile) => {
           setInterval(() => {
-            this._updateBalance();
+            this.updateBalance();
           }, 1000 * 60);
           return result;
         });
@@ -383,18 +383,18 @@ class CoreService extends Polymer.Element {
 
   cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, referrerAddress) {
     const recipients = [];
-    recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder"));
+    recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder", "content-purchase"));
     if (cardDeveloperAddress && cardDeveloperFraction && cardDeveloperFraction > 0) {
-      recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", cardDeveloperFraction));
+      recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", "card-developer-royalty", cardDeveloperFraction));
     }
     if (this._registration.operatorAddress) {
-      recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", this._registration.operatorTaxFraction));
+      recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", "network-operations", this._registration.operatorTaxFraction));
     }
     if (this._registration.networkDeveloperAddress) {
-      recipients.push(RestUtils.bankTransactionRecipient(this._registration.networkDeveloperAddress, "fraction", this._registration.networkDeveloperRoyaltyFraction));
+      recipients.push(RestUtils.bankTransactionRecipient(this._registration.networkDeveloperAddress, "fraction", "network-creator-royalty", this._registration.networkDeveloperRoyaltyFraction));
     }
     if (referrerAddress) {
-      recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", this._registration.referralFraction));
+      recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", "referral-fee", this._registration.referralFraction));
     }
     const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
     const transactionString = JSON.stringify(transaction);
@@ -597,13 +597,27 @@ class CoreService extends Polymer.Element {
     return this._registration ? this._registration.networkDeveloperAddress : null;
   }
 
+  get networkTotalPublisherRevenue() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.totalPublisherRevenue;
+  }
+
+  get networkTotalCardDeveloperRevenue() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.totalCardDeveloperRevenue;
+  }
+
   _fire(name, detail) {
     let ce = new CustomEvent(name, { bubbles: true, composed: true, detail: (detail || {}) });
     window.dispatchEvent(ce);
   }
 
-  _updateBalance() {
-    this.getAccountStatus().then((response) => {
+  updateBalance() {
+    return this.getAccountStatus().then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
     });

@@ -1,5 +1,5 @@
 
-import { CardDescriptor } from "./rest-services";
+import { CardDescriptor, BankTransactionRecipientReason } from "./rest-services";
 import { Mutation, CardStateGroup, BankTransactionRecord } from "./db-records";
 
 export type SocketMessageType = 'ping' | 'ping-reply' | 'open' | 'open-reply' | 'get-feed' | 'get-feed-reply' | 'post-card' | 'post-card-reply' | 'mutate-card' | 'mutate-card-reply' | 'notify-card-posted' | 'notify-mutation' | 'card-opened';
@@ -86,4 +86,5 @@ export interface BankTransactionResult {
   record: BankTransactionRecord;
   updatedBalance: number;
   balanceAt: number;
+  amountByRecipientReason: { [reason: string]: number };
 }
