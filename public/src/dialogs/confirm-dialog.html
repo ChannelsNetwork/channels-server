@@ -1,0 +1,52 @@
+<link rel="import" href="../controls/dialog-view.html">
+
+<dom-module id="confirm-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <div>[[message]]</div>
+    </dialog-view>
+  </template>
+  <script>
+    class ConfirmDialog extends Polymer.Element {
+      static get is() { return 'confirm-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array
+        };
+      }
+
+      show(message, cancelText, okText) {
+        if (this._promise) {
+          return this._promise;
+        }
+        this.message = message;
+        this._buttons = [
+          { id: 'cancel', label: cancelText || "Cancel" },
+          { id: 'ok', label: okText || "OK" }
+        ];
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+      }
+
+      _handleButton(event) {
+        this.$.dlg.hide();
+        this._promise = null;
+        switch (event.detail.button.id) {
+          case "ok":
+            this._resolve(true);
+            break;
+          default:
+            this._resolve(false);
+            break;
+        }
+        this._resolve = null;
+      }
+    }
+    window.customElements.define(ConfirmDialog.is, ConfirmDialog);
+  </script>
+</dom-module>
