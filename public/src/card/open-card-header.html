@@ -89,9 +89,37 @@
         --soso-progress-positive-color: var(--highlight-green);
       }
 
+      #ratingIcon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin-top: -14px;
+        margin-left: -22px;
+        pointer-events: none;
+      }
+
+      .novotes {
+        --soso-progress-negative-color: rgba(0, 0, 0, 0.1);
+      }
+
+      #likeDropdown {
+        --soso-item-hover-color: transparent;
+        text-align: center;
+        font-size: 10pt;
+        color: #555;
+        letter-spacing: 0.05em;
+      }
+
+      .myvote {
+        color: var(--highlight-green);
+      }
+
       @media (max-width: 600px) {
         soso-icon {
           padding: 0 6px 0 4px;
+        }
+        #ratingIcon {
+          margin-left: -19px;
         }
       }
     </style>
@@ -108,6 +136,10 @@
         <div>[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
+      <div style="position: relative;">
+        <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
+        <progress-icon id="likeRating" class="novotes"></progress-icon>
+      </div>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
 
@@ -116,6 +148,20 @@
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
+
+      <soso-dropdown id="likeDropdown" for="likeRating" offset="0">
+        <li>Your Vote</li>
+        <li class="horizontal layout center">
+          <div style="padding: 0 5px;">
+            <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+          </div>
+          <div style="padding: 0 5px;">
+            <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+          </div>
+        </li>
+      </soso-dropdown>
+
+      <soso-tooltip for="likeRating" position="left" offset="10">[[ratingTip]]</soso-tooltip>
     </div>
   </template>
   <script>
@@ -127,7 +173,8 @@
             type: Object,
             observer: '_refresh'
           },
-          iconMap: Object
+          iconMap: Object,
+          ratingTip: String
         };
       }
 
@@ -174,7 +221,53 @@
       }
 
       _refreshRating() {
+        let uc = this.data.stats.likes;
+        let dc = this.data.stats.dislikes;
+        let tc = uc + dc;
+        let rating = tc ? (uc / tc) * 100 : 0;
+        this.$.likeRating.value = rating;
+        if (tc) {
+          this.$.likeRating.classList.remove("novotes");
+        } else {
+          this.$.likeRating.classList.add("novotes");
+        }
+        this.$.downIcon.classList.remove("myvote");
+        this.$.upIcon.classList.remove("myvote");
+        const likeState = this.data.userSpecific.likeState || "none";
+        if (likeState === "like") {
+          this.$.upIcon.classList.add("myvote");
+        } else if (likeState === "dislike") {
+          this.$.downIcon.classList.add("myvote");
+        }
 
+        if (!tc) {
+          this.ratingTip = "No votes";
+        } else if (uc && (!dc)) {
+          if (uc === 1) {
+            this.ratingTip = "1 like";
+          } else {
+            this.ratingTip = uc + " likes";
+          }
+        } else if (dc && (!uc)) {
+          if (dc === 1) {
+            this.ratingTip = "1 dislike";
+          } else {
+            this.ratingTip = dc = " dislikes";
+          }
+        } else {
+          let tip = "";
+          if (uc === 1) {
+            tip = "1 like and ";
+          } else {
+            tip = uc + " likes and ";
+          }
+          if (dc === 1) {
+            tip += "1 dislike";
+          } else {
+            tip += dc + " dislikes";
+          }
+          this.ratingTip = tip;
+        }
       }
 
       _refreshMore() {
@@ -258,10 +351,52 @@
             $core.deleteCard(this.data.id).then((response) => {
               this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
             }).catch((err) => {
-              console.error("Failed to delete card".err);
+              console.error("Failed to delete card", err);
             });
           });
         }
+      }
+
+      _onDownVote() {
+        let likeState = this.data.userSpecific.likeState || "none";
+        let newState = "dislike"
+        if (likeState === "dislike") {
+          newState == "none";
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) - 1);
+          this.data.userSpecific.likeState = "none";
+        } else if (likeState === "like") {
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) + 1);
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) - 1);
+          this.data.userSpecific.likeState = "dislike";
+        } else {
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) + 1);
+          this.data.userSpecific.likeState = "dislike";
+        }
+        $core.updateCardLike(this.data.id, newState).catch((err) => {
+          console.error("Failed to update like state", err);
+        });
+        this._refreshRating();
+      }
+
+      _onUpVote() {
+        let likeState = this.data.userSpecific.likeState || "none";
+        let newState = "like"
+        if (likeState === "like") {
+          newState == "none";
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) - 1);
+          this.data.userSpecific.likeState = "none";
+        } else if (likeState === "dislike") {
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) + 1);
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) - 1);
+          this.data.userSpecific.likeState = "like";
+        } else {
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) + 1);
+          this.data.userSpecific.likeState = "like";
+        }
+        $core.updateCardLike(this.data.id, newState).catch((err) => {
+          console.error("Failed to update like state", err);
+        });
+        this._refreshRating();
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);
