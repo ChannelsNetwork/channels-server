@@ -321,10 +321,11 @@ class RestUtils {
     return result;
   }
 
-  static bankTransactionRecipient(address, portion, amount) {
+  static bankTransactionRecipient(address, portion, reason, amount) {
     return {
       address: address,
       portion: portion,    // "remainder" | "fraction" | "absolute"
+      reason: reason,
       amount: amount       // null | 0..1 | amount
     };
   }

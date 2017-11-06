@@ -382,6 +382,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         card.budget.available = newBudgetAvailable;
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
+      await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"], transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardPayResponse = {
         serverVersion: SERVER_VERSION,

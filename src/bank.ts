@@ -179,7 +179,7 @@ export class Bank implements RestServer, Initializable {
       }
       html += "</div>";
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
-
+      await db.incrementNetworkTotals(0, 0, 0, amountInUSD);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: BankWithdrawResponse = {
         serverVersion: SERVER_VERSION,
@@ -311,11 +311,13 @@ export class Bank implements RestServer, Initializable {
         };
         const recipient: BankTransactionRecipientDirective = {
           address: user.address,
-          portion: "remainder"
+          portion: "remainder",
+          reason: "depositor"
         };
         transaction.toRecipients.push(recipient);
         const transactionResult = await networkEntity.performBankTransaction(transaction, null, false, true);
         await db.updateBankDeposit(depositRecord.id, "completed", transactionResult.record.at, transactionResponse, transactionResult.record.id);
+        await db.incrementNetworkTotals(0, 0, netAmount, 0);
       } else {
         await db.updateBankDeposit(depositRecord.id, "failed", Date.now(), transactionResponse, null);
         response.json(transactionResponse);
@@ -475,6 +477,7 @@ export class Bank implements RestServer, Initializable {
     }
     const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null);
     let index = 0;
+    const amountByRecipientReason: { [reason: string]: number } = {};
     for (const recipient of details.toRecipients) {
       const recipientUser = recipientUsers[index++];
       let creditAmount = 0;
@@ -496,11 +499,13 @@ export class Bank implements RestServer, Initializable {
       if (recipientUser.id === user.id) {
         user.balance += creditAmount;
       }
+      amountByRecipientReason[recipient.reason.toString()] = creditAmount;
     }
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,
-      balanceAt: now
+      balanceAt: now,
+      amountByRecipientReason: amountByRecipientReason
     };
     return result;
   }
@@ -537,7 +542,8 @@ export class Bank implements RestServer, Initializable {
     };
     const recipient: BankTransactionRecipientDirective = {
       address: toAddress,
-      portion: "remainder"
+      portion: "remainder",
+      reason: "coupon-redemption"
     };
     const originalBalance = to.balance;
     transactionDetails.toRecipients.push(recipient);
@@ -548,10 +554,13 @@ export class Bank implements RestServer, Initializable {
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
+    const amountByRecipientReason: { [reason: string]: number } = {};
+    amountByRecipientReason[recipient.reason] = coupon.amount;
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: from.id === to.id ? originalBalance : to.balance,
-      balanceAt: now
+      balanceAt: now,
+      amountByRecipientReason: amountByRecipientReason
     };
     return result;
   }
@@ -635,10 +644,12 @@ export class Bank implements RestServer, Initializable {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
     await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < user.targetBalance, now);
     const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
+    const amountByRecipientReason: { [reason: string]: number } = {};
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: user.balance,
-      balanceAt: now
+      balanceAt: now,
+      amountByRecipientReason: {}
     };
     return result;
   }
