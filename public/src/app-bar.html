@@ -145,7 +145,9 @@
         </a>
       </div>
       <a href="#balance">
-        <div id="balancePanel" class="horizontal layout center">[[balance]]</div>
+        <div id="balancePanel" class="horizontal layout center">
+          <span id="balanceLabel" style="opacity: 0;">[[balance]]</span>
+        </div>
       </a>
     </div>
     <div id="feedsBar" class="flex horizontal layout center hidden">
@@ -183,18 +185,14 @@
         this.balance = "ℂ0.000";
         this.iconMap = window._channelIcons;
         window.addEventListener("channels-registration", (event) => {
-          this._refreshBalance();
+          this._updateBalance();
         });
         window.addEventListener("channels-profile", (event) => {
           this._refreshSignIn();
         });
         window.addEventListener("channels-user-status", (event) => {
-          this._refreshBalance();
+          this._updateBalance();
         });
-        setInterval(() => {
-          this._refreshBalance();
-        }, 1000);
-        this._refreshBalance();
       }
 
       _refreshSignIn() {
@@ -209,6 +207,16 @@
           this.$.signInLink.classList.remove("hidden");
           this.$.signInButton.classList.remove("hidden");
         }
+      }
+
+      _updateBalance() {
+        if (!this._balanceTimer) {
+          this._balanceTimer = setInterval(() => {
+            this._refreshBalance();
+          }, 2000);
+        }
+        this._refreshBalance();
+        this.$.balanceLabel.style.opacity = 1;
       }
 
       _refreshBalance() {
