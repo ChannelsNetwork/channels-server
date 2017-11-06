@@ -217,10 +217,15 @@ export class FeedManager implements Initializable, RestServer {
       if (card.by.id === user.id) {
         continue;
       }
+      let found = false;
       for (const existing of existingCards) {
         if (existing.id === card.id) {
-          continue;
+          found = true;
+          break;
         }
+      }
+      if (found) {
+        continue;
       }
       let info = await this.getUserCardInfo(user.id, card.id, false);
       if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
