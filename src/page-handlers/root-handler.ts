@@ -83,7 +83,7 @@ export class RootPageHandler implements RestServer {
       svglogo: this.logoSvg + this.logoSvgSmall
     };
     const output = Mustache.render(content, view);
-    response.setHeader("Cache-Control", 'public, max-age=' + 5);
+    response.setHeader("Cache-Control", 'public, max-age=' + 15);
     response.contentType('text/html');
     response.status(200);
     response.send(output);
