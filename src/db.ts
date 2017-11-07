@@ -65,7 +65,7 @@ export class Database {
     await this.networks.createIndex({ id: 1 }, { unique: true });
     const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
     if (existing) {
-      this.networks.updateMany({ totalPublisherRevenue: { $exists: false } }, {
+      await this.networks.updateMany({ totalPublisherRevenue: { $exists: false } }, {
         $set: {
           totalPublisherRevenue: 0,
           totalCardDeveloperRevenue: 0,
@@ -304,7 +304,7 @@ export class Database {
     if (incrWithdrawals) {
       update.totalWithdrawals = incrWithdrawals;
     }
-    this.networks.updateOne({ id: "1" }, { $inc: update });
+    await this.networks.updateOne({ id: "1" }, { $inc: update });
   }
 
   async getOldUsers(): Promise<OldUserRecord[]> {

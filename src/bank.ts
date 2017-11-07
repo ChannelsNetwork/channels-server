@@ -510,14 +510,30 @@ export class Bank implements RestServer, Initializable {
     return result;
   }
 
-  async performRedemption(from: UserRecord, to: UserRecord, toAddress: string, couponId: string, networkInitiated = false): Promise<BankTransactionResult> {
+  async performRedemption(from: UserRecord, to: UserRecord, transactionObject: SignedObject, networkInitiated = false): Promise<BankTransactionResult> {
     const now = Date.now();
-    if (to.address !== toAddress) {
-      throw new ErrorWithStatusCode(401, "This address is not owned by the recipient");
+    if (!KeyUtils.verifyString(transactionObject.objectString, to.publicKey, transactionObject.signature)) {
+      throw new ErrorWithStatusCode(403, "This transaction is not signed properly");
     }
-    const coupon = await db.findBankCouponById(couponId);
+    const transaction = JSON.parse(transactionObject.objectString) as BankTransactionDetails;
+    if (transaction.address !== from.address) {
+      throw new ErrorWithStatusCode(400, "Mismatched from addresses");
+    }
+    if (transaction.amount <= 0) {
+      throw new ErrorWithStatusCode(400, "Invalid transaction amount");
+    }
+    if (transaction.type !== "coupon-redemption") {
+      throw new ErrorWithStatusCode(400, "Invalid transaction type");
+    }
+    if (transaction.toRecipients.length !== 1 || !userManager.isUserAddress(to, transaction.toRecipients[0].address)) {
+      throw new ErrorWithStatusCode(400, "Mismatched recipient addresses");
+    }
+    const coupon = await db.findBankCouponById(transaction.relatedCouponId);
     if (!coupon) {
-      throw new ErrorWithStatusCode(401, "This coupon is missing or invalid");
+      throw new ErrorWithStatusCode(404, "This coupon is missing or invalid");
+    }
+    if (!userManager.isUserAddress(from, coupon.byAddress)) {
+      throw new ErrorWithStatusCode(401, "This coupon is not for a matching user.");
     }
     if (!networkInitiated && from.balance < coupon.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
@@ -530,32 +546,16 @@ export class Bank implements RestServer, Initializable {
     if (!redeemable) {
       throw new ErrorWithStatusCode(401, "This coupon's budget is exhausted");
     }
-    const transactionDetails: BankTransactionDetails = {
-      address: coupon.byAddress,
-      timestamp: now,
-      type: "coupon-redemption",
-      reason: coupon.reason,
-      amount: coupon.amount,
-      relatedCardId: coupon.cardId,
-      relatedCouponId: coupon.id,
-      toRecipients: []
-    };
-    const recipient: BankTransactionRecipientDirective = {
-      address: toAddress,
-      portion: "remainder",
-      reason: "coupon-redemption"
-    };
     const originalBalance = to.balance;
-    transactionDetails.toRecipients.push(recipient);
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transactionDetails, [to.id], null, 0, 1, null);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null);
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
     const amountByRecipientReason: { [reason: string]: number } = {};
-    amountByRecipientReason[recipient.reason] = coupon.amount;
+    amountByRecipientReason[transaction.toRecipients[0].reason] = coupon.amount;
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: from.id === to.id ? originalBalance : to.balance,

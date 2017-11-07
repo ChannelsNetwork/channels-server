@@ -227,14 +227,17 @@ class RestUtils {
     return result;
   }
 
-  static cardImpressionDetails(address, cardId, couponId) {
+  static cardImpressionDetails(address, cardId, transactionString, transactionSignature) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
-      cardId: cardId
+      cardId: cardId,
     };
-    if (couponId) {
-      result.couponId = couponId;
+    if (transactionString && transactionSignature) {
+      result.transaction = {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      };
     }
     return result;
   }
@@ -258,12 +261,15 @@ class RestUtils {
     };
   }
 
-  static cardRedeemOpenDetails(address, cardId, couponId) {
+  static cardRedeemOpenDetails(address, cardId, transactionString, transactionSignature) {
     return {
       address: address,
       timestamp: RestUtils.now(),
       cardId: cardId,
-      couponId: couponId
+      transaction: {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      }
     };
   }
 
@@ -315,6 +321,9 @@ class RestUtils {
       amount: amount,             // ChannelCoins
       toRecipients: recipients    // bankTransactionRecipient[]
     };
+    if (couponId) {
+      result.relatedCouponId = couponId;
+    }
     if (withdrawalRecipient) {
       result.withdrawalRecipient = withdrawalRecipient;
     }
