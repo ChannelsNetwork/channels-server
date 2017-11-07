@@ -362,8 +362,17 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  cardImpression(cardId, coupon) {
-    let details = RestUtils.cardImpressionDetails(this._keys.address, cardId, coupon);
+  cardImpression(cardId, couponId, amount, authorAddress) {
+    let details;
+    if (couponId) {
+      const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
+      const transaction = RestUtils.bankTransaction(authorAddress, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
+      const transactionString = JSON.stringify(transaction);
+      const transactionSignature = this._sign(transactionString);
+      details = RestUtils.cardImpressionDetails(this._keys.address, cardId, transactionString, transactionSignature);
+    } else {
+      details = RestUtils.cardImpressionDetails(this._keys.address, cardId);
+    }
     let request = this._createRequest(details);
     const url = this.restBase + "/card-impression";
     return this.rest.post(url, request).then((response) => {
@@ -409,9 +418,13 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  cardOpenPaymentRedeem(cardId, coupon) {
-    let details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, coupon);
-    let request = this._createRequest(details);
+  cardOpenPaymentRedeem(cardId, couponId, amount, authorAddress) {
+    const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
+    const transaction = RestUtils.bankTransaction(authorAddress, "coupon-redemption", "card-open-payment", cardId, couponId, amount, [recipient]);
+    const transactionString = JSON.stringify(transaction);
+    const transactionSignature = this._sign(transactionString);
+    const details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, transactionString, transactionSignature);
+    const request = this._createRequest(details);
     const url = this.restBase + "/card-redeem-open";
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;

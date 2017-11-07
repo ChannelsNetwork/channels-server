@@ -217,7 +217,7 @@
             });
           } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
             card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
-            $core.cardOpenPaymentRedeem(card.id, card.couponId);
+            $core.cardOpenPaymentRedeem(card.id, card.couponId, -card.pricing.openFee, card.by.address);
             cardView.onPayment();
           }
         }
@@ -249,7 +249,7 @@
           if (!card.impressionSent && Date.now() - card.impressionStarted > 2000) {
             card.impressionSent = true;
             if (!card.data.userSpecific.isPoster && card.data.promoted && card.data.pricing.promotionFee && card.data.userSpecific.earnedFromAuthor === 0 && card.data.couponId && (!this.channelHandle || this.channelHandle !== card.data.by.handle)) {
-              $core.cardImpression(id, card.data.couponId);
+              $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
               card.data.userSpecific.earnedFromAuthor = card.data.pricing.promotionFee;
               card.onImpressionPaid();
             } else {
