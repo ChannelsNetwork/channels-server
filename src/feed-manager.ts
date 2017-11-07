@@ -578,8 +578,9 @@ export class FeedManager implements Initializable, RestServer {
         null,
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null, cardId);
-      await db.updateCardStats_Preview(card.id, sample.age, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null,
+        cardId);
+      await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
     }
   }
