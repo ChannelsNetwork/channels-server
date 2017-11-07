@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../controls/moment.html">
 
 <dom-module id="card-header">
   <template>
@@ -112,7 +113,7 @@
       _refresh() {
         if (this._attached && this.data) {
           if (!this.data.postedAtDisplay) {
-            this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
+            this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
           if (this._imagesLoaded) {
             this.loadImages();

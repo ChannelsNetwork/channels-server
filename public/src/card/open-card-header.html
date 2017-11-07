@@ -3,6 +3,7 @@
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../controls/progress-icon.html">
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../controls/moment.html">
 
 <dom-module id="open-card-header">
   <template>
@@ -190,7 +191,7 @@
         }
         this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
         if (!this.data.postedAtDisplay) {
-          this.set("data.postedAtDisplay", _friendlyTime(this.data.postedAt));
+          this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
         }
         this._refreshPrice();
         this._refreshRating();
