@@ -1,0 +1,16 @@
+<script src="../../bower_components/moment/moment.js"></script>
+<script>
+  function displayFriendlyTime(value) {
+    return moment(value).calendar(null, {
+      sameDay: function (now) {
+        if (now - this < 1000 * 60) {
+          return "[Just now]";
+        } else if (now - this < 1000 * 60 * 60) {
+          return "[" + Math.round((now - this) / (1000 * 60)) + " mins ago]";
+        } else {
+          return defaultCalendar.sameDay
+        }
+      }
+    });
+  }
+</script>
