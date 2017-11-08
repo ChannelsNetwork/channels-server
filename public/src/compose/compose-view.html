@@ -80,7 +80,7 @@
           data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
           data.cardSharedState
         ).then(() => {
-          $router.goto("feed");
+          $router.goto("feed/mine");
         }).catch((err) => {
           console.error("Failed to publish card", err);
           this._onCancel();
