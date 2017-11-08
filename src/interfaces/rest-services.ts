@@ -364,7 +364,7 @@ export interface DeleteCardResponse extends RestResponse { }
 
 export interface CardImpressionDetails extends Signable {
   cardId: string;
-  couponId?: string;
+  transaction: SignedObject;
 }
 
 export interface CardImpressionResponse extends RestResponseWithUserStatus {
@@ -388,7 +388,7 @@ export interface CardPayResponse extends RestResponseWithUserStatus {
 
 export interface CardRedeemOpenDetails extends Signable {
   cardId: string;
-  couponId: string;
+  transaction: SignedObject;
 }
 
 export interface CardRedeemOpenResponse extends RestResponseWithUserStatus {

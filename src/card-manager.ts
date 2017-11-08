@@ -210,7 +210,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (requestBody.detailsObject.couponId) {
+      let transaction: BankTransactionDetails;
+      if (requestBody.detailsObject.transaction) {
         if (card.pricing.promotionFee <= 0) {
           response.status(400).send("No promotion fee paid on this card");
           return;
@@ -229,7 +230,40 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
-        const coupon = await db.findBankCouponById(requestBody.detailsObject.couponId);
+        transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
+        if (transaction.address !== card.by.address) {
+          response.status(400).send("The transaction doesn't list the card author as the source.");
+          return;
+        }
+        if (transaction.amount !== card.pricing.promotionFee) {
+          response.status(400).send("Transaction amount does not match card promotion fee.");
+          return;
+        }
+        if (transaction.reason !== "card-promotion") {
+          response.status(400).send("Transaction reason must be card-promotion.");
+          return;
+        }
+        if (transaction.relatedCardId !== card.id) {
+          response.status(400).send("Transaction refers to the wrong card");
+          return;
+        }
+        if (transaction.relatedCouponId !== card.couponId) {
+          response.status(400).send("Transaction refers to the wrong coupon");
+          return;
+        }
+        if (transaction.type !== "coupon-redemption") {
+          response.status(400).send("Transaction type must be coupon-redemption");
+          return;
+        }
+        if (!transaction.toRecipients || transaction.toRecipients.length !== 1) {
+          response.status(400).send("Transaction recipients are incorrect.");
+          return;
+        }
+        if (transaction.toRecipients[0].address !== user.address || transaction.toRecipients[0].portion !== 'remainder' || transaction.toRecipients[0].reason !== "coupon-redemption") {
+          response.status(400).send("Transaction recipient is incorrect.");
+          return;
+        }
+        const coupon = await db.findBankCouponById(card.couponId);
         if (coupon.cardId !== card.id) {
           response.status(400).send("Invalid coupon: card mismatch");
           return;
@@ -257,10 +291,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.insertUserCardAction(user.id, card.id, now, "impression", 0, null, 0, null, 0, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
-      if (requestBody.detailsObject.couponId && author) {
+      if (transaction && author) {
         await userManager.updateUserBalance(user);
         await userManager.updateUserBalance(author);
-        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, requestBody.detailsObject.couponId);
+        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -414,7 +448,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const info = await db.ensureUserCardInfo(user.id, card.id);
       if (info.earnedFromAuthor > 0) {
-        response.status(400).send("You have already been paid for opening this card");
+        response.status(400).send("You have already been paid a promotion on this card");
         return;
       }
       const author = await this.getUser(card.by.id, true);
@@ -426,11 +460,44 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
-      const coupon = await db.findBankCouponById(requestBody.detailsObject.couponId);
-      if (!coupon) {
-        response.status(404).send("No such coupon found");
+      if (!requestBody.detailsObject.transaction) {
+        response.status(400).send("Transaction missing");
         return;
       }
+      const transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
+      if (transaction.address !== card.by.address) {
+        response.status(400).send("The transaction doesn't list the card author as the source.");
+        return;
+      }
+      if (transaction.amount !== card.pricing.openPayment) {
+        response.status(400).send("Transaction amount does not match card open payment.");
+        return;
+      }
+      if (transaction.reason !== "card-open-payment") {
+        response.status(400).send("Transaction reason must be card-open-payment.");
+        return;
+      }
+      if (transaction.relatedCardId !== card.id) {
+        response.status(400).send("Transaction refers to the wrong card");
+        return;
+      }
+      if (transaction.relatedCouponId !== card.couponId) {
+        response.status(400).send("Transaction refers to the wrong coupon");
+        return;
+      }
+      if (transaction.type !== "coupon-redemption") {
+        response.status(400).send("Transaction type must be coupon-redemption");
+        return;
+      }
+      if (!transaction.toRecipients || transaction.toRecipients.length !== 1) {
+        response.status(400).send("Transaction recipients are incorrect.");
+        return;
+      }
+      if (transaction.toRecipients[0].address !== user.address || transaction.toRecipients[0].portion !== 'remainder' || transaction.toRecipients[0].reason !== "coupon-redemption") {
+        response.status(400).send("Transaction recipient is incorrect.");
+        return;
+      }
+      const coupon = await db.findBankCouponById(card.couponId);
       if (coupon.cardId !== card.id) {
         response.status(400).send("Invalid coupon: card mismatch");
         return;
@@ -440,7 +507,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       if (coupon.amount !== card.pricing.openPayment) {
-        response.status(400).send("Invalid coupon: open fee mismatch");
+        response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
+        return;
+      }
+      if (author.balance < card.pricing.openPayment) {
+        response.status(402).send("The author does not have sufficient funds.");
         return;
       }
       if (coupon.reason !== 'card-open-payment') {
@@ -450,7 +521,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-redeem-open-payment", requestBody.detailsObject);
       await userManager.updateUserBalance(user);
       await userManager.updateUserBalance(author);
-      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.address, coupon.id);
+      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;

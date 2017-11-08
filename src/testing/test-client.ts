@@ -522,34 +522,34 @@ class TestClient implements RestServer {
   }
 
   private async cardImpression(cardId: string): Promise<void> {
-    const details: CardImpressionDetails = {
-      address: this.keyInfo.address,
-      timestamp: Date.now(),
-      cardId: cardId
-    };
-    const detailsString = JSON.stringify(details);
-    const request: RestRequest<CardImpressionDetails> = {
-      version: 1,
-      details: detailsString,
-      signature: KeyUtils.signString(detailsString, this.keyInfo)
-    };
-    const args: PostArgs = {
-      data: request,
-      headers: {
-        "Content-Type": "application/json"
-      }
-    };
-    console.log("card-impression: tx:", JSON.stringify(request, null, 2));
-    return new Promise<void>((resolve, reject) => {
-      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/card-impression"), args, (data: CardImpressionResponse, serviceResponse: Response) => {
-        if (serviceResponse.statusCode === 200) {
-          console.log("card-impression: rx:", JSON.stringify(data, null, 2));
-          resolve();
-        } else {
-          reject(serviceResponse.statusCode);
-        }
-      });
-    });
+    // const details: CardImpressionDetails = {
+    //   address: this.keyInfo.address,
+    //   timestamp: Date.now(),
+    //   cardId: cardId
+    // };
+    // const detailsString = JSON.stringify(details);
+    // const request: RestRequest<CardImpressionDetails> = {
+    //   version: 1,
+    //   details: detailsString,
+    //   signature: KeyUtils.signString(detailsString, this.keyInfo)
+    // };
+    // const args: PostArgs = {
+    //   data: request,
+    //   headers: {
+    //     "Content-Type": "application/json"
+    //   }
+    // };
+    // console.log("card-impression: tx:", JSON.stringify(request, null, 2));
+    // return new Promise<void>((resolve, reject) => {
+    //   this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/card-impression"), args, (data: CardImpressionResponse, serviceResponse: Response) => {
+    //     if (serviceResponse.statusCode === 200) {
+    //       console.log("card-impression: rx:", JSON.stringify(data, null, 2));
+    //       resolve();
+    //     } else {
+    //       reject(serviceResponse.statusCode);
+    //     }
+    //   });
+    // });
   }
 
   private async cardOpened(cardId: string): Promise<void> {

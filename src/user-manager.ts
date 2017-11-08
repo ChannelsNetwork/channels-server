@@ -705,6 +705,18 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     await db.updateLastUserContact(user, Date.now());
     return user;
   }
+
+  isUserAddress(user: UserRecord, address: string): boolean {
+    if (user.address === address) {
+      return true;
+    }
+    for (const a of user.addressHistory) {
+      if (a.address === address) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 const BAD_WORDS: string[] = ["4r5e",

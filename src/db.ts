@@ -65,7 +65,7 @@ export class Database {
     await this.networks.createIndex({ id: 1 }, { unique: true });
     const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
     if (existing) {
-      this.networks.updateMany({ totalPublisherRevenue: { $exists: false } }, {
+      await this.networks.updateMany({ totalPublisherRevenue: { $exists: false } }, {
         $set: {
           totalPublisherRevenue: 0,
           totalCardDeveloperRevenue: 0,
@@ -304,7 +304,7 @@ export class Database {
     if (incrWithdrawals) {
       update.totalWithdrawals = incrWithdrawals;
     }
-    this.networks.updateOne({ id: "1" }, { $inc: update });
+    await this.networks.updateOne({ id: "1" }, { $inc: update });
   }
 
   async getOldUsers(): Promise<OldUserRecord[]> {
@@ -544,8 +544,10 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, promotionScores?: CardPromotionScores, id?: string): Promise<CardRecord> {
-    const now = Date.now();
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+    if (!now) {
+      now = Date.now();
+    }
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
       state: "active",
