@@ -1,0 +1,74 @@
+<dom-module id="learn-card-development-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .content {
+        padding: 25px 16px;
+        max-width: 800px;
+        margin: 0 auto;
+        position: relative;
+      }
+    </style>
+    <section>
+      <div class="content">
+        <h1>Developing Your Own Card Design</h1>
+        <p>
+          Channels presents content in "cards". There are different kinds of cards, each optimized for presenting different kinds of
+          content. Anyone with web development skills (HTML and javascript) can create a new card type and use it on Channels.
+          You don't need our approval.
+        </p>
+        <p>
+          A Channels card is a
+          <a href="https://www.webcomponents.org/introduction">web component</a>. Actually, it is a project containing two web component definitions: a "composer" used for composing
+          a new card of that type, and a "viewer" used for presenting the resulting card to each consumer of that card.
+        </p>
+        <p>
+          When a Channels user composes a new card, they first select the card type. Using the "custom" option, they can choose a card
+          type by entering the location of a project hosted on GitHub. That GitHub project needs to conform to a certain
+          structure to be accepted by Channels as valid. So you start a new card design by creating a repository on GitHub.
+        </p>
+        <p>
+          To make it easier to develop your card, Channels provides tools.
+          <b>
+            <a href="https://github.com/ChannelsNetwork/channels-card-cli">Start here</a>
+          </b> where you'll find complete instructions for creating and publishing your card.
+        </p>
+        <p>
+          Part of the tooling that Channels provides allows you to test your composer and viewer before publishing your card. This
+          will save you a lot of time as you iterate the design. When you are satisfied, you need to go to GitHub and create
+          a release for your card. Without a release, Channels will not use your design.
+        </p>
+        <p>
+          If you are developing a card that you hope others will use, you can declare a royalty that publishers using your card will
+          have to pay you. This royalty is declared as a percentage of the revenue earned by a publisher from a card built
+          using your design. You can choose the royalty and publishers can decide whether they are willing to pay it. In
+          order to get paid, you need a Channels account and will use the address of that account when declaring your royalty.
+          Then each time someone opens a card that uses your design, your Channels balance will be increased. You can withdraw
+          those funds from your account whenever you want.
+        </p>
+        <p>
+          Some publishers will create their own card designs customized for their own content. One could even create a new card design
+          to be used specifically for a single card.
+        </p>
+        <p>
+          If you'd like to see some sample card designs, check out
+          <a href="https://github.com/ChannelsNetwork/card-hello-world">card-hello-world</a>,
+          <a href="https://github.com/ChannelsNetwork/card-story">card-story</a>, and
+          <a href="https://github.com/ChannelsNetwork/card-embed">card-embed</a>.
+        </p>
+      </div>
+    </section>
+  </template>
+  <script>
+    class LearnCardDevelopmentView extends Polymer.Element {
+      static get is() { return 'learn-card-development-view'; }
+      onActivate() {
+        $core.register();
+      }
+    }
+    window.customElements.define(LearnCardDevelopmentView.is, LearnCardDevelopmentView);
+  </script>
+</dom-module>
