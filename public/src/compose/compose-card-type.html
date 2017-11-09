@@ -52,12 +52,30 @@
           padding: 20px 16px 20px;
         }
       }
+
+      #github {
+        margin: 15px 0 25px 25px;
+      }
+
+      .explain {
+        margin-top: 10px;
+        font-size: 14px;
+        font-style: italic;
+      }
     </style>
     <div class="container">
       <h2>Select card type</h2>
-      <p>Choose a card best suited to your content. Card designs are hosted in GitHub repositories.</p>
-      <div>
-        <soso-text-input id="repo" placeholder="GitHub repo URL or organization/repo" label="Card repository" on-input="_onInput"></soso-text-input>
+      <p>Choose a card best suited to your content:</p>
+      <soso-radio-group id="group" on-select="_onRadioSelect">
+        <soso-radio-button name="story" label="Article: text, photos, and videos"></soso-radio-button>
+        <soso-radio-button name="embed" label="Webpage: embed a web page in a card"></soso-radio-button>
+        <soso-radio-button name="custom" label="Custom: choose any card type hosted on GitHub"></soso-radio-button>
+      </soso-radio-group>
+      <div id="github" style="display:none;">
+        <soso-text-input id="repo" placeholder="GitHub organization/repository" label='example: "ChannelsNetwork/card-story"' on-input="_onInput"></soso-text-input>
+        <div class="explain">
+          <a href="#learn-card-development">Learn about developing new card types</a>
+        </div>
       </div>
       <div class="buttons">
         <button id="cancel" on-click="_onCancel">Cancel</button>
@@ -81,8 +99,30 @@
         };
       }
       _onInput() {
+        this._onChange();
+      }
+      _onRadioSelect() {
+        this._onChange();
+      }
+      _onChange() {
         this.errorMessage = "";
-        let disabled = this.$.repo.value.trim() ? false : true;
+        const selected = this.$.group.selected || "";
+        let disabled;
+        switch (selected) {
+          case "story":
+          case "embed":
+            this.$.github.style.display = "none";
+            disabled = false;
+            break;
+          case "":
+            this.$.github.style.display = "none";
+            disabled = true;
+            break;
+          default:
+            this.$.github.style.display = "";
+            disabled = this.$.repo.value.trim() ? false : true;
+            break;
+        }
         this.$.next.disabled = disabled;
         this.dispatchEvent(new CustomEvent(disabled ? 'next-disable' : 'next-enable', { bubbles: true, composed: true }));
       }
@@ -94,10 +134,40 @@
       }
 
       onTransitioningIn(forward) {
-        this.$.repo.value = this.wizard.data.repo || "";
+        const repo = this.wizard.data.repo || "";
+        switch (repo) {
+          case "ChannelsNetwork/card-story":
+            this.$.group.selected = "story";
+            break;
+          case "ChannelsNetwork/card-embed":
+            this.$.group.selected = "embed";
+            break;
+          case "":
+            this.$.group.selected = null;
+          default:
+            this.$.group.selected = "custom";
+            this.$.repo.value = repo;
+            break;
+        }
         this.errorMessage = "";
         this.$.overlay.classList.add("hidden");
         this.$.spinner.spinning = false;
+        this.$.group.selected = null;
+        this._onChange();
+      }
+
+      _getRepo() {
+        const selected = this.$.group.selected || "";
+        switch (selected) {
+          case "story":
+            return "ChannelsNetwork/card-story";
+          case "embed":
+            return "ChannelsNetwork/card-embed";
+          case "":
+            return null;
+          default:
+            return this.$.repo.value.trim() ? this.$.repo.value.trim() : null;
+        }
       }
 
       onTransitioningOut(forward) {
@@ -109,7 +179,7 @@
             this.$.overlay.classList.remove("hidden");
             this.$.spinner.spinning = true;
             this.errorMessage = "";
-            this.wizard.data.repo = this.$.repo.value.trim();
+            this.wizard.data.repo = this._getRepo();
             $core.cardManager.ensurePackage(this.wizard.data.repo).then((cardInfo) => {
               this.$.spinner.spinning = false;
               this.$.overlay.classList.add("hidden");
@@ -124,6 +194,7 @@
           }
         });
       }
+
     }
     window.customElements.define(ComposeCardType.is, ComposeCardType);
   </script>

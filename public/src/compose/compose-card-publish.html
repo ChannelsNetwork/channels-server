@@ -72,6 +72,10 @@
       #publish {
         margin-left: 25px;
       }
+
+      #cardDeveloper {
+        margin-top: 25px;
+      }
     </style>
     <div class="container">
       <h2>Review and Publish</h2>
@@ -83,6 +87,11 @@
       </section>
       <div>
         <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
+      </div>
+      <div id="cardDeveloper" style="display:none;">
+        <div>Card developer royalty:
+          <span>[[cardDeveloperRoyalty]]</span>
+        </div>
       </div>
       <div class="buttons">
         <button on-click="_onEdit">Edit...</button>
@@ -101,7 +110,8 @@
       static get properties() {
         return {
           wizard: Object,
-          cardData: Object
+          cardData: Object,
+          cardDeveloperRoyalty: String
         };
       }
 
@@ -159,6 +169,12 @@
           cardData.pricing.openFee = -data.promotion.amount;
         }
         this.set('cardData', cardData);
+        if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
+          this.$.cardDeveloper.style.display = "";
+          this.set('cardDeveloperRoyalty', this.wizard.data.cardInfo.channelComponent.developerFraction * 100 + "%");
+        } else {
+          this.$.cardDeveloper.style.display = "none";
+        }
         Polymer.importHref(this.resolveUrl('../card/card-view.html'));
       }
 
