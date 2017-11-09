@@ -349,7 +349,6 @@
 
       _onData() {
         if (this.data && this._attached) {
-          this._imageLoaded = false;
           this._cardConsumed = false;
           this._refreshRating();
           this._refreshPrice();
@@ -358,6 +357,10 @@
               this._attachIntersectionObservers();
             }
           });
+          if (this._imageLoaded) {
+            this._imageLoaded = false;
+            this._loadImage();
+          }
         }
       }
 
