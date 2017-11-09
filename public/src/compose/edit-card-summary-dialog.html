@@ -1,0 +1,94 @@
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+
+<dom-module id="edit-card-summary-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      soso-file-picker {
+        margin-bottom: 50px;
+      }
+
+      soso-text-input {
+        margin: 25px 0;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <soso-file-picker id="filePicker" label="Drag an image file" accept="image/*" on-files="_onFile"></soso-file-picker>
+      <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
+      <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
+    </dialog-view>
+  </template>
+  <script>
+    class EditCardSummaryDialog extends Polymer.Element {
+      static get is() { return 'edit-card-summary-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array
+        };
+      }
+
+      show(summary) {
+        if (this._promise) {
+          return this._promise;
+        }
+        this.summary = summary;
+        this.$.title.value = summary.title;
+        this.$.text.value = summary.text;
+        this._buttons = [
+          { id: 'cancel', label: "Cancel" },
+          { id: 'update', label: "Update" }
+        ];
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+      }
+
+      _handleButton(event) {
+        this.$.dlg.hide();
+        this._promise = null;
+        switch (event.detail.button.id) {
+          case "update":
+            this.summary.title = this.$.title.value;
+            this.summary.text = this.$.text.value;
+            if (this._file) {
+              return $core.uploadFile(this._file).then((fileInfo) => {
+                this.summary.imageUrl = fileInfo.url;
+                this._resolve(this.summary);
+              });
+            } else {
+              this._resolve(this.summary);
+            }
+            break;
+          default:
+            this._resolve();
+            break;
+        }
+        this._resolve = null;
+      }
+
+      _onFile(event) {
+        let file = event.detail.file;
+        if (!file) {
+          this._file = null;
+          return;
+        }
+        if (file.type.indexOf('image/') != 0) {
+          setTimeout(() => {
+            this.$.filePicker.clear();
+            this._file = null;
+            this._onInput();
+            this._setError("Invalid image");
+          });
+        } else {
+          this._file = file;
+        }
+      }
+
+    }
+    window.customElements.define(EditCardSummaryDialog.is, EditCardSummaryDialog);
+  </script>
+</dom-module>

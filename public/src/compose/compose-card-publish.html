@@ -1,4 +1,6 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="edit-card-summary-dialog.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -15,7 +17,7 @@
       }
 
       .buttons {
-        padding: 40px 0 30px;
+        padding: 50px 0 30px;
       }
 
       section {
@@ -26,6 +28,7 @@
         max-width: 320px;
         width: 100%;
         height: 410px;
+        margin-bottom: 15px;
       }
 
       card-view {
@@ -65,6 +68,14 @@
           padding: 10px 0;
         }
       }
+
+      #publish {
+        margin-left: 25px;
+      }
+
+      #cardDeveloper {
+        margin-top: 25px;
+      }
     </style>
     <div class="container">
       <h2>Review and Publish</h2>
@@ -77,7 +88,13 @@
       <div>
         <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
       </div>
+      <div id="cardDeveloper" style="display:none;">
+        <div>Card developer royalty:
+          <span>[[cardDeveloperRoyalty]]</span>
+        </div>
+      </div>
       <div class="buttons">
+        <button on-click="_onEdit">Edit...</button>
         <button id="publish" on-click="_onPublish">Publish</button>
       </div>
     </div>
@@ -85,6 +102,7 @@
       <soso-spinner id="spinner"></soso-spinner>
       <div class="message">Publishing Card</div>
     </div>
+    <edit-card-summary-dialog id="editDialog"></edit-card-summary-dialog>
   </template>
   <script>
     class ComposeCardPublish extends Polymer.Element {
@@ -92,7 +110,8 @@
       static get properties() {
         return {
           wizard: Object,
-          cardData: Object
+          cardData: Object,
+          cardDeveloperRoyalty: String
         };
       }
 
@@ -105,6 +124,9 @@
       _onPublish() {
         this.$.overlay.classList.remove("hidden");
         this.$.spinner.spinning = true;
+        this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
+        this.wizard.data.summary.title = this.cardData.summary.title;
+        this.wizard.data.summary.text = this.cardData.summary.text;
         this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
       }
 
@@ -147,7 +169,27 @@
           cardData.pricing.openFee = -data.promotion.amount;
         }
         this.set('cardData', cardData);
+        if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
+          this.$.cardDeveloper.style.display = "";
+          this.set('cardDeveloperRoyalty', this.wizard.data.cardInfo.channelComponent.developerFraction * 100 + "%");
+        } else {
+          this.$.cardDeveloper.style.display = "none";
+        }
         Polymer.importHref(this.resolveUrl('../card/card-view.html'));
+      }
+
+      _onEdit() {
+        const editSummary = {
+          imageUrl: this.cardData.summary.imageUrl,
+          title: this.cardData.summary.title,
+          text: this.cardData.summary.text
+        };
+        this.$.editDialog.show(editSummary).then((resultSummary) => {
+          if (resultSummary) {
+            this.$.cardView.updateSummary(resultSummary);
+            this.cardData.summary = resultSummary;
+          }
+        });
       }
     }
     window.customElements.define(ComposeCardPublish.is, ComposeCardPublish);

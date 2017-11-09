@@ -381,7 +381,7 @@ export class FeedManager implements Initializable, RestServer {
     const cards: CardRecord[] = [];
     for (const info of infos) {
       const card = await db.findCardById(info.cardId, false);
-      if (card && (!card.private || card.by.id === user.id)) {
+      if (card) {
         cards.push(card);
       }
     }

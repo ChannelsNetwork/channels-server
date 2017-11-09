@@ -18,7 +18,7 @@
 
       .balancePanel {
         padding: 30px 0 10px;
-        text-align: center;
+        text-align: left;
       }
 
       .balance {
@@ -142,15 +142,12 @@
 
       .buttonPanel {
         margin: 25px 0;
-      }
-
-      #btnWithdraw {
-        margin-left: 30px;
+        text-align: left;
       }
 
       .totalCard {
         display: inline-block;
-        text-align: center;
+        text-align: left;
         max-width: 140px;
         margin: 10px;
       }
@@ -160,11 +157,27 @@
       }
 
       .networkTotals {
-        text-align: center;
+        text-align: left;
       }
 
       .networkTotal {
         font-size: 20px;
+      }
+
+      .withdraw {
+        display: inline-block;
+        margin-left: 30px;
+        text-align: left;
+      }
+
+      #withdrawExplain {
+        font-size: 12px;
+        font-style: italic;
+        max-width: 175px;
+      }
+
+      #btnDeposit {
+        vertical-align: top;
       }
     </style>
     <div id="fullContent">
@@ -181,7 +194,10 @@
           </div>
           <div class="buttonPanel">
             <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
-            <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
+            <div class="withdraw">
+              <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
+              <div id="withdrawExplain">Minimum balance of ℂ6.00 required for withdrawal</div>
+            </div>
           </div>
         </div>
         <div class="networkTotals">
@@ -257,6 +273,7 @@
               this.balance = "ℂ" + $core.balance.toFixed(8);
             }, 250);
             this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
+            this.$.withdrawExplain.style.display = this.$.btnWithdraw.disabled ? "" : "none";
             this._refreshTransactions();
             this._refreshNetworkTotals();
           });

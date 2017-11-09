@@ -511,6 +511,14 @@
         this._cardConsumed = showCheck;
         this._refreshPriceTip();
       }
+
+      updateSummary(summary) {
+        this.set('data.summary.imageUrl', summary.imageUrl);
+        this.set('data.summary.title', summary.title);
+        this.set('data.summary.text', summary.text);
+        this._imageLoaded = false;
+        this._loadImage();
+      }
     }
     window.customElements.define(CardView.is, CardView);
   </script>
