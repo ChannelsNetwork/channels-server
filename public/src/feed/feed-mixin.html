@@ -66,6 +66,7 @@
 
           // parse route and fetch
           let parsedRoute = this._parseRoute(route);
+          this._parsedRoute = parsedRoute;
           if (parsedRoute) {
             this._onDataFetch(parsedRoute);
             return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, parsedRoute.channel).then((cards) => {
@@ -100,28 +101,42 @@
       }
 
       _onCardOpenRequest(event) {
-        let card = event.detail.card;
+        let card = event.detail.item;
         if (card) {
-          // hide toolbar and prevent 
-          // toolbar auto scroll-hide behavior
-          $app.setBarVisible(false);
-          $app.preventScrollBehavior = true;
-
-          // let server know card opened
-          let cardItem = event.detail.item;
-          if (cardItem) {
-            $core.cardOpened(cardItem.id);
+          $core.cardOpened(card.id);
+          let context = {
+            card: card
+          };
+          if (this._parsedRoute) {
+            context.feed = this._parsedRoute.path;
           }
-
-          // open the card in the UI
-          this.$.feed.openCard(card).then(() => {
-            $app.preventScrollBehavior = false;
-          }).catch((err) => {
-            console.error(err);
-            $app.preventScrollBehavior = false;
-          });
+          $router.goto(['card', card.id], context, 'shift-left');
         }
       }
+      // 'slide-from-right'
+      // _onCardOpenRequest(event) {
+      //   let card = event.detail.card;
+      //   if (card) {
+      //     // hide toolbar and prevent 
+      //     // toolbar auto scroll-hide behavior
+      //     $app.setBarVisible(false);
+      //     $app.preventScrollBehavior = true;
+
+      //     // let server know card opened
+      //     let cardItem = event.detail.item;
+      //     if (cardItem) {
+      //       $core.cardOpened(cardItem.id);
+      //     }
+
+      //     // open the card in the UI
+      //     this.$.feed.openCard(card).then(() => {
+      //       $app.preventScrollBehavior = false;
+      //     }).catch((err) => {
+      //       console.error(err);
+      //       $app.preventScrollBehavior = false;
+      //     });
+      //   }
+      // }
 
       _onCardImpression(event) {
         let card = event.detail.card;

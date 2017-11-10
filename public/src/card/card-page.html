@@ -1,0 +1,297 @@
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="open-card-header.html">
+<dom-module id="card-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #shell {
+        height: 100vh;
+        overflow: hidden;
+        box-sizing: border-box;
+        position: relative;
+        background: white;
+      }
+
+      #nocard {
+        height: 100vh;
+        text-align: center;
+      }
+
+      .content {
+        position: relative;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #loadingPanel {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 10px;
+        text-align: center;
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .disabled {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      soso-spinner {
+        margin-top: 20px;
+        margin-left: -10px;
+      }
+
+      #header {
+        z-index: 1;
+      }
+    </style>
+    <div id="nocard" class="horizontal layout center hidden">
+      <div style="width: 100%; box-sizing: border-box; padding: 16px;">
+        <div style="margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; color: #808080;">No card found</div>
+        <div>
+          <button on-click="_closeCard">back to channels feed</button>
+        </div>
+      </div>
+    </div>
+    <div id="shell" class="vertical layout">
+      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard"></open-card-header>
+      <div class="content flex">
+        <div id="loadingPanel">
+          <div>
+            <soso-spinner id="spinner"></soso-spinner>
+          </div>
+          <p>Loading card</p>
+        </div>
+        <div id="cardView" class="hidden"></div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardPage extends Polymer.Element {
+      static get is() { return 'card-page'; }
+      static get properties() {
+        return {
+          data: Object
+        };
+      }
+
+      onActivate(route) {
+        this._active = true;
+        this._route = route;
+        this.data = null;
+        $core.register().then(() => {
+          if (route.segments.length < 2) {
+            this._onNoCard();
+          } else {
+            this.cardId = route.segments[1].trim();
+            if (!this.cardId) {
+              this._onNoCard();
+            } else {
+              this._loadCard();
+            }
+          }
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      onDeactivate() {
+        this._active = false;
+        this._stopPaymentTimer();
+        this._clearNode(this.$.cardView);
+      }
+
+      _onNoCard() {
+        this.$.nocard.classList.remove("hidden");
+        this.$.shell.classList.add("hidden");
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+
+      _loadCard() {
+        this.$.nocard.classList.add("hidden");
+        this.$.shell.classList.remove("hidden");
+        this._clearNode(this.$.cardView);
+        // show loading spinner
+        this.$.cardView.classList.add("hidden");
+        this.$.header.classList.add("disabled");
+        this.$.spinner.spinning = true;
+        this.$.loadingPanel.classList.remove("hidden");
+
+        // Fetch the card and then encure card package
+        // Then import the viewer and then insert the viewer
+        $core.getCard(this.cardId).then((cardData) => {
+          // set card data
+          // If card was opened from a pomoted card, override that flag
+          if (this._route.context) {
+            let card = this._route.context.card;
+            if (card) {
+              cardData.card.promoted = card.promoted;
+            }
+          }
+          this.data = cardData.card;
+
+          // Import card package
+          let packageName = this.data.cardType.package;
+          if (!packageName) {
+            console.error("Failed to load card - inavlid package name");
+            this._onNoCard();
+            return;
+          }
+          return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+            // Import the card viewer
+            return this._import(packageInfo.importHref).then(() => {
+              this._createCardView(packageInfo);
+              setTimeout(() => {
+                if (this._active) {
+                  this._startPaymentTimer();
+                }
+              });
+            });
+          });
+
+        }).catch((err) => {
+          console.error(err);
+          this._onNoCard();
+        });
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(url, () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      _createCardView(packageInfo) {
+        // hide loading spinner
+        this.$.cardView.classList.remove("hidden");
+        this.$.header.classList.remove("disabled");
+        this.$.spinner.spinning = false;
+        this.$.loadingPanel.classList.add("hidden");
+
+        // create and insert viewer
+        let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
+        cardNode.cardSummary = this.data.summary;
+        cardNode.sharedState = this.data.state.shared;
+        cardNode.userState = this.data.state.user;
+        cardNode.author = this.data.by;
+        cardNode.user = $core.profile;
+        cardNode.services = $core.cardManager.cardService;
+        this.$.cardView.appendChild(cardNode);
+      }
+
+      _stopPaymentTimer() {
+        if (this._paymentTimer) {
+          clearTimeout(this._paymentTimer);
+          this._paymentTimer = null;
+          let duration = (new Date()).getTime() - this._paymentTimerStart + (this._prevOpenDuration || 0);
+          $core.cardManager.cacheCardData(this.cardId, "prev-operation-duration", duration);
+        }
+        this.$.header.hideTimer();
+      }
+
+      _startPaymentTimer() {
+        if (this._paymentTimer) {
+          return;
+        }
+        let startTimer = false;
+        if (!this.data.userSpecific.isPoster) {
+          if ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0) ||
+            (this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor == 0)) {
+            startTimer = true;
+          }
+        }
+        if (!startTimer) {
+          return;
+        }
+
+        this._prevOpenDuration = $core.cardManager.getCachedCardData(this.cardId, "prev-operation-duration") || 0;
+        if (this._prevOpenDuration >= 10000) {
+          this._onPaymentDue();
+        } else {
+          this._paymentTimerStart = (new Date()).getTime();
+          this._paymentTimerInterval = 10000 - this._prevOpenDuration;
+          this._paymentTimer = setInterval(() => {
+            if (this._active) {
+              let now = (new Date()).getTime();
+              if ((now - this._paymentTimerStart) >= this._paymentTimerInterval) {
+                this._onPaymentDue();
+              } else {
+                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / 10000) * 100;
+                this.$.header.showTimer(value);
+              }
+            }
+          }, 100);
+        }
+      }
+
+      _onPaymentDue() {
+        if (this._paymentTimer) {
+          clearInterval(this._paymentTimer);
+          this._paymentTimer = null;
+        }
+        $core.cardManager.removeCachedCardData(this.cardId, "prev-operation-duration");
+        this.$.header.hideTimer();
+
+        // make payment
+        const card = this.data;
+        if (!card.userSpecific.isPoster) {
+          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
+            card.userSpecific.paidToAuthor = card.pricing.openFee;
+            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
+              card.stats.revenue = response.totalCardRevenue;
+              this._onPaymentSuccess();
+            }).catch((err) => {
+              console.error("Failed to make card payment", err);
+            });
+          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
+            $core.cardOpenPaymentRedeem(card.id, card.couponId, -card.pricing.openFee, card.by.address).then(() => {
+              this._onPaymentSuccess();
+            }).catch((err) => {
+              console.error("Failed to make card payment", err);
+            });
+          }
+        }
+      }
+
+      _onPaymentSuccess() {
+        this.$.header.onPayment();
+      }
+
+      _closeCard() {
+        let feed = null;
+        if (this._route && this._route.context) {
+          feed = this._route.context.feed;
+        }
+        if (feed) {
+          $router.goto(feed);
+          return;
+        }
+        if (this.data) {
+          $router.goto(["channel", this.data.by.handle]);
+        } else {
+          $router.goto("");
+        }
+      }
+    }
+    window.customElements.define(CardPage.is, CardPage);
+  </script>
+</dom-module>

@@ -115,6 +115,10 @@
         color: var(--highlight-green);
       }
 
+      #voteItem {
+        display: flex !important;
+      }
+
       @media (max-width: 600px) {
         soso-icon {
           padding: 0 6px 0 4px;
@@ -157,7 +161,7 @@
 
       <soso-dropdown id="likeDropdown" for="likeRating" offset="0">
         <li>Your Vote</li>
-        <li class="horizontal layout center">
+        <li id="voteItem" class="horizontal layout center">
           <div style="padding: 0 5px;">
             <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
           </div>
