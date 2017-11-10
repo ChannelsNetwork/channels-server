@@ -139,8 +139,7 @@
           if (this._route.context) {
             let card = this._route.context.card;
             if (card) {
-              promoted = card.promoted;
-              cardData.card.promoted = promoted;
+              cardData.card.promoted = card.promoted;
             }
           }
           this.data = cardData.card;

@@ -30,7 +30,7 @@
         background: white;
         opacity: 0;
         transform: translateY(200px);
-        transition: transform 0.8s ease, opacity 0.4s ease;
+        transition: transform 0.6s ease, opacity 0.4s ease;
       }
 
       .containerShowing {
@@ -112,7 +112,7 @@
         this.$.container.classList.remove("containerShowing");
         setTimeout(() => {
           this.style.display = "none";
-        }, 800);
+        }, 500);
       }
     }
     window.customElements.define(DialogView.is, DialogView);
