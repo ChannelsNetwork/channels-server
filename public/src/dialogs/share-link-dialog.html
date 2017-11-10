@@ -81,9 +81,9 @@
           default:
             this.$.dlg.hide();
             this._resolve();
+            this._resolve = null;
             break;
         }
-        this._resolve = null;
       }
     }
     window.customElements.define(ShareLinkDialog.is, ShareLinkDialog);
