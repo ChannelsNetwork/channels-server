@@ -2,6 +2,7 @@
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../controls/moment.html">
+<link rel="import" href="card-analytics-dialog.html">
 
 <dom-module id="card-header">
   <template>
@@ -71,6 +72,7 @@
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
         <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
       <soso-dropdown for="authorImage" alignment="left" offset="5">
@@ -84,6 +86,7 @@
         <div style="min-width: 75px;">Total card revenue</div>
       </soso-tooltip>
     </div>
+    <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
   </template>
   <script>
     class CardHeader extends Polymer.Element {
@@ -203,6 +206,10 @@
             });
           }
         });
+      }
+
+      _analytics() {
+        this.$.analyticsDialog.show(this.data);
       }
 
       _openUserChannel() {

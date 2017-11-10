@@ -4,6 +4,7 @@
 <link rel="import" href="../controls/progress-icon.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../controls/moment.html">
+<link rel="import" href="card-analytics-dialog.html">
 
 <dom-module id="open-card-header">
   <template>
@@ -147,6 +148,7 @@
       <soso-dropdown for="moreIcon" alignment="right" offset="0">
         <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
 
@@ -164,6 +166,7 @@
 
       <soso-tooltip for="likeRating" position="left" offset="10">[[ratingTip]]</soso-tooltip>
     </div>
+    <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
   </template>
   <script>
     class OpenCardHeader extends Polymer.Element {
@@ -343,6 +346,10 @@
             console.error("Failed to updated private flag", err);
           });
         }
+      }
+
+      _analytics() {
+        this.$.analyticsDialog.show(this.data);
       }
 
       _deleteCard() {
