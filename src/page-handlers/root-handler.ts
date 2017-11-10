@@ -66,9 +66,11 @@ export class RootPageHandler implements RestServer {
       imageWidth: 700,
       imageHeight: 700
     };
+    let preGlobaljs = "";
     let globalJs = this.globalJsContent;
     if (agentInfo.safari || agentInfo.mobile_safari || agentInfo.ie) {
       globalJs += this.intersectionObserver;
+      preGlobaljs = "<script>ShadyDOM = { force: true }; window.customElements.forcePolyfill = true;</script>";
     }
     const view = {
       public_base: this.urlManager.getPublicBaseUrl(),
@@ -80,6 +82,7 @@ export class RootPageHandler implements RestServer {
       og_imagewidth: metadata.imageWidth,
       og_imageheight: metadata.imageHeight,
       globaljs: globalJs,
+      pre_globaljs: preGlobaljs,
       svglogo: this.logoSvg + this.logoSvgSmall
     };
     const output = Mustache.render(content, view);
