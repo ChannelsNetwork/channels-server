@@ -1174,7 +1174,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const cardStatistic = (card.stats as any)[statName] as CardStatistic;
     if (cardStatistic) {
       let lastSnapshot: number;
-      if (cardStatistic.lastSnapshot === 0 && at - card.postedAt > snapshotInterval || cardStatistic.lastSnapshot > 0 && at - cardStatistic.lastSnapshot > snapshotInterval) {
+      if (cardStatistic.lastSnapshot === 0 || at - card.postedAt > snapshotInterval || cardStatistic.lastSnapshot > 0 && at - cardStatistic.lastSnapshot > snapshotInterval) {
         await db.insertCardStatsHistory(card.id, statName, cardStatistic.value, at);
         lastSnapshot = at;
       }
