@@ -123,7 +123,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       og_image: card.summary.imageUrl,
       og_imagewidth: card.summary.imageWidth,
       og_imageheight: card.summary.imageHeight,
-      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#feed/recommended/' + card.id)
+      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id)
     };
     const output = Mustache.render(this.cardTemplate, view);
     response.setHeader("Cache-Control", 'public, max-age=' + 600);
