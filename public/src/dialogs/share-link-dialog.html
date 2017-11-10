@@ -1,0 +1,91 @@
+<link rel="import" href="../controls/dialog-view.html">
+
+<dom-module id="share-link-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      #txt {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 12px;
+        padding: 10px 5px;
+        border: 1px solid #d8d8d8;
+        border-radius: 3px;
+        font-family: inherit;
+        font-weight: inherit;
+        letter-spacing: 0.05em;
+        outline: none;
+      }
+
+      #copied {
+        margin: 20px 0 -20px;
+        font-size: 15px;
+        letter-spacing: 0.03em;
+        color: #808080;
+        user-select: none;
+      }
+
+      @media (max-width: 550px) {
+        #copied {
+          margin: 15px 0 -10px;
+        }
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <input id="txt" readonly>
+      <div id="copied" class="hidden">Copied to the clipboard</div>
+    </dialog-view>
+  </template>
+  <script>
+    class ShareLinkDialog extends Polymer.Element {
+      static get is() { return 'share-link-dialog'; }
+      static get properties() {
+        return {
+          _buttons: {
+            type: Array,
+            value: () => {
+              return [
+                { id: 'copy', label: "Copy to clipboard" },
+                { id: 'close', label: "Close" }
+              ];
+            }
+          }
+        };
+      }
+
+      show(link) {
+        this._link = link;
+        this.$.txt.value = link || "";
+        this.$.copied.classList.add("hidden");
+        return new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+          this.$.txt.focus();
+          this.$.txt.select();
+          setTimeout(() => {
+            this.$.txt.focus();
+            this.$.txt.select();
+          }, 200);
+        });
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "copy":
+            document.execCommand("copy");
+            this.$.copied.classList.remove("hidden");
+            setTimeout(() => {
+              this.$.txt.focus();
+              this.$.txt.select();
+            });
+            break;
+          default:
+            this.$.dlg.hide();
+            this._resolve();
+            break;
+        }
+        this._resolve = null;
+      }
+    }
+    window.customElements.define(ShareLinkDialog.is, ShareLinkDialog);
+  </script>
+</dom-module>
