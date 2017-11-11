@@ -47,9 +47,15 @@
         border: 1px solid #aaa;
         padding: 3px 5px;
       }
+
+      .title {
+        margin: 0 0 10px;
+        font-size: 14px;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <h2>Analytics</h2>
+      <div class="title">[[cardTitle]]</div>
       <div class="container">
         <div class="table">
           <div class="headingsRow">
@@ -80,7 +86,8 @@
           items: {
             type: Array,
             value: function () { return []; }
-          }
+          },
+          cardTitle: String
         };
       }
 
@@ -89,6 +96,7 @@
           return this._promise;
         }
         this.data = cardData;
+        this.set('cardTitle', cardData.summary.title);
         this._buttons = [
           { id: 'ok', label: "OK" }
         ];
