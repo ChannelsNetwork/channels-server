@@ -4,7 +4,6 @@
 <link rel="import" href="../controls/progress-icon.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../controls/moment.html">
-<link rel="import" href="card-analytics-dialog.html">
 
 <dom-module id="open-card-header">
   <template>
@@ -116,12 +115,19 @@
         color: var(--highlight-green);
       }
 
+      #voteItem {
+        display: flex !important;
+      }
+
       @media (max-width: 600px) {
         soso-icon {
           padding: 0 6px 0 4px;
         }
         #ratingIcon {
           margin-left: -19px;
+        }
+        #moreIcon {
+          display: none;
         }
       }
     </style>
@@ -142,6 +148,7 @@
         <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
         <progress-icon id="likeRating" class="novotes"></progress-icon>
       </div>
+      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" on-click="_onLink"></soso-icon>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
 
@@ -154,7 +161,7 @@
 
       <soso-dropdown id="likeDropdown" for="likeRating" offset="0">
         <li>Your Vote</li>
-        <li class="horizontal layout center">
+        <li id="voteItem" class="horizontal layout center">
           <div style="padding: 0 5px;">
             <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
           </div>
@@ -167,6 +174,7 @@
       <soso-tooltip for="likeRating" position="left" offset="10">[[ratingTip]]</soso-tooltip>
     </div>
     <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
+    <share-link-dialog id="shareDialog"></share-link-dialog>
   </template>
   <script>
     class OpenCardHeader extends Polymer.Element {
@@ -349,7 +357,9 @@
       }
 
       _analytics() {
-        this.$.analyticsDialog.show(this.data);
+        this._import("card-analytics-dialog.html").then(() => {
+          this.$.analyticsDialog.show(this.data);
+        });
       }
 
       _deleteCard() {
@@ -407,6 +417,34 @@
           console.error("Failed to update like state", err);
         });
         this._refreshRating();
+      }
+
+      get _shareUrl() {
+        if (!this._cardUrl) {
+          let root = window.location.origin;
+          if (!root) {
+            root = window.location.protocol + "://" + window.location.host;
+          }
+          this._cardUrl = root + "/c/" + this.data.id;
+        }
+        return this._cardUrl;
+      }
+
+      _onLink() {
+        const cardUrl = this._shareUrl;
+        this._import("../dialogs/share-link-dialog.html").then(() => {
+          return this.$.shareDialog.show(cardUrl);
+        });
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);

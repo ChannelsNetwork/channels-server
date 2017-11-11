@@ -2,7 +2,6 @@
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../controls/moment.html">
-<link rel="import" href="card-analytics-dialog.html">
 
 <dom-module id="card-header">
   <template>
@@ -12,7 +11,7 @@
       }
 
       .bar {
-        padding: 10px;
+        padding: 10px 2px 10px 10px;
         background: #fafafa;
         font-size: 13px;
         border-radius: 0 0 3px 3px;
@@ -37,7 +36,7 @@
       }
 
       soso-icon {
-        color: #808080;
+        color: #888888;
       }
 
       #privateIcon {
@@ -46,12 +45,11 @@
         margin: 0 0 0 5px;
       }
 
-      #moreIcon {
-        width: 28px;
-        height: 28px;
-        padding: 10px;
+      .actionIcon {
+        width: 24px;
+        height: 24px;
+        padding: 8px;
         cursor: pointer;
-        margin-right: -8px;
       }
 
       soso-dropdown {
@@ -67,8 +65,10 @@
       </div>
       <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
       <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
-      <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" class="actionIcon" on-click="_onLink"></soso-icon>
+      <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="actionIcon hidden"></soso-icon>
 
+      <!-- Drop downs -->
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
         <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
         <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
@@ -79,6 +79,7 @@
         <li on-click="_openUserChannel">More by [[data.by.name]]</li>
       </soso-dropdown>
 
+      <!-- Tooltips -->
       <soso-tooltip for="privateIcon" position="top" offset="10">
         <b>Private:</b> Only you can see this card
       </soso-tooltip>
@@ -87,6 +88,7 @@
       </soso-tooltip>
     </div>
     <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
+    <share-link-dialog id="shareDialog"></share-link-dialog>
   </template>
   <script>
     class CardHeader extends Polymer.Element {
@@ -209,11 +211,41 @@
       }
 
       _analytics() {
-        this.$.analyticsDialog.show(this.data);
+        this._import("card-analytics-dialog.html").then(() => {
+          this.$.analyticsDialog.show(this.data);
+        });
       }
 
       _openUserChannel() {
         $router.goto(["channel", this.data.by.handle]);
+      }
+
+      get _shareUrl() {
+        if (!this._cardUrl) {
+          let root = window.location.origin;
+          if (!root) {
+            root = window.location.protocol + "://" + window.location.host;
+          }
+          this._cardUrl = root + "/c/" + this.data.id;
+        }
+        return this._cardUrl;
+      }
+
+      _onLink() {
+        const cardUrl = this._shareUrl;
+        this._import("../dialogs/share-link-dialog.html").then(() => {
+          return this.$.shareDialog.show(cardUrl);
+        });
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
       }
     }
     window.customElements.define(CardHeader.is, CardHeader);

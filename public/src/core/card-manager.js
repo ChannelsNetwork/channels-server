@@ -2,6 +2,7 @@ class CardManager {
   constructor(core) {
     this._core = core;
     this._packages = {};
+    this._cardCache = {};
   }
 
   ensurePackage(packageName) {
@@ -17,6 +18,32 @@ class CardManager {
         });
       }
     });
+  }
+
+  cacheCardData(id, name, value) {
+    if ((!id) || (!name)) {
+      return;
+    }
+    if (!this._cardCache[id]) {
+      this._cardCache[id] = {};
+    }
+    this._cardCache[id][name] = value;
+  }
+
+  getCachedCardData(id, name) {
+    if (this._cardCache[id]) {
+      return this._cardCache[id][name || ""];
+    }
+    return null;
+  }
+
+  removeCachedCardData(id, name) {
+    if (this._cardCache[id]) {
+      name = name || "";
+      if (this._cardCache[id][name]) {
+        delete this._cardCache[id][name];
+      }
+    }
   }
 
   get cardService() {
