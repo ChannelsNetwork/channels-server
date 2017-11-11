@@ -411,6 +411,7 @@ export class Bank implements RestServer, Initializable {
     const recipientUsers: UserRecord[] = [];
     for (const recipient of details.toRecipients) {
       if (!recipient.address || !recipient.portion) {
+        console.error("Bank.transfer: Missing recipient address or portion", details);
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
       }
       const recipientUser = await db.findUserByAddress(recipient.address);
