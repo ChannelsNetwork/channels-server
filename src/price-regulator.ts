@@ -50,6 +50,10 @@ export class PriceRegulator implements Initializable {
 
   private async contributeSubsidies(): Promise<void> {
     const balance = await db.getSubsidyBalance();
+    if (!balance) {
+      console.error("PriceRegulator.contributeSubsidies: missing balance");
+      return;
+    }
     const now = Date.now();
     if (now - balance.lastContribution > SUBSIDY_CONTRIBUTION_INTERVAL) {
       const contribution = SUBSIDY_CONTRIBUTION_RATE * (now - balance.lastContribution);

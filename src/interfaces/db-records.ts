@@ -1,5 +1,5 @@
 
-import { Signable, BankTransactionDetails, BraintreeTransactionResult } from "./rest-services";
+import { Signable, BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./rest-services";
 import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
@@ -433,3 +433,10 @@ export interface BankDepositRecord {
 }
 
 export type BankDepositStatus = "pending" | "failed" | "completed";
+
+export interface BowerPackageRecord {
+  packageName: string;
+  installed: number;
+  package: BowerInstallResult;
+  channelComponent: ChannelComponentDescriptor;
+}

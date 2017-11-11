@@ -23,6 +23,7 @@ import * as LRU from 'lru-cache';
 import * as path from "path";
 import * as fs from 'fs';
 import { Cursor } from "mongodb";
+import { channelsComponentManager } from "./channels-component-manager";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -411,7 +412,13 @@ export class FeedManager implements Initializable, RestServer {
       promises.push(cardManager.populateCardState(card.id, false, promoted, user));
     }
     const result = await Promise.all(promises);
-    return result;
+    const finalResult: CardDescriptor[] = [];
+    for (const r of result) {
+      if (r) {
+        finalResult.push(r);
+      }
+    }
+    return finalResult;
   }
 
   private async populateCard(card: CardRecord, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
@@ -557,6 +564,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
+    await channelsComponentManager.ensureComponent('ChannelsNetwork/card-hello-world');
     let index = 0;
     for (const sample of cards) {
       const user = users[sample.handle];
@@ -575,7 +583,7 @@ export class FeedManager implements Initializable, RestServer {
         sample.text,
         false,
         "ChannelsNetwork/card-hello-world",
-        null,
+        './icon.png',
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
         sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null,

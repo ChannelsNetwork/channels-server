@@ -30,6 +30,14 @@ export class UrlManager {
     }
   }
 
+  getBowerComponentBaseUrl(absolute = false): string {
+    const baseUrl = '/v' + this.version + "/bower_components/";
+    if (absolute) {
+      return configuration.get('baseClientUri') + baseUrl;
+    }
+    return baseUrl;
+  }
+
   getStaticBaseUrl(absolute = false): string {
     if (absolute) {
       return configuration.get('baseClientUri') + '/s';
@@ -58,6 +66,10 @@ export class UrlManager {
     } else {
       return '/d' + relativeUrl;
     }
+  }
+
+  getBowerComponentUrl(relativeUrl: string): string {
+    return url.resolve(this.getBowerComponentBaseUrl(), relativeUrl);
   }
 
   getPublicUrl(relativeUrl: string, absolute = false): string {
