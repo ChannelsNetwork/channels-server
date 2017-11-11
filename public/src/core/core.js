@@ -502,7 +502,11 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  uploadFile(file) {
+  uploadFile(fileOrDataUrl) {
+    let file = fileOrDataUrl;
+    if (typeof fileOrDataUrl === 'string') {
+      file = this._dataURItoBlob(fileOrDataUrl);
+    }
     var formData = new FormData();
 
     formData.append("address", this._keys.address);
@@ -513,6 +517,17 @@ class CoreService extends Polymer.Element {
 
     const url = this.restBase + "/upload";
     return this.rest.postFile(url, formData);
+  }
+
+  _dataURItoBlob(dataURI) {
+    var byteString = atob(dataURI.split(',')[1]);
+    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    var ab = new ArrayBuffer(byteString.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
   }
 
   isValidEmail(emailAddress) {

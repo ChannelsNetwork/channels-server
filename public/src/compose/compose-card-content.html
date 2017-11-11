@@ -96,16 +96,28 @@
 
       onTransitioningOut(forward) {
         return new Promise((resolve, reject) => {
-          if (!forward) {
-            resolve();
+          if (this.composer.prepare) {
+            this.composer.prepare().then(() => {
+              this._finishTransition(forward, resolve);
+            }).catch((err) => {
+              reject(err);
+            });
           } else {
-            if (this.composer) {
-              this.wizard.data.cardSharedState = this.composer.sharedState || {};
-              this.wizard.data.summary = this.composer.summary || {};
-            }
-            resolve();
+            this._finishTransition(forward, resolve);
           }
         });
+      }
+
+      _finishTransition(forward, resolve) {
+        if (!forward) {
+          resolve();
+        } else {
+          if (this.composer) {
+            this.wizard.data.cardSharedState = this.composer.sharedState || {};
+            this.wizard.data.summary = this.composer.summary || {};
+          }
+          resolve();
+        }
       }
     }
     window.customElements.define(ComposeCardContent.is, ComposeCardContent);
