@@ -59,8 +59,8 @@ class CardService {
     this._core = core;
   }
 
-  upload(file) {
-    return this._core.uploadFile(file);
+  upload(file, filename) {
+    return this._core.uploadFile(file, filename);
   }
 }
 

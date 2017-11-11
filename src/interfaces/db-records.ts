@@ -437,6 +437,6 @@ export type BankDepositStatus = "pending" | "failed" | "completed";
 export interface BowerPackageRecord {
   packageName: string;
   installed: number;
-  package: BowerInstallResult;
+  package: string;  // stringified BowerInstallResult;
   channelComponent: ChannelComponentDescriptor;
 }
