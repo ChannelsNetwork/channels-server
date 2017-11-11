@@ -502,10 +502,11 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  uploadFile(fileOrDataUrl) {
+  uploadFile(fileOrDataUrl, filename) {
     let file = fileOrDataUrl;
     if (typeof fileOrDataUrl === 'string') {
-      file = this._dataURItoBlob(fileOrDataUrl);
+      const blob = this._dataURItoBlob(fileOrDataUrl);
+      file = new File([blob], filename ? filename : 'unnamed')
     }
     var formData = new FormData();
 

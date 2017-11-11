@@ -1476,7 +1476,7 @@ export class Database {
     const record: BowerPackageRecord = {
       packageName: packageName,
       installed: Date.now(),
-      package: pkg,
+      package: JSON.stringify(pkg),
       channelComponent: channelComponent
     };
     await this.bowerPackages.update({ packageName: packageName }, record, { upsert: true });

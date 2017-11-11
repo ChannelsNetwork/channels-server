@@ -349,7 +349,8 @@ export class ChannelsComponentManager implements RestServer {
         return null;
       }
     }
-    return this.shadowComponentsPath + '/' + record.package.endpoint.name + '/';
+    const pkg = JSON.parse(record.package) as BowerInstallResult;
+    return this.shadowComponentsPath + '/' + pkg.endpoint.name + '/';
   }
 }
 
