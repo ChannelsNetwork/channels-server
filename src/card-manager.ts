@@ -29,6 +29,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as escapeHtml from 'escape-html';
 import * as LRU from 'lru-cache';
+import * as url from 'url';
 
 const promiseLimit = require('promise-limit');
 
@@ -144,6 +145,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
       const cardState = await this.populateCardState(card.id, true, false, user);
+      if (!cardState) {
+        response.status(404).send("Missing card state");
+        return;
+      }
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
         card: cardState
@@ -804,7 +809,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       couponId = couponRecord.id;
     }
     const promotionScores = this.getPromotionScoresFromData(details.budget && details.budget.amount > 0, details.openFeeUnits, details.promotionFee, details.openPayment, 0, 0);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, promotionScores, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.promotionFee, details.openPayment, details.openFeeUnits, details.budget ? details.budget.amount : 0, details.budget ? details.budget.plusPercent : 0, details.coupon, couponId, promotionScores, cardId);
     await this.announceCard(card, user);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -1046,6 +1051,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const basePrice = await priceRegulator.getBaseCardFee();
     const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
     const author = await this.getUser(record.by.id, false);
+    const packageRootUrl = await channelsComponentManager.getPackageRootUrl(record.cardType.package);
+    if (!packageRootUrl) {
+      return null;
+    }
+    let iconUrl: string;
+    if (typeof packageRootUrl !== 'string' || typeof record.cardType.iconUrl !== 'string') {
+      console.warn("CardManager.populateCardState: invalid packageRoot or iconUrl");
+    } else {
+      iconUrl = url.resolve(packageRootUrl, record.cardType.iconUrl);
+    }
     try {
       const card: CardDescriptor = {
         id: record.id,
@@ -1069,7 +1084,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         private: record.private,
         cardType: {
           package: record.cardType.package,
-          iconUrl: record.cardType.iconUrl,
+          iconUrl: iconUrl,
           royaltyAddress: record.cardType.royaltyAddress,
           royaltyFraction: record.cardType.royaltyFraction
         },

@@ -285,7 +285,7 @@ export class ChannelsComponentManager implements RestServer {
       throw new ErrorWithStatusCode(400, "This is not a valid package reference for the card type");
     }
     const pkgInfo = await this.install(pkg);
-    return await this.processComponent(pkgInfo);
+    return await this.processComponent(pkg, pkgInfo);
   }
 
   private async handleComponent(request: Request, response: Response): Promise<void> {
@@ -299,11 +299,7 @@ export class ChannelsComponentManager implements RestServer {
         response.status(400).send("Invalid request:  missing package");
         return;
       }
-      const pkg = requestBody.detailsObject.package;
-      console.log("Bower.ensure-component", requestBody.detailsObject);
-      const pkgInfo = await this.install(pkg);
-      const componentResponse = await this.processComponent(pkgInfo);
-      console.log("Component loaded", pkgInfo);
+      const componentResponse = await this.ensureComponent(requestBody.detailsObject.package);
       response.json(componentResponse);
     } catch (err) {
       console.error("Bower.handleComponent: Failure", err);
@@ -311,7 +307,7 @@ export class ChannelsComponentManager implements RestServer {
     }
   }
 
-  private async processComponent(pkgInfo: BowerInstallResult): Promise<ChannelComponentResponse> {
+  private async processComponent(pkg: string, pkgInfo: BowerInstallResult): Promise<ChannelComponentResponse> {
     if (!pkgInfo || !pkgInfo.pkgMeta) {
       throw new ErrorWithStatusCode(400, "This is not a valid package or is incomplete");
     }
@@ -336,11 +332,25 @@ export class ChannelsComponentManager implements RestServer {
       importHref: this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/' + pkgInfo.pkgMeta.main,
       package: pkgInfo,
       channelComponent: descriptor,
-      iconUrl: descriptor.iconUrl ? url.resolve(this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/', descriptor.iconUrl) : null
+      iconUrl: url.resolve(this.shadowComponentsPath + '/' + pkgInfo.endpoint.name + '/', descriptor.iconUrl)
     };
+    console.log("ComponentManager.processComponent: upserting bower package", pkg);
+    await db.upsertBowerPackage(pkg, pkgInfo, descriptor);
     return componentResponse;
   }
 
+  async getPackageRootUrl(packageName: string): Promise<string> {
+    let record = await db.findBowerPackage(packageName);
+    if (!record) {
+      await this.ensureComponent(packageName);
+      console.warn("ComponentManager.getPackageRootUrl:  Fixing up missing package", packageName);
+      record = await db.findBowerPackage(packageName);
+      if (!record) {
+        return null;
+      }
+    }
+    return this.shadowComponentsPath + '/' + record.package.endpoint.name + '/';
+  }
 }
 
 const channelsComponentManager = new ChannelsComponentManager();

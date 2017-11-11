@@ -2,9 +2,9 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails, BraintreeTransactionResult } from "./interfaces/rest-services";
+import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 
 export class Database {
@@ -31,6 +31,7 @@ export class Database {
   private manualWithdrawals: Collection;
   private cardStatsHistory: Collection;
   private bankDeposits: Collection;
+  private bowerPackages: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -58,6 +59,7 @@ export class Database {
     await this.initializeManualWithdrawals();
     await this.initializeCardStatsHistory();
     await this.initializeBankDeposits();
+    await this.initializeBowerPackages();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -284,6 +286,11 @@ export class Database {
     this.bankDeposits = this.db.collection('bankDeposits');
     await this.bankDeposits.createIndex({ id: 1 }, { unique: true });
     await this.bankDeposits.createIndex({ status: 1, at: -1 });
+  }
+
+  private async initializeBowerPackages(): Promise<void> {
+    this.bowerPackages = this.db.collection('bowerPackages');
+    await this.bankDeposits.createIndex({ packageName: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1463,6 +1470,21 @@ export class Database {
         bankTransactionId: bankTransactionId
       }
     });
+  }
+
+  async upsertBowerPackage(packageName: string, pkg: BowerInstallResult, channelComponent: ChannelComponentDescriptor): Promise<BowerPackageRecord> {
+    const record: BowerPackageRecord = {
+      packageName: packageName,
+      installed: Date.now(),
+      package: pkg,
+      channelComponent: channelComponent
+    };
+    await this.bowerPackages.update({ packageName: packageName }, record, { upsert: true });
+    return record;
+  }
+
+  async findBowerPackage(packageName: string): Promise<BowerPackageRecord> {
+    return this.bowerPackages.findOne<BowerPackageRecord>({ packageName: packageName });
   }
 
 }
