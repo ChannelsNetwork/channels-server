@@ -6,79 +6,41 @@
   <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
   <title>Channels</title>
   <meta name="description" content="Channels Terms and Conditions">
-  <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/s/images/fav2.png" type="image/png">
   <link href="https://fonts.googleapis.com/css?family=Open+Sans|Raleway" rel="stylesheet">
 
   <style>
     body {
       margin: 0;
-      font-family: 'Open Sans', sans-serif;
+      font-family: 'Open Sans', 'Roboto', sans-serif;
       font-weight: 400;
       line-height: 1.5;
-      overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
-      position: relative;
+      color: #292929;
+      font-size: 18px;
+      overflow-x: hidden;
+    }
+
+    header {
+      height: 60px;
+      padding: 0 16px 0;
       background: #213034;
       color: white;
-      font-display: fallback;
-    }
-
-    h1,
-    h2,
-    h3 {
-      font-family: 'Raleway', sans-serif;
-      margin: 0;
-      font-weight: 400;
-      line-height: 1.3;
-      font-display: fallback;
-    }
-
-    h1 {
-      font-size: 50px;
-    }
-
-    h2 {
-      font-size: 41px;
-    }
-
-    h3 {
-      font-size: 31px;
-      margin-bottom: 20px;
-    }
-
-    em {
-      color: #81D4FA;
+      position: relative;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+      -ms-flex-direction: row;
+      -webkit-flex-direction: row;
+      flex-direction: row;
+      -ms-flex-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+      text-align: right;
+      text-transform: uppercase;
+      font-size: 16px;
       font-weight: bold;
-      font-style: normal;
-    }
-
-    a,
-    a:visited,
-    a:hover {
-      color: #f9ed00;
-      outline: none;
       letter-spacing: 0.05em;
-      text-decoration: none;
-      text-transform: uppercase;
-    }
-
-    a:hover {
-      box-shadow: 0 1px 0px 0;
-    }
-
-    button {
-      color: #f9ed00;
-      outline: none;
-      letter-spacing: 0.03em;
-      text-decoration: none;
-      text-transform: uppercase;
-      background: none;
-      border: none;
-      font-size: 20px;
-      padding: 10px;
-      border-radius: 3px;
-      cursor: pointer;
     }
 
     .flex {
@@ -89,85 +51,67 @@
       flex-basis: 0.000000001px;
     }
 
-    .content {
-      font-size: 18px;
-      max-width: 650px;
-      margin: 25px auto;
-    }
-
-    #textPanel {
-      max-width: 650px;
-      opacity: 0;
-      transform: translateX(50px);
-      transition: all 1s ease;
-      box-sizing: border-box;
-    }
-
-    .cell {
-      padding: 20px 16px;
-      box-sizing: border-box;
-    }
-
-    a.button {
-      background: #f9ed00;
-      color: #000;
-      padding: 5px 8px;
-      border-radius: 3px;
-    }
-
-    img.icon {
-      width: 32px;
-      height: 32px;
+    .logo {
       display: block;
-      color: #000;
+      height: 40px;
+      width: auto;
+    }
+
+    section {
+      max-width: 800px;
+      padding: 40px 16px;
       margin: 0 auto;
     }
 
-    .hidden {
-      opacity: 0;
+    h1,
+    h2,
+    h3 {
+      font-family: 'Raleway', 'Roboto', sans-serif;
+      margin: 0;
+      font-weight: 400;
+      line-height: 1.4;
+      color: #212121;
+    }
+
+    h1 {
+      font-size: 36px;
+    }
+
+    h2 {
+      font-size: 28px;
     }
 
     .lastUpdated {
+      padding: 10px 0;
+      letter-spacing: 0.05em;
       font-size: 14px;
-      margin: -16px 0 16px;
+      color: #333;
     }
 
-    @media (max-width: 850px) {
-      #logo {
-        width: 280px;
-        height: 280px;
-      }
-
-      .vectorPanel {
-        -ms-flex: 0;
-        -webkit-flex: 0;
-        flex: 0;
-      }
-    }
-
-    @media (max-width: 650px) {
-      h1 {
-        font-size: 40px;
-      }
-
-      h3 {
-        font-size: 26px;
-      }
-
-      .content {
-        font-size: 16px;
-        line-height: 1.35;
+    @media (max-width: 600px) {
+      .logo {
+        width: 100px;
+        height: auto;
       }
     }
   </style>
 </head>
 
 <body>
+  <article>
+    <header>
+      <a id="logoLink" href="/">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+      </a>
+      <div class="flex" style="text-align: right;">Terms &amp; Conditions</div>
+    </header>
+  </article>
   <section>
     <div class="content">
       <h1>Channels</h1>
-      <h3>Terms &amp; Conditions</h3>
+      <h2>Terms &amp; Conditions</h2>
       <div class="lastUpdated">Last updated: 10/7/2017</div>
+
       <p>Our terms of service are not yet fully defined.
         <b>Proceed with caution.</b>
       </p>
