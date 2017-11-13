@@ -202,8 +202,8 @@
       </soso-dropdown>
       <soso-dropdown for="actionsIcon" alignment="right" offset="0">
         <li on-click="_onLink">Share card</li>
-        <li on-click="_analytics">Analytics</li>
-        <li on-click="_deleteCard">Delete</li>
+        <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
+        <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
         <li class="menuVoteSection">[[ratingTip]]</li>
         <li id="voteItem2" class="horizontal layout center">
           <div style="padding: 0 5px;">
@@ -334,8 +334,12 @@
         let owner = this.data && (this.data.by.address === $core.address);
         if (owner) {
           this.$.moreIcon.classList.remove("hidden");
+          this.$.analyticsAction.classList.remove("hidden");
+          this.$.deleteAction.classList.remove("hidden");
         } else {
           this.$.moreIcon.classList.add("hidden");
+          this.$.analyticsAction.classList.add("hidden");
+          this.$.deleteAction.classList.add("hidden");
         }
       }
 
