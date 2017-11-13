@@ -71,6 +71,7 @@
       _handleButton(event) {
         switch (event.detail.button.id) {
           case "copy":
+            this.$.txt.select();
             document.execCommand("copy");
             this.$.copied.classList.remove("hidden");
             setTimeout(() => {
