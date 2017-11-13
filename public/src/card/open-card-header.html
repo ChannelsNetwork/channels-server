@@ -115,19 +115,49 @@
         color: var(--highlight-green);
       }
 
-      #voteItem {
+      #voteItem,
+      #voteItem2 {
         display: flex !important;
       }
 
+      #actionsIcon {
+        display: none;
+      }
+
+      .menuVoteSection {
+        border-top: 1px solid #d8d8d8;
+        margin-top: 5px;
+      }
+
       @media (max-width: 600px) {
+        .bar {
+          font-size: 12px;
+        }
+        #timestamp {
+          font-size: 10px;
+        }
+        #authorImage {
+          width: 38px;
+          height: 38px;
+          margin: 0 8px 0 5px;
+        }
         soso-icon {
           padding: 0 6px 0 4px;
         }
         #ratingIcon {
           margin-left: -19px;
         }
-        #moreIcon {
+        #moreIcon,
+        #shareIcon,
+        #ratingPanel {
           display: none;
+        }
+        #actionsIcon {
+          display: inline-flex;
+        }
+        #pricePanel {
+          padding: 0 2px;
+          width: 60px;
         }
       }
     </style>
@@ -144,12 +174,13 @@
         <div>[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
-      <div style="position: relative;">
+      <div id="ratingPanel" style="position: relative;">
         <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
         <progress-icon id="likeRating" class="novotes"></progress-icon>
       </div>
       <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" on-click="_onLink"></soso-icon>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+      <soso-icon id="actionsIcon" icon="expand-more" icon-map="[[iconMap]]"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
 
       <soso-dropdown for="moreIcon" alignment="right" offset="0">
@@ -158,7 +189,6 @@
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
-
       <soso-dropdown id="likeDropdown" for="likeRating" offset="0">
         <li>Your Vote</li>
         <li id="voteItem" class="horizontal layout center">
@@ -167,6 +197,20 @@
           </div>
           <div style="padding: 0 5px;">
             <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+          </div>
+        </li>
+      </soso-dropdown>
+      <soso-dropdown for="actionsIcon" alignment="right" offset="0">
+        <li on-click="_onLink">Share card</li>
+        <li on-click="_analytics">Analytics</li>
+        <li on-click="_deleteCard">Delete</li>
+        <li class="menuVoteSection">[[ratingTip]]</li>
+        <li id="voteItem2" class="horizontal layout center">
+          <div style="padding: 0 5px;">
+            <soso-icon id="downIcon2" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+          </div>
+          <div style="padding: 0 5px;">
+            <soso-icon id="upIcon2" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
           </div>
         </li>
       </soso-dropdown>
@@ -245,11 +289,15 @@
         }
         this.$.downIcon.classList.remove("myvote");
         this.$.upIcon.classList.remove("myvote");
+        this.$.downIcon2.classList.remove("myvote");
+        this.$.upIcon2.classList.remove("myvote");
         const likeState = this.data.userSpecific.likeState || "none";
         if (likeState === "like") {
           this.$.upIcon.classList.add("myvote");
+          this.$.upIcon2.classList.add("myvote");
         } else if (likeState === "dislike") {
           this.$.downIcon.classList.add("myvote");
+          this.$.downIcon2.classList.add("myvote");
         }
 
         if (!tc) {
