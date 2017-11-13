@@ -148,6 +148,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.e": -1 });
+
+    await this.cards.updateMany({ curation: { $exists: false } }, { $set: { curation: { block: false } } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -611,6 +613,9 @@ export class Database {
       lock: {
         server: '',
         at: 0
+      },
+      curation: {
+        block: false
       }
     };
     if (promotionScores) {
@@ -779,6 +784,7 @@ export class Database {
     const query: any = { state: "active" };
     if (excludePrivate) {
       query.private = false;
+      query["curation.block"] = false;
     }
     query["by.id"] = byUserId;
     if (before && after) {
@@ -793,10 +799,7 @@ export class Database {
 
   async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query.$or = [
-      { "by.id": userId },
-      { "private": false }
-    ];
+    this.addAuthorClause(query, userId);
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
     } else if (before) {
@@ -809,20 +812,26 @@ export class Database {
 
   async findCardsByRevenue(maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query.$or = [
-      { "by.id": userId },
-      { "private": false }
-    ];
+    this.addAuthorClause(query, userId);
     query["stats.revenue.value"] = { $gt: 0 };
     return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
-  async findCardsByScore(limit: number, userId: string, ads: boolean): Promise<CardRecord[]> {
-    const query: any = { state: "active" };
+  private addAuthorClause(query: any, userId: string): void {
     query.$or = [
       { "by.id": userId },
-      { "private": false }
+      {
+        $and: [
+          { private: false },
+          { "curation.block": false }
+        ]
+      }
     ];
+  }
+
+  async findCardsByScore(limit: number, userId: string, ads: boolean): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     return await this.cards.find(query).sort({ score: -1 }).limit(limit).toArray();
   }
@@ -830,7 +839,7 @@ export class Database {
   findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
     const sort: any = {};
     sort["promotionScores." + bin] = -1;
-    return this.cards.find<CardRecord>({ state: "active", private: false }).sort(sort);
+    return this.cards.find<CardRecord>({ state: "active", private: false, "curation.block": false }).sort(sort);
   }
 
   async ensureMutationIndex(): Promise<void> {

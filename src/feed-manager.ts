@@ -137,7 +137,6 @@ export class FeedManager implements Initializable, RestServer {
       default:
         throw new Error("Unhandled feed type " + feed.type);
     }
-
     return result;
   }
 
@@ -159,6 +158,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async mergeWithAdCards(user: UserRecord, cards: CardDescriptor[]): Promise<CardDescriptor[]> {
+    // First, we'll discard any cards that are blocked
     // Now we have to inject ad slots if necessary, and populate those ad slots with cards that offer
     // the user some revenue-generating potential
     const adSlots = this.positionAdSlots(user, cards.length);
