@@ -60,6 +60,17 @@
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
 
+          let preventReload = false;
+          if (route.context) {
+            preventReload = route.context.preventReload;
+          }
+          if (preventReload && this.items && this.items.length) {
+            $app.shell.scrollTop = route.context.scrollTop || 0;
+            $router.context = null;
+            return;
+          }
+          $router.context = null;
+
           // clear state
           this.set('items', []);
           this.$.feed.closeCard();
@@ -105,7 +116,8 @@
         if (card) {
           $core.cardOpened(card.id);
           let context = {
-            card: card
+            card: card,
+            scrollTop: $app.shell.scrollTop
           };
           if (this._parsedRoute) {
             context.feed = this._parsedRoute.path;
@@ -113,7 +125,6 @@
           $router.goto(['card', card.id], context, 'shift-left');
         }
       }
-      // 'slide-from-right'
       // _onCardOpenRequest(event) {
       //   let card = event.detail.card;
       //   if (card) {
