@@ -129,6 +129,9 @@ export interface CardRecord {
     server: string;
     at: number;
   };
+  curation: {
+    block: boolean;
+  };
 }
 
 export interface CardPromotionScores {
