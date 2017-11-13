@@ -24,6 +24,23 @@
         width: 70px;
         height: 70px;
       }
+
+      .main {
+        border-bottom: 1px solid #e5e5e5;
+      }
+
+      #morePanel {
+        padding: 32px 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+      }
     </style>
     <div class="main">
       <div id="userPanel" class="hidden">
@@ -41,6 +58,9 @@
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
         on-card-payment-due="_onCardPay"></card-feed>
+    </div>
+    <div id="morePanel">
+      <a href="#feed">View your feed</a> to see more interesting cards.
     </div>
   </template>
   <script>
