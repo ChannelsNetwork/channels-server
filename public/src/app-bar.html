@@ -160,11 +160,11 @@
       <a href="#feed/top">
         <button id="top">Top</button>
       </a>
-      <a href="#feed/mine">
-        <button id="mine">Mine</button>
-      </a>
       <a href="#feed/opened">
         <button id="opened">Opened</button>
+      </a>
+      <a id="mineLink" href="#feed/mine" class="hidden">
+        <button id="mine">Mine</button>
       </a>
     </div>
     <agree-terms-view id="terms" class="hidden"></agree-terms-view>
@@ -199,11 +199,13 @@
         if ($core.profile && $core.profile.handle) {
           this.$.accountLink.classList.remove("hidden");
           this.$.accountButton.classList.remove("hidden");
+          this.$.mineLink.classList.remove("hidden");
           this.$.signInLink.classList.add("hidden");
           this.$.signInButton.classList.add("hidden");
         } else {
           this.$.accountLink.classList.add("hidden");
           this.$.accountButton.classList.add("hidden");
+          this.$.mineLink.classList.add("hidden");
           this.$.signInLink.classList.remove("hidden");
           this.$.signInButton.classList.remove("hidden");
         }
