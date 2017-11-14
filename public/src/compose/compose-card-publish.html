@@ -169,8 +169,10 @@
         };
         if (data.pricing.fee) {
           cardData.pricing.openFee = data.pricing.fee.priceLevel * $core.baseCardPrice;
+          cardData.promoted = data.pricing.expandReach;
         } else if (data.pricing.pay) {
           cardData.pricing.openFee = -data.promotion.amount;
+          cardData.promoted = true;
         }
         this.set('cardData', cardData);
         if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
