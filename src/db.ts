@@ -148,6 +148,7 @@ export class Database {
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.e": -1 });
+    await this.cards.createIndex({ state: 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text" });
 
     await this.cards.updateMany({ curation: { $exists: false } }, { $set: { curation: { block: false } } });
   }
@@ -553,7 +554,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetPlusPercent: number, coupon: SignedObject, couponId: string, searchText: string, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -616,7 +617,8 @@ export class Database {
       },
       curation: {
         block: false
-      }
+      },
+      searchText: searchText
     };
     if (promotionScores) {
       record.promotionScores = promotionScores;
@@ -632,7 +634,7 @@ export class Database {
   async lockCard(cardId: string, timeout: number, serverId: string): Promise<CardRecord> {
     const count = 0;
     while (count < 300) {
-      const card = await this.cards.findOne({ id: cardId });
+      const card = await this.cards.findOne({ id: cardId }, { fields: { searchText: 0 } });
       if (!card) {
         return null;
       }
@@ -673,7 +675,7 @@ export class Database {
     if (!includeInactive) {
       query.state = "active";
     }
-    return await this.cards.findOne<CardRecord>(query);
+    return await this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
@@ -773,11 +775,15 @@ export class Database {
   }
 
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }).toArray();
+    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }, { searchText: 0 }).toArray();
   }
 
   async findCardsWithAvailableBudget(limit: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", "budget.available": true, private: false }).sort({ postedAt: -1 }).limit(limit).toArray();
+    return await this.cards.find<CardRecord>({ state: "active", "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
+  }
+
+  async findCardsBySearch(searchText: string, limit = 50): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ state: "active", private: false, $text: { $search: searchText } }, { score: { $meta: "textScore" }, searchText: 0 }).sort({ score: { $meta: "textScore" } }).limit(limit).toArray();
   }
 
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
@@ -794,7 +800,7 @@ export class Database {
     } else if (after) {
       query.postedAt = { $gt: after };
     }
-    return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
   async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
@@ -807,14 +813,14 @@ export class Database {
     } else if (after) {
       query.postedAt = { $gt: after };
     }
-    return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByRevenue(maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     query["stats.revenue.value"] = { $gt: 0 };
-    return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
   private addAuthorClause(query: any, userId: string): void {
@@ -833,13 +839,13 @@ export class Database {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
-    return await this.cards.find(query).sort({ score: -1 }).limit(limit).toArray();
+    return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
   }
 
   findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
     const sort: any = {};
     sort["promotionScores." + bin] = -1;
-    return this.cards.find<CardRecord>({ state: "active", private: false, "curation.block": false }).sort(sort);
+    return this.cards.find<CardRecord>({ state: "active", private: false, "curation.block": false }, { searchText: 0 }).sort(sort);
   }
 
   async ensureMutationIndex(): Promise<void> {

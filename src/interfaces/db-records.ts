@@ -132,6 +132,7 @@ export interface CardRecord {
   curation: {
     block: boolean;
   };
+  searchText: string;
 }
 
 export interface CardPromotionScores {

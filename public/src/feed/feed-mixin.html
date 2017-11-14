@@ -69,6 +69,7 @@
           this._parsedRoute = parsedRoute;
           if (parsedRoute) {
             this._onDataFetch(parsedRoute);
+            // return $core.search("Schubert").then((cards) => {
             return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, parsedRoute.channel).then((cards) => {
               this.set("items", cards);
               if (cards && cards.length) {

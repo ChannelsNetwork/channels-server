@@ -586,255 +586,255 @@ export class FeedManager implements Initializable, RestServer {
         './icon.png',
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null,
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, null, null,
         cardId);
       await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
     }
   }
 
-  private async addPreviewCards(): Promise<void> {
-    const now = Date.now();
-    let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"), null);
-    let card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimes', 'New York Times',
-      this.getPreviewUrl("nytimes.jpg"),
-      this.getPreviewUrl("puerto_rico.jpg"), 1024, 683,
-      null,
-      "The Devastation in Puerto Rico, as Seen From Above",
-      "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
-      false,
-      null,
-      this.getPreviewUrl("icon-news.png"),
-      null, 0,
-      0, 0, 5,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  // private async addPreviewCards(): Promise<void> {
+  //   const now = Date.now();
+  //   let user = await this.insertPreviewUser('nytimes', 'nytimes', 'New York Times', this.getPreviewUrl("nytimes.jpg"), null);
+  //   let card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimes', 'New York Times',
+  //     this.getPreviewUrl("nytimes.jpg"),
+  //     this.getPreviewUrl("puerto_rico.jpg"), 1024, 683,
+  //     null,
+  //     "The Devastation in Puerto Rico, as Seen From Above",
+  //     "Last week, Hurricane Maria made landfall in Puerto Rico with winds of 155 miles an hour, leaving the United States commonwealth on the brink of a humanitarian crisis. The storm left 80 percent of crop value destroyed, 60 percent of the island without water and almost the entire island without power.",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-news.png"),
+  //     null, 0,
+  //     0, 0, 5,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 25, 30.33, 10, 31, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, '80sgames', "80's Games",
-      this.getPreviewUrl("80s_games.png"),
-      this.getPreviewUrl("galaga.png"), 1332, 998,
-      null,
-      "Play Galaga",
-      "The online classic 80's arcade game",
-      false,
-      null,
-      this.getPreviewUrl("icon-game.png"),
-      null, 0,
-      0, 0, 1,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('80sgames', '80sgames', "80's Games", this.getPreviewUrl("80s_games.png"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, '80sgames', "80's Games",
+  //     this.getPreviewUrl("80s_games.png"),
+  //     this.getPreviewUrl("galaga.png"), 1332, 998,
+  //     null,
+  //     "Play Galaga",
+  //     "The online classic 80's arcade game",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-game.png"),
+  //     null, 0,
+  //     0, 0, 1,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 4.67, 16, 3, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"), null);
-    const cardId1 = uuid.v4();
-    const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
-      this.getPreviewUrl("thrillist.jpg"),
-      this.getPreviewUrl("pizza_ring.jpg"), 640, 640,
-      null,
-      "Puff Pizza Ring",
-      "Learn how to make this delicious treat",
-      false,
-      null,
-      this.getPreviewUrl("icon-play2.png"),
-      null, 0,
-      0.01, 0, 3,
-      5, 15, couponPromo1.signedObject, couponPromo1.id,
-      null,
-      cardId1);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('thrillist', 'thrillist', "Thrillist", this.getPreviewUrl("thrillist.jpg"), null);
+  //   const cardId1 = uuid.v4();
+  //   const couponPromo1 = await this.createPromotionCoupon(user, cardId1, 0.01, 1, 15);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'thrillist', 'Thrillist',
+  //     this.getPreviewUrl("thrillist.jpg"),
+  //     this.getPreviewUrl("pizza_ring.jpg"), 640, 640,
+  //     null,
+  //     "Puff Pizza Ring",
+  //     "Learn how to make this delicious treat",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-play2.png"),
+  //     null, 0,
+  //     0.01, 0, 3,
+  //     5, 15, couponPromo1.signedObject, couponPromo1.id,
+  //     null,
+  //     cardId1);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 15, 3516.84, 4521, 25, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'jmodell', 'Josh Modell',
-      this.getPreviewUrl("josh_modell.jpg"),
-      this.getPreviewUrl("the_national.png"), 800, 532,
-      null,
-      "The National doesn't rest on the excellent Sleep Well Beast",
-      "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
-      false,
-      null,
-      this.getPreviewUrl("icon-news.png"),
-      null, 0,
-      0, 0, 2,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('jmodell', 'jmodell', "Josh Modell", this.getPreviewUrl("josh_modell.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'jmodell', 'Josh Modell',
+  //     this.getPreviewUrl("josh_modell.jpg"),
+  //     this.getPreviewUrl("the_national.png"), 800, 532,
+  //     null,
+  //     "The National doesn't rest on the excellent Sleep Well Beast",
+  //     "Albums by The National are like your friendly neighborhood lush: In just an hour or so, they’re able to drink you under the table, say something profound enough to make the whole bar weep, then stumble out into the pre-dawn, proud and ashamed in equal measure.",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-news.png"),
+  //     null, 0,
+  //     0, 0, 2,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3, 36.90, 342, 5, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimescw', 'NY Times Crosswords',
-      this.getPreviewUrl("nytimes.jpg"),
-      this.getPreviewUrl("crossword1.jpg"), 640, 480,
-      null,
-      "Solemn Promise",
-      "Solve this mini-crossword in one minute",
-      false,
-      null,
-      this.getPreviewUrl("icon-crossword.png"),
-      null, 0,
-      0, 0, 2,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('nytimescw', 'nytimescw', "NY Times Crosswords", this.getPreviewUrl("nytimes.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'nytimescw', 'NY Times Crosswords',
+  //     this.getPreviewUrl("nytimes.jpg"),
+  //     this.getPreviewUrl("crossword1.jpg"), 640, 480,
+  //     null,
+  //     "Solemn Promise",
+  //     "Solve this mini-crossword in one minute",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-crossword.png"),
+  //     null, 0,
+  //     0, 0, 2,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 6, 84.04, 251, 2, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"), null);
-    const cardId2 = uuid.v4();
-    const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
-      this.getPreviewUrl("cbs.jpg"),
-      this.getPreviewUrl("tomb_raider.jpg"), 545, 331,
-      null,
-      "Tomb Raider",
-      "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
-      false,
-      null,
-      this.getPreviewUrl("icon-play2.png"),
-      null, 0,
-      0, 1, 0,
-      10, 0, couponOpen2.signedObject, couponOpen2.id,
-      null,
-      cardId2);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('cbs', 'cbs', "CBS", this.getPreviewUrl("cbs.jpg"), null);
+  //   const cardId2 = uuid.v4();
+  //   const couponOpen2 = await this.createOpenCoupon(user, cardId2, 1.00, 10);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'cbs', 'CBS',
+  //     this.getPreviewUrl("cbs.jpg"),
+  //     this.getPreviewUrl("tomb_raider.jpg"), 545, 331,
+  //     null,
+  //     "Tomb Raider",
+  //     "Alicia Vikander is Lara Croft.  Coming soon in 3D.",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-play2.png"),
+  //     null, 0,
+  //     0, 1, 0,
+  //     10, 0, couponOpen2.signedObject, couponOpen2.id,
+  //     null,
+  //     cardId2);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 4, 0, 34251, 245, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'tyler', 'Tyler McGrath',
-      this.getPreviewUrl("tyler.jpg"),
-      this.getPreviewUrl("ascension.jpg"), 1280, 532,
-      null,
-      "Ascension",
-      "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
-      false,
-      null,
-      this.getPreviewUrl("icon-play2.png"),
-      null, 0,
-      0, 0, 8,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('tyler', 'tyler', "Tyler McGrath", this.getPreviewUrl("tyler.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'tyler', 'Tyler McGrath',
+  //     this.getPreviewUrl("tyler.jpg"),
+  //     this.getPreviewUrl("ascension.jpg"), 1280, 532,
+  //     null,
+  //     "Ascension",
+  //     "An emerging life form must respond to the unstable and unforgiving terrain of a new home.",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-play2.png"),
+  //     null, 0,
+  //     0, 0, 8,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 278.33, 342, 21, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'roadw', 'Road Warrior',
-      this.getPreviewUrl("road-warrior.jpg"),
-      this.getPreviewUrl("dangerous_road.png"), 917, 481,
-      null,
-      "My Drive on the Most Dangerous Road in the World",
-      null,
-      false,
-      null,
-      this.getPreviewUrl("icon-play2.png"),
-      null, 0,
-      0, 0, 2,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('roadw', 'roadw', "Road Warrior", this.getPreviewUrl("road-warrior.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'roadw', 'Road Warrior',
+  //     this.getPreviewUrl("road-warrior.jpg"),
+  //     this.getPreviewUrl("dangerous_road.png"), 917, 481,
+  //     null,
+  //     "My Drive on the Most Dangerous Road in the World",
+  //     null,
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-play2.png"),
+  //     null, 0,
+  //     0, 0, 2,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 8, 77.76, 24, 11, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'brightside', 'Bright Side',
-      this.getPreviewUrl("brightside.png"),
-      this.getPreviewUrl("amsterdam.jpg"), 1000, 1413,
-      null,
-      "The 100 best photographs ever taken without photoshop",
-      "According to BrightSide.me",
-      false,
-      null,
-      this.getPreviewUrl("icon-photos.png"),
-      null, 0,
-      0, 0, 3,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('brightside', 'brightside', "Bright Side", this.getPreviewUrl("brightside.png"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'brightside', 'Bright Side',
+  //     this.getPreviewUrl("brightside.png"),
+  //     this.getPreviewUrl("amsterdam.jpg"), 1000, 1413,
+  //     null,
+  //     "The 100 best photographs ever taken without photoshop",
+  //     "According to BrightSide.me",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-photos.png"),
+  //     null, 0,
+  //     0, 0, 3,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 5, 596.67, 76, 3, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'aperrotta', 'Anthony Perrotta',
-      this.getPreviewUrl("anthony.jpg"),
-      this.getPreviewUrl("rage_cover.jpg"), 400, 600,
-      null,
-      "Rage Against the Current",
-      "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
-      false,
-      null,
-      this.getPreviewUrl("icon-book.png"),
-      null, 0,
-      0, 0, 6,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('aperrotta', 'aperrotta', "Anthony Perrotta", this.getPreviewUrl("anthony.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'aperrotta', 'Anthony Perrotta',
+  //     this.getPreviewUrl("anthony.jpg"),
+  //     this.getPreviewUrl("rage_cover.jpg"), 400, 600,
+  //     null,
+  //     "Rage Against the Current",
+  //     "It was late August and on the spur of the moment, Joseph and Gomez decided to go to the beach. They had already taken a few bowl hits in the car and now intended on topping that off with the six-pack they were lugging with them across the boardwalk, which looked out over the southern shore of Long Island. Although there was still a few hours of sunlight left, you could already catch a golden glimmer of light bouncing off the ocean's surface, as the water whittled away, little by little, at the sandy earth.",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-book.png"),
+  //     null, 0,
+  //     0, 0, 6,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 3, 262.65, 99, 21, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'uhaque', 'Umair Haque',
-      this.getPreviewUrl("umair.jpg"),
-      this.getPreviewUrl("uber_explosion.jpg"), 1200, 779,
-      null,
-      "Five Things to Learn From Uber's Implosion",
-      "How to Fail at the Future",
-      false,
-      null,
-      this.getPreviewUrl("icon-news.png"),
-      null, 0,
-      0, 0, 2,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('uhaque', 'uhaque', "Umair Haque", this.getPreviewUrl("umair.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'uhaque', 'Umair Haque',
+  //     this.getPreviewUrl("umair.jpg"),
+  //     this.getPreviewUrl("uber_explosion.jpg"), 1200, 779,
+  //     null,
+  //     "Five Things to Learn From Uber's Implosion",
+  //     "How to Fail at the Future",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-news.png"),
+  //     null, 0,
+  //     0, 0, 2,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 3.5, 22.08, 15, 18, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"), null);
-    const cardId3 = uuid.v4();
-    const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
-      this.getPreviewUrl("blue_nile.jpg"),
-      this.getPreviewUrl("blue_nile_diamonds.jpg"), 491, 466,
-      "https://www.bluenile.com",
-      "New. Brilliant. Astor by Blue Nile",
-      "Find the most beautiful diamonds in the world and build your own ring.",
-      false,
-      null,
-      this.getPreviewUrl("icon-link.png"),
-      null, 0,
-      0.03, 0, 0,
-      8, 0, couponPromo3.signedObject, couponPromo3.id,
-      null,
-      cardId3);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('bluenile', 'bluenile', "Blue Nile", this.getPreviewUrl("blue_nile.jpg"), null);
+  //   const cardId3 = uuid.v4();
+  //   const couponPromo3 = await this.createPromotionCoupon(user, cardId3, 0.03, 8, 0);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'bluenile', 'Blue Nile',
+  //     this.getPreviewUrl("blue_nile.jpg"),
+  //     this.getPreviewUrl("blue_nile_diamonds.jpg"), 491, 466,
+  //     "https://www.bluenile.com",
+  //     "New. Brilliant. Astor by Blue Nile",
+  //     "Find the most beautiful diamonds in the world and build your own ring.",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-link.png"),
+  //     null, 0,
+  //     0.03, 0, 0,
+  //     8, 0, couponPromo3.signedObject, couponPromo3.id,
+  //     null,
+  //     cardId3);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 9, 0, 78, 3, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"), null);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'jigsaw', 'Jigsaw',
-      this.getPreviewUrl("jigsaw.jpg"),
-      this.getPreviewUrl("unfiltered_news.jpg"), 1001, 571,
-      null,
-      "The Latest Unfiltered News",
-      "Explore news from around the world that are outside the mainstream media",
-      false,
-      null,
-      this.getPreviewUrl("icon-touch.png"),
-      null, 0,
-      0, 0, 4,
-      0, 0, null, null);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   user = await this.insertPreviewUser('jigsaw', 'jigsaw', "Jigsaw", this.getPreviewUrl("jigsaw.jpg"), null);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'jigsaw', 'Jigsaw',
+  //     this.getPreviewUrl("jigsaw.jpg"),
+  //     this.getPreviewUrl("unfiltered_news.jpg"), 1001, 571,
+  //     null,
+  //     "The Latest Unfiltered News",
+  //     "Explore news from around the world that are outside the mainstream media",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-touch.png"),
+  //     null, 0,
+  //     0, 0, 4,
+  //     0, 0, null, null);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 7.5, 576.25, 44, 7, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
 
-    user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"), null);
-    const cardId4 = uuid.v4();
-    const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
-    card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
-      this.getPreviewUrl("podcast_handle.jpg"),
-      this.getPreviewUrl("football_podcast.jpg"), 985, 554,
-      null,
-      "Pyro Podcast Show 285",
-      "Foreshadowing Week 4",
-      false,
-      null,
-      this.getPreviewUrl("icon-audio.png"),
-      null, 0,
-      0.01, 0, 5,
-      3, 10, couponPromo4.signedObject, couponPromo4.id,
-      null,
-      cardId4);
-    await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 2, 201.24, 99, 4, 0, 0);
-    await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
-  }
+  //   user = await this.insertPreviewUser('pyro', 'pyro', "Pyro Podcast", this.getPreviewUrl("podcast_handle.jpg"), null);
+  //   const cardId4 = uuid.v4();
+  //   const couponPromo4 = await this.createPromotionCoupon(user, cardId4, 0.01, 2, 10);
+  //   card = await db.insertCard(user.user.id, user.keyInfo.address, 'pyro', 'Pyro Podcast',
+  //     this.getPreviewUrl("podcast_handle.jpg"),
+  //     this.getPreviewUrl("football_podcast.jpg"), 985, 554,
+  //     null,
+  //     "Pyro Podcast Show 285",
+  //     "Foreshadowing Week 4",
+  //     false,
+  //     null,
+  //     this.getPreviewUrl("icon-audio.png"),
+  //     null, 0,
+  //     0.01, 0, 5,
+  //     3, 10, couponPromo4.signedObject, couponPromo4.id,
+  //     null,
+  //     cardId4);
+  //   await db.updateCardStats_Preview(card.id, 1000 * 60 * 60 * 24 * 2, 201.24, 99, 4, 0, 0);
+  //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  // }
 
   private async createPromotionCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number): Promise<CouponInfo> {
     return this.createCoupon(user, cardId, amount, budgetAmount, budgetAmount, "card-promotion");
@@ -905,6 +905,15 @@ export class FeedManager implements Initializable, RestServer {
 
   private getPreviewUrl(relative: string): string {
     return this.urlManager.getStaticUrl("preview/" + relative, true);
+  }
+
+  async search(user: UserRecord, searchString: string, limit: number): Promise<CardDescriptor[]> {
+    if (!limit || limit < 1 || limit > 999) {
+      limit = 50;
+    }
+    const cardRecords = await db.findCardsBySearch(searchString, limit);
+    const cards = await this.populateCards(cardRecords, false, user);
+    return await this.mergeWithAdCards(user, cards);
   }
 }
 

@@ -78,7 +78,8 @@
           data.pricing && data.pricing.fee ? data.pricing.fee.priceLevel : 0,
           data.promotion && data.promotion.budgetCoins ? data.promotion.budgetCoins : 0,
           data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
-          data.cardSharedState
+          data.cardSharedState,
+          data.searchText
         ).then(() => {
           $router.goto("feed/mine");
         }).catch((err) => {

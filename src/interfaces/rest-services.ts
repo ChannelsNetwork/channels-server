@@ -340,6 +340,7 @@ export interface PostCardDetails extends Signable {
   };
   sharedState: CardState;
   coupon?: SignedObject;   // BankCouponDetails
+  searchText: string;
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -545,4 +546,13 @@ export interface BraintreeTransactionError {
   attribute: string;
   code: string;
   message: string;
+}
+
+export interface SearchDetails extends Signable {
+  searchString: string;
+  limit: number;
+}
+
+export interface SearchResponse extends RestResponse {
+  cards: CardDescriptor[];
 }

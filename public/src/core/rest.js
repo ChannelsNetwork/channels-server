@@ -202,7 +202,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
+  static postCardDetails(address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState, searchText) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
@@ -216,7 +216,8 @@ class RestUtils {
       openPayment: openPayment,         // only for ads
       openFeeUnits: openFeeUnits,       // 1..10
       coupon: coupon,                   // signed BankCouponDetails
-      sharedState: initialState         // {properties: {...}, collections: {...}}
+      sharedState: initialState,        // {properties: {...}, collections: {...}}
+      searchText: searchText
     };
     if (budgetAmount || budgetPlusPercent) {
       result.budget = {
@@ -397,6 +398,15 @@ class RestUtils {
       timestamp: RestUtils.now(),
       amount: amount,
       paymentMethodNonce: nonce
+    };
+  }
+
+  static search(address, searchString, limit) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      searchString: searchString,
+      limit: limit
     };
   }
 }
