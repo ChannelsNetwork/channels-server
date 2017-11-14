@@ -42,6 +42,7 @@ export class FileManager implements RestServer {
   }
 
   private async handleUpload(request: Request, response: Response): Promise<void> {
+    console.log("FileManager.handleUpload starting");
     const d = new Date();
     const fileRecord = await db.insertFile('started', configuration.get('aws.s3.bucket'));
     let ownerAddress: string;
@@ -49,6 +50,7 @@ export class FileManager implements RestServer {
     let signature: string;
     const busboy = new Busboy({ headers: request.headers });
     busboy.on('file', (fieldname: string, file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string) => {
+      console.log("FileManager.handleUpload starting file", filename);
       void this.handleUploadStart(file, filename, encoding, mimetype, fileRecord, ownerAddress, signatureTimestamp, signature, response);
     });
     busboy.on('field', (fieldname: string, val: any, fieldnameTruncated: boolean, valTruncated: boolean, encoding: string, mimetype: string) => {
@@ -98,6 +100,7 @@ export class FileManager implements RestServer {
         await this.abortFile(fileRecord);
         return;
       }
+      console.log("FileManager.handleUpload uploading to S3", filename);
       await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
     } catch (err) {
       console.error("File.handleUploadStart: Failure", err);
@@ -136,6 +139,7 @@ export class FileManager implements RestServer {
       response.status(500).send("Internal error " + err);
     });
     upload.on('uploaded', (details: any) => {
+      console.log("FileManager.handleUpload upload to S3 completed", filename);
       void this.handleUploadCompleted(fileRecord, user, meter, key, response);
     });
     file.pipe(meter).pipe(upload);
@@ -150,6 +154,7 @@ export class FileManager implements RestServer {
       fileId: fileRecord.id,
       url: fileUrl
     };
+    console.log("FileManager.handleUpload sending response", reply);
     response.json(reply);
   }
 }
