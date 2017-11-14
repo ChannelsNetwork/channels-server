@@ -30,6 +30,7 @@ import * as fs from 'fs';
 import * as escapeHtml from 'escape-html';
 import * as LRU from 'lru-cache';
 import * as url from 'url';
+import * as universalAnalytics from 'universal-analytics';
 
 const promiseLimit = require('promise-limit');
 
@@ -51,9 +52,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
   private cardTemplate: string;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
+  private analyticsVisitor: universalAnalytics.Visitor;
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
+    if (configuration.get('google.analytics.id')) {
+      this.analyticsVisitor = universalAnalytics(configuration.get('google.analytics.id'));
+    }
   }
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
@@ -111,11 +116,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
+    console.log("handleCardRequest!!");
     const card = await db.findCardById(request.params.cardId, false);
     if (!card) {
       response.redirect('/');
       return;
     }
+    if (this.analyticsVisitor) {
+      this.analyticsVisitor.pageview({
+        dp: request.url,
+        dh: request.headers.host,
+        uip: request.headers['x-forwarded-for'] || request.connection.remoteAddress,
+        ua: request.headers['user-agent'],
+        dr: request.headers.referrer || request.headers.referer,
+        de: request.headers['accept-encoding'],
+        ul: request.headers['accept-language']
+      }).send();
+    }
+
     const ogUrl = configuration.get('baseClientUri');
     const view = {
       og_title: escapeHtml(card.summary.title),
@@ -127,7 +145,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id)
     };
     const output = Mustache.render(this.cardTemplate, view);
-    response.setHeader("Cache-Control", 'public, max-age=' + 600);
+    response.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
     response.contentType('text/html');
     response.status(200).send(output);
   }

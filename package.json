@@ -60,6 +60,7 @@
     "sns-validator": "^0.3.1",
     "stream-meter": "^1.0.4",
     "text-encoding": "^0.6.4",
+    "universal-analytics": "^0.4.15",
     "useragent": "^2.2.1",
     "uuid": "^3.1.0",
     "websocket": "^1.0.24"
@@ -90,6 +91,7 @@
     "@types/s3-upload-stream": "^1.0.0",
     "@types/stream-meter": "0.0.20",
     "@types/text-encoding": "0.0.31",
+    "@types/universal-analytics": "^0.4.2",
     "@types/useragent": "^2.1.1",
     "@types/uuid": "^3.0.0",
     "@types/websocket": "0.0.33",
