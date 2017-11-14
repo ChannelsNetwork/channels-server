@@ -95,7 +95,7 @@ export class Bank implements RestServer, Initializable {
       if (!user) {
         return;
       }
-      userManager.updateUserBalance(user);
+      await userManager.updateUserBalance(user);
       if (!requestBody.detailsObject.transaction) {
         response.status(400).send("Missing details");
         return;
