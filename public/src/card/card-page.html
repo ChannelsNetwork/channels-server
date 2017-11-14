@@ -149,8 +149,12 @@
 
           if ($core.balance < this.data.pricing.openFee) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
-              return this.$.insufficientFunds.show().then(() => {
-                this._doCardClose(this.data.id);
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("balance");
+                } else {
+                  this._doCardClose(this.data.id);
+                }
               });
             });
           } else {

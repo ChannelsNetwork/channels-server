@@ -3,15 +3,22 @@
 <dom-module id="insufficient-funds-dialog">
   <template>
     <style is="custom-style" include="app-styles">
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+        cursor: pointer;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
-      <h3>Insufficient Funds</h3>
+      <h2>Insufficient Funds</h2>
       <p>Your balance is too low to open this card.</p>
       <p>You have three options:
         <ul>
           <li>
             <b>Purchase coins</b>: click on Deposit on your
-            <a href="#balance">balance page</a>
+            <a on-click="_onBalance">balance page</a>
           </li>
           <li>
             <b>Consume promoted content</b>: find cards with green payment indicators in the top-right corner</li>
@@ -47,14 +54,19 @@
       _handleButton(event) {
         this.$.dlg.hide();
         this._promise = null;
-        switch (event.detail.button.id) {
-          case "ok":
-            this._resolve(true);
-            break;
-          default:
-            this._resolve(false);
-            break;
-        }
+        this._resolve({
+          page: "default"
+        });
+        this._resolve = null;
+      }
+
+      _onBalance(event) {
+        event.preventDefault();
+        this.$.dlg.hide();
+        this._promise = null;
+        this._resolve({
+          page: "balance"
+        });
         this._resolve = null;
       }
     }
