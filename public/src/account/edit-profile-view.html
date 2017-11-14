@@ -312,10 +312,12 @@
           });
         } else {
           this._file = file;
-          this._readFile(file).then((dataUrl) => {
-            if (this._file) {
-              this.imageUrl = dataUrl;
-            }
+          $core.ensureImageLib().then(() => {
+            return CoreImageUtils.resample(file, 256).then((dataUrl) => {
+              if (this._file) {
+                this.imageUrl = dataUrl;
+              }
+            });
           }).catch((err) => {
             this.$.filePicker.clear();
             this._file = null;
@@ -324,22 +326,6 @@
             this._setError("Failed to load image file");
           });
         }
-      }
-
-      _readFile(file) {
-        return new Promise((resolve, reject) => {
-          let reader = new FileReader();
-          reader.addEventListener('load', () => {
-            resolve(reader.result);
-          });
-          reader.addEventListener("error", () => {
-            reject();
-          });
-          reader.addEventListener("abort", () => {
-            reject();
-          });
-          reader.readAsDataURL(file);
-        });
       }
 
       _onSave() {

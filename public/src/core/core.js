@@ -55,7 +55,7 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  _loadImageLib() {
+  ensureImageLib() {
     return this._import("utils/load-image.html");
   }
 
@@ -466,7 +466,7 @@ class CoreService extends Polymer.Element {
   }
 
   uploadImageFile(imageFile, filename, maxWidth) {
-    return this._loadImageLib().then(() => {
+    return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth).then((dataUrl) => {
         return this.uploadFile(dataUrl, filename || imageFile.name || "unnamed.jpg");
       });
