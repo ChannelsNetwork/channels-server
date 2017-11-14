@@ -142,94 +142,134 @@
       -webkit-font-smoothing: antialiased;
       color: #292929;
       font-size: 18px;
+      overflow-x: hidden;
+    }
+
+    header {
+      height: 60px;
+      padding: 0 16px 0;
+      background: #213034;
+      color: white;
+      position: relative;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+      -ms-flex-direction: row;
+      -webkit-flex-direction: row;
+      flex-direction: row;
+      -ms-flex-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+      text-align: right;
+      text-transform: uppercase;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      text-align: right;
+    }
+
+    .flex {
+      -ms-flex: 1 1 0.000000001px;
+      -webkit-flex: 1;
+      flex: 1;
+      -webkit-flex-basis: 0.000000001px;
+      flex-basis: 0.000000001px;
+    }
+
+    .logo {
+      display: block;
+      height: 40px;
+      width: auto;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: 'Raleway', 'Roboto', sans-serif;
+      margin: 0;
+      font-weight: 400;
+      line-height: 1.4;
+      color: #212121;
+    }
+
+    h2 {
+      font-size: 28px;
     }
 
     .container {
-      max-width: 500px;
+      padding: 25px 16px;
       margin: 0 auto;
-      padding: 15px;
-      text-align: center;
+      max-width: 600px;
     }
 
-    .button {
-      cursor: pointer;
-      font-weight: 500;
-      left: 3px;
-      line-height: inherit;
-      position: relative;
-      text-decoration: none;
-      text-align: center;
-      border-style: solid;
-      border-width: 1px;
-      border-radius: 3px;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      display: inline-block;
-      margin: 25px;
-    }
-
-    .button--small {
-      padding: 10px 20px;
-      font-size: 0.875rem;
-    }
-
-    .button--green {
+    input {
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
       outline: none;
-      background-color: #64d18a;
-      border-color: #64d18a;
-      color: white;
-      transition: all 200ms ease;
-    }
-
-    .button--green:hover {
-      background-color: #8bdda8;
-      color: white;
-    }
-
-    .explain {
-      font-size: 14px;
-      text-align: left;
-      margin: 15px 0;
-    }
-
-    .amountPanel {
-      font-size: 16px;
-      margin: 25px 0;
-    }
-
-    #amount {
-      font-size: 16px;
-      width: 60px;
-    }
-
-    .error {
-      background: #fcc;
+      border: 3px solid #4CAF50;
+      padding: 3px;
     }
 
     .buttons {
-      text-align: center;
+      padding: 30px 0;
     }
 
     #errorMessage {
       font-size: 16px;
-      color: red;
+      color: #D32F2F;
       text-align: left;
+      padding: 16px 0;
     }
 
-    .hidden {
-      display: none;
+    button {
+      outline: none;
+      letter-spacing: 0.03em;
+      text-decoration: none;
+      text-transform: uppercase;
+      border: none;
+      font-size: 17px;
+      padding: 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      -webkit-user-select: none;
+      user-select: none;
+      margin-right: 5px;
+      margin-bottom: 10px;
+    }
+
+    button:active {
+      box-shadow: 0 0 10px 0px rgba(0, 0, 0, 0.4) inset;
+    }
+
+    button:disabled {
+      cursor: inherit;
+      background: #000;
+      opacity: 0.38;
     }
   </style>
 </head>
 
 <body>
+  <header>
+    <a id="logoLink" href="/">
+      <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+    </a>
+    <div class="flex">Deposit</div>
+  </header>
   <div class="container">
-    <h3>Purchase ChannelCoins</h3>
-    <div class="explain">When you purchase coins, they will be added to your balance and can be used for any purpose including paying for content,
+    <h2>Purchase ChannelCoins</h2>
+    <p>When you purchase coins, they will be added to your balance and can be used for any purpose including paying for content,
       promoting your content, or making withdrawals.
-    </div>
-    <div class="explain">Exchange rate: US$1.00 = ℂ1.00</div>
-    <div class="explain">A credit card transaction fee ($0.30 plus 2.9%) will be deducted from your payment.</div>
+    </p>
+    <p>Exchange rate:
+      <b>US$1.00 = ℂ1.00</b>
+    </p>
+    <p>A credit card transaction fee ($0.30 plus 2.9%) will be deducted from your payment.</p>
     <div class="amountPanel">
       Amount to deposit US$
       <input id="amount" type=number min="1" max="9999">
