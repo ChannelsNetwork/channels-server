@@ -104,10 +104,6 @@
         text-align: right;
       }
 
-      .center {
-        text-align: center;
-      }
-
       .statementSubtitle {
         font-size: 12px;
         font-style: italic;
@@ -142,7 +138,7 @@
       }
 
       .buttonPanel {
-        margin: 25px 0;
+        padding: 30px 0;
         text-align: left;
       }
 
@@ -165,20 +161,22 @@
         font-size: 20px;
       }
 
-      .withdraw {
-        display: inline-block;
-        margin-left: 30px;
-        text-align: left;
-      }
-
       #withdrawExplain {
-        font-size: 12px;
-        font-style: italic;
-        max-width: 175px;
+        font-size: 14px;
+        color: #777;
+        padding: 0 10px;
       }
 
       #btnDeposit {
         vertical-align: top;
+      }
+
+      .row {
+        margin-top: 16px;
+      }
+
+      button {
+        min-width: 120px;
       }
     </style>
     <div id="fullContent">
@@ -194,10 +192,14 @@
             <div>[[balance]]</div>
           </div>
           <div class="buttonPanel">
-            <button id="btnDeposit" raised on-click="_onDepositClick">Deposit...</button>
-            <div class="withdraw">
-              <button id="btnWithdraw" raised disabled on-click="_onWithdrawClick">Withdraw...</button>
-              <div id="withdrawExplain">Minimum balance of ℂ6.00 required for withdrawal</div>
+            <div class="row">
+              <button id="btnDeposit" on-click="_onDepositClick">Deposit</button>
+            </div>
+            <div class="horizontal layout center row">
+              <div>
+                <button id="btnWithdraw" disabled on-click="_onWithdrawClick">Withdraw</button>
+              </div>
+              <div class="flex" id="withdrawExplain">Minimum balance of ℂ6.00 required for withdrawal</div>
             </div>
           </div>
         </div>

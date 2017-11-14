@@ -283,7 +283,10 @@
           feed = this._route.context.feed;
         }
         if (feed) {
-          $router.goto(feed);
+          $router.goto(feed, {
+            preventReload: true,
+            scrollTop: this._route.context.scrollTop || 0
+          });
           return;
         }
         if (this.data) {

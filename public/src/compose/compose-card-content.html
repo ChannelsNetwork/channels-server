@@ -1,3 +1,4 @@
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <dom-module id="compose-card-content">
   <template>
     <style is="custom-style" include="app-styles">
@@ -15,11 +16,33 @@
       #cancel {
         margin-right: 10px;
       }
+
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.95);
+        padding-top: 40px;
+      }
+
+      .message {
+        padding: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        opacity: 0.87;
+      }
     </style>
     <div id="container"></div>
     <div class="buttons">
       <button id="cancel" on-click="_onCancel">Cancel</button>
       <button id="next" disabled on-click="_onNext">Next</button>
+    </div>
+    <div id="overlay" class="hidden">
+      <soso-spinner id="spinner"></soso-spinner>
+      <div class="message">[[message]]</div>
     </div>
   </template>
   <script>
@@ -27,7 +50,8 @@
       static get is() { return 'compose-card-content'; }
       static get properties() {
         return {
-          wizard: Object
+          wizard: Object,
+          message: String
         };
       }
 
@@ -97,6 +121,9 @@
       onTransitioningOut(forward) {
         return new Promise((resolve, reject) => {
           if (this.composer.prepare) {
+            this.message = this.composer.prepareMessage || "Saving card";
+            this.$.overlay.classList.remove("hidden");
+            this.$.spinner.spinning = true;
             this.composer.prepare().then(() => {
               this._finishTransition(forward, resolve);
             }).catch((err) => {
@@ -109,6 +136,8 @@
       }
 
       _finishTransition(forward, resolve) {
+        this.$.spinner.spinning = false;
+        this.$.overlay.classList.add("hidden");
         if (!forward) {
           resolve();
         } else {
