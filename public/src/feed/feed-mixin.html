@@ -114,15 +114,19 @@
       _onCardOpenRequest(event) {
         let card = event.detail.item;
         if (card) {
-          $core.cardOpened(card.id);
-          let context = {
-            card: card,
-            scrollTop: $app.shell.scrollTop
-          };
-          if (this._parsedRoute) {
-            context.feed = this._parsedRoute.path;
+          if ($core.balance < card.pricing.openFee) {
+            this.$.insufficientFunds.show();
+          } else {
+            $core.cardOpened(card.id);
+            let context = {
+              card: card,
+              scrollTop: $app.shell.scrollTop
+            };
+            if (this._parsedRoute) {
+              context.feed = this._parsedRoute.path;
+            }
+            $router.goto(['card', card.id], context, 'shift-left');
           }
-          $router.goto(['card', card.id], context, 'shift-left');
         }
       }
       // _onCardOpenRequest(event) {

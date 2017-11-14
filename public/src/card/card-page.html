@@ -1,5 +1,7 @@
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
+<link rel="import" href="../dialogs/insufficient-funds-dialog.html">
+
 <dom-module id="card-page">
   <template>
     <style is="custom-style" include="app-styles">
@@ -71,6 +73,7 @@
         <div id="cardView" class="hidden"></div>
       </div>
     </div>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class CardPage extends Polymer.Element {
@@ -145,25 +148,30 @@
           }
           this.data = cardData.card;
 
-          // Import card package
-          let packageName = this.data.cardType.package;
-          if (!packageName) {
-            console.error("Failed to load card - inavlid package name");
-            this._onNoCard();
-            return;
-          }
-          return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
-            // Import the card viewer
-            return this._import(packageInfo.importHref).then(() => {
-              this._createCardView(packageInfo);
-              setTimeout(() => {
-                if (this._active) {
-                  this._startPaymentTimer();
-                }
+          if ($core.balance < this.data.pricing.openFee) {
+            this.$.insufficientFunds.show().then(() => {
+              $router.goto(['feed', 'recommended', this.data.id]);
+            });
+          } else {
+            // Import card package
+            let packageName = this.data.cardType.package;
+            if (!packageName) {
+              console.error("Failed to load card - inavlid package name");
+              this._onNoCard();
+              return;
+            }
+            return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+              // Import the card viewer
+              return this._import(packageInfo.importHref).then(() => {
+                this._createCardView(packageInfo);
+                setTimeout(() => {
+                  if (this._active) {
+                    this._startPaymentTimer();
+                  }
+                });
               });
             });
-          });
-
+          }
         }).catch((err) => {
           console.error(err);
           this._onNoCard();

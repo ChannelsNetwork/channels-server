@@ -1,6 +1,7 @@
 <link rel="import" href="feed-mixin.html">
 <link rel="import" href="card-feed.html">
 <link rel="import" href="../channel-icons.html">
+<link rel="import" href="../dialogs/insufficient-funds-dialog.html">
 
 <dom-module id="feed-view">
   <template>
@@ -37,6 +38,7 @@
         on-card-payment-due="_onCardPay"></card-feed>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add" icon-map="[[iconMap]]"></soso-icon>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class FeedView extends FeedMixin(Polymer.Element) {
