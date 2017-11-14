@@ -54,13 +54,17 @@
       }
 
       #github {
-        margin: 15px 0 25px 25px;
+        padding: 15px 0 0;
       }
 
       .explain {
-        margin-top: 10px;
+        margin-top: 12px;
         font-size: 14px;
-        font-style: italic;
+        color: #555;
+      }
+
+      .explain:hover {
+        color: var(--dark-green);
       }
     </style>
     <div class="container">
@@ -73,7 +77,7 @@
         <soso-radio-button name="custom" label="Custom: choose any card type hosted on GitHub"></soso-radio-button>
       </soso-radio-group>
       <div id="github" style="display:none;">
-        <soso-text-input id="repo" placeholder="GitHub organization/repository" label='example: "ChannelsNetwork/card-story"' on-input="_onInput"></soso-text-input>
+        <soso-text-input id="repo" placeholder="GitHub-organization/repository" label="Repository" on-input="_onInput"></soso-text-input>
         <div class="explain">
           <a href="#learn-card-development">Learn about developing new card types</a>
         </div>
