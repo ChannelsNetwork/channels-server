@@ -351,7 +351,7 @@
         let email = this.$.email.value.trim();
         if (this._file) {
           this._setMessage("Uploading image");
-          $core.uploadFile(this._file).then((fileInfo) => {
+          $core.uploadImageFile(this._file, null, 256).then((fileInfo) => {
             let url = fileInfo.url;
             this._setMessage("Saving profile");
             this._updateProfile(name, email, url);
