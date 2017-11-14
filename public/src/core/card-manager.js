@@ -62,6 +62,10 @@ class CardService {
   upload(file, filename) {
     return this._core.uploadFile(file, filename);
   }
+
+  uploadImage(file, filename) {
+    return this._core.uploadImageFile(file, filename);
+  }
 }
 
 class UserManager {

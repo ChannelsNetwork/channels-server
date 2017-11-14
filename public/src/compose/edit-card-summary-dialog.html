@@ -55,7 +55,7 @@
             this.summary.title = this.$.title.value;
             this.summary.text = this.$.text.value;
             if (this._file) {
-              return $core.uploadFile(this._file).then((fileInfo) => {
+              return $core.uploadImageFile(this._file).then((fileInfo) => {
                 this.summary.imageUrl = fileInfo.url;
                 this._resolve(this.summary);
               });
