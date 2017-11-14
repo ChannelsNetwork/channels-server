@@ -86,6 +86,7 @@
       onActivate(route) {
         this._active = true;
         this._route = route;
+        $app.preventScrollBehavior = true;
         this.data = null;
         $core.register().then(() => {
           if (route.segments.length < 2) {
