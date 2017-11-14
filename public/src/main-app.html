@@ -228,7 +228,13 @@
         // notify analytics 
         if (window.ga) {
           try {
-            window.ga('send', 'pageview', "/" + pageName);
+            let pageToReport = pageName + "";
+            if (route.segments.length > 1) {
+              for (let i = 1; i < route.segments.length; i++) {
+                pageToReport += "/" + route.segments[i];
+              }
+            }
+            window.ga('send', 'pageview', "/" + pageToReport);
           } catch (err) { }
         }
       }

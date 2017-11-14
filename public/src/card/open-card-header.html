@@ -448,6 +448,7 @@
           console.error("Failed to update like state", err);
         });
         this._refreshRating();
+        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
       }
 
       _onUpVote() {
@@ -469,6 +470,7 @@
           console.error("Failed to update like state", err);
         });
         this._refreshRating();
+        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
       }
 
       get _shareUrl() {

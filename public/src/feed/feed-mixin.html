@@ -116,7 +116,11 @@
         if (card) {
           if ($core.balance < card.pricing.openFee) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
-              return this.$.insufficientFunds.show();
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("balance");
+                }
+              });
             });
           } else {
             $core.cardOpened(card.id);

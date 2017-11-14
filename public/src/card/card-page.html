@@ -288,10 +288,17 @@
 
       _onPaymentSuccess() {
         this.$.header.onPayment();
+        this._fireUpdateCardData();
       }
 
       _closeCard() {
         this._doCardClose(null);
+      }
+
+      _fireUpdateCardData() {
+        if (this.data) {
+          window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        }
       }
 
       _doCardClose(cardId) {

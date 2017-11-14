@@ -305,12 +305,25 @@
           this.style.opacity = 1;
         });
         this._onData();
+
+        this._cardDataListener = (event) => {
+          if (this.data && event.detail.card) {
+            if (this.data.id === event.detail.card.id) {
+              this.data = event.detail.card;
+            }
+          }
+        };
+        window.addEventListener("card-data-updated", this._cardDataListener);
       }
 
       disconnectedCallback() {
         super.disconnectedCallback();
         this._attached = false;
         this._detachIntersectionObservers();
+        if (this._cardDataListener) {
+          window.removeEventListener("card-data-updated", this._cardDataListener);
+          this._cardDataListener = null;
+        }
       }
 
       _attachIntersectionObservers() {
