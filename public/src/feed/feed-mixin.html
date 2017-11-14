@@ -115,7 +115,9 @@
         let card = event.detail.item;
         if (card) {
           if ($core.balance < card.pricing.openFee) {
-            this.$.insufficientFunds.show();
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show();
+            });
           } else {
             $core.cardOpened(card.id);
             let context = {
@@ -187,6 +189,16 @@
             });
           }
         }
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
       }
     };
   })();

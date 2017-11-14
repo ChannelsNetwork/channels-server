@@ -1,6 +1,5 @@
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
-<link rel="import" href="../dialogs/insufficient-funds-dialog.html">
 
 <dom-module id="card-page">
   <template>
@@ -149,8 +148,10 @@
           this.data = cardData.card;
 
           if ($core.balance < this.data.pricing.openFee) {
-            this.$.insufficientFunds.show().then(() => {
-              $router.goto(['feed', 'recommended', this.data.id]);
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then(() => {
+                this._doCardClose(this.data.id);
+              });
             });
           } else {
             // Import card package
@@ -180,7 +181,7 @@
 
       _import(url) {
         return new Promise((resolve, reject) => {
-          Polymer.importHref(url, () => {
+          Polymer.importHref(this.resolveUrl(url), () => {
             resolve();
           }, (err) => {
             reject(err);
@@ -286,6 +287,10 @@
       }
 
       _closeCard() {
+        this._doCardClose(null);
+      }
+
+      _doCardClose(cardId) {
         let feed = null;
         if (this._route && this._route.context) {
           feed = this._route.context.feed;
@@ -297,10 +302,14 @@
           });
           return;
         }
-        if (this.data) {
-          $router.goto(["channel", this.data.by.handle]);
+        if (cardId) {
+          $router.goto("feed", "recommended", cardId);
         } else {
-          $router.goto("");
+          if (this.data) {
+            $router.goto(["channel", this.data.by.handle]);
+          } else {
+            $router.goto("");
+          }
         }
       }
     }
