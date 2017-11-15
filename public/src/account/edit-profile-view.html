@@ -313,7 +313,7 @@
         } else {
           this._file = file;
           $core.ensureImageLib().then(() => {
-            return CoreImageUtils.resample(file, 256).then((dataUrl) => {
+            return CoreImageUtils.resample(file, 128).then((dataUrl) => {
               if (this._file) {
                 this.imageUrl = dataUrl;
               }
