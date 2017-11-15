@@ -191,6 +191,7 @@ export class FileManager implements RestServer {
       }
       response.setHeader("Server", 'Channels');
       response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 30);
+      response.status(statusCode);
     }).createReadStream()
       .on('end', () => {
         console.log("FileManager.handleFetch completed");
