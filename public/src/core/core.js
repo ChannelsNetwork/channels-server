@@ -475,6 +475,9 @@ class CoreService extends Polymer.Element {
 
   uploadFile(file, filename) {
     var formData = new FormData();
+    if ((file instanceof Blob) && (!file.name)) {
+      file = new File([file], filename ? filename : 'unnamed');
+    }
     formData.append("address", this._keys.address);
     const signatureTimestamp = Date.now().toString();
     formData.append("signatureTimestamp", signatureTimestamp);
