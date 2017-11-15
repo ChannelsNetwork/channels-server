@@ -10,7 +10,7 @@
       img,
       video {
         display: block;
-        max-width: 900px;
+        max-width: 400px;
         height: auto;
         margin: 10px auto;
       }
@@ -52,7 +52,7 @@
         canvas.width = node.offsetWidth;
         canvas.height = node.offsetHeight;
         let ctx = canvas.getContext('2d');
-        ctx.drawImage(node, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(node, 0, 0, canvas.width, canvas.height);
         this.$.dummy.innerHTML = "";
         // this.$.dummy.appendChild(canvas);
         let div = document.createElement("div");
