@@ -181,7 +181,7 @@ export class FileManager implements RestServer {
       Key: request.params.fileId + "/" + request.params.fileName
     };
     if (request.headers.range) {
-      s3Request.Range = request.headers.range;
+      s3Request.Range = request.headers.range.toString();
     }
     this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
       for (const key of Object.keys(headers)) {
