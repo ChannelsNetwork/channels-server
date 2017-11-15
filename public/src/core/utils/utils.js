@@ -1,5 +1,5 @@
 class CoreImageUtils {
-  static resample(file, maxWidth) {
+  static resample(file, maxWidth, asBlob) {
     return new Promise((resolve, reject) => {
       const loadImage = window.loadImage;
       if (!loadImage) {
@@ -19,8 +19,14 @@ class CoreImageUtils {
           config.maxWidth = maxWidth;
         }
         loadImage(file, (canvas) => {
-          var base64data = canvas.toDataURL('image/jpeg');
-          resolve(base64data);
+          if (asBlob) {
+            canvas.toBlob((blob) => {
+              resolve(blob);
+            }, 'image/jpeg');
+          } else {
+            var base64data = canvas.toDataURL('image/jpeg');
+            resolve(base64data);
+          }
         }, config);
       });
     });

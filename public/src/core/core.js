@@ -467,20 +467,14 @@ class CoreService extends Polymer.Element {
 
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
-      return CoreImageUtils.resample(imageFile, maxWidth).then((dataUrl) => {
-        return this.uploadFile(dataUrl, filename || imageFile.name || "unnamed.jpg");
+      return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
+        return this.uploadFile(blob, filename || imageFile.name || "unnamed.jpg");
       });
     });
   }
 
-  uploadFile(fileOrDataUrl, filename) {
-    let file = fileOrDataUrl;
-    if (typeof fileOrDataUrl === 'string') {
-      const blob = this._dataURItoBlob(fileOrDataUrl);
-      file = new File([blob], filename ? filename : 'unnamed')
-    }
+  uploadFile(file, filename) {
     var formData = new FormData();
-
     formData.append("address", this._keys.address);
     const signatureTimestamp = Date.now().toString();
     formData.append("signatureTimestamp", signatureTimestamp);
@@ -489,17 +483,6 @@ class CoreService extends Polymer.Element {
 
     const url = this.restBase + "/upload";
     return this.rest.postFile(url, formData);
-  }
-
-  _dataURItoBlob(dataURI) {
-    var byteString = atob(dataURI.split(',')[1]);
-    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    var ab = new ArrayBuffer(byteString.length);
-    var ia = new Uint8Array(ab);
-    for (var i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mimeString });
   }
 
   isValidEmail(emailAddress) {
