@@ -148,7 +148,7 @@
           }
           this.data = cardData.card;
 
-          if ($core.balance < this.data.pricing.openFee) {
+          if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {
