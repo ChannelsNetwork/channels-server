@@ -25,7 +25,8 @@ export class DepositPageHandler implements RestServer {
     const ogUrl = configuration.get('baseClientUri');
     const view = {
       public_base: this.urlManager.getPublicBaseUrl(),
-      rest_base: this.urlManager.getDynamicBaseUrl()
+      rest_base: this.urlManager.getDynamicBaseUrl(),
+      analyticsId: configuration.get('google.analytics.id')
     };
     const output = Mustache.render(this.content, view);
     response.setHeader("Cache-Control", 'public, max-age=' + 60);

@@ -37,6 +37,7 @@
         on-card-payment-due="_onCardPay"></card-feed>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add" icon-map="[[iconMap]]"></soso-icon>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class FeedView extends FeedMixin(Polymer.Element) {

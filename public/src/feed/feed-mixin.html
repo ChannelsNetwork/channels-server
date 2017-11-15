@@ -115,15 +115,25 @@
       _onCardOpenRequest(event) {
         let card = event.detail.item;
         if (card) {
-          $core.cardOpened(card.id);
-          let context = {
-            card: card,
-            scrollTop: $app.shell.scrollTop
-          };
-          if (this._parsedRoute) {
-            context.feed = this._parsedRoute.path;
+          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("balance");
+                }
+              });
+            });
+          } else {
+            $core.cardOpened(card.id);
+            let context = {
+              card: card,
+              scrollTop: $app.shell.scrollTop
+            };
+            if (this._parsedRoute) {
+              context.feed = this._parsedRoute.path;
+            }
+            $router.goto(['card', card.id], context, 'shift-left');
           }
-          $router.goto(['card', card.id], context, 'shift-left');
         }
       }
       // _onCardOpenRequest(event) {
@@ -184,6 +194,16 @@
             });
           }
         }
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
       }
     };
   })();

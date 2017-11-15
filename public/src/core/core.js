@@ -4,52 +4,6 @@ const _CKeys = {
   AGREED_TERMS: "channels-terms-agreed"
 };
 
-class StorageService {
-  getItem(key, json) {
-    const result = this._getItemFromStorage(window.localStorage, key, json);
-    if (result) {
-      return result;
-    }
-    return this._getItemFromStorage(window.sessionStorage, key, json);
-  }
-
-  _getItemFromStorage(storage, key, json) {
-    if (storage) {
-      let stored = storage.getItem(key) || null;
-      if (json) {
-        if (stored) {
-          return JSON.parse(stored);
-        }
-        return null;
-      }
-      return stored;
-    } else {
-      return null;
-    }
-  }
-
-  setItem(key, value, trust) {
-    this.clearItem(key);
-    const storage = trust ? window.localStorage : window.sessionStorage;
-    if (storage) {
-      if (typeof value === "string") {
-        storage.setItem(key, value);
-      } else {
-        storage.setItem(key, JSON.stringify(value));
-      }
-    }
-  }
-
-  clearItem(key) {
-    if (window.localStorage) {
-      window.localStorage.removeItem(key);
-    }
-    if (window.sessionStorage) {
-      window.sessionStorage.removeItem(key);
-    }
-  }
-}
-
 class CoreService extends Polymer.Element {
   static get is() { return "core-service"; }
   constructor() {
@@ -80,20 +34,29 @@ class CoreService extends Polymer.Element {
     return this._keys && this._keys.privateKey ? true : false;
   }
 
-  _loadKeyLib() {
+  _import(url) {
     return new Promise((resolve, reject) => {
-      if (this._keyLibLoaded) {
-        resolve();
-        return;
-      }
-      Polymer.importHref(this.resolveUrl("../../bower_components/channels-web-utils/channels-key-utils.html"), () => {
-        this._keyLibLoaded = true;
+      Polymer.importHref(this.resolveUrl(url), () => {
         resolve();
       }, (err) => {
-        console.error("Error importing channels-key-utils", err);
         reject(err);
       });
     });
+  }
+
+  _loadKeyLib() {
+    if (this._keyLibLoaded) {
+      return new Promise((resolve, reject) => { resolve(); });
+    }
+    return this._import("../../bower_components/channels-web-utils/channels-key-utils.html").then(() => {
+      this._keyLibLoaded = true;
+    }).catch((err) => {
+      console.error("Error importing channels-key-utils", err);
+    });
+  }
+
+  ensureImageLib() {
+    return this._import("utils/load-image.html");
   }
 
   _sign(data) {
@@ -511,14 +474,16 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  uploadFile(fileOrDataUrl, filename) {
-    let file = fileOrDataUrl;
-    if (typeof fileOrDataUrl === 'string') {
-      const blob = this._dataURItoBlob(fileOrDataUrl);
-      file = new File([blob], filename ? filename : 'unnamed')
-    }
-    var formData = new FormData();
+  uploadImageFile(imageFile, filename, maxWidth) {
+    return this.ensureImageLib().then(() => {
+      return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
+        return this.uploadFile(blob, filename || imageFile.name || "unnamed.jpg");
+      });
+    });
+  }
 
+  uploadFile(file, filename) {
+    var formData = new FormData();
     formData.append("address", this._keys.address);
     const signatureTimestamp = Date.now().toString();
     formData.append("signatureTimestamp", signatureTimestamp);
@@ -527,17 +492,6 @@ class CoreService extends Polymer.Element {
 
     const url = this.restBase + "/upload";
     return this.rest.postFile(url, formData);
-  }
-
-  _dataURItoBlob(dataURI) {
-    var byteString = atob(dataURI.split(',')[1]);
-    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    var ab = new ArrayBuffer(byteString.length);
-    var ia = new Uint8Array(ab);
-    for (var i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mimeString });
   }
 
   isValidEmail(emailAddress) {

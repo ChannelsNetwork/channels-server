@@ -51,7 +51,7 @@ const MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.05;
 const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 1;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
-const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 5;
+const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 2;
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;

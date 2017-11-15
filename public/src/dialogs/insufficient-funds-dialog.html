@@ -1,0 +1,75 @@
+<link rel="import" href="../controls/dialog-view.html">
+
+<dom-module id="insufficient-funds-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+        cursor: pointer;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h2>Insufficient Funds</h2>
+      <p>Your balance is too low to open this card.</p>
+      <p>You have three options:
+        <ul>
+          <li>
+            <b>Purchase coins</b>: click on Deposit on your
+            <a on-click="_onBalance">balance page</a>
+          </li>
+          <li>
+            <b>Consume promoted content</b>: find cards with green payment indicators in the top-right corner</li>
+          <li>
+            <b>Wait for subsidies</b>: the network will slowly replenish your balance over time</li>
+        </ul>
+      </p>
+    </dialog-view>
+  </template>
+  <script>
+    class InsufficientFundsDialog extends Polymer.Element {
+      static get is() { return 'insufficient-funds-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array
+        };
+      }
+
+      show() {
+        if (this._promise) {
+          return this._promise;
+        }
+        this._buttons = [
+          { id: 'ok', label: "OK" }
+        ];
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+      }
+
+      _handleButton(event) {
+        this.$.dlg.hide();
+        this._promise = null;
+        this._resolve({
+          page: "default"
+        });
+        this._resolve = null;
+      }
+
+      _onBalance(event) {
+        event.preventDefault();
+        this.$.dlg.hide();
+        this._promise = null;
+        this._resolve({
+          page: "balance"
+        });
+        this._resolve = null;
+      }
+    }
+    window.customElements.define(InsufficientFundsDialog.is, InsufficientFundsDialog);
+  </script>
+</dom-module>

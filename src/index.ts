@@ -113,6 +113,7 @@ class ChannelsNetworkWebClient {
     this.app.use(bodyParser.urlencoded({
       extended: true
     }));
+
     // this.app.use((req: Request, res: Response, next: NextFunction) => {
     //   res.setHeader("Access-Control-Allow-Origin", "*");
     //   res.setHeader("Access-Control-Allow-Credentials", "true");

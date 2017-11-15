@@ -29,7 +29,8 @@ export class RootPageHandler implements RestServer {
     }
     if (!this.globalJsContent) {
       const jsPath = path.join(__dirname, '../../public/scripts/global.js');
-      this.globalJsContent = "<script>\n" + fs.readFileSync(jsPath, 'utf8') + "\n</script>";
+      const gaId = configuration.get('google.analytics.id', "UA-52117709-8");
+      this.globalJsContent = "<script>\nwindow.googleAnalyticsId = \"" + gaId + "\";\n" + fs.readFileSync(jsPath, 'utf8') + "\n</script>";
     }
     if (!this.intersectionObserver) {
       const ioPath = path.join(__dirname, '../../public/scripts/intersection-observer.js');
@@ -56,7 +57,7 @@ export class RootPageHandler implements RestServer {
   }
 
   private handlePage(content: string, request: Request, response: Response) {
-    const agentInfo = useragent.is(request.headers['user-agent']);
+    const agentInfo = useragent.is(request.headers['user-agent'].toString());
     const ogUrl = configuration.get('baseClientUri');
     const metadata = {
       title: "Channels",
@@ -83,7 +84,8 @@ export class RootPageHandler implements RestServer {
       og_imageheight: metadata.imageHeight,
       globaljs: globalJs,
       pre_globaljs: preGlobaljs,
-      svglogo: this.logoSvg + this.logoSvgSmall
+      svglogo: this.logoSvg + this.logoSvgSmall,
+      analyticsId: configuration.get('google.analytics.id')
     };
     const output = Mustache.render(content, view);
     response.setHeader("Cache-Control", 'public, max-age=' + 15);

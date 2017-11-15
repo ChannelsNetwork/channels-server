@@ -1,3 +1,20 @@
+if (!HTMLCanvasElement.prototype.toBlob) {
+  Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+    value: function (callback, type, quality) {
+      var canvas = this;
+      setTimeout(function () {
+        var binStr = atob(canvas.toDataURL(type, quality).split(',')[1]),
+          len = binStr.length,
+          arr = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {
+          arr[i] = binStr.charCodeAt(i);
+        }
+        callback(new Blob([arr], { type: type || 'image/png' }));
+      });
+    }
+  });
+}
+
 var _debounce = function (func, wait, immediate) {
   var timeout;
   return function () {
@@ -29,7 +46,7 @@ var _loadAnalytics = function () {
       }, i[r].l = 1 * new Date(); a = s.createElement(o),
         m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
     })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
-    ga('create', 'UA-52117709-8', 'auto');
+    ga('create', window.googleAnalyticsId || "UA-52117709-8", 'auto');
     ga('send', 'pageview', '/app');
   }, 1000);
 };

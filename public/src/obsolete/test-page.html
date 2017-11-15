@@ -1,23 +1,38 @@
-<link rel="import" href="../../bower_components/card-story/card-story-composer.html">
+<link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
 
 <dom-module id="test-page">
   <template>
     <style>
       :host {
         display: block;
-        min-height: 100vh;
-        background: white;
+      }
+
+      img {
+        display: block;
+        max-width: 900px;
+        height: auto;
+        margin: 10px auto;
       }
     </style>
-    <card-story-composer id="c"></card-story-composer>
+    <soso-file-picker id="fp" label="Drag an image" accept="image/*" on-files="_onFile"></soso-file-picker>
+    <img id="img">
   </template>
   <script>
     class TestPage extends Polymer.Element {
       static get is() { return "test-page"; }
 
-      connectedCallback() {
-        super.connectedCallback();
-        this.$.c.services = $core.cardManager.cardService;
+      _onFile(event) {
+        let file = event.detail.file;
+        if (!file) {
+          return;
+        }
+        $core.register().then(() => {
+          console.log("uploading...");
+          $core.uploadImageFile(file, null, 300).then((data) => {
+            console.log(data);
+            this.$.img.src = data.url;
+          });
+        });
       }
     }
     window.customElements.define(TestPage.is, TestPage);

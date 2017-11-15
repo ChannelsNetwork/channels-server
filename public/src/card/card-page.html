@@ -1,5 +1,6 @@
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
+
 <dom-module id="card-page">
   <template>
     <style is="custom-style" include="app-styles">
@@ -71,6 +72,7 @@
         <div id="cardView" class="hidden"></div>
       </div>
     </div>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class CardPage extends Polymer.Element {
@@ -84,6 +86,7 @@
       onActivate(route) {
         this._active = true;
         this._route = route;
+        $app.preventScrollBehavior = true;
         this.data = null;
         $core.register().then(() => {
           if (route.segments.length < 2) {
@@ -145,25 +148,36 @@
           }
           this.data = cardData.card;
 
-          // Import card package
-          let packageName = this.data.cardType.package;
-          if (!packageName) {
-            console.error("Failed to load card - inavlid package name");
-            this._onNoCard();
-            return;
-          }
-          return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
-            // Import the card viewer
-            return this._import(packageInfo.importHref).then(() => {
-              this._createCardView(packageInfo);
-              setTimeout(() => {
-                if (this._active) {
-                  this._startPaymentTimer();
+          if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("balance");
+                } else {
+                  this._doCardClose(this.data.id);
                 }
               });
             });
-          });
-
+          } else {
+            // Import card package
+            let packageName = this.data.cardType.package;
+            if (!packageName) {
+              console.error("Failed to load card - inavlid package name");
+              this._onNoCard();
+              return;
+            }
+            return $core.cardManager.ensurePackage(packageName).then((packageInfo) => {
+              // Import the card viewer
+              return this._import(packageInfo.importHref).then(() => {
+                this._createCardView(packageInfo);
+                setTimeout(() => {
+                  if (this._active) {
+                    this._startPaymentTimer();
+                  }
+                });
+              });
+            });
+          }
         }).catch((err) => {
           console.error(err);
           this._onNoCard();
@@ -172,7 +186,7 @@
 
       _import(url) {
         return new Promise((resolve, reject) => {
-          Polymer.importHref(url, () => {
+          Polymer.importHref(this.resolveUrl(url), () => {
             resolve();
           }, (err) => {
             reject(err);
@@ -275,9 +289,20 @@
 
       _onPaymentSuccess() {
         this.$.header.onPayment();
+        this._fireUpdateCardData();
       }
 
       _closeCard() {
+        this._doCardClose(null);
+      }
+
+      _fireUpdateCardData() {
+        if (this.data) {
+          window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        }
+      }
+
+      _doCardClose(cardId) {
         let feed = null;
         if (this._route && this._route.context) {
           feed = this._route.context.feed;
@@ -289,10 +314,14 @@
           });
           return;
         }
-        if (this.data) {
-          $router.goto(["channel", this.data.by.handle]);
+        if (cardId) {
+          $router.goto("feed", "recommended", cardId);
         } else {
-          $router.goto("");
+          if (this.data) {
+            $router.goto(["channel", this.data.by.handle]);
+          } else {
+            $router.goto("");
+          }
         }
       }
     }
