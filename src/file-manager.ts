@@ -180,8 +180,9 @@ export class FileManager implements RestServer {
       Bucket: configuration.get('aws.s3.bucket'),
       Key: request.params.fileId + "/" + request.params.fileName
     };
-    if (request.headers.range) {
-      s3Request.Range = request.headers.range.toString();
+    const range = request.headers.range || request.headers.Range;
+    if (range) {
+      s3Request.Range = range.toString();
     }
     this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
       for (const key of Object.keys(headers)) {
