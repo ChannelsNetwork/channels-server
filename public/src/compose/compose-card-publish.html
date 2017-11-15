@@ -200,10 +200,11 @@
           }).catch((err) => {
             console.error(err);
             this.wizard.headerVisible = true;
+            $app.showError(err);
           });
         }).catch((err) => {
           console.error(err);
-          window.alert("Oops. There was a problem loading the edit dialog.");
+          $app.showError("Oops. There was a problem loading the edit dialog.");
         });
       }
 
