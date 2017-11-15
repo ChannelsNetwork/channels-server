@@ -7,31 +7,96 @@
         display: block;
       }
 
-      img {
+      img,
+      video {
         display: block;
-        max-width: 900px;
+        max-width: 400px;
         height: auto;
         margin: 10px auto;
       }
+
+      .hidden {
+        display: none;
+      }
+
+      #dummy {
+        margin-top: 20px;
+      }
+
+      #dummy div {
+        word-wrap: break-word;
+        font-size: 12px;
+        padding: 10px 0;
+      }
     </style>
-    <soso-file-picker id="fp" label="Drag an image" accept="image/*" on-files="_onFile"></soso-file-picker>
-    <img id="img">
+    <soso-file-picker id="fp" label="Drag an image" accept="image/*,video/mp4,video/*" on-files="_onFile"></soso-file-picker>
+    <img id="image" class="hidden">
+    <video controls id="video" class="hidden"></video>
+    <div style="text-align: center; margin: 20px 0;">
+      <button on-click="_toCanvas">To Canvas -> DataUrl</button>
+      <div id="dummy"></div>
+    </div>
+
   </template>
   <script>
     class TestPage extends Polymer.Element {
       static get is() { return "test-page"; }
+
+      onActivate() {
+        $app.preventScrollBehavior = true;
+      }
+
+      _toCanvas() {
+        let node = (this.mode === "video") ? this.$.video : this.$.image;
+        let canvas = document.createElement("canvas");
+        canvas.width = node.offsetWidth;
+        canvas.height = node.offsetHeight;
+        let ctx = canvas.getContext('2d');
+        ctx.drawImage(node, 0, 0, canvas.width, canvas.height);
+        this.$.dummy.innerHTML = "";
+        // this.$.dummy.appendChild(canvas);
+        let div = document.createElement("div");
+        div.textContent = canvas.toDataURL("image/jpeg");
+        this.$.dummy.appendChild(div);
+      }
 
       _onFile(event) {
         let file = event.detail.file;
         if (!file) {
           return;
         }
-        $core.register().then(() => {
-          console.log("uploading...");
-          $core.uploadImageFile(file, null, 300).then((data) => {
-            console.log(data);
-            this.$.img.src = data.url;
+        if (file.type.indexOf("video/") === 0) {
+          this.mode = "video";
+          this.$.image.classList.add("hidden");
+          this.$.video.classList.remove("hidden");
+        } else {
+          this.mode = "image";
+          this.$.image.classList.remove("hidden");
+          this.$.video.classList.add("hidden");
+        }
+
+        this._readFile(file).then((url) => {
+          if (this.mode === "video") {
+            this.$.video.src = url;
+          } else {
+            this.$.image.src = url;
+          }
+        });
+      }
+
+      _readFile(file) {
+        return new Promise((resolve, reject) => {
+          let reader = new FileReader();
+          reader.addEventListener('load', () => {
+            resolve(reader.result);
           });
+          reader.addEventListener("error", () => {
+            reject();
+          });
+          reader.addEventListener("abort", () => {
+            reject();
+          });
+          reader.readAsDataURL(file);
         });
       }
     }
