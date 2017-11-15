@@ -121,7 +121,7 @@
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
           if (this._imagesLoaded) {
-            this.loadImages();
+            this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
           }
           if (this.data.pricing.openFeeUnits === 0) {
             this.$.revenue.classList.add("hidden");
