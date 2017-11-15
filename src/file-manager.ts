@@ -14,6 +14,7 @@ import * as uuid from "uuid";
 import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
+import { GetObjectRequest } from "aws-sdk/clients/s3";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -175,23 +176,31 @@ export class FileManager implements RestServer {
 
   private async handleFetch(request: Request, response: Response): Promise<void> {
     console.log("FileManager.handleFetch", request.params.fileId, request.params.fileName);
-    this.s3.getObject({
+    const s3Request: GetObjectRequest = {
       Bucket: configuration.get('aws.s3.bucket'),
       Key: request.params.fileId + "/" + request.params.fileName
-    }).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
-      response.set('Content-Length', headers['content-length']);
-      response.set('Content-Type', headers['content-type']);
-      response.set('Last-Modified', headers['last-modified']);
-      response.set('ETag', headers['etag']);
-      response.set('Accept-Ranges', headers['accept-ranges']);
-      response.set('Content-Range', headers['content-range']);
+    };
+    if (request.headers.range) {
+      s3Request.Range = request.headers.range;
+    }
+    this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
+      for (const key of Object.keys(headers)) {
+        this.transferHeader(response, headers, key);
+      }
+      response.setHeader("Server", 'Channels');
       response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 30);
     }).createReadStream()
       .on('end', () => {
         console.log("FileManager.handleFetch completed");
-        response.end();
       })
       .pipe(response);
+  }
+
+  private transferHeader(response: Response, headers: { [key: string]: string }, headerName: string): void {
+    const header = headers[headerName];
+    if (header && header.length > 0) {
+      response.set(headerName, header);
+    }
   }
 }
 
