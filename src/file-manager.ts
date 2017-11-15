@@ -130,6 +130,7 @@ export class FileManager implements RestServer {
     if (mimetype) {
       destination.ContentType = mimetype;
     }
+    let finished = false;
     destination.Tagging = "owner=" + user.id;
     await db.updateFileProgress(fileRecord, user.id, filename, encoding, mimetype, key, 'uploading');
     const upload = this.s3StreamUploader.upload(destination);
@@ -138,9 +139,17 @@ export class FileManager implements RestServer {
       void db.updateFileStatus(fileRecord, 'failed');
       response.status(500).send("Internal error " + err);
     });
+    upload.on('close', () => {
+      console.log("FileManager.uploadS3: close", filename);
+      if (!finished) {
+        void db.updateFileStatus(fileRecord, 'aborted');
+        response.status(500).send("S3 upload closed without completion");
+      }
+    });
     upload.on('uploaded', (details: any) => {
       console.log("FileManager.handleUpload upload to S3 completed", filename);
       void this.handleUploadCompleted(fileRecord, user, meter, key, response);
+      finished = true;
     });
     file.pipe(meter).pipe(upload);
   }
