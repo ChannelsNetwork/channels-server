@@ -182,6 +182,7 @@ export class FileManager implements RestServer {
     };
     const range = request.headers.range || request.headers.Range;
     if (range) {
+      console.log("FileManager.handleFetch: range", range);
       s3Request.Range = range.toString();
     }
     this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
