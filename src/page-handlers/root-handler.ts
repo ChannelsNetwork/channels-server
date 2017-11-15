@@ -57,7 +57,8 @@ export class RootPageHandler implements RestServer {
   }
 
   private handlePage(content: string, request: Request, response: Response) {
-    const agentInfo = useragent.is(request.headers['user-agent'].toString());
+    const userAgent = request.headers['user-agent'].toString();
+    const agentInfo = useragent.is(userAgent);
     const ogUrl = configuration.get('baseClientUri');
     const metadata = {
       title: "Channels",
@@ -69,7 +70,7 @@ export class RootPageHandler implements RestServer {
     };
     let preGlobaljs = "";
     let globalJs = this.globalJsContent;
-    if (agentInfo.safari || agentInfo.mobile_safari || agentInfo.ie) {
+    if (agentInfo.safari || agentInfo.mobile_safari || agentInfo.ie || (userAgent.indexOf("Edge") >= 0)) {
       globalJs += this.intersectionObserver;
       preGlobaljs = "<script>ShadyDOM = { force: true }; window.customElements.forcePolyfill = true;</script>";
     }
