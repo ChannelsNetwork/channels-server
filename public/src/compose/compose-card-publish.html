@@ -190,11 +190,16 @@
           title: this.cardData.summary.title,
           text: this.cardData.summary.text
         };
+        this.wizard.headerVisible = false;
         this.$.editDialog.show(editSummary).then((resultSummary) => {
+          this.wizard.headerVisible = true;
           if (resultSummary) {
             this.$.cardView.updateSummary(resultSummary);
             this.cardData.summary = resultSummary;
           }
+        }).catch((err) => {
+          console.error(err);
+          this.wizard.headerVisible = true;
         });
       }
     }
