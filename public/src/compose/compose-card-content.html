@@ -70,6 +70,9 @@
       }
 
       onTransitioningIn(forward) {
+        this.$.overlay.classList.add("hidden");
+        this.$.spinner.spinning = false;
+
         if (!this.wizard.data.cardInfo) {
           this.composer = null;
         }
@@ -127,6 +130,8 @@
             this.composer.prepare().then(() => {
               this._finishTransition(forward, resolve);
             }).catch((err) => {
+              this.$.spinner.spinning = false;
+              this.$.overlay.classList.add("hidden");
               reject(err);
             });
           } else {
