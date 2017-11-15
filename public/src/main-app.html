@@ -97,6 +97,7 @@
       <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
     </div>
     <confirm-dialog id="dlgConfirm"></confirm-dialog>
+    <error-dialog id="dlgError"></error-dialog>
   </template>
   <script>
     class MainApp extends Polymer.Element {
@@ -340,6 +341,13 @@
       confirm(message, cancelText, okText) {
         return this._import("dialogs/confirm-dialog.html").then(() => {
           return this.$.dlgConfirm.show(message, cancelText, okText);
+        });
+      }
+
+      showError(error) {
+        let message = error.message || error.toString();
+        return this._import("dialogs/error-dialog.html").then(() => {
+          return this.$.dlgError.show(message);
         });
       }
     }

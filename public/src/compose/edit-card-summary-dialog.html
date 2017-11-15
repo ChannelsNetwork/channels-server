@@ -58,6 +58,9 @@
               return $core.uploadImageFile(this._file).then((fileInfo) => {
                 this.summary.imageUrl = fileInfo.url;
                 this._resolve(this.summary);
+              }).catch((err) => {
+                console.error(err);
+                $app.showError(err);
               });
             } else {
               this._resolve(this.summary);

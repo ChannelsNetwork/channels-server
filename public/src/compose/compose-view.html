@@ -83,7 +83,9 @@
           $router.goto("feed/mine");
         }).catch((err) => {
           console.error("Failed to publish card", err);
-          this._onCancel();
+          $app.showError(err).then(() => {
+            this._onCancel();
+          });
         });
       }
     }

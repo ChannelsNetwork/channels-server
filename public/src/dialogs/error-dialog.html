@@ -1,0 +1,43 @@
+<link rel="import" href="../controls/dialog-view.html">
+<dom-module id="error-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <div style="font-size: 15px;">[[message]]</div>
+    </dialog-view>
+  </template>
+  <script>
+    class ErrorDialog extends Polymer.Element {
+      static get is() { return 'error-dialog'; }
+      static get properties() {
+        return {
+          _buttons: {
+            type: Array,
+            value: _ => [{ id: "ok", label: "OK" }]
+          }
+        };
+      }
+
+      show(message) {
+        if (this._promise) {
+          return this._promise;
+        }
+        this.message = message;
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+      }
+
+      _handleButton(event) {
+        this.$.dlg.hide();
+        this._promise = null;
+        this._resolve(true);
+        this._resolve = null;
+      }
+    }
+    window.customElements.define(ErrorDialog.is, ErrorDialog);
+  </script>
+</dom-module>
