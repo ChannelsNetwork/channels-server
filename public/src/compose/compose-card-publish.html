@@ -1,6 +1,5 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
-<link rel="import" href="edit-card-summary-dialog.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -181,20 +180,40 @@
         } else {
           this.$.cardDeveloper.style.display = "none";
         }
-        Polymer.importHref(this.resolveUrl('../card/card-view.html'));
+        this._import('../card/card-view.html');
       }
 
       _onEdit() {
-        const editSummary = {
-          imageUrl: this.cardData.summary.imageUrl,
-          title: this.cardData.summary.title,
-          text: this.cardData.summary.text
-        };
-        this.$.editDialog.show(editSummary).then((resultSummary) => {
-          if (resultSummary) {
-            this.$.cardView.updateSummary(resultSummary);
-            this.cardData.summary = resultSummary;
-          }
+        this._import('edit-card-summary-dialog.html').then(() => {
+          const editSummary = {
+            imageUrl: this.cardData.summary.imageUrl,
+            title: this.cardData.summary.title,
+            text: this.cardData.summary.text
+          };
+          this.wizard.headerVisible = false;
+          this.$.editDialog.show(editSummary).then((resultSummary) => {
+            this.wizard.headerVisible = true;
+            if (resultSummary) {
+              this.$.cardView.updateSummary(resultSummary);
+              this.cardData.summary = resultSummary;
+            }
+          }).catch((err) => {
+            console.error(err);
+            this.wizard.headerVisible = true;
+          });
+        }).catch((err) => {
+          console.error(err);
+          window.alert("Oops. There was a problem loading the edit dialog.");
+        });
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
         });
       }
     }
