@@ -20,13 +20,15 @@ export class FileManager implements RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
   private s3StreamUploader: s3Stream.S3StreamUploader;
+  private s3: AWS.S3;
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     if (configuration.get('aws.s3.enabled')) {
-      this.s3StreamUploader = s3Stream(new AWS.S3({
+      this.s3 = new AWS.S3({
         accessKeyId: configuration.get('aws.accessKeyId'),
         secretAccessKey: configuration.get('aws.secretAccessKey')
-      }));
+      });
+      this.s3StreamUploader = s3Stream(this.s3);
     }
     this.urlManager = urlManager;
     this.app = app;
@@ -37,6 +39,9 @@ export class FileManager implements RestServer {
     if (this.s3StreamUploader) {
       this.app.post(this.urlManager.getDynamicUrl('upload'), (request: Request, response: Response) => {
         void this.handleUpload(request, response);
+      });
+      this.app.get('/f/:fileId/:fileName', (request: Request, response: Response) => {
+        void this.handleFetch(request, response);
       });
     }
   }
@@ -155,7 +160,8 @@ export class FileManager implements RestServer {
   }
 
   private async handleUploadCompleted(fileRecord: FileRecord, user: UserRecord, meter: streamMeter.StreamMeter, key: string, response: Response): Promise<void> {
-    const fileUrl = url.resolve(configuration.get('aws.s3.baseUrl'), key);
+    // const fileUrl = url.resolve(configuration.get('aws.s3.baseUrl'), key);
+    const fileUrl = this.urlManager.getAbsoluteUrl('/f/' + key);
     await db.updateFileCompletion(fileRecord, 'complete', meter.bytes, fileUrl);
     await db.incrementUserStorage(user, meter.bytes);
     console.log("FileManager.uploadS3: upload completed", fileRecord.id);
@@ -165,6 +171,27 @@ export class FileManager implements RestServer {
     };
     console.log("FileManager.handleUpload sending response", reply);
     response.json(reply);
+  }
+
+  private async handleFetch(request: Request, response: Response): Promise<void> {
+    console.log("FileManager.handleFetch", request.params.fileId, request.params.fileName);
+    this.s3.getObject({
+      Bucket: configuration.get('aws.s3.bucket'),
+      Key: request.params.fileId + "/" + request.params.fileName
+    }).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
+      response.set('Content-Length', headers['content-length']);
+      response.set('Content-Type', headers['content-type']);
+      response.set('Last-Modified', headers['last-modified']);
+      response.set('ETag', headers['etag']);
+      response.set('Accept-Ranges', headers['accept-ranges']);
+      response.set('Content-Range', headers['content-range']);
+      response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 30);
+    }).createReadStream()
+      .on('end', () => {
+        console.log("FileManager.handleFetch completed");
+        response.end();
+      })
+      .pipe(response);
   }
 }
 
