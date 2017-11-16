@@ -210,7 +210,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
         referralFraction: networkEntity.getReferralFraction(),
         withdrawalsEnabled: bank.withdrawalsEnabled,
-        depositUrl: this.urlManager.getPublicUrl('deposit')
+        depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null
       };
       response.json(registerResponse);
     } catch (err) {
