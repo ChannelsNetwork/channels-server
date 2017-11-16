@@ -150,7 +150,7 @@
             revenueDisplay: null
           },
           pricing: {
-            openFee: 0,
+            openFee: 0
           },
           userSpecific: {
             paid: 0,
@@ -170,7 +170,11 @@
           cardData.pricing.openFee = data.pricing.fee.priceLevel * $core.baseCardPrice;
           cardData.promoted = data.pricing.expandReach;
         } else if (data.pricing.pay) {
-          cardData.pricing.openFee = -data.promotion.amount;
+          if (data.pricing.pay.basedOn === "impressions") {
+            cardData.pricing.promotionFee = data.promotion.amount;
+          } else {
+            cardData.pricing.openFee = -data.promotion.amount;
+          }
           cardData.promoted = true;
         }
         this.set('cardData', cardData);
