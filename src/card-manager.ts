@@ -412,14 +412,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       let authorRecipient = false;
       for (const recipient of transaction.toRecipients) {
-        if (recipient.address === card.by.address && recipient.portion === 'remainder') {
-          authorRecipient = true;
-        }
         let recipientUser = await db.findUserByAddress(recipient.address);
         if (!recipientUser) {
           recipientUser = await db.findUserByHistoricalAddress(recipient.address);
         }
         if (recipientUser) {
+          if (recipientUser.id === card.by.id && recipient.portion === 'remainder') {
+            authorRecipient = true;
+          }
           await userManager.updateUserBalance(recipientUser);
         } else {
           response.status(404).send("One of the recipients is missing");
