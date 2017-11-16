@@ -122,6 +122,18 @@
       display: block;
     }
 
+    #invalidVersionPanel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      background: rgba(38, 48, 52, 0.9);
+      color: white;
+      font-size: 15px;
+      z-index: 10;
+    }
+
     @media (max-width: 600px) {
       body {
         font-size: 16px;
@@ -189,6 +201,10 @@
     </div>
   </div>
   <main-app></main-app>
+  <div id="invalidVersionPanel" style="display: none;">
+    You're running an older and unsupported browser. Channels works best on the latest Chrome and Firefox.
+    <button style="margin-left: 5px;" onclick="_hideInvalidVersionDialog()">Close</button>
+  </div>
 </body>
 
 </html>

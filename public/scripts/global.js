@@ -51,8 +51,84 @@ var _loadAnalytics = function () {
   }, 1000);
 };
 
+var _getBrowserInfo = function () {
+  if (window._browserInfo) {
+    return window._browserInfo;
+  }
+  try {
+    let objappVersion = navigator.appVersion;
+    let objAgent = navigator.userAgent;
+    let objbrowserName = navigator.appName;
+    let objfullVersion = '' + parseFloat(navigator.appVersion);
+    let objBrMajorVersion = parseInt(navigator.appVersion, 10);
+    let objOffsetName, objOffsetVersion, ix;
+    if ((objOffsetVersion = objAgent.indexOf("Chrome")) != -1) { objbrowserName = "Chrome"; objfullVersion = objAgent.substring(objOffsetVersion + 7); }
+    else if ((objOffsetVersion = objAgent.indexOf("Edge")) != -1) { objbrowserName = "Edge"; objfullVersion = objAgent.substring(objOffsetVersion + 5); }
+    else if ((objOffsetVersion = objAgent.indexOf("MSIE")) != -1) { objbrowserName = "IE"; objfullVersion = objAgent.substring(objOffsetVersion + 5); }
+    else if ((objOffsetVersion = objAgent.indexOf("Firefox")) != -1) { objbrowserName = "Firefox"; objfullVersion = objAgent.substring(objOffsetVersion + 8); }
+    else if ((objOffsetVersion = objAgent.indexOf("Safari")) != -1) { objbrowserName = "Safari"; objfullVersion = objAgent.substring(objOffsetVersion + 7); if ((objOffsetVersion = objAgent.indexOf("Version")) != -1) objfullVersion = objAgent.substring(objOffsetVersion + 8); }
+    else if ((objOffsetName = objAgent.lastIndexOf(' ') + 1) < (objOffsetVersion = objAgent.lastIndexOf('/'))) { objbrowserName = objAgent.substring(objOffsetName, objOffsetVersion); objfullVersion = objAgent.substring(objOffsetVersion + 1); if (objbrowserName.toLowerCase() == objbrowserName.toUpperCase()) { objbrowserName = navigator.appName; } }
+
+    if ((ix = objfullVersion.indexOf(";")) != -1)
+      objfullVersion = objfullVersion.substring(0, ix);
+    if ((ix = objfullVersion.indexOf(" ")) != -1)
+      objfullVersion = objfullVersion.substring(0, ix);
+
+    objBrMajorVersion = parseInt('' + objfullVersion, 10);
+    if (isNaN(objBrMajorVersion)) {
+      objfullVersion = '' + parseFloat(navigator.appVersion);
+      objBrMajorVersion = parseInt(navigator.appVersion, 10);
+    }
+
+    window._browserInfo = {
+      browser: objbrowserName,
+      version: objBrMajorVersion
+    };
+    return window._browserInfo;
+  } catch (ex) {
+    console.error("Failed to detect browser version", ex);
+    return null;
+  }
+};
+
+var _hideInvalidVersionDialog = function () {
+  let versionPanelNode = document.getElementById("invalidVersionPanel");
+  if (versionPanelNode) {
+    versionPanelNode.style.display = "none";
+  }
+};
+
 var _onLoad = function () {
   _loadAnalytics();
+
+  // Check browser compatibility
+  let binfo = _getBrowserInfo();
+  let showVersionPanel = false;
+  if (binfo) {
+    switch (binfo.browser) {
+      case "Firefox":
+        showVersionPanel = binfo.version < 55;
+        break;
+      case "Chrome":
+        showVersionPanel = binfo.version < 51;
+        break;
+      case "Safari":
+        showVersionPanel = binfo.version < 10;
+        break;
+      case "Edge":
+        showVersionPanel = binfo.version < 15;
+        break;
+      default:
+        showVersionPanel = true;
+        break;
+    }
+  }
+  if (showVersionPanel) {
+    let versionPanelNode = document.getElementById("invalidVersionPanel");
+    if (versionPanelNode) {
+      versionPanelNode.style.display = "block";
+    }
+  }
 };
 
 if (document.readyState === 'complete') {
