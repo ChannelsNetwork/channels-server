@@ -405,7 +405,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("No coupon is allowed on the transaction");
         return;
       }
-      const author = await db.findUserByAddress(card.by.address);
+      const author = await db.findUserById(card.by.id);
       if (!author) {
         response.status(404).send("The author of this card is missing");
         return;
@@ -415,7 +415,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         if (recipient.address === card.by.address && recipient.portion === 'remainder') {
           authorRecipient = true;
         }
-        const recipientUser = await db.findUserByAddress(recipient.address);
+        let recipientUser = await db.findUserByAddress(recipient.address);
+        if (!recipientUser) {
+          recipientUser = await db.findUserByHistoricalAddress(recipient.address);
+        }
         if (recipientUser) {
           await userManager.updateUserBalance(recipientUser);
         } else {
