@@ -229,8 +229,8 @@ export class FeedManager implements Initializable, RestServer {
         continue;
       }
       let info = await this.getUserCardInfo(user.id, card.id, false);
-      if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
-        // This card is not eligible because the user has already been paid for it (based on our cache)
+      if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+        // This card is not eligible because the user has already been paid to open it (based on our cache)
         earnedAdCardIds.push(card.id);
       } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
         // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
@@ -242,7 +242,7 @@ export class FeedManager implements Initializable, RestServer {
         // We got this userInfo from cache, so it may be out of date.  Check again before committing to this
         // card
         info = await this.getUserCardInfo(user.id, card.id, true);
-        if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+        if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
           // Check that it is still eligible based on having been paid
           earnedAdCardIds.push(card.id);
         } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
