@@ -1,0 +1,157 @@
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
+<dom-module id="card-pricing-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      .container {
+        text-align: center;
+        font-size: 14px;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h2>Card Details</h2>
+      <div class="title">[[cardTitle]]</div>
+      <div class="container">
+
+      </div>
+    </dialog-view>
+  </template>
+  <script>
+    class CardPricingDialog extends Polymer.Element {
+      static get is() { return 'card-pricing-dialog'; }
+      static get properties() {
+        return {
+          cardTitle: String
+        };
+      }
+
+      show(cardData) {
+        if (this._promise) {
+          return this._promise;
+        }
+        this.data = cardData;
+        this.set('cardTitle', cardData.summary.title);
+        this._buttons = [
+          { id: 'ok', label: "OK" }
+        ];
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        $core.cardStatsHistory(this.data.id, 50).then((response) => {
+          this._processResponse(response);
+        });
+        return this._promise;
+      }
+
+      _processResponse(response) {
+        const items = [];
+        const now = Date.now();
+        const currencyProcessor = (value) => { return value ? "ℂ" + value.toFixed(value >= 1000 ? 0 : 2) : 0 };
+        items.push(this._processStat(response, "impressions", "Impressions", now));
+        items.push(this._processStat(response, "uniqueImpressions", "Unique Impressions", now));
+        items.push(this._processStat(response, "opens", "Opens"));
+        items.push(this._processStat(response, "uniqueOpens", "Unique Opens", now));
+        items.push(this._processStat(response, "promotionsPaid", "Impressions Paid", now, currencyProcessor));
+        items.push(this._processStat(response, "openFeesPaid", "Open Fees Paid", now, currencyProcessor));
+        items.push(this._processStat(response, "revenue", "Revenue", now, currencyProcessor));
+        items.push(this._processStat(response, "likes", "Likes", now));
+        items.push(this._processStat(response, "dislikes", "Dislikes", now));
+        this.set('items', items);
+      }
+
+      _processStat(response, property, name, now, postProcess) {
+        if (!postProcess) {
+          postProcess = (value) => {
+            if (value >= 10000000) {
+              return (value / 1000000).toFixed(1) + 'M';
+            } else if (value >= 1000000) {
+              return (value / 1000000).toFixed(3) + 'M';
+            } else if (value >= 10000) {
+              return (value / 1000).toFixed(1) + "K";
+            } else {
+              return value;
+            }
+          };
+        }
+        const statHistory = response[property];
+        const item = {
+          name: name,
+          lastDay: this._findStatDeltaFromCurrent(this.data.stats[property], statHistory, now - 1000 * 60 * 60 * 24, postProcess),
+          lastWeek: this._findStatDelta(statHistory, now - 1000 * 60 * 60 * 24, now - 1000 * 60 * 60 * 24 * 7, postProcess),
+          lastMonth: this._findStatDelta(statHistory, now - 1000 * 60 * 60 * 24 * 7, now - 1000 * 60 * 60 * 24 * 30, postProcess),
+          total: postProcess(this.data.stats[property] ? this.data.stats[property] : 0)
+        };
+        return item;
+      }
+
+      _findStatDeltaFromCurrent(currentValue, statHistory, after, postProcess) {
+        if (!statHistory || statHistory.length === 0) {
+          return postProcess(currentValue);
+        }
+        let total = currentValue;
+        let lastValue;
+        for (let i = 0; i < statHistory.length; i++) {
+          if (statHistory[i].at < after) {
+            lastValue = statHistory[i].value;
+            break;
+          }
+        }
+        if (!total) {
+          return postProcess(0);
+        }
+        if (lastValue) {
+          return postProcess(total - lastValue);
+        } else {
+          return postProcess(total);
+        }
+      }
+
+      _findStatDelta(statHistory, before, after, postProcess) {
+        if (!statHistory || statHistory.length === 0) {
+          return postProcess(0);
+        }
+        let total = 0;
+        let lastValue;
+        let recording = false;
+        for (let i = 0; i < statHistory.length; i++) {
+          if (recording) {
+            if (statHistory[i].at < after) {
+              lastValue = statHistory[i].value;
+              break;
+            }
+          } else {
+            if (statHistory[i].at < before) {
+              total = statHistory[i].value;
+              recording = true;
+            }
+          }
+        }
+        if (!total) {
+          return postProcess(0);
+        }
+        if (lastValue) {
+          return postProcess(total - lastValue);
+        } else {
+          return postProcess(total);
+        }
+      }
+
+      _handleButton(event) {
+        this.$.dlg.hide();
+        this._promise = null;
+        switch (event.detail.button.id) {
+          case "ok":
+            this._resolve(true);
+            break;
+          default:
+            this._resolve(false);
+            break;
+        }
+        this._resolve = null;
+      }
+    }
+    window.customElements.define(CardPricingDialog.is, CardPricingDialog);
+  </script>
+</dom-module>
