@@ -475,13 +475,14 @@ class CoreService extends Polymer.Element {
 
   uploadFile(file, filename) {
     var formData = new FormData();
-    if ((file instanceof Blob) && (!file.name)) {
-      file = new File([file], filename ? filename : 'unnamed');
-    }
+    // if ((file instanceof Blob) && (!file.name)) {
+    //   file = new File([file], filename ? filename : 'unnamed', { type: file.type, lastModified: Date.now() });
+    // }
     formData.append("address", this._keys.address);
     const signatureTimestamp = Date.now().toString();
     formData.append("signatureTimestamp", signatureTimestamp);
     formData.append("signature", this._sign(signatureTimestamp));
+    formData.append("fileName", filename || file.name || "unnamed");
     formData.append("userFile", file);
 
     const url = this.restBase + "/upload";
