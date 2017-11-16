@@ -54,10 +54,12 @@ export class FileManager implements RestServer {
     let ownerAddress: string;
     let signatureTimestamp: string;
     let signature: string;
+    let requestedFileName: string;
     const busboy = new Busboy({ headers: request.headers });
     busboy.on('file', (fieldname: string, file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string) => {
-      console.log("FileManager.handleUpload starting file", filename);
-      void this.handleUploadStart(file, filename, encoding, mimetype, fileRecord, ownerAddress, signatureTimestamp, signature, response);
+      const fName = requestedFileName || filename || "unnamed";
+      console.log("FileManager.handleUpload starting file", fName);
+      void this.handleUploadStart(file, fName, encoding, mimetype, fileRecord, ownerAddress, signatureTimestamp, signature, response);
     });
     busboy.on('field', (fieldname: string, val: any, fieldnameTruncated: boolean, valTruncated: boolean, encoding: string, mimetype: string) => {
       switch (fieldname) {
@@ -70,6 +72,8 @@ export class FileManager implements RestServer {
         case 'signature':
           signature = val.toString();
           break;
+        case 'fileName':
+          requestedFileName = val.toString();
         default:
           break;
       }
