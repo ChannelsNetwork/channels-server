@@ -163,7 +163,7 @@
         let card = event.detail.card;
         let view = event.detail.view;
         if (card && view) {
-          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId && (!card.userSpecific.earnedFromAuthor)) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
             $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
             view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
           } else {

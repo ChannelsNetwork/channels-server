@@ -193,7 +193,7 @@
           </div>
           <div class="buttonPanel">
             <div class="row">
-              <button id="btnDeposit" on-click="_onDepositClick">Deposit</button>
+              <button id="btnDeposit" on-click="_onDepositClick" disabled>Deposit</button>
             </div>
             <div class="horizontal layout center row">
               <div>
@@ -279,6 +279,9 @@
             this.$.withdrawExplain.style.display = this.$.btnWithdraw.disabled ? "" : "none";
             this._refreshTransactions();
             this._refreshNetworkTotals();
+            if ($core.depositUrl) {
+              this.$.btnDeposit.disabled = false;
+            }
           });
         }).catch((err) => {
           console.error(err);
