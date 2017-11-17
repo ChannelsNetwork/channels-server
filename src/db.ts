@@ -292,7 +292,7 @@ export class Database {
 
   private async initializeBowerPackages(): Promise<void> {
     this.bowerPackages = this.db.collection('bowerPackages');
-    await this.bankDeposits.createIndex({ packageName: 1 }, { unique: true });
+    await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
