@@ -123,7 +123,7 @@
 
       onTransitioningOut(forward) {
         return new Promise((resolve, reject) => {
-          if (this.composer.prepare) {
+          if (this.composer && this.composer.isReady && this.composer.prepare) {
             this.message = this.composer.prepareMessage || "Saving card";
             this.$.overlay.classList.remove("hidden");
             this.$.spinner.spinning = true;
@@ -146,7 +146,7 @@
         if (!forward) {
           resolve();
         } else {
-          if (this.composer) {
+          if (this.composer && this.composer.isReady) {
             this.wizard.data.cardSharedState = this.composer.sharedState || {};
             this.wizard.data.summary = this.composer.summary || {};
           }
