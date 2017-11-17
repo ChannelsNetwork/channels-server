@@ -19,6 +19,7 @@ import { Initializable } from "./interfaces/initializable";
 import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
+import * as uuid from "uuid";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -55,7 +56,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     for (const oldUser of oldUsers) {
       const existing = await db.findUserById(oldUser.id);
       if (!existing && oldUser.keys.length > 0 && oldUser.keys[0].address && oldUser.keys[0].publicKey && oldUser.id && oldUser.identity && oldUser.identity.handle) {
-        const user = await db.insertUser("normal", oldUser.keys[0].address, oldUser.keys[0].publicKey, null, null, null, 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
+        const user = await db.insertUser("normal", oldUser.keys[0].address, oldUser.keys[0].publicKey, null, null, uuid.v4(), 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
         await db.incrementUserBalance(user, oldUser.balance, false, Date.now());
         console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
       }
