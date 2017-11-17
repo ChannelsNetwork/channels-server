@@ -54,8 +54,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const oldUsers = await db.getOldUsers();
     for (const oldUser of oldUsers) {
       const existing = await db.findUserById(oldUser.id);
-      if (!existing) {
-        const user = await db.insertUser("normal", oldUser.keys.address, oldUser.keys.publicKey, null, null, null, 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
+      if (!existing && oldUser.keys.length > 0 && oldUser.keys[0].address && oldUser.keys[0].publicKey && oldUser.id && oldUser.identity && oldUser.identity.handle) {
+        const user = await db.insertUser("normal", oldUser.keys[0].address, oldUser.keys[0].publicKey, null, null, null, 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
         await db.incrementUserBalance(user, oldUser.balance, false, Date.now());
         console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
       }
