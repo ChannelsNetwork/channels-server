@@ -264,6 +264,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(404).send("No user with this handle");
         return;
       }
+      if (!user.encryptedPrivateKey) {
+        response.status(401).send("The password is incorrect or missing.");
+        return;
+      }
       const reply: SignInResponse = {
         encryptedPrivateKey: user.encryptedPrivateKey
       };
