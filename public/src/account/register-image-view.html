@@ -208,6 +208,9 @@
           this.message = message;
           this.$.spinner.spinning = true;
           this.$.progressPanel.classList.remove("hidden");
+          setTimeout(() => {
+            this.$.btnOk.focus();
+          }, 50);
         } else {
           this.$.spinner.spinning = false;
           this.$.progressPanel.classList.add("hidden");
