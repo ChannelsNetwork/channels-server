@@ -31,6 +31,7 @@ import * as escapeHtml from 'escape-html';
 import * as LRU from 'lru-cache';
 import * as url from 'url';
 import * as universalAnalytics from 'universal-analytics';
+import { Utils } from "./utils";
 
 const promiseLimit = require('promise-limit');
 
@@ -142,7 +143,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       og_image: card.summary.imageUrl,
       og_imagewidth: card.summary.imageWidth,
       og_imageheight: card.summary.imageHeight,
-      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id)
+      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id),
+      og_article_published_time: new Date(card.postedAt).toISOString(),
+      author: card.by.name
     };
     const output = Mustache.render(this.cardTemplate, view);
     response.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
