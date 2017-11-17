@@ -1,0 +1,103 @@
+<dom-module id="compose-card-preview">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: white;
+      }
+
+      #bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        padding: 0 16px;
+        font-size: 15px;
+        letter-spacing: 0.03em;
+        background: #fafafa;
+        border-bottom: 1px solid #d8d8d8;
+      }
+
+      #content {
+        position: absolute;
+        top: 61px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.95);
+        padding-top: 40px;
+      }
+
+      .message {
+        padding: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        opacity: 0.87;
+      }
+    </style>
+    <div id="bar" class="horizontal layout center">
+      <div class="flex">CARD PREVIEW</div>
+      <div>
+        <button on-click="_onClose">Close</button>
+      </div>
+    </div>
+    <div id="content">
+      <div id="cardShell"></div>
+      <div id="overlay" class="hidden">
+        <soso-spinner id="spinner"></soso-spinner>
+        <div class="message">Publishing Card</div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeCardPreview extends Polymer.Element {
+      static get is() { return 'compose-card-preview'; }
+
+      _onClose() {
+        this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
+      }
+
+      showCard(info, summary, sharedData, author) {
+        this.$.overlay.classList.remove("hidden");
+        this.$.spinner.spinning = true;
+        this._clearNode(this.$.cardShell);
+        setTimeout(() => {
+          let cardNode = document.createElement(info.channelComponent.viewerTag);
+          cardNode.cardSummary = summary;
+          cardNode.sharedState = sharedData;
+          cardNode.author = author;
+          cardNode.user = $core.profile;
+          cardNode.services = $core.cardManager.cardService;
+          this.$.cardShell.appendChild(cardNode);
+          this.$.overlay.classList.add("hidden");
+          this.$.spinner.spinning = false;
+        });
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+    }
+    window.customElements.define(ComposeCardPreview.is, ComposeCardPreview);
+  </script>
+</dom-module>
