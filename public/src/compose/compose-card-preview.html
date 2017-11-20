@@ -63,7 +63,7 @@
       <div id="cardShell"></div>
       <div id="overlay" class="hidden">
         <soso-spinner id="spinner"></soso-spinner>
-        <div class="message">Publishing Card</div>
+        <div class="message">Loading Card</div>
       </div>
     </div>
   </template>
@@ -73,6 +73,10 @@
 
       _onClose() {
         this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
+      }
+
+      hideCard() {
+        this._clearNode(this.$.cardShell);
       }
 
       showCard(info, summary, sharedData, author) {

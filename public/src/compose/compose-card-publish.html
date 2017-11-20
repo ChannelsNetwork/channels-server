@@ -262,6 +262,7 @@
 
       _onPreviewClose() {
         this.$.previewDialog.classList.add("hidden");
+        this.$.previewDialog.hideCard();
       }
     }
     window.customElements.define(ComposeCardPublish.is, ComposeCardPublish);
