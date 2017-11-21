@@ -534,6 +534,11 @@
         this.set('data.summary.text', summary.text);
         this._imageLoaded = false;
         this._loadImage();
+        setTimeout(() => {
+          if (this._attached) {
+            this.$.description.refresh();
+          }
+        }, 300);
       }
     }
     window.customElements.define(CardView.is, CardView);
