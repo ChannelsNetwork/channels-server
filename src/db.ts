@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -150,6 +150,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.e": -1 });
 
     await this.cards.updateMany({ curation: { $exists: false } }, { $set: { curation: { block: false } } });
+    await this.cards.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
+    await this.cards.createIndex({ type: 1, postedAt: -1 });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -616,7 +618,8 @@ export class Database {
       },
       curation: {
         block: false
-      }
+      },
+      type: "normal"
     };
     if (promotionScores) {
       record.promotionScores = promotionScores;
@@ -674,6 +677,15 @@ export class Database {
       query.state = "active";
     }
     return await this.cards.findOne<CardRecord>(query);
+  }
+
+  async findCardMostRecentByType(type: CardType): Promise<CardRecord> {
+    const result = await this.cards.find<CardRecord>({ type: type }).sort({ postedAt: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
