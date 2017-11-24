@@ -134,7 +134,10 @@ export interface CardRecord {
   curation: {
     block: boolean;
   };
+  type: CardType;
 }
+
+export type CardType = "normal" | "announcement";
 
 export interface CardPromotionScores {
   a: number;  // balance/target > 80%
