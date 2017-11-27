@@ -6,26 +6,25 @@
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
-      }
-
-      #shell {
-        height: 100vh;
-        overflow: hidden;
-        box-sizing: border-box;
         position: relative;
+        padding-top: 60px;
+        border-radius: 0 !important;
+        box-shadow: none !important;
         background: white;
       }
 
-      #nocard {
-        height: 100vh;
-        text-align: center;
+      #header {
+        z-index: 1;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
       }
 
-      .content {
-        position: relative;
-        overflow-x: hidden;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+      #nocard {
+        text-align: center;
+        box-sizing: border-box;
+        padding-bottom: 40px;
       }
 
       #loadingPanel {
@@ -38,18 +37,9 @@
         letter-spacing: 0.05em;
       }
 
-      .disabled {
-        opacity: 0;
-        pointer-events: none;
-      }
-
       soso-spinner {
         margin-top: 20px;
         margin-left: -10px;
-      }
-
-      #header {
-        z-index: 1;
       }
     </style>
     <div id="nocard" class="horizontal layout center hidden">
@@ -60,17 +50,15 @@
         </div>
       </div>
     </div>
-    <div id="shell" class="vertical layout">
-      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard"></open-card-header>
-      <div class="content flex">
-        <div id="loadingPanel">
-          <div>
-            <soso-spinner id="spinner"></soso-spinner>
-          </div>
-          <p>Loading card</p>
+    <div id="hasCard">
+      <div id="loadingPanel">
+        <div>
+          <soso-spinner id="spinner"></soso-spinner>
         </div>
-        <div id="cardView" class="hidden"></div>
+        <p>Loading card</p>
       </div>
+      <div id="cardView" class="hidden"></div>
+      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard"></open-card-header>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -86,7 +74,6 @@
       onActivate(route) {
         this._active = true;
         this._route = route;
-        $app.preventScrollBehavior = true;
         this.data = null;
         $core.register().then(() => {
           if (route.segments.length < 2) {
@@ -116,7 +103,7 @@
 
       _onNoCard() {
         this.$.nocard.classList.remove("hidden");
-        this.$.shell.classList.add("hidden");
+        this.$.hasCard.classList.add("hidden");
       }
 
       _clearNode(node) {
@@ -127,7 +114,7 @@
 
       _loadCard() {
         this.$.nocard.classList.add("hidden");
-        this.$.shell.classList.remove("hidden");
+        this.$.hasCard.classList.remove("hidden");
         this._clearNode(this.$.cardView);
         // show loading spinner
         this.$.cardView.classList.add("hidden");
