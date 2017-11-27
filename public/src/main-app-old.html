@@ -1,0 +1,356 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/shadycss/apply-shim.html">
+<link rel="import" href="../bower_components/polymer/lib/utils/import-href.html">
+<link rel="import" href="../bower_components/soso-pages/soso-pages.html">
+<link rel="import" href="core/core.html">
+<link rel="import" href="app-styles.html">
+<link rel="import" href="hash-router.html">
+<link rel="import" href="app-bar.html">
+
+<dom-module id="main-app">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        position: relative;
+      }
+
+      #shell {
+        height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+      }
+
+      .noscroll {
+        overflow: hidden !important;
+      }
+
+      soso-pages {
+        display: block;
+        position: relative;
+        overflow: initial;
+      }
+
+      app-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2;
+      }
+
+      #reloadingPanel {
+        position: fixed;
+        z-index: 100;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        color: inherit;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        text-align: center;
+      }
+
+      .page {
+        background: white;
+        min-height: 100vh;
+      }
+
+      .page[data-toolbar="true"] {
+        padding-top: 60px;
+      }
+    </style>
+    <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
+    <div id="shell">
+      <soso-pages id="pages">
+        <div class="page"></div>
+        <!-- Signin and registartion pages -->
+        <sign-in-view class="signin page" data-href="account/sign-in-view.html"></sign-in-view>
+        <register-view class="register page" data-href="account/register-view.html"></register-view>
+        <register-image-view class="register-photo page" data-href="account/register-image-view.html"></register-image-view>
+        <request-recovery-view class="request-recovery page" data-href="account/request-recovery-view.html"></request-recovery-view>
+        <recover-account-view class="recover page" data-href="account/recover-account-view.html"></recover-account-view>
+        <!-- Account Pages -->
+        <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
+        <edit-profile-view class="edit-profile page" data-href="account/edit-profile-view.html"></edit-profile-view>
+        <!-- About Pages -->
+        <about-view class="about page" data-toolbar="true" data-href="about/about-view.html"></about-view>
+        <learn-card-development-view class="learn-card-development page" data-toolbar="true" data-href="about/learn-card-development-view.html"></learn-card-development-view>
+        <!-- Balance Pages -->
+        <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
+        <withdraw-dialog class="withdraw page" data-href="balance/withdraw-dialog.html"></withdraw-dialog>
+        <!-- Feed/Card Pages -->
+        <feed-view id="feed" class="feed page" data-toolbar="true" data-href="feed/feed-view.html"></feed-view>
+        <channel-view class="channel page" data-toolbar="true" data-href="feed/channel-view.html"></channel-view>
+        <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
+        <card-page class="card page" data-href="card/card-page.html"></card-page>
+        <!-- Test pages -->
+        <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
+      </soso-pages>
+    </div>
+    <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
+    <div id="reloadingPanel" class="horizontal layout center hidden">
+      <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
+    </div>
+    <confirm-dialog id="dlgConfirm"></confirm-dialog>
+    <error-dialog id="dlgError"></error-dialog>
+  </template>
+  <script>
+    class MainApp extends Polymer.Element {
+      static get is() { return 'main-app'; }
+
+      constructor() {
+        super();
+        window.$app = this;
+        window.$core = new CoreService();
+        this._barShowing = true;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        window.$router = this.$.router;
+        const tp = document.getElementById("temp-panel");
+        if (tp) {
+          tp.style.display = "none";
+        }
+        window.addEventListener('channels-server-version-change', () => {
+          this.$.reloadingPanel.classList.remove("hidden");
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        });
+      }
+
+      _onRouteChange(event) {
+        if ($core.hasKeys() && $core.isAgreedToTnCs()) {
+          this._handleRouteChange(event.detail.route);
+        } else {
+          this._pendingRoute = event.detail.route;
+          this.setBarVisible(true);
+          requestAnimationFrame(() => {
+            this.$.toolbar.setPendingMode(true);
+          });
+          setTimeout(() => {
+            $core.register();
+          }, 500);
+        }
+      }
+
+      _onTermsAgreed() {
+        this.$.toolbar.setPendingMode(false);
+        $core.register().then(() => {
+          $core.agreeToTnCs();
+          requestAnimationFrame(() => {
+            if (this._pendingRoute) {
+              this._handleRouteChange(this._pendingRoute);
+              this._pendingRoute = null;
+            }
+          });
+        });
+      }
+
+      _handleRouteChange(route) {
+        let pageName = route.segments[0] || "feed";
+        pageName = pageName.trim();
+        const pages = this.shadowRoot.querySelectorAll(".page");
+        let activePage = this.shadowRoot.querySelector("." + pageName);
+        if (!activePage) {
+          activePage = this.$.feed;
+          pageName = "feed";
+        }
+        let activeIndex = 0;
+        for (let i = 0; i < pages.length; i++) {
+          if (activePage == pages[i]) {
+            activeIndex = i;
+            break;
+          }
+        }
+
+        // Notify prev page it's being hidden
+        if (this._lastPage) {
+          if (this._lastPage != activePage) {
+            this._lastPage.style.display = "";
+            if (this._lastPage.onDeactivate) {
+              try {
+                this._lastPage.onDeactivate();
+              } catch (err) { console.error("Error in page deactivate", err); }
+            }
+          }
+        }
+
+        const showToolbar = activePage.dataset.toolbar == "true";
+        const pageHref = activePage.dataset.href;
+        let animation = route.animation;
+        if (!animation) {
+          if (this._lastPage) {
+            let lpa = this._lastPage.dataset.animationOut;
+            if (lpa) {
+              animation = lpa;
+            }
+          }
+        }
+        animation = animation || activePage.dataset.animationIn || "dissolve";
+
+        this.$.pages.animation = animation;
+        this.setBarVisible(showToolbar);
+
+        this._lastPage = activePage;
+        const pageCallback = () => {
+          this.$.shell.classList.add('noscroll');
+          this.$.pages.selectedIndex = activeIndex;
+          setTimeout(() => {
+            if (activePage.onActivate) {
+              activePage.onActivate(route);
+            }
+          }, 10);
+          setTimeout(() => {
+            this.$.shell.classList.remove('noscroll');
+          }, 800);
+        };
+        if (pageHref) {
+          Polymer.importHref(this.resolveUrl(pageHref), pageCallback);
+        } else {
+          pageCallback();
+        }
+
+        // scroll to top
+        this.$.shell.scrollTop = 0;
+        this._prevScrollValue = 0;
+        this._preventScroll = false;
+        this._attachScrollListener();
+
+        // notify toolbar
+        this.$.toolbar.onRoute(route);
+
+        // notify analytics 
+        if (window.ga) {
+          try {
+            let pageToReport = pageName + "";
+            if (route.segments.length > 1) {
+              for (let i = 1; i < route.segments.length; i++) {
+                pageToReport += "/" + route.segments[i];
+              }
+            }
+            window.ga('send', 'pageview', "/" + pageToReport);
+          } catch (err) { }
+        }
+      }
+
+      _attachScrollListener() {
+        if (!this._scrollListener) {
+          this._scrollListener = (event) => {
+            if (!this._preventScroll) {
+              this._onScroll(event);
+            }
+            // Fire a dummy scroll event on the document to trigger IntersectionObserver polyfill
+            // when the event is not bubbling upwards. 
+            if (!event.bubbles) {
+              document.dispatchEvent(new CustomEvent('scroll', { bubbles: true, composed: true }));
+            }
+          };
+          this.$.shell.addEventListener("scroll", this._scrollListener)
+        }
+      }
+
+      _onScroll(event) {
+        const shell = this.$.shell;
+        if (!this._prevScrollValue) {
+          this._prevScrollValue = shell.scrollTop;
+        } else {
+          if (shell.scrollTop <= 0) {
+            this._prevScrollValue = 0;
+            if (!this._barShowing) {
+              this.setBarVisible(true);
+            }
+            return;
+          }
+          let diff = shell.scrollTop - this._prevScrollValue;
+          if (diff > 10) {
+            this._prevScrollValue = shell.scrollTop;
+            if (this._barShowing) {
+              this.setBarVisible(false);
+            }
+          } else if (diff < -5) {
+            this._prevScrollValue = shell.scrollTop;
+            if (!this._barShowing) {
+              this.setBarVisible(true);
+            }
+          }
+        }
+      }
+
+      set preventScrollBehavior(value) {
+        this._preventScroll = value;
+      }
+
+      setBarVisible(visible) {
+        this._barShowing = visible;
+        this.$.toolbar.style.top = visible ? "0px" : "-105px";
+      }
+
+      get shell() {
+        return this.$.shell;
+      }
+
+      scrollTo(node, duration) {
+        return new Promise((resolve, reject) => {
+          var diff = node.getBoundingClientRect().top;
+          var iv = this.shell.scrollTop;
+          if (this._scrolling) {
+            this._scrolling = false;
+            this.shell.scrollTop = iv + diff;
+            resolve();
+          } else {
+            this._scrollAnimStart = 0;
+            this._scrolling = true;
+            var _step = (timestamp) => {
+              if (!this._scrolling) {
+                return;
+              }
+              if (!this._scrollAnimStart) {
+                this._scrollAnimStart = timestamp;
+              }
+              let progress = Math.min(1, Math.max(0, (timestamp - this._scrollAnimStart) / duration));
+              this.shell.scrollTop = iv + (diff * progress);
+              if (progress < 1) {
+                window.requestAnimationFrame(_step);
+              } else {
+                this._scrolling = false;
+                resolve();
+              }
+            };
+            requestAnimationFrame(_step);
+          }
+        });
+      }
+
+      _import(path) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(path), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      confirm(message, cancelText, okText) {
+        return this._import("dialogs/confirm-dialog.html").then(() => {
+          return this.$.dlgConfirm.show(message, cancelText, okText);
+        });
+      }
+
+      showError(error) {
+        let message = error.message || error.toString();
+        return this._import("dialogs/error-dialog.html").then(() => {
+          return this.$.dlgError.show(message);
+        });
+      }
+    }
+    window.customElements.define(MainApp.is, MainApp);
+  </script>
+</dom-module>
