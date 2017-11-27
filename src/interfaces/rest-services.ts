@@ -576,4 +576,5 @@ export interface BlockchainCallbackDetails {
   address: string;
   confirmations: number;
   value: number;
+  secret: string;
 }

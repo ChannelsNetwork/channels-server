@@ -21,13 +21,14 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 const braintree = require('braintree');
 const BlockchainReceive = require('blockchain.info/Receive');
-const toBTC = require('blockchain.info/exchange').toBTC as (currency: string, value: number) => Promise<number>;
+const toBTC = require('blockchain.info/exchange').toBTC as (amount: number, currency: string) => Promise<number>;
 import * as uuid from "uuid";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
 const BITCOIN_DEPOSIT_TIMEOUT_USER = 1000 * 60 * 15;
 const BITCOIN_DEPOSIT_TIMEOUT_GRACE_PERIOD = 1000 * 60 * 15;
+const BLOCKCHAIN_SECRET = "23lkj2342sd0fi3545";
 
 export class Bank implements RestServer, Initializable {
   private app: express.Application;
@@ -60,8 +61,8 @@ export class Bank implements RestServer, Initializable {
       console.log("Bank.initialize:  Braintree payment operations enabled", configuration.get('braintree.environment'));
     }
     if (configuration.get('blockchain.xpub')) {
-      const blockchainCallback = this.urlManager.getDynamicUrl('blockchain-info-callback', true);
-      this.blockchainReceiver = new BlockchainReceive(configuration.get('blockchain.xpub'), blockchainCallback, configuration.get('blockchain.receiveKey'));
+      const blockchainCallback = urlManager.getDynamicUrl('blockchain-info-callback', true);
+      this.blockchainReceiver = new BlockchainReceive(configuration.get('blockchain.xpub'), blockchainCallback, configuration.get('blockchain.receiveKey', ''));
     }
   }
 
@@ -426,15 +427,25 @@ export class Bank implements RestServer, Initializable {
 
   private async handleBlockchainCallback(request: Request, response: Response): Promise<void> {
     try {
-      const info = request.body as BlockchainCallbackDetails;
-      console.log("Bank.blockchain-info-callback", info);
-      if (!info.address) {
+      const transactionHash = request.params.transaction_hash;
+      const address = request.params.address;
+      const confirmations = request.params.confirmations ? Number(request.params.confirmations) : 0;
+      const amount = request.params.value ? Number(request.params.value) : 0;
+      const secret = request.params.secret;
+      console.log("Bank.blockchain-info-callback", request.params);
+      if (!address) {
         response.status(404).send("Missing address");
         return;
       }
-      const depositRecord = await db.findBitcoinDepositRecordLatestByAddress(info.address, "pending");
+      const depositRecord = await db.findBitcoinDepositRecordLatestByAddress(address, "pending");
       if (!depositRecord) {
+        console.error("Bank.handleBlockchainCallback Deposit record for address is missing.  Deposit may be lost!", request.params);
         response.status(404).send("Deposit record is missing");
+        return;
+      }
+      if (secret !== BLOCKCHAIN_SECRET) {
+        console.error("Bank.handleBlockchainCallback Received callback with incorrect secret.  Deposit could be lost, or fraud being attempted.");
+        response.status(400).send("Invalid callback request");
         return;
       }
       const user = await db.findUserById(depositRecord.userId);
@@ -447,7 +458,7 @@ export class Bank implements RestServer, Initializable {
       } else {
         // We're going to make a deposit to the user based on the amount of Bitcoin we've
         // received and the exchange rate when we reported it to the user
-        const channelCoins = (info.value / 100000000) * depositRecord.ccPerBtc;
+        const channelCoins = (amount / 100000000) * depositRecord.ccPerBtc;
         const recipient: BankTransactionRecipientDirective = {
           address: user.address,
           portion: "remainder",
@@ -463,9 +474,9 @@ export class Bank implements RestServer, Initializable {
           amount: channelCoins,
           toRecipients: [recipient]
         };
-        console.log("Bank.handleBlockchainCallback Completing deposit", info.value, channelCoins, user.id, depositRecord.id, depositRecord.bankTransactionId);
+        console.log("Bank.handleBlockchainCallback Completing deposit", amount, channelCoins, user.id, depositRecord.id, depositRecord.bankTransactionId);
         const transactionResult = await networkEntity.performBankTransaction(details, null, false, true);
-        await db.updateBitcoinDepositRecordTransaction(depositRecord.id, Date.now(), "completed", info.value, info.transaction_hash, info.confirmations, channelCoins, transactionResult.record.id);
+        await db.updateBitcoinDepositRecordTransaction(depositRecord.id, Date.now(), "completed", amount, transactionHash, confirmations, channelCoins, transactionResult.record.id);
         console.log("Bank.handleBlockchainCallback Deposit finalized", depositRecord.id);
       }
       // See expected callback response section in https://blockchain.info/api/api_receive
@@ -514,10 +525,10 @@ export class Bank implements RestServer, Initializable {
     }
     const depositId = uuid.v4();
     if (!address) {
-      const generateResponse = await this.blockchainReceiver.generate({ depositId: depositId });
+      const generateResponse = await this.blockchainReceiver.generate({ secret: BLOCKCHAIN_SECRET });
       address = generateResponse.address;
     }
-    const bitcoinsPerDollar = await toBTC("USD", 100000000);
+    const bitcoinsPerDollar = await toBTC(100000000, "USD");
     const ccPerBtc = 1 / bitcoinsPerDollar;
     const depositRecord = await db.insertBitcoinDeposit(depositId, user.id, Date.now() + BITCOIN_DEPOSIT_TIMEOUT_USER, address, ccPerBtc, "pending");
     return depositRecord;

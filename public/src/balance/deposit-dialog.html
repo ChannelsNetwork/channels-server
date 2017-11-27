@@ -1,0 +1,160 @@
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+
+<dom-module id="deposit-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+        cursor: pointer;
+      }
+
+      #address {
+        width: 330px;
+        box-sizing: border-box;
+        font-size: 14px;
+        padding: 8px 4px;
+        border: 1px solid #d8d8d8;
+        border-radius: 3px;
+        font-family: inherit;
+        font-weight: inherit;
+        letter-spacing: 0.05em;
+        outline: none;
+      }
+
+      #copied {
+        margin: 20px 0;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+        color: #808080;
+        user-select: none;
+      }
+
+      @media (max-width: 550px) {
+        #address {
+          font-size: 12px;
+          width: 275px;
+        }
+        #copied {
+          margin: 15px 0 -10px;
+        }
+      }
+
+      .explain {
+        font-size: 14px;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h2>Deposit</h2>
+      <p class="explain">To increase your balance, purchase ChannelCoins using Bitcoin.</p>
+      <div>
+        <a href="https://bitcoin.org/en/getting-started" target="_blank">Getting started with Bitcoin</a>
+      </div>
+      <p class="explain">Send any amount of Bitcoin you want to the address shown below. Your Channels balance will be increased accordingly.
+      </p>
+      <p>1 ChannelCoin =
+        <span>[[btcPerCc]]</span> Bitcoins
+      </p>
+      <p>
+        <input id="address" readonly>
+        <button on-click="_onCopyClick">Copy</button>
+      </p>
+      <p class="explain">This address expires in
+        <span>[[expiresIn]]</span>.</p>
+      <p id="copied" class="hidden">Address copied to the clipboard</p>
+    </dialog-view>
+  </template>
+  <script>
+    class DepositDialog extends Polymer.Element {
+      static get is() { return "deposit-dialog"; }
+      static get properties() {
+        return {
+          _buttons: Array,
+          expiresIn: String,
+          btcPerCc: String
+        };
+      }
+
+      show() {
+        this._buttons = [
+          { id: 'close', label: "Close" }
+        ];
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this._reject = reject;
+        });
+        $core.bitcoinDepositRequest().then((response) => {
+          this.$.address.value = response.bitcoinAddress;
+          this._depositId = response.depositId;
+          this._expiresAt = response.expiresAt;
+          this.btcPerCc = (1 / response.ccPerBtc).toFixed(8);
+          this._pollCounter = 0;
+          this._timer = setInterval(this._onPoll.bind(this), 1000);
+          this._refreshExpiry();
+          this.$.dlg.show();
+        }).catch((err) => {
+          this._reject(err);
+        });
+        return this._promise;
+      }
+
+      _refreshExpiry() {
+        const remaining = this._expiresAt - Date.now();
+        const totalSeconds = Math.round(remaining / 1000);
+        const seconds = totalSeconds % 60;
+        const minutes = (totalSeconds - seconds) / 60;
+        this.expiresIn = minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+      }
+
+      _onPoll() {
+        if (Date.now() > this._expiresAt) {
+          this._close();
+        } else {
+          this._pollCounter++;
+          this._refreshExpiry();
+          if (this._pollCounter % 5 === 0) {
+            $core.bitcoinDepositPoll(this._depositId).then((response) => {
+              if (response.depositStatus !== 'pending') {
+                this._close(null, response);
+              }
+            }).catch((err) => {
+              this._close(err);
+            });
+          }
+        }
+      }
+
+      _handleButton(event) {
+        this._close();
+      }
+
+      _onCopyClick() {
+        this.$.address.select();
+        document.execCommand("copy");
+        this.$.copied.classList.remove("hidden");
+        setTimeout(() => {
+          this.$.address.focus();
+          this.$.address.select();
+        });
+      }
+
+      _close(err, response) {
+        if (this._timer) {
+          clearInterval(this._timer);
+          delete this._timer;
+        }
+        this.$.dlg.hide();
+        this._promise = null;
+        if (err) {
+          this._reject(err);
+        } else {
+          this._resolve(response);
+        }
+      }
+
+    }
+    window.customElements.define(DepositDialog.is, DepositDialog);
+  </script>
+</dom-module>
