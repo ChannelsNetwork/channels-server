@@ -433,9 +433,14 @@
       }
 
       _onDepositClick() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("register", { returnRoute: { success: "balance", cancel: "balance" }, message: "For your own safety, you must establish your identity before we will accept a deposit." });
+          return;
+        }
         this.$.depositDialog.show().then((response) => {
           if (response) {
             this.$.errorDialog.show("Your purchase of " + response.channelCoinAmount.toFixed(8) + " ChannelCoin has been completed.");
+            this._refreshTransactions();
           }
         }).catch((err) => {
           this.$.errorDialog.show("Deposits are currently unavailable.  Try again in a little while.");

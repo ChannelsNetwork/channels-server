@@ -26,8 +26,8 @@ import * as uuid from "uuid";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
-const BITCOIN_DEPOSIT_TIMEOUT_USER = 1000 * 60 * 15;
-const BITCOIN_DEPOSIT_TIMEOUT_GRACE_PERIOD = 1000 * 60 * 15;
+const BITCOIN_DEPOSIT_TIMEOUT_USER = 1000 * 60 * 10;
+const BITCOIN_DEPOSIT_TIMEOUT_GRACE_PERIOD = 1000 * 60 * 10;
 const BLOCKCHAIN_SECRET = "23lkj2342sd0fi3545";
 
 export class Bank implements RestServer, Initializable {
@@ -95,7 +95,7 @@ export class Bank implements RestServer, Initializable {
     this.app.post(this.urlManager.getDynamicUrl('bitcoin-deposit-poll'), (request: Request, response: Response) => {
       void this.handleBitcoinDepositPoll(request, response);
     });
-    this.app.post(this.urlManager.getDynamicUrl('blockchain-info-callback'), (request: Request, response: Response) => {
+    this.app.get(this.urlManager.getDynamicUrl('blockchain-info-callback'), (request: Request, response: Response) => {
       void this.handleBlockchainCallback(request, response);
     });
   }
@@ -427,12 +427,12 @@ export class Bank implements RestServer, Initializable {
 
   private async handleBlockchainCallback(request: Request, response: Response): Promise<void> {
     try {
-      const transactionHash = request.params.transaction_hash;
-      const address = request.params.address;
-      const confirmations = request.params.confirmations ? Number(request.params.confirmations) : 0;
-      const amount = request.params.value ? Number(request.params.value) : 0;
-      const secret = request.params.secret;
-      console.log("Bank.blockchain-info-callback", request.params);
+      const transactionHash = request.query.transaction_hash;
+      const address = request.query.address;
+      const confirmations = request.query.confirmations ? Number(request.query.confirmations) : 0;
+      const amount = request.query.value ? Number(request.query.value) : 0;
+      const secret = request.query.secret;
+      console.log("Bank.blockchain-info-callback", request.query);
       if (!address) {
         response.status(404).send("Missing address");
         return;
@@ -584,7 +584,7 @@ export class Bank implements RestServer, Initializable {
     if (["transfer", "deposit"].indexOf(details.type) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction type");
     }
-    if (["card-open-fee", "interest", "subsidy", "grant", "deposit"].indexOf(details.reason) < 0) {
+    if (["card-open-fee", "interest", "subsidy", "grant", "bitcoin-deposit"].indexOf(details.reason) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction reasons");
     }
     switch (details.reason) {

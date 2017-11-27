@@ -85,6 +85,7 @@
           this._resolve = resolve;
           this._reject = reject;
         });
+        this.$.copied.classList.add("hidden");
         $core.bitcoinDepositRequest().then((response) => {
           this.$.address.value = response.bitcoinAddress;
           this._depositId = response.depositId;

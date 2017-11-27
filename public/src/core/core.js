@@ -486,7 +486,11 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.bitcoinDepositPoll(this._keys.address, depositId);
     let request = this._createRequest(details);
     const url = this.restBase + "/bitcoin-deposit-poll";
-    return this.rest.post(url, request);
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
+      return response;
+    });
   }
 
   uploadImageFile(imageFile, filename, maxWidth) {

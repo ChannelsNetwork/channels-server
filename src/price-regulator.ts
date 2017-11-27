@@ -15,7 +15,7 @@ import { SubsidyBalanceRecord, CardOpensInfo, CardOpensRecord } from "./interfac
 
 const POLL_INTERVAL = 1000 * 15;
 const SUBSIDY_CONTRIBUTION_INTERVAL = 1000 * 60;
-const SUBSIDY_CONTRIBUTION_RATE = 10.00 / (1000 * 60 * 60 * 24);  // ℂ10/day for now
+const SUBSIDY_CONTRIBUTION_RATE = 100.00 / (1000 * 60 * 60 * 24);  // ℂ100/day
 const SUBSIDY_CACHE_LIFETIME = 1000 * 60 * 60;
 const BASE_CARD_FEE_CACHE_LIFETIME = 1000 * 60 * 60;
 const CARD_OPENED_UPDATE_INTERVAL = 1000 * 60 * 60;
@@ -23,7 +23,7 @@ const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24 * 3;
 const SUBSIDY_PERIOD = 1000 * 60 * 60 * 24;
 const MAXIMUM_BASE_CARD_FEE = 0.05;
 const MINIMUM_BASE_CARD_FEE = 0.001;
-const MAXIMUM_SUBSIDY_RATE = 100 / (1000 * 60 * 60 * 24);
+const MAXIMUM_SUBSIDY_RATE = 5 / (1000 * 60 * 60 * 24);  // ℂ5/day
 
 export class PriceRegulator implements Initializable {
   private lastSubsidyRate = 0;
