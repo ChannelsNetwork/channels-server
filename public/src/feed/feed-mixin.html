@@ -72,8 +72,11 @@
           $router.context = null;
 
           // clear state
-          this.set('items', []);
+          this._setItems([]);
           this.$.feed.closeCard();
+          if (this.$.promotedFeed) {
+            this.$.promotedFeed.closeCard();
+          }
 
           // parse route and fetch
           let parsedRoute = this._parseRoute(route);
@@ -81,7 +84,7 @@
           if (parsedRoute) {
             this._onDataFetch(parsedRoute);
             return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, parsedRoute.channel).then((cards) => {
-              this.set("items", cards);
+              this._setItems(cards);
               if (cards && cards.length) {
                 this.$.noItems.classList.add("hidden");
               } else {
@@ -90,6 +93,10 @@
             });
           }
         });
+      }
+
+      _setItems(items) {
+        this.set("items", items);
       }
 
       onDeactivate() {
@@ -101,6 +108,9 @@
 
       _onResize() {
         this.$.feed.refreshLayout();
+        if (this.$.promotedFeed) {
+          this.$.promotedFeed.refreshLayout();
+        }
       }
 
       _onCardClosed(event) {
