@@ -68,7 +68,7 @@
       <feed-view id="feed" class="feed page" data-toolbar="true" data-href="feed/feed-view.html"></feed-view>
       <channel-view class="channel page" data-toolbar="true" data-href="feed/channel-view.html"></channel-view>
       <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
-      <card-page class="card page" data-href="card/card-page.html"></card-page>
+      <card-page class="card page" data-toolbar="true" data-preventscroll="true" data-href="card/card-page.html"></card-page>
       <!-- Test pages -->
       <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
     </soso-pages>
@@ -166,7 +166,8 @@
         }
 
         const showToolbar = activePage.dataset.toolbar == "true";
-        this._preventScroll = !showToolbar;
+        const forcePreventScroll = activePage.dataset.preventscroll === "true";
+        this._preventScroll = forcePreventScroll || (!showToolbar);
         this.style.paddingTop = showToolbar ? "60px" : "0";
 
         const pageHref = activePage.dataset.href;

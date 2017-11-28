@@ -16,9 +16,11 @@
       #header {
         z-index: 1;
         position: fixed;
-        top: 0;
+        top: 60px;
         left: 0;
         right: 0;
+        opacity: 0;
+        transition: opacity 0.25s ease;
       }
 
       #nocard {
@@ -93,12 +95,16 @@
           }, 600);
         });
         $router.animation = null;
+        setTimeout(() => {
+          this.$.header.style.opacity = 1;
+        }, 1250);
       }
 
       onDeactivate() {
         this._active = false;
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
+        this.$.header.style.opacity = 0;
       }
 
       _onNoCard() {
