@@ -155,7 +155,29 @@
         this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
         this.wizard.data.summary.title = this.cardData.summary.title;
         this.wizard.data.summary.text = this.cardData.summary.text;
-        this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
+        this._setImageSize().then(() => {
+          this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
+        });
+      }
+
+      _setImageSize() {
+        return new Promise((resolve, reject) => {
+          const imageUrl = this.cardData.summary.imageUrl;
+          if (imageUrl) {
+            let img = new Image();
+            img.addEventListener('load', () => {
+              this.wizard.data.summary.imageWidth = img.width;
+              this.wizard.data.summary.imageHeight = img.height;
+              resolve();
+            });
+            img.addEventListener('error', () => {
+              resolve();
+            });
+            img.src = imageUrl;
+          } else {
+            resolve();
+          }
+        });
       }
 
       onTransitioningIn(forward) {
