@@ -2,13 +2,13 @@ import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
 import { UrlManager } from "./url-manager";
-import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails } from "./interfaces/db-records";
+import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails, BitcoinDepositRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankClientCheckoutDetails, BraintreeTransactionResult, BankClientCheckoutResponse, BankGenerateClientTokenResponse } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankClientCheckoutDetails, BraintreeTransactionResult, BankClientCheckoutResponse, BankGenerateClientTokenResponse, BitcoinDepositRequestDetails, BitcoinDepositRequestResponse, BitcoinDepositPollDetails, BitcoinDepositPollResponse, BlockchainCallbackDetails } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import { SignedObject } from "./interfaces/signed-object";
 import * as paypal from 'paypal-rest-sdk';
@@ -20,9 +20,15 @@ import { userManager } from "./user-manager";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 const braintree = require('braintree');
+const BlockchainReceive = require('blockchain.info/Receive');
+const toBTC = require('blockchain.info/exchange').toBTC as (amount: number, currency: string) => Promise<number>;
+import * as uuid from "uuid";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
+const BITCOIN_DEPOSIT_TIMEOUT_USER = 1000 * 60 * 10;
+const BITCOIN_DEPOSIT_TIMEOUT_GRACE_PERIOD = 1000 * 60 * 10;
+const BLOCKCHAIN_SECRET = "23lkj2342sd0fi3545";
 
 export class Bank implements RestServer, Initializable {
   private app: express.Application;
@@ -32,6 +38,7 @@ export class Bank implements RestServer, Initializable {
   private paypalFixedPayoutFee = 0;
   private paypalVariablePayoutFraction = 0;
   private braintreeGateway: any;
+  private blockchainReceiver: BlockchainReceive;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     if (configuration.get('paypal.enabled') && configuration.get('paypal.clientId') && configuration.get('paypal.secret')) {
@@ -52,6 +59,10 @@ export class Bank implements RestServer, Initializable {
         privateKey: configuration.get('braintree.privateKey')
       });
       console.log("Bank.initialize:  Braintree payment operations enabled", configuration.get('braintree.environment'));
+    }
+    if (configuration.get('blockchain.xpub')) {
+      const blockchainCallback = urlManager.getDynamicUrl('blockchain-info-callback', true);
+      this.blockchainReceiver = new BlockchainReceive(configuration.get('blockchain.xpub'), blockchainCallback, configuration.get('blockchain.receiveKey', ''));
     }
   }
 
@@ -77,6 +88,15 @@ export class Bank implements RestServer, Initializable {
     });
     this.app.post(this.urlManager.getDynamicUrl('bank-client-checkout'), (request: Request, response: Response) => {
       void this.handleClientCheckout(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('bitcoin-deposit'), (request: Request, response: Response) => {
+      void this.handleBitcoinDeposit(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('bitcoin-deposit-poll'), (request: Request, response: Response) => {
+      void this.handleBitcoinDepositPoll(request, response);
+    });
+    this.app.get(this.urlManager.getDynamicUrl('blockchain-info-callback'), (request: Request, response: Response) => {
+      void this.handleBlockchainCallback(request, response);
     });
   }
 
@@ -303,7 +323,7 @@ export class Bank implements RestServer, Initializable {
           address: null,
           timestamp: null,
           type: "deposit",
-          reason: "deposit",
+          reason: "bitcoin-deposit",
           relatedCardId: null,
           relatedCouponId: null,
           amount: netAmount,
@@ -332,6 +352,186 @@ export class Bank implements RestServer, Initializable {
       console.error("Bank.handleClientCheckout: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async handleBitcoinDeposit(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<BitcoinDepositRequestDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      const xpub = configuration.get('blockchain.xpub') as string;
+      if (!xpub) {
+        console.error("Bitcoin deposit failed because no xpub configured.");
+        response.status(500).send("Bitcoin deposits are not available");
+        return;
+      }
+      console.log("Bank.bitcoin-deposit", requestBody.detailsObject);
+      const now = Date.now();
+      const bitcoinDepositRecord = await this.allocateBitcoinDeposit(user);
+      const message = "Channels deposit: " + user.address + " for " + user.address;
+      const bitcoinUri = "bitcoin:" + bitcoinDepositRecord.depositAddress + "?message=" + encodeURIComponent(message) + "&depositId=" + bitcoinDepositRecord.id;
+      const result: BitcoinDepositRequestResponse = {
+        serverVersion: SERVER_VERSION,
+        bitcoinUri: bitcoinUri,
+        bitcoinAddress: bitcoinDepositRecord.depositAddress,
+        message: message,
+        depositId: bitcoinDepositRecord.id,
+        expiresAt: bitcoinDepositRecord.expiresAt,
+        ccPerBtc: bitcoinDepositRecord.ccPerBtc
+      };
+      response.json(result);
+    } catch (err) {
+      console.error("Bank.handleBitcoinDeposit: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleBitcoinDepositPoll(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<BitcoinDepositPollDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.depositId) {
+        response.status(400).send("Missing depositId");
+        return;
+      }
+      console.log("Bank.bitcoin-deposit-poll", requestBody.detailsObject);
+      const depositRecord = await db.findBitcoinDepositRecordById(requestBody.detailsObject.depositId);
+      if (!depositRecord) {
+        response.status(400).send("Missing deposit record");
+        return;
+      }
+      if (depositRecord.userId !== user.id) {
+        response.status(401).send("Deposit record is not associated with this user");
+        return;
+      }
+      const userStatus = await userManager.getUserStatus(user, false);
+      const result: BitcoinDepositPollResponse = {
+        serverVersion: SERVER_VERSION,
+        status: userStatus,
+        depositStatus: depositRecord.status,
+        bitcoinAmount: depositRecord.bitcoinAmount,
+        channelCoinAmount: depositRecord.channelCoinAmount,
+        ccPerBtc: depositRecord.ccPerBtc
+      };
+      response.json(result);
+    } catch (err) {
+      console.error("Bank.handleBitcoinDepositPoll: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleBlockchainCallback(request: Request, response: Response): Promise<void> {
+    try {
+      const transactionHash = request.query.transaction_hash;
+      const address = request.query.address;
+      const confirmations = request.query.confirmations ? Number(request.query.confirmations) : 0;
+      const amount = request.query.value ? Number(request.query.value) : 0;
+      const secret = request.query.secret;
+      console.log("Bank.blockchain-info-callback", request.query);
+      if (!address) {
+        response.status(404).send("Missing address");
+        return;
+      }
+      const depositRecord = await db.findBitcoinDepositRecordLatestByAddress(address, "pending");
+      if (!depositRecord) {
+        console.error("Bank.handleBlockchainCallback Deposit record for address is missing.  Deposit may be lost!", request.params);
+        response.status(404).send("Deposit record is missing");
+        return;
+      }
+      if (secret !== BLOCKCHAIN_SECRET) {
+        console.error("Bank.handleBlockchainCallback Received callback with incorrect secret.  Deposit could be lost, or fraud being attempted.");
+        response.status(400).send("Invalid callback request");
+        return;
+      }
+      const user = await db.findUserById(depositRecord.userId);
+      if (!user) {
+        response.status(500).send("Missing user");
+        return;
+      }
+      if (depositRecord.bankTransactionId) {
+        console.log("Bank.handleBlockchainCallback Received callback confirmation for deposit that has already been processed", depositRecord.bankTransactionId);
+      } else {
+        // We're going to make a deposit to the user based on the amount of Bitcoin we've
+        // received and the exchange rate when we reported it to the user
+        const channelCoins = (amount / 100000000) * depositRecord.ccPerBtc;
+        const recipient: BankTransactionRecipientDirective = {
+          address: user.address,
+          portion: "remainder",
+          reason: "depositor"
+        };
+        const details: BankTransactionDetails = {
+          address: null,
+          timestamp: null,
+          type: "deposit",
+          reason: "bitcoin-deposit",
+          relatedCardId: null,
+          relatedCouponId: null,
+          amount: channelCoins,
+          toRecipients: [recipient]
+        };
+        console.log("Bank.handleBlockchainCallback Completing deposit", amount, channelCoins, user.id, depositRecord.id, depositRecord.bankTransactionId);
+        const transactionResult = await networkEntity.performBankTransaction(details, null, false, true);
+        await db.updateBitcoinDepositRecordTransaction(depositRecord.id, Date.now(), "completed", amount, transactionHash, confirmations, channelCoins, transactionResult.record.id);
+        console.log("Bank.handleBlockchainCallback Deposit finalized", depositRecord.id);
+      }
+      // See expected callback response section in https://blockchain.info/api/api_receive
+      response.status(200).send("*ok*");
+    } catch (err) {
+      console.error("Bank.handleBlockchainCallback: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async allocateBitcoinDeposit(user: UserRecord): Promise<BitcoinDepositRecord> {
+    // It would be easiest if we could just call blockchain.info for a new address each time
+    // we need one.  Unfortunately, because of the so-called "gap limit", we must reuse
+    // receive addresses that have expired because otherwise, we may request more than 20
+    // in a row that go unused, and after that we wouldn't be able to get another one.
+    // So we start by looking for a deposit record that is not yet marked expired but
+    // is now old enough that we can reuse it.  If we can't find one of these, then we
+    // ask for a new one.
+
+    // First, we see if there is still an address available for this user that hasn't been
+    // reused.  Reusing this one first lowers the probability of a misdirected deposit.
+
+    let address: string;
+
+    let existing = await db.findBitcoinDepositRecordLastByUser(user.id, "pending");
+    if (existing) {
+      const updated = await db.updateBitcoinDepositRecordStatus(existing.id, existing.status, "expired");
+      if (updated) {
+        address = existing.depositAddress;
+      }
+    }
+
+    // Otherwise, look for any out-of-date record with an address that we can reuse.
+    // There could be a collision doing this (with another process or REST request), so we need to retry
+    while (!address) {
+      existing = await db.findBitcoinDepositRecordReusable("pending", Date.now() - BITCOIN_DEPOSIT_TIMEOUT_GRACE_PERIOD);
+      if (existing) {
+        const updated = await db.updateBitcoinDepositRecordStatus(existing.id, existing.status, "expired");
+        if (updated) {
+          address = existing.depositAddress;
+        }
+      } else {
+        // None available, so just punt and we'll allocate a new one from blockchain.info
+        break;
+      }
+    }
+    const depositId = uuid.v4();
+    if (!address) {
+      const generateResponse = await this.blockchainReceiver.generate({ secret: BLOCKCHAIN_SECRET });
+      address = generateResponse.address;
+    }
+    const bitcoinsPerDollar = await toBTC(100000000, "USD");
+    const ccPerBtc = 1 / bitcoinsPerDollar;
+    const depositRecord = await db.insertBitcoinDeposit(depositId, user.id, Date.now() + BITCOIN_DEPOSIT_TIMEOUT_USER, address, ccPerBtc, "pending");
+    return depositRecord;
   }
 
   private braintreeTransaction(nonce: string, amount: number): Promise<BraintreeTransactionResult> {
@@ -384,7 +584,7 @@ export class Bank implements RestServer, Initializable {
     if (["transfer", "deposit"].indexOf(details.type) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction type");
     }
-    if (["card-open-fee", "interest", "subsidy", "grant", "deposit"].indexOf(details.reason) < 0) {
+    if (["card-open-fee", "interest", "subsidy", "grant", "bitcoin-deposit"].indexOf(details.reason) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction reasons");
     }
     switch (details.reason) {
@@ -667,6 +867,7 @@ export class Bank implements RestServer, Initializable {
   private async updateWithdrawalStatus(transaction: BankTransactionRecord, referenceId: string, status: string, err: any): Promise<void> {
     await db.updateBankTransactionWithdrawalStatus(transaction.id, referenceId, status, err);
   }
+
 }
 
 const bank = new Bank();
@@ -683,4 +884,14 @@ interface PaypalPayoutResponse {
     payout_batch_id: string;
     batch_status: string;
   };
+}
+
+interface BlockchainReceive {
+  generate(query: any): Promise<BlockchainReceiveResponse>;
+}
+
+interface BlockchainReceiveResponse {
+  address: string;
+  index: number;
+  callback: string;
 }

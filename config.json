@@ -1,7 +1,7 @@
 {
   "domain": "channelelements.net",
   "serverId": "http://localhost:33111",
-  "baseClientUri": "http://localhost:33111",
+  "baseClientUri": "https://9617c9ce.ngrok.io",
   "baseSocketUri": "ws://localhost:33111",
   "mongo": {
     "mongoUrl": "mongodb://localhost:27017/channels-server",
@@ -53,5 +53,8 @@
     "analytics": {
       "id": "UA-52117709-13"
     }
+  },
+  "blockchain": {
+    "xpub": "xpub6CAYAAEUSfmvXVGY1kkhntLa165NhRUYqYazY5dEGq9yzzwLC5U5auHYVKUmnckKhfM7SAQ6d2Z1mLA2ueeEaAEfj2gBbLhvLpEgLsfN6Tf"
   }
 }

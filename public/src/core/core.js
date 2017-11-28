@@ -475,6 +475,24 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  bitcoinDepositRequest() {
+    let details = RestUtils.bitcoinDepositRequest(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/bitcoin-deposit";
+    return this.rest.post(url, request);
+  }
+
+  bitcoinDepositPoll(depositId) {
+    let details = RestUtils.bitcoinDepositPoll(this._keys.address, depositId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/bitcoin-deposit-poll";
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
+      return response;
+    });
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

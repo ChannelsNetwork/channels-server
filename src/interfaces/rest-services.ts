@@ -546,3 +546,35 @@ export interface BraintreeTransactionError {
   code: string;
   message: string;
 }
+
+export interface BitcoinDepositRequestDetails extends Signable { }
+
+export interface BitcoinDepositRequestResponse extends RestResponse {
+  bitcoinUri: string;
+  bitcoinAddress: string;
+  message: string;
+  depositId: string;
+  expiresAt: number;
+  ccPerBtc: number;
+}
+
+export interface BitcoinDepositPollDetails extends Signable {
+  depositId: string;
+}
+
+export interface BitcoinDepositPollResponse extends RestResponseWithUserStatus {
+  depositStatus: BitcoinDepositStatus;
+  bitcoinAmount: number;
+  channelCoinAmount: number;
+  ccPerBtc: number;
+}
+
+export type BitcoinDepositStatus = "pending" | "completed" | "confirmed" | "expired";
+
+export interface BlockchainCallbackDetails {
+  transaction_hash: string;
+  address: string;
+  confirmations: number;
+  value: number;
+  secret: string;
+}

@@ -2,9 +2,9 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, BitcoinDepositRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
+import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor, BitcoinDepositStatus } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 
@@ -33,6 +33,7 @@ export class Database {
   private cardStatsHistory: Collection;
   private bankDeposits: Collection;
   private bowerPackages: Collection;
+  private bitcoinDeposits: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -61,6 +62,7 @@ export class Database {
     await this.initializeCardStatsHistory();
     await this.initializeBankDeposits();
     await this.initializeBowerPackages();
+    await this.initializeBitcoinDeposits();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -307,6 +309,14 @@ export class Database {
   private async initializeBowerPackages(): Promise<void> {
     this.bowerPackages = this.db.collection('bowerPackages');
     await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
+  }
+
+  private async initializeBitcoinDeposits(): Promise<void> {
+    this.bitcoinDeposits = this.db.collection('bitcoinDeposits');
+    await this.bitcoinDeposits.createIndex({ id: 1 }, { unique: true });
+    await this.bitcoinDeposits.createIndex({ status: 1, expiresAt: 1 });
+    await this.bitcoinDeposits.createIndex({ depositAddress: 1, status: 1, at: -1 }, { unique: true });
+    await this.bitcoinDeposits.createIndex({ userId: 1, status: 1, at: -1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1520,6 +1530,74 @@ export class Database {
     return this.bowerPackages.findOne<BowerPackageRecord>({ packageName: packageName });
   }
 
+  async insertBitcoinDeposit(id: string, userId: string, expiresAt: number, depositAddress: string, ccPerBtc: number, status: BitcoinDepositStatus): Promise<BitcoinDepositRecord> {
+    const now = Date.now();
+    const record: BitcoinDepositRecord = {
+      id: id,
+      at: Date.now(),
+      expiresAt: expiresAt,
+      userId: userId,
+      depositAddress: depositAddress,
+      ccPerBtc: ccPerBtc,
+      status: status,
+      bitcoinAmount: 0,
+      transactionHash: null,
+      confirmationCount: 0,
+      channelCoinAmount: 0,
+      bankTransactionId: null,
+      confirmedAt: 0
+    };
+    await this.bitcoinDeposits.insert(record);
+    return record;
+  }
+  async findBitcoinDepositRecordById(id: string): Promise<BitcoinDepositRecord> {
+    return await this.bitcoinDeposits.findOne<BitcoinDepositRecord>({ id: id });
+  }
+  async findBitcoinDepositRecordReusable(status: BitcoinDepositStatus, expiredBefore: number): Promise<BitcoinDepositRecord> {
+    const result = await this.bitcoinDeposits.find<BitcoinDepositRecord>({ status: status, expiresAt: { $lt: expiredBefore } }).sort({ expiresAt: 1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
+  }
+
+  async findBitcoinDepositRecordLatestByAddress(address: string, status: BitcoinDepositStatus): Promise<BitcoinDepositRecord> {
+    const result = await this.bitcoinDeposits.find<BitcoinDepositRecord>({ depositAddress: address, status: status }).sort({ at: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
+  }
+
+  async findBitcoinDepositRecordLastByUser(userId: string, status: BitcoinDepositStatus): Promise<BitcoinDepositRecord> {
+    const result = await this.bitcoinDeposits.find<BitcoinDepositRecord>({ userId: userId, status: status }).sort({ at: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
+  }
+
+  async updateBitcoinDepositRecordStatus(id: string, existingStatus: BitcoinDepositStatus, newStatus: BitcoinDepositStatus): Promise<boolean> {
+    const result = await this.bitcoinDeposits.updateOne({ id: id, status: existingStatus }, { $set: { status: newStatus } });
+    return result.modifiedCount === 1;
+  }
+
+  async updateBitcoinDepositRecordTransaction(id: string, confirmedAt: number, status: BitcoinDepositStatus, bitcoinAmount: number, transactionHash: string, confirmations: number, channelCoins: number, bankTransactionId: string): Promise<void> {
+    await this.bitcoinDeposits.updateOne({ id: id }, {
+      $set: {
+        confirmedAt: confirmedAt,
+        status: status,
+        bitcoinAmount: bitcoinAmount,
+        transactionHash: transactionHash,
+        confirmationCount: confirmations,
+        channelCoinAmount: channelCoins,
+        bankTransactionId: bankTransactionId
+      }
+    });
+  }
 }
 
 const db = new Database();

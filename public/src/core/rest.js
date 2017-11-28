@@ -399,4 +399,19 @@ class RestUtils {
       paymentMethodNonce: nonce
     };
   }
+
+  static bitcoinDepositRequest(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static bitcoinDepositPoll(address, depositId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      depositId: depositId
+    };
+  }
 }

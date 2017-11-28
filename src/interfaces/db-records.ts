@@ -1,5 +1,5 @@
 
-import { Signable, BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./rest-services";
+import { Signable, BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor, BitcoinDepositStatus } from "./rest-services";
 import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
@@ -400,7 +400,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "bitcoin-deposit";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -447,4 +447,20 @@ export interface BowerPackageRecord {
   installed: number;
   package: string;  // stringified BowerInstallResult;
   channelComponent: ChannelComponentDescriptor;
+}
+
+export interface BitcoinDepositRecord {
+  id: string;
+  at: number;
+  userId: string;
+  expiresAt: number;
+  depositAddress: string;
+  status: BitcoinDepositStatus;
+  bitcoinAmount: number;
+  transactionHash: string;
+  confirmationCount: number;
+  channelCoinAmount: number;
+  ccPerBtc: number;
+  bankTransactionId: string;
+  confirmedAt: number;
 }

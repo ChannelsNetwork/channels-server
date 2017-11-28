@@ -1,5 +1,7 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="deposit-dialog.html">
+<link rel="import" href="../dialogs/error-dialog.html">
 
 <dom-module id="balance-view">
   <template>
@@ -193,7 +195,7 @@
           </div>
           <div class="buttonPanel">
             <div class="row">
-              <button id="btnDeposit" on-click="_onDepositClick" disabled>Deposit</button>
+              <button id="btnDeposit" on-click="_onDepositClick">Deposit</button>
             </div>
             <div class="horizontal layout center row">
               <div>
@@ -249,6 +251,8 @@
         </div>
       </div>
     </div>
+    <deposit-dialog id="depositDialog"></deposit-dialog>
+    <error-dialog id="errorDialog"></error-dialog>
   </template>
   <script>
     class BalanceView extends Polymer.Element {
@@ -279,9 +283,7 @@
             this.$.withdrawExplain.style.display = this.$.btnWithdraw.disabled ? "" : "none";
             this._refreshTransactions();
             this._refreshNetworkTotals();
-            if ($core.depositUrl) {
-              this.$.btnDeposit.disabled = false;
-            }
+            this.$.btnDeposit.disabled = false;
           });
         }).catch((err) => {
           console.error(err);
@@ -431,11 +433,18 @@
       }
 
       _onDepositClick() {
-        if ($core.profile && $core.profile.handle) {
-          window.location = $core.depositUrl;
-        } else {
-          $router.goto("register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("register", { returnRoute: { success: "balance", cancel: "balance" }, message: "For your own safety, you must establish your identity before we will accept a deposit." });
+          return;
         }
+        this.$.depositDialog.show().then((response) => {
+          if (response) {
+            this.$.errorDialog.show("Your purchase of " + response.channelCoinAmount.toFixed(8) + " ChannelCoin has been completed.");
+            this._refreshTransactions();
+          }
+        }).catch((err) => {
+          this.$.errorDialog.show("Deposits are currently unavailable.  Try again in a little while.");
+        });
       }
 
       _refreshNetworkTotals() {
