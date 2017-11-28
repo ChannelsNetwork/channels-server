@@ -457,7 +457,9 @@ class TestClient implements RestServer {
       timestamp: Date.now(),
       text: "hello world",
       private: false,
-      openFeeUnits: 1,
+      pricing: {
+        openFeeUnits: 1
+      },
       sharedState: {
         properties: { hello: "world" },
         collections: {}
