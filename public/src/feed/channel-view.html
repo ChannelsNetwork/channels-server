@@ -27,10 +27,11 @@
 
       .main {
         border-bottom: 1px solid #e5e5e5;
+        padding: 0 0 50px;
       }
 
       #morePanel {
-        padding: 32px 20px;
+        padding: 32px 0px;
         max-width: 1200px;
         margin: 0 auto;
         box-sizing: border-box;
@@ -40,6 +41,16 @@
       a:visited,
       a:hover {
         color: var(--dark-green);
+      }
+
+      #promotedPanel {
+        padding: 0 0 50px;
+      }
+
+      #promotedFeed {
+        max-width: 1200px;
+        margin: 20px auto 0;
+        box-sizing: border-box;
       }
     </style>
     <div class="main">
@@ -60,7 +71,13 @@
         on-card-payment-due="_onCardPay"></card-feed>
     </div>
     <div id="morePanel">
-      <a href="#feed">View your feed</a> to see more cards.
+      <div id="promotedPanel" class="hidden">
+        <div style="letter-spacing: 0.05em; padding: 0 16px;">Promoted cards</div>
+        <card-feed id="promotedFeed" items="[[promotedItems]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed"
+          on-impression="_onCardImpression" on-card-payment-due="_onCardPay"></card-feed>
+      </div>
+      <div style="padding: 0 16px;">
+        <a href="#feed">View your feed</a> to see more cards.</div>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -73,8 +90,32 @@
           handleInfo: {
             type: Object,
             observer: '_onHandleInfo'
-          }
+          },
+          promotedItems: Array
         };
+      }
+
+      _setItems(items) {
+        let pitems = [];
+        let npitems = [];
+        if (items && items.length) {
+          for (let i = 0; i < items.length; i++) {
+            let d = items[i];
+            if (d.promoted) {
+              pitems.push(d);
+            } else {
+              npitems.push(d);
+            }
+          }
+        }
+        this.set("items", npitems);
+        this.set("promotedItems", pitems);
+
+        if (pitems.length) {
+          this.$.promotedPanel.classList.remove("hidden");
+        } else {
+          this.$.promotedPanel.classList.add("hidden");
+        }
       }
 
       _parseRoute(route) {
