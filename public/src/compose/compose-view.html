@@ -68,6 +68,8 @@
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
         $core.postCard(data.summary.imageURL,
+          data.summary.imageWidth,
+          data.summary.imageHeight,
           data.summary.linkURL,
           data.summary.title,
           data.summary.text,

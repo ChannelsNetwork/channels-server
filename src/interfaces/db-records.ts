@@ -115,8 +115,10 @@ export interface CardRecord {
     openPayment: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10
   };
-  coupon: SignedObject;
-  couponId: string;
+  coupon?: SignedObject; // obsolete
+  couponId?: string; // obsolete
+  coupons: SignedObject[];
+  couponIds: string[];
   budget: {
     amount: number;
     plusPercent: number;

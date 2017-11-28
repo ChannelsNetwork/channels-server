@@ -331,6 +331,36 @@ export interface PostCardDetails extends Signable {
   text: string;
   private: boolean;
   cardType?: string;
+  pricing: CardPricingInfo;
+  sharedState: CardState;
+}
+
+export interface PostCardResponse extends RestResponse {
+  cardId: string;
+  couponId?: string;
+}
+
+export interface UpdateCardStateDetails extends Signable {
+  cardId: string;
+  summary?: {
+    imageUrl: string;
+    imageWidth: number;
+    imageHeight: number;
+    linkUrl: string;
+    title: string;
+    text: string;
+  };
+  state?: CardState;
+}
+
+export interface UpdateCardStateResponse extends RestResponse { }
+
+export interface UpdateCardPricingDetails extends Signable {
+  cardId: string;
+  pricing: CardPricingInfo;
+}
+
+export interface CardPricingInfo {
   promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
   openFeeUnits?: number; // for content, 1..10
@@ -338,14 +368,10 @@ export interface PostCardDetails extends Signable {
     amount: number;
     plusPercent: number;
   };
-  sharedState: CardState;
   coupon?: SignedObject;   // BankCouponDetails
 }
 
-export interface PostCardResponse extends RestResponse {
-  cardId: string;
-  couponId?: string;
-}
+export interface UpdateCardPricingResponse extends RestResponse { }
 
 export interface UpdateCardPrivateDetails extends Signable {
   cardId: string;
