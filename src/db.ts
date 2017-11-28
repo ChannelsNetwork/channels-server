@@ -6,6 +6,7 @@ import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileSt
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor, BitcoinDepositStatus } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
+import { SERVER_VERSION } from "./server-version";
 
 export class Database {
   private db: Db;
@@ -154,6 +155,17 @@ export class Database {
     await this.cards.updateMany({ curation: { $exists: false } }, { $set: { curation: { block: false } } });
     await this.cards.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.cards.createIndex({ type: 1, postedAt: -1 });
+
+    if (SERVER_VERSION <= 97) {
+      console.log("Db.initializeCards: Stripping version portion from card type on existing cards");
+      const cards = await this.cards.find<CardRecord>({}).toArray();
+      for (const card of cards) {
+        if (card.cardType && card.cardType.package && card.cardType.package.indexOf('#') > 0) {
+          const packageName = card.cardType.package.split('#')[0];
+          await this.cards.updateOne({ id: card.id }, { $set: { "cardType.package": packageName } });
+        }
+      }
+    }
   }
 
   private async ensureStatistic(stat: string): Promise<void> {

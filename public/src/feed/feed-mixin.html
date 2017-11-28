@@ -65,7 +65,7 @@
             preventReload = route.context.preventReload;
           }
           if (preventReload && this.items && this.items.length) {
-            $app.shell.scrollTop = route.context.scrollTop || 0;
+            $app.scrollTo(route.context.scrollTop);
             $router.context = null;
             return;
           }
@@ -126,7 +126,7 @@
             $core.cardOpened(card.id);
             let context = {
               card: card,
-              scrollTop: $app.shell.scrollTop
+              scrollTop: $app.scrollValue
             };
             if (this._parsedRoute) {
               context.feed = this._parsedRoute.path;

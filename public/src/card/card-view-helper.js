@@ -6,7 +6,7 @@ class _CardHelper {
   get intersectionObserver() {
     if (!this._iobserver) {
       const options = {
-        root: $app.shell,
+        root: null, // default browser viewport
         rootMargin: "0px",
         threshold: [0, 1.0]
       };

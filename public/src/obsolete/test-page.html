@@ -42,10 +42,6 @@
     class TestPage extends Polymer.Element {
       static get is() { return "test-page"; }
 
-      onActivate() {
-        $app.preventScrollBehavior = true;
-      }
-
       _toCanvas() {
         let node = (this.mode === "video") ? this.$.video : this.$.image;
         let canvas = document.createElement("canvas");
