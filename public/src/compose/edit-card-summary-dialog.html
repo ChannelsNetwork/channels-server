@@ -33,6 +33,8 @@
         if (this._promise) {
           return this._promise;
         }
+        this.$.filePicker.clear();
+        this._file = null;
         this.summary = summary;
         this.$.title.value = summary.title;
         this.$.text.value = summary.text;
