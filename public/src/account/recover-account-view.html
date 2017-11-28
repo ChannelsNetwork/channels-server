@@ -217,6 +217,9 @@
           this._hideMessage();
           this.message = message;
           this.$.errorPanel.classList.remove("hidden");
+          setTimeout(() => {
+            this.$.btnOk.focus();
+          }, 50);
         } else {
           this.$.errorPanel.classList.add("hidden");
         }

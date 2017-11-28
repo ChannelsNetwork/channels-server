@@ -414,7 +414,10 @@ export class Bank implements RestServer, Initializable {
         console.error("Bank.transfer: Missing recipient address or portion", details);
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
       }
-      const recipientUser = await db.findUserByAddress(recipient.address);
+      let recipientUser = await db.findUserByAddress(recipient.address);
+      if (!recipientUser) {
+        recipientUser = await db.findUserByHistoricalAddress(recipient.address);
+      }
       if (!recipientUser) {
         throw new ErrorWithStatusCode(404, "Unknown recipient address " + recipient.address);
       }
@@ -461,7 +464,13 @@ export class Bank implements RestServer, Initializable {
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
-      const recipientUser = await db.findUserByAddress(recipient.address);
+      let recipientUser = await db.findUserByAddress(recipient.address);
+      if (!recipientUser) {
+        recipientUser = await db.findUserByHistoricalAddress(recipient.address);
+      }
+      if (!recipientUser) {
+        throw new ErrorWithStatusCode(400, "No user with recipient address " + recipient.address);
+      }
       switch (recipient.portion) {
         case "remainder":
           remainderShares++;

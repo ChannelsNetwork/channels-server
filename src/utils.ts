@@ -1,4 +1,5 @@
 import * as crypto from "crypto";
+const parseFullName = require('parse-full-name').parseFullName;
 
 const TOKEN_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -101,5 +102,21 @@ export class Utils {
   static ceilDecimal(value: number, decimals: number): number {
     const multiplier = Math.pow(10, decimals);
     return Math.ceil(value * multiplier) / multiplier;
+  }
+
+  static getFirstName(name: string): string {
+    if (!name) {
+      return "";
+    }
+    const result = parseFullName(name);
+    return result.first;
+  }
+
+  static getLastName(name: string): string {
+    if (!name) {
+      return "";
+    }
+    const result = parseFullName(name);
+    return result.last;
   }
 }

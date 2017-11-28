@@ -1,6 +1,5 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
-<link rel="import" href="edit-card-summary-dialog.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -11,21 +10,18 @@
 
       .container {
         padding: 40px 16px 20px;
-        max-width: 700px;
+        max-width: 720px;
         margin: 0 auto;
         box-sizing: border-box;
       }
 
       .buttons {
-        padding: 50px 0 30px;
-      }
-
-      section {
-        padding: 20px 0;
+        padding: 30px 0;
       }
 
       .cardContainer {
         max-width: 320px;
+        min-width: 290px;
         width: 100%;
         height: 410px;
         margin-bottom: 15px;
@@ -56,7 +52,29 @@
       }
 
       button {
-        min-width: 100px;
+        margin: 5px 2px;
+        font-size: 16px;
+        min-width: 110px;
+      }
+
+      .layoutPanel {
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -ms-flex-direction: row;
+        -webkit-flex-direction: row;
+        flex-direction: row;
+        -ms-flex-align: center;
+        -webkit-align-items: center;
+        align-items: center;
+      }
+
+      .textSection {
+        padding-right: 10px;
+      }
+
+      #cardDeveloper {
+        margin-top: 25px;
       }
 
       @media (max-width: 600px) {
@@ -64,42 +82,47 @@
           padding: 20px 16px 20px;
         }
         .cardContainer {
-          max-width: 310px;
+          max-width: 300px;
           width: 100%;
-          height: 400px;
+          height: 390px;
         }
-        section {
-          padding: 10px 0;
+        .layoutPanel {
+          -ms-flex-direction: column;
+          -webkit-flex-direction: column;
+          flex-direction: column;
+          -ms-flex-align: initial;
+          -webkit-align-items: initial;
+          align-items: initial;
         }
-      }
-
-      #publish {
-        margin-left: 16px;
-      }
-
-      #cardDeveloper {
-        margin-top: 25px;
       }
     </style>
     <div class="container">
-      <h2>Review and Publish</h2>
-      <p>This is how your card will look to others when you post it.</p>
-      <section>
-        <div class="cardContainer">
-          <card-view id="cardView" data="[[cardData]]" preview></card-view>
-        </div>
-      </section>
-      <div>
-        <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
-      </div>
-      <div id="cardDeveloper" style="display:none;">
-        <div>Card developer royalty:
-          <span>[[cardDeveloperRoyalty]]</span>
-        </div>
-      </div>
-      <div class="buttons">
-        <button on-click="_onEdit">Edit</button>
-        <button id="publish" on-click="_onPublish">Publish</button>
+      <div class="layoutPanel">
+        <section id="textSection" class="flex textSection">
+          <h2>Review and Publish</h2>
+          <p>This is how your card will look to others when you post it.</p>
+          <div>
+            <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
+          </div>
+          <div id="cardDeveloper" style="display:none;">
+            <div>Card developer royalty:
+              <span>[[cardDeveloperRoyalty]]</span>
+            </div>
+          </div>
+          <div class="buttons">
+            <button on-click="_onEdit">Edit Card</button>
+            <button on-click="_onPreview">Preview</button>
+            <div>
+              <button on-click="_onCancel">Cancel</button>
+              <button id="publish" on-click="_onPublish">Publish</button>
+            </div>
+          </div>
+        </section>
+        <section>
+          <div class="cardContainer">
+            <card-view id="cardView" data="[[cardData]]" preview></card-view>
+          </div>
+        </section>
       </div>
     </div>
     <div id="overlay" class="hidden">
@@ -107,6 +130,7 @@
       <div class="message">Publishing Card</div>
     </div>
     <edit-card-summary-dialog id="editDialog"></edit-card-summary-dialog>
+    <compose-card-preview class="hidden" id="previewDialog" on-close="_onPreviewClose"></compose-card-preview>
   </template>
   <script>
     class ComposeCardPublish extends Polymer.Element {
@@ -151,7 +175,7 @@
             revenueDisplay: null
           },
           pricing: {
-            openFee: 0,
+            openFee: 0
           },
           userSpecific: {
             paid: 0,
@@ -171,7 +195,11 @@
           cardData.pricing.openFee = data.pricing.fee.priceLevel * $core.baseCardPrice;
           cardData.promoted = data.pricing.expandReach;
         } else if (data.pricing.pay) {
-          cardData.pricing.openFee = -data.promotion.amount;
+          if (data.pricing.pay.basedOn === "impressions") {
+            cardData.pricing.promotionFee = data.promotion.amount;
+          } else {
+            cardData.pricing.openFee = -data.promotion.amount;
+          }
           cardData.promoted = true;
         }
         this.set('cardData', cardData);
@@ -181,21 +209,60 @@
         } else {
           this.$.cardDeveloper.style.display = "none";
         }
-        Polymer.importHref(this.resolveUrl('../card/card-view.html'));
+        this._import('../card/card-view.html');
       }
 
       _onEdit() {
-        const editSummary = {
-          imageUrl: this.cardData.summary.imageUrl,
-          title: this.cardData.summary.title,
-          text: this.cardData.summary.text
-        };
-        this.$.editDialog.show(editSummary).then((resultSummary) => {
-          if (resultSummary) {
-            this.$.cardView.updateSummary(resultSummary);
-            this.cardData.summary = resultSummary;
-          }
+        this._import('edit-card-summary-dialog.html').then(() => {
+          const editSummary = {
+            imageUrl: this.cardData.summary.imageUrl,
+            title: this.cardData.summary.title,
+            text: this.cardData.summary.text
+          };
+          this.wizard.headerVisible = false;
+          this.$.editDialog.show(editSummary).then((resultSummary) => {
+            this.wizard.headerVisible = true;
+            if (resultSummary) {
+              this.$.cardView.updateSummary(resultSummary);
+              this.cardData.summary = resultSummary;
+            }
+          }).catch((err) => {
+            console.error(err);
+            this.wizard.headerVisible = true;
+            $app.showError(err);
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError("Oops. There was a problem loading the edit dialog.");
         });
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      _onCancel() {
+        this.wizard.cancel();
+      }
+
+      _onPreview() {
+        this._import("compose-card-preview.html").then(() => {
+          this.$.previewDialog.classList.remove("hidden");
+          setTimeout(() => {
+            this.$.previewDialog.showCard(this.wizard.data.cardInfo, this.cardData.summary, this.wizard.data.cardSharedState, this.cardData.by);
+          });
+        });
+      }
+
+      _onPreviewClose() {
+        this.$.previewDialog.classList.add("hidden");
+        this.$.previewDialog.hideCard();
       }
     }
     window.customElements.define(ComposeCardPublish.is, ComposeCardPublish);

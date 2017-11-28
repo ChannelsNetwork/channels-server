@@ -30,11 +30,7 @@ export interface UserRecord {
 
 export interface OldUserRecord {
   id: string;
-  keys: {
-    address: string;
-    publicKey: string;
-    added: number;
-  };
+  keys: OldUserKey[];
   added: number;
   balance: number;
   balanceLastUpdated: number;
@@ -45,6 +41,12 @@ export interface OldUserRecord {
   withdrawableBalance: number;
   balanceBelowTarget: boolean;
   identity?: UserIdentity;
+}
+
+export interface OldUserKey {
+  address: string;
+  publicKey: string;
+  added: number;
 }
 
 export interface UserAddressHistory {
@@ -133,7 +135,10 @@ export interface CardRecord {
     block: boolean;
   };
   searchText: string;
+  type: CardType;
 }
+
+export type CardType = "normal" | "announcement";
 
 export interface CardPromotionScores {
   a: number;  // balance/target > 80%

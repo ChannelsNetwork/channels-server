@@ -65,7 +65,7 @@
             preventReload = route.context.preventReload;
           }
           if (preventReload && this.items && this.items.length) {
-            $app.shell.scrollTop = route.context.scrollTop || 0;
+            $app.scrollTo(route.context.scrollTop);
             $router.context = null;
             return;
           }
@@ -127,7 +127,7 @@
             $core.cardOpened(card.id);
             let context = {
               card: card,
-              scrollTop: $app.shell.scrollTop
+              scrollTop: $app.scrollValue
             };
             if (this._parsedRoute) {
               context.feed = this._parsedRoute.path;
@@ -164,7 +164,7 @@
         let card = event.detail.card;
         let view = event.detail.view;
         if (card && view) {
-          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId && (!card.userSpecific.earnedFromAuthor)) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
             $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
             view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
           } else {

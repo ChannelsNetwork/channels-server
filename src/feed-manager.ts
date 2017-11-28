@@ -158,13 +158,24 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async mergeWithAdCards(user: UserRecord, cards: CardDescriptor[]): Promise<CardDescriptor[]> {
-    // First, we'll discard any cards that are blocked
+    const amalgamated: CardDescriptor[] = [];
+    // First we check to see if there is an announcement card that we need to show.
+    const announcementCard = await db.findCardMostRecentByType("announcement");
+    let announcementAddedId: string;
+    if (announcementCard) {
+      // Check to see if the user has already opened this
+      const userCardInfo = await db.findUserCardInfo(user.id, announcementCard.id);
+      if (!userCardInfo || !userCardInfo.lastOpened) {
+        const announcement = await this.populateCard(announcementCard, true, user);
+        amalgamated.push(announcement);
+        announcementAddedId = announcementCard.id;
+      }
+    }
     // Now we have to inject ad slots if necessary, and populate those ad slots with cards that offer
     // the user some revenue-generating potential
     const adSlots = this.positionAdSlots(user, cards.length);
     const adIds: string[] = [];
     if (adSlots.slotCount > 0) {
-      const amalgamated: CardDescriptor[] = [];
       let adCount = 0;
       let cardIndex = 0;
       let slotIndex = 0;
@@ -178,7 +189,7 @@ export class FeedManager implements Initializable, RestServer {
       while (cardIndex < cards.length || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards);
+          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, announcementAddedId);
           if (adCard) {
             const adDescriptor = await this.populateCard(adCard, true, user);
             amalgamated.push(adDescriptor);
@@ -191,19 +202,30 @@ export class FeedManager implements Initializable, RestServer {
           }
         }
         if (!filled && cardIndex < cards.length) {
-          amalgamated.push(cards[cardIndex++]);
+          // If we've already included this card as an announcement, we skip it here
+          if (!announcementAddedId || cards[cardIndex].id !== announcementAddedId) {
+            amalgamated.push(cards[cardIndex]);
+          }
+          cardIndex++;
         }
         slotIndex++;
       }
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);  // push the list back into the cache
       await adCursor.close();
       return amalgamated;
+    } else if (announcementAddedId) {
+      for (const card of cards) {
+        if (card.id !== announcementAddedId) {
+          amalgamated.push(card);
+        }
+      }
+      return amalgamated;
     } else {
       return cards;
     }
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[]): Promise<CardRecord> {
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();
       if (alreadyPopulatedAdCardIds.indexOf(card.id) >= 0) {
@@ -218,6 +240,9 @@ export class FeedManager implements Initializable, RestServer {
       if (card.by.id === user.id) {
         continue;
       }
+      if (existingAnnouncementId && card.id === existingAnnouncementId) {
+        continue;
+      }
       let found = false;
       for (const existing of existingCards) {
         if (existing.id === card.id) {
@@ -229,8 +254,8 @@ export class FeedManager implements Initializable, RestServer {
         continue;
       }
       let info = await this.getUserCardInfo(user.id, card.id, false);
-      if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
-        // This card is not eligible because the user has already been paid for it (based on our cache)
+      if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+        // This card is not eligible because the user has already been paid to open it (based on our cache)
         earnedAdCardIds.push(card.id);
       } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
         // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
@@ -242,7 +267,7 @@ export class FeedManager implements Initializable, RestServer {
         // We got this userInfo from cache, so it may be out of date.  Check again before committing to this
         // card
         info = await this.getUserCardInfo(user.id, card.id, true);
-        if (info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+        if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
           // Check that it is still eligible based on having been paid
           earnedAdCardIds.push(card.id);
         } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {

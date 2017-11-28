@@ -70,6 +70,9 @@
       }
 
       onTransitioningIn(forward) {
+        this.$.overlay.classList.add("hidden");
+        this.$.spinner.spinning = false;
+
         if (!this.wizard.data.cardInfo) {
           this.composer = null;
         }
@@ -120,13 +123,15 @@
 
       onTransitioningOut(forward) {
         return new Promise((resolve, reject) => {
-          if (this.composer.prepare) {
+          if (this.composer && this.composer.isReady && this.composer.prepare) {
             this.message = this.composer.prepareMessage || "Saving card";
             this.$.overlay.classList.remove("hidden");
             this.$.spinner.spinning = true;
             this.composer.prepare().then(() => {
               this._finishTransition(forward, resolve);
             }).catch((err) => {
+              this.$.spinner.spinning = false;
+              this.$.overlay.classList.add("hidden");
               reject(err);
             });
           } else {
@@ -141,7 +146,7 @@
         if (!forward) {
           resolve();
         } else {
-          if (this.composer) {
+          if (this.composer && this.composer.isReady) {
             this.wizard.data.cardSharedState = this.composer.sharedState || {};
             this.wizard.data.summary = this.composer.summary || {};
             this.wizard.data.searchText = this.composer.searchText;

@@ -13,18 +13,10 @@
       :host {
         display: block;
         position: relative;
-      }
-
-      #shell {
-        height: 100vh;
-        overflow-x: hidden;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        position: relative;
-      }
-
-      .noscroll {
-        overflow: hidden !important;
+        height: 100%;
+        padding-top: 60px;
+        box-sizing: border-box;
+        transition: padding 0.5s ease;
       }
 
       soso-pages {
@@ -38,7 +30,6 @@
         top: 0;
         left: 0;
         right: 0;
-        z-index: 2;
       }
 
       #reloadingPanel {
@@ -54,49 +45,42 @@
         letter-spacing: 0.1em;
         text-align: center;
       }
-
-      .page {
-        background: white;
-        min-height: 100vh;
-      }
-
-      .page[data-toolbar="true"] {
-        padding-top: 60px;
-      }
     </style>
-    <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
-    <div id="shell">
-      <soso-pages id="pages">
-        <div class="page"></div>
-        <!-- Signin and registartion pages -->
-        <sign-in-view class="signin page" data-href="account/sign-in-view.html"></sign-in-view>
-        <register-view class="register page" data-href="account/register-view.html"></register-view>
-        <register-image-view class="register-photo page" data-href="account/register-image-view.html"></register-image-view>
-        <request-recovery-view class="request-recovery page" data-href="account/request-recovery-view.html"></request-recovery-view>
-        <recover-account-view class="recover page" data-href="account/recover-account-view.html"></recover-account-view>
-        <!-- Account Pages -->
-        <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
-        <edit-profile-view class="edit-profile page" data-href="account/edit-profile-view.html"></edit-profile-view>
-        <!-- About Pages -->
-        <about-view class="about page" data-toolbar="true" data-href="about/about-view.html"></about-view>
-        <learn-card-development-view class="learn-card-development page" data-toolbar="true" data-href="about/learn-card-development-view.html"></learn-card-development-view>
-        <!-- Balance Pages -->
-        <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
-        <withdraw-dialog class="withdraw page" data-href="balance/withdraw-dialog.html"></withdraw-dialog>
-        <!-- Feed/Card Pages -->
-        <feed-view id="feed" class="feed page" data-toolbar="true" data-href="feed/feed-view.html"></feed-view>
-        <channel-view class="channel page" data-toolbar="true" data-href="feed/channel-view.html"></channel-view>
-        <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
-        <card-page class="card page" data-href="card/card-page.html"></card-page>
-        <!-- Test pages -->
-        <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
-      </soso-pages>
-    </div>
+
+    <soso-pages id="pages">
+      <div class="page"></div>
+      <!-- Signin and registartion pages -->
+      <sign-in-view class="signin page" data-href="account/sign-in-view.html"></sign-in-view>
+      <register-view class="register page" data-href="account/register-view.html"></register-view>
+      <register-image-view class="register-photo page" data-href="account/register-image-view.html"></register-image-view>
+      <request-recovery-view class="request-recovery page" data-href="account/request-recovery-view.html"></request-recovery-view>
+      <recover-account-view class="recover page" data-href="account/recover-account-view.html"></recover-account-view>
+      <!-- Account Pages -->
+      <account-view class="account page" data-toolbar="true" data-href="account/account-view.html"></account-view>
+      <edit-profile-view class="edit-profile page" data-href="account/edit-profile-view.html"></edit-profile-view>
+      <!-- About Pages -->
+      <about-view class="about page" data-toolbar="true" data-href="about/about-view.html"></about-view>
+      <learn-card-development-view class="learn-card-development page" data-toolbar="true" data-href="about/learn-card-development-view.html"></learn-card-development-view>
+      <!-- Balance Pages -->
+      <balance-view class="balance page" data-toolbar="true" data-href="balance/balance-view.html"></balance-view>
+      <withdraw-dialog class="withdraw page" data-href="balance/withdraw-dialog.html"></withdraw-dialog>
+      <!-- Feed/Card Pages -->
+      <feed-view id="feed" class="feed page" data-toolbar="true" data-href="feed/feed-view.html"></feed-view>
+      <channel-view class="channel page" data-toolbar="true" data-href="feed/channel-view.html"></channel-view>
+      <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
+      <card-page class="card page" data-href="card/card-page.html"></card-page>
+      <!-- Test pages -->
+      <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
+    </soso-pages>
     <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
+
     <div id="reloadingPanel" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
     </div>
     <confirm-dialog id="dlgConfirm"></confirm-dialog>
+    <error-dialog id="dlgError"></error-dialog>
+
+    <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
   </template>
   <script>
     class MainApp extends Polymer.Element {
@@ -129,7 +113,7 @@
           this._handleRouteChange(event.detail.route);
         } else {
           this._pendingRoute = event.detail.route;
-          this.setBarVisible(true);
+          this._setBarVisible(true);
           requestAnimationFrame(() => {
             this.$.toolbar.setPendingMode(true);
           });
@@ -182,6 +166,9 @@
         }
 
         const showToolbar = activePage.dataset.toolbar == "true";
+        this._preventScroll = !showToolbar;
+        this.style.paddingTop = showToolbar ? "60px" : "0";
+
         const pageHref = activePage.dataset.href;
         let animation = route.animation;
         if (!animation) {
@@ -195,20 +182,16 @@
         animation = animation || activePage.dataset.animationIn || "dissolve";
 
         this.$.pages.animation = animation;
-        this.setBarVisible(showToolbar);
+        this._setBarVisible(showToolbar);
 
         this._lastPage = activePage;
         const pageCallback = () => {
-          this.$.shell.classList.add('noscroll');
           this.$.pages.selectedIndex = activeIndex;
           setTimeout(() => {
             if (activePage.onActivate) {
               activePage.onActivate(route);
             }
           }, 10);
-          setTimeout(() => {
-            this.$.shell.classList.remove('noscroll');
-          }, 800);
         };
         if (pageHref) {
           Polymer.importHref(this.resolveUrl(pageHref), pageCallback);
@@ -217,9 +200,8 @@
         }
 
         // scroll to top
-        this.$.shell.scrollTop = 0;
+        this.scrollTo(0);
         this._prevScrollValue = 0;
-        this._preventScroll = false;
         this._attachScrollListener();
 
         // notify toolbar
@@ -245,86 +227,41 @@
             if (!this._preventScroll) {
               this._onScroll(event);
             }
-            // Fire a dummy scroll event on the document to trigger IntersectionObserver polyfill
-            // when the event is not bubbling upwards. 
-            if (!event.bubbles) {
-              document.dispatchEvent(new CustomEvent('scroll', { bubbles: true, composed: true }));
-            }
           };
-          this.$.shell.addEventListener("scroll", this._scrollListener)
+          document.addEventListener("scroll", this._scrollListener);
         }
       }
 
       _onScroll(event) {
-        const shell = this.$.shell;
+        let st = this.scrollValue;
         if (!this._prevScrollValue) {
-          this._prevScrollValue = shell.scrollTop;
+          this._prevScrollValue = st;
         } else {
-          if (shell.scrollTop <= 0) {
+          if (st <= 0) {
             this._prevScrollValue = 0;
             if (!this._barShowing) {
-              this.setBarVisible(true);
+              this._setBarVisible(true);
             }
             return;
           }
-          let diff = shell.scrollTop - this._prevScrollValue;
+          let diff = st - this._prevScrollValue;
           if (diff > 10) {
-            this._prevScrollValue = shell.scrollTop;
+            this._prevScrollValue = st;
             if (this._barShowing) {
-              this.setBarVisible(false);
+              this._setBarVisible(false);
             }
           } else if (diff < -5) {
-            this._prevScrollValue = shell.scrollTop;
+            this._prevScrollValue = st;
             if (!this._barShowing) {
-              this.setBarVisible(true);
+              this._setBarVisible(true);
             }
           }
         }
       }
 
-      set preventScrollBehavior(value) {
-        this._preventScroll = value;
-      }
-
-      setBarVisible(visible) {
+      _setBarVisible(visible) {
         this._barShowing = visible;
         this.$.toolbar.style.top = visible ? "0px" : "-105px";
-      }
-
-      get shell() {
-        return this.$.shell;
-      }
-
-      scrollTo(node, duration) {
-        return new Promise((resolve, reject) => {
-          var diff = node.getBoundingClientRect().top;
-          var iv = this.shell.scrollTop;
-          if (this._scrolling) {
-            this._scrolling = false;
-            this.shell.scrollTop = iv + diff;
-            resolve();
-          } else {
-            this._scrollAnimStart = 0;
-            this._scrolling = true;
-            var _step = (timestamp) => {
-              if (!this._scrolling) {
-                return;
-              }
-              if (!this._scrollAnimStart) {
-                this._scrollAnimStart = timestamp;
-              }
-              let progress = Math.min(1, Math.max(0, (timestamp - this._scrollAnimStart) / duration));
-              this.shell.scrollTop = iv + (diff * progress);
-              if (progress < 1) {
-                window.requestAnimationFrame(_step);
-              } else {
-                this._scrolling = false;
-                resolve();
-              }
-            };
-            requestAnimationFrame(_step);
-          }
-        });
       }
 
       _import(path) {
@@ -341,6 +278,26 @@
         return this._import("dialogs/confirm-dialog.html").then(() => {
           return this.$.dlgConfirm.show(message, cancelText, okText);
         });
+      }
+
+      showError(error) {
+        let message = error.message || error.toString();
+        return this._import("dialogs/error-dialog.html").then(() => {
+          return this.$.dlgError.show(message);
+        });
+      }
+
+      get scrollValue() {
+        return (window.pageYOffset !== undefined) ? window.pageYOffset : (document.documentElement.scrollTop || document.body.scrollTop);
+      }
+
+      scrollTo(value) {
+        if (window.scrollTo) {
+          window.scrollTo(0, value);
+        } else {
+          document.documentElement.scrollTop = value;
+          document.body.scrollTop = value;
+        }
       }
     }
     window.customElements.define(MainApp.is, MainApp);

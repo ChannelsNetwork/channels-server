@@ -121,7 +121,7 @@
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
           if (this._imagesLoaded) {
-            this.loadImages();
+            this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
           }
           if (this.data.pricing.openFeeUnits === 0) {
             this.$.revenue.classList.add("hidden");
@@ -194,6 +194,7 @@
             this._refreshPrivate();
           }).catch((err) => {
             console.error("Failed to updated private flag", err);
+            $app.showError("Failed to updated private flag.");
           });
         }
       }
@@ -205,6 +206,7 @@
               this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
             }).catch((err) => {
               console.error("Failed to delete card".err);
+              $app.showError("Oops. Something went wrong. Failed to delete card.");
             });
           }
         });

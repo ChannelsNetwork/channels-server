@@ -2,10 +2,11 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
+import { SERVER_VERSION } from "./server-version";
 
 export class Database {
   private db: Db;
@@ -151,6 +152,19 @@ export class Database {
     await this.cards.createIndex({ state: 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text" });
 
     await this.cards.updateMany({ curation: { $exists: false } }, { $set: { curation: { block: false } } });
+    await this.cards.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
+    await this.cards.createIndex({ type: 1, postedAt: -1 });
+
+    if (SERVER_VERSION <= 97) {
+      console.log("Db.initializeCards: Stripping version portion from card type on existing cards");
+      const cards = await this.cards.find<CardRecord>({}).toArray();
+      for (const card of cards) {
+        if (card.cardType && card.cardType.package && card.cardType.package.indexOf('#') > 0) {
+          const packageName = card.cardType.package.split('#')[0];
+          await this.cards.updateOne({ id: card.id }, { $set: { "cardType.package": packageName } });
+        }
+      }
+    }
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -293,7 +307,7 @@ export class Database {
 
   private async initializeBowerPackages(): Promise<void> {
     this.bowerPackages = this.db.collection('bowerPackages');
-    await this.bankDeposits.createIndex({ packageName: 1 }, { unique: true });
+    await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -618,7 +632,8 @@ export class Database {
       curation: {
         block: false
       },
-      searchText: searchText
+      searchText: searchText,
+      type: "normal"
     };
     if (promotionScores) {
       record.promotionScores = promotionScores;
@@ -676,6 +691,15 @@ export class Database {
       query.state = "active";
     }
     return await this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
+  }
+
+  async findCardMostRecentByType(type: CardType): Promise<CardRecord> {
+    const result = await this.cards.find<CardRecord>({ type: type }).sort({ postedAt: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {

@@ -31,6 +31,7 @@ import * as escapeHtml from 'escape-html';
 import * as LRU from 'lru-cache';
 import * as url from 'url';
 import * as universalAnalytics from 'universal-analytics';
+import { Utils } from "./utils";
 
 const promiseLimit = require('promise-limit');
 
@@ -144,7 +145,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       og_image: card.summary.imageUrl,
       og_imagewidth: card.summary.imageWidth,
       og_imageheight: card.summary.imageHeight,
-      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id)
+      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id),
+      og_article_published_time: new Date(card.postedAt).toISOString(),
+      author: card.by.name
     };
     const output = Mustache.render(this.cardTemplate, view);
     response.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
@@ -266,7 +269,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (info.earnedFromAuthor > 0) {
+        if (card.pricing.openPayment > 0 && info.earnedFromAuthor > 0) {
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
@@ -431,18 +434,21 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("No coupon is allowed on the transaction");
         return;
       }
-      const author = await db.findUserByAddress(card.by.address);
+      const author = await db.findUserById(card.by.id);
       if (!author) {
         response.status(404).send("The author of this card is missing");
         return;
       }
       let authorRecipient = false;
       for (const recipient of transaction.toRecipients) {
-        if (recipient.address === card.by.address && recipient.portion === 'remainder') {
-          authorRecipient = true;
+        let recipientUser = await db.findUserByAddress(recipient.address);
+        if (!recipientUser) {
+          recipientUser = await db.findUserByHistoricalAddress(recipient.address);
         }
-        const recipientUser = await db.findUserByAddress(recipient.address);
         if (recipientUser) {
+          if (recipientUser.id === card.by.id && recipient.portion === 'remainder') {
+            authorRecipient = true;
+          }
           await userManager.updateUserBalance(recipientUser);
         } else {
           response.status(404).send("One of the recipients is missing");
