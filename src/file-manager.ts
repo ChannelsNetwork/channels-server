@@ -189,15 +189,26 @@ export class FileManager implements RestServer {
       console.log("FileManager.handleFetch: range", range);
       s3Request.Range = range.toString();
     }
-    this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
+    let completed = false;
+    const s3Fetch = this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
       for (const key of Object.keys(headers)) {
         this.transferHeader(response, headers, key);
       }
       response.setHeader("Server", 'Channels');
       response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 30);
       response.status(statusCode);
-    }).createReadStream()
+    });
+    // Since we're piping the content through, if the request stream closes, we need to
+    // abort the request to S3 so we don't keep pulling down content we don't want.
+    request.on('close', (err: any) => {
+      if (!completed) {
+        console.log("File.handleFetch:  Aborting file fetch");
+        s3Fetch.abort();
+      }
+    });
+    s3Fetch.createReadStream()
       .on('end', () => {
+        completed = true;
         console.log("FileManager.handleFetch completed");
       })
       .pipe(response);
