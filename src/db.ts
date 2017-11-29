@@ -163,7 +163,7 @@ export class Database {
       await this.cards.updateOne({ id: card.id }, { $push: { coupons: card.coupon, couponIds: card.couponId }, $unset: { coupon: 1, couponId: 1 } });
     }
 
-    if (SERVER_VERSION <= 98) {
+    if (SERVER_VERSION <= 99) {
       console.log("Db.initializeCards: Stripping version portion from card type on existing cards");
       cards = await this.cards.find<CardRecord>({}).toArray();
       for (const card of cards) {
