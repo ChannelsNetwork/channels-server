@@ -210,7 +210,11 @@
 
       _editCard() {
         this._import("edit/edit-card-dialog.html").then(() => {
-          $dialogs.open("edit-card-dialog");
+          let dlg = $dialogs.open("edit-card-dialog", this.data);
+          dlg.addEventListener('summary-updated', (event) => {
+            event.stopPropagation();
+            this.dispatchEvent(new CustomEvent('summary-updated', { bubbles: true, composed: true, detail: event.detail }));
+          });
         });
       }
 
