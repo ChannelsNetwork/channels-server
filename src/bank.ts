@@ -399,7 +399,7 @@ export class Bank implements RestServer, Initializable {
     if (details.toRecipients.length === 0) {
       throw new ErrorWithStatusCode(400, "Missing toRecipients");
     }
-    if (!networkInitiated && user.balance < details.amount) {
+    if (!networkInitiated && !user.admin && user.balance < details.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
     let percent = 0;
@@ -545,7 +545,7 @@ export class Bank implements RestServer, Initializable {
     if (!userManager.isUserAddress(from, coupon.byAddress)) {
       throw new ErrorWithStatusCode(401, "This coupon is not for a matching user.");
     }
-    if (!networkInitiated && from.balance < coupon.amount) {
+    if (!networkInitiated && !from.admin && from.balance < coupon.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
     const card = await db.findCardById(coupon.cardId, false);
@@ -553,7 +553,7 @@ export class Bank implements RestServer, Initializable {
       throw new ErrorWithStatusCode(404, "The card associated with this coupon is no longer available");
     }
     const redeemable = await this.isCouponRedeemable(coupon, card);
-    if (!redeemable) {
+    if (!redeemable && !from.admin) {
       throw new ErrorWithStatusCode(401, "This coupon's budget is exhausted");
     }
     const originalBalance = to.balance;
@@ -589,7 +589,7 @@ export class Bank implements RestServer, Initializable {
 
   async registerCoupon(user: UserRecord, cardId: string, details: SignedObject): Promise<BankCouponRecord> {
     const coupon = JSON.parse(details.objectString) as BankCouponDetails;
-    if (!coupon.address || !coupon.timestamp || !coupon.reason || !coupon.amount || coupon.amount <= 0 || !coupon.budget || !coupon.budget.amount || coupon.budget.amount <= 0) {
+    if (!coupon.address || !coupon.timestamp || !coupon.reason) {
       throw new ErrorWithStatusCode(400, "Coupon has missing or invalid fields");
     }
     if (coupon.address !== user.address) {
@@ -598,13 +598,13 @@ export class Bank implements RestServer, Initializable {
     if (!KeyUtils.verifyString(details.objectString, user.publicKey, details.signature)) {
       throw new ErrorWithStatusCode(401, "Invalid coupon signature");
     }
-    if (coupon.budget.amount <= 0 && coupon.amount <= 0) {
+    if (coupon.budget.amount < 0 || coupon.amount < 0) {
       throw new ErrorWithStatusCode(400, "Coupon amount and budget amount must be greater than zero");
     }
-    if (coupon.budget.amount > user.balance) {
+    if (!user.admin && coupon.budget.amount > 0 && coupon.budget.amount > user.balance) {
       throw new ErrorWithStatusCode(400, "Coupon budget amount exceeds the user's balance");
     }
-    if (coupon.amount > coupon.budget.amount) {
+    if (coupon.budget.amount > 0 && coupon.amount > coupon.budget.amount) {
       throw new ErrorWithStatusCode(400, "Coupon budget is less than coupon amount");
     }
     if (coupon.budget.plusPercent) {
