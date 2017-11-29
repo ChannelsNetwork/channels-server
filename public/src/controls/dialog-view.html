@@ -105,16 +105,46 @@
       }
 
       hide() {
-        if (!this._showing) {
-          return;
-        }
-        this._showing = false;
-        this.$.container.classList.remove("containerShowing");
-        setTimeout(() => {
-          this.style.display = "none";
-        }, 500);
+        return new Promise((resolve, reject) => {
+          if (!this._showing) {
+            resolve();
+            return;
+          }
+          this._showing = false;
+          this.$.container.classList.remove("containerShowing");
+          setTimeout(() => {
+            this.style.display = "none";
+            resolve();
+          }, 500);
+        });
       }
     }
     window.customElements.define(DialogView.is, DialogView);
+
+    window.$dialogs = {
+      open: function (name, data) {
+        let parent = document.getElementById("dialogShell") || document.body;
+        let node = document.createElement(name);
+        parent.appendChild(node);
+        setTimeout(() => {
+          node.show(data);
+        });
+        return node;
+      },
+
+      hide: function (node) {
+        if (node) {
+          node.hide().then(() => {
+            if (node.parentNode) {
+              node.parentNode.removeChild(node);
+            }
+          }).catch(() => {
+            if (node.parentNode) {
+              node.parentNode.removeChild(node);
+            }
+          });
+        }
+      }
+    };
   </script>
 </dom-module>

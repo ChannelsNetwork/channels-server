@@ -1,0 +1,64 @@
+<link rel="import" href="../../controls/dialog-view.html">
+<link rel="import" href="../../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
+
+<dom-module id="edit-card-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #filePicker {
+        margin: 20px 0 12px;
+      }
+
+      soso-text-input {
+        margin: 18px 0;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Edit Card</h3>
+      <soso-file-picker id="filePicker" label="Drag an image file" accept="image/*" on-files="_onFile"></soso-file-picker>
+      <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
+      <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
+    </dialog-view>
+  </template>
+  <script>
+    class EditCardDialog extends Polymer.Element {
+      static get is() { return 'edit-card-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array,
+          card: Object
+        };
+      }
+
+      show() {
+        this._buttons = [
+          { id: 'cancel', label: "Cancel" },
+          { id: 'update', label: "Update" }
+        ];
+
+        // clear state
+        this.$.filePicker.clear();
+        this._file = null;
+
+        // initialize state
+        this.$.title.value = "";
+        this.$.text.value = "";
+
+        return this.$.dlg.show();
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        $dialogs.hide(this);
+      }
+    }
+    window.customElements.define(EditCardDialog.is, EditCardDialog);
+  </script>
+</dom-module>

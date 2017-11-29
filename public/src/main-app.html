@@ -136,6 +136,12 @@
         });
       }
 
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+
       _handleRouteChange(route) {
         let pageName = route.segments[0] || "feed";
         pageName = pageName.trim();
@@ -151,6 +157,12 @@
             activeIndex = i;
             break;
           }
+        }
+
+        // close pending dialogs
+        let dlgShell = document.getElementById("dialogShell");
+        if (dlgShell) {
+          this._clearNode(dlgShell);
         }
 
         // Notify prev page it's being hidden

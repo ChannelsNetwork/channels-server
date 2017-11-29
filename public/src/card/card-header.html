@@ -54,7 +54,7 @@
 
       soso-dropdown {
         font-size: 14px;
-        z-index: 1;
+        z-index: 2;
       }
     </style>
     <div class="horizontal layout center bar">
@@ -70,8 +70,8 @@
 
       <!-- Drop downs -->
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
-        <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
-        <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_editCard">Edit Card</li>
+        <li on-click="_editPricing">Card Pricing</li>
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
@@ -87,7 +87,8 @@
         <div style="min-width: 75px;">Total card revenue</div>
       </soso-tooltip>
     </div>
-    <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
+
+    <!-- Dialogs -->
     <share-link-dialog id="shareDialog"></share-link-dialog>
   </template>
   <script>
@@ -153,7 +154,6 @@
         } else {
           this.$.privateIcon.classList.add("hidden");
         }
-        this._refreshMenu();
       }
 
       _refreshMore() {
@@ -165,39 +165,29 @@
         }
       }
 
-      _refreshMenu() {
-        if (this.data && this.data.private) {
-          this.$.liPrivate.classList.add("hidden");
-          this.$.liPublic.classList.remove("hidden");
-        } else {
-          this.$.liPrivate.classList.remove("hidden");
-          this.$.liPublic.classList.add("hidden");
-        }
-      }
-
       onPrivateUpdated() {
         this._refreshPrivate();
       }
 
-      _makePrivate() {
-        this._updatePrivate(true);
-      }
+      // _makePrivate() {
+      //   this._updatePrivate(true);
+      // }
 
-      _makePublic() {
-        this._updatePrivate(false);
-      }
+      // _makePublic() {
+      //   this._updatePrivate(false);
+      // }
 
-      _updatePrivate(isPrivate) {
-        if (this.data) {
-          $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
-            this.data.private = response.newValue;
-            this._refreshPrivate();
-          }).catch((err) => {
-            console.error("Failed to updated private flag", err);
-            $app.showError("Failed to updated private flag.");
-          });
-        }
-      }
+      // _updatePrivate(isPrivate) {
+      //   if (this.data) {
+      //     $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
+      //       this.data.private = response.newValue;
+      //       this._refreshPrivate();
+      //     }).catch((err) => {
+      //       console.error("Failed to updated private flag", err);
+      //       $app.showError("Failed to updated private flag.");
+      //     });
+      //   }
+      // }
 
       _deleteCard() {
         $app.confirm("This will delete this card permanently.  Are you sure?", null, "Delete").then((result) => {
@@ -214,7 +204,13 @@
 
       _analytics() {
         this._import("card-analytics-dialog.html").then(() => {
-          this.$.analyticsDialog.show(this.data);
+          $dialogs.open("card-analytics-dialog", this.data);
+        });
+      }
+
+      _editCard() {
+        this._import("edit/edit-card-dialog.html").then(() => {
+          $dialogs.open("edit-card-dialog");
         });
       }
 
