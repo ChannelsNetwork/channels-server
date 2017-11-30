@@ -115,6 +115,9 @@ export class FeedManager implements Initializable, RestServer {
       type: feed.type,
       cards: []
     };
+    if (!feed.maxCount) {
+      feed.maxCount = 50;
+    }
     switch (feed.type) {
       case "recommended":
         result.cards = await this.getRecommendedFeed(user, feed.maxCount, startWithCardId);
