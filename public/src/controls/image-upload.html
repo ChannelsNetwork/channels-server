@@ -88,9 +88,11 @@
             this.$.filePicker.classList.add("darken");
             this.$.imagePanel.style.opacity = 1;
             this.$.imagePanel.style.backgroundImage = 'url("' + this._imageUrl + '")';
+            this.dispatchEvent(new CustomEvent('image-set', { bubbles: true, composed: true, detail: { hasImage: true } }));
           } else {
             this.$.filePicker.classList.remove("darken");
             this.$.imagePanel.style.opacity = 0;
+            this.dispatchEvent(new CustomEvent('image-set', { bubbles: true, composed: true, detail: { hasImage: false } }));
           }
         }
       }
