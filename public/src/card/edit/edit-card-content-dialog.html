@@ -60,7 +60,7 @@
       <div class="flex">EDIT CARD</div>
       <div id="buttons">
         <button style="margin-right: 5px;" on-click="_onClose">Cancel</button>
-        <button on-click="_onSave">Save</button>
+        <button id="btnSave" on-click="_onSave">Save</button>
       </div>
     </div>
     <div id="content">
@@ -81,19 +81,24 @@
       }
 
       show(card) {
+        this._showing = true;
         this._card = card;
         document.documentElement.style.overflow = "hidden";
-
         this.$.overlay.classList.remove("hidden");
         this.$.spinner.spinning = true;
+        this.message = "Loading card";
         this._clearNode(this.$.cardShell);
 
-        $core.cardManager.ensurePackage(card.cardType.package).then((packageInfo) => {
-          return this._import(packageInfo.importHref).then(() => {
-            this._createComposer(packageInfo);
-            this.$.overlay.classList.add("hidden");
-            this.$.spinner.spinning = false;
+        $core.getCard(card.id).then((cardData) => {
+          this._card = cardData.card;
+          return $core.cardManager.ensurePackage(this._card.cardType.package).then((packageInfo) => {
+            return this._import(packageInfo.importHref).then(() => {
+              this._createComposer(packageInfo);
+              this.$.overlay.classList.add("hidden");
+              this.$.spinner.spinning = false;
+            });
           });
+
         }).catch((err) => {
           console.error(err);
           this.$.overlay.classList.add("hidden");
@@ -108,10 +113,12 @@
       _createComposer(packageInfo) {
         this.composer = document.createElement(packageInfo.channelComponent.composerTag);
         this.composer.services = $core.cardManager.cardService;
+        this.composer.initialState = this._card.state;
         this.$.cardShell.appendChild(this.composer);
       }
 
       hide() {
+        this._showing = false;
         return new Promise((resolve, reject) => {
           document.documentElement.style.overflow = "";
           this._clearNode(this.$.cardShell);
@@ -137,6 +144,48 @@
 
       _onClose() {
         $dialogs.hide(this);
+      }
+
+      _onSave() {
+        if (!this.composer) {
+          this._onClose();
+          return;
+        }
+        // Show progress and scroll to top
+        this.$.btnSave.disabled = true;
+        this.$.overlay.classList.remove("hidden");
+        this.$.spinner.spinning = true;
+        this.message = "Saving";
+        this.$.content.scrollTop = 0;
+        this.$.content.style.overflow = "hidden";
+
+        if (this.composer.prepare) {
+          this.composer.prepare().then(() => {
+            this._finishSave();
+          }).catch((err) => {
+            console.error(err);
+            this.$.spinner.spinning = false;
+            this.$.overlay.classList.add("hidden");
+            $app.showError(err);
+          });
+        } else {
+          this._finishSave();
+        }
+      }
+
+      _finishSave() {
+        let state = this.composer.sharedState || {};
+        $core.updateCardState(this._card.id, state).then(() => {
+          this.dispatchEvent(new CustomEvent('content-updated', { bubbles: true, composed: true, detail: { summary: this._summary } }));
+          this.$.spinner.spinning = false;
+          this.$.overlay.classList.add("hidden");
+          this._onClose();
+        }).catch((err) => {
+          console.error(err);
+          this.$.spinner.spinning = false;
+          this.$.overlay.classList.add("hidden");
+          $app.showError(err);
+        });
       }
     }
     window.customElements.define(EditCardContentDialog.is, EditCardContentDialog);

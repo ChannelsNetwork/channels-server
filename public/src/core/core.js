@@ -347,6 +347,7 @@ class CoreService extends Polymer.Element {
 
   updateCardState(cardId, state) {
     const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, null, state);
+    let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
     return this.rest.post(url, request);
   }
