@@ -262,7 +262,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(404).send("The author no longer has an account.");
           return;
         }
-        if (author.balance < card.pricing.promotionFee) {
+        if (!author.admin && author.balance < card.pricing.promotionFee) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -333,7 +333,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-        const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         card.budget.available = budgetAvailable;
         await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
         await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
@@ -450,7 +450,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
-      const newBudgetAvailable = card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent;
+      const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
@@ -495,7 +495,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("The author no longer has an account.");
         return;
       }
-      if (author.balance < card.pricing.openPayment) {
+      if (!author.admin && author.balance < card.pricing.openPayment) {
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
@@ -549,7 +549,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
         return;
       }
-      if (author.balance < card.pricing.openPayment) {
+      if (!author.admin && author.balance < card.pricing.openPayment) {
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
@@ -563,7 +563,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-      const budgetAvailable = card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+      const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
       card.budget.available = budgetAvailable;
       await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
@@ -850,7 +850,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (pricing.budget) {
         totalBudget = card.budget.spent + pricing.budget.amount;
         pricing.budget.plusPercent = pricing.budget.plusPercent || 0;
-        budgetAvailable = totalBudget > user.balance;
+        budgetAvailable = user.admin || totalBudget > user.balance;
       }
       let couponId: string;
       if (pricing.coupon) {
@@ -897,7 +897,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       couponId = couponRecord.id;
     }
     const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, promotionScores, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, promotionScores, cardId);
     await this.announceCard(card, user);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -930,16 +930,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     pricing.openFeeUnits = pricing.openFeeUnits || 0;
     pricing.openPayment = pricing.openPayment || 0;
     if (pricing.openPayment > 0 || pricing.promotionFee > 0) {
-      if (!pricing.budget) {
-        throw new ErrorWithStatusCode(400, "You must provide a budget if you offer payment.");
+      pricing.budget = pricing.budget || { amount: 0, plusPercent: 0 };
+      // if (!pricing.budget) {
+      //   throw new ErrorWithStatusCode(400, "You must provide a budget if you offer payment.");
+      // }
+      pricing.budget.amount = Math.max(pricing.budget.amount || 0, 0);
+      pricing.budget.plusPercent = Math.max(pricing.budget.plusPercent || 0, 0);
+      if (pricing.budget.amount < 0) {
+        throw new ErrorWithStatusCode(400, "Minimum budget is 0.");
       }
-      pricing.budget.amount = pricing.budget.amount || 0;
-      pricing.budget.plusPercent = pricing.budget.plusPercent || 0;
-      if (pricing.budget.amount < 1) {
-        throw new ErrorWithStatusCode(400, "Minimum budget is ℂ1.");
-      }
-      if (pricing.budget.amount > user.balance - 1) {
-        throw new ErrorWithStatusCode(400, "Budget exceeds your balance (leaving at least ℂ1 to spare).");
+      if (!user.admin && pricing.budget.amount > 0 && pricing.budget.amount > user.balance - 1) {
+        throw new ErrorWithStatusCode(400, "Budget exceeds your balance, leaving at least ℂ1 to spare.");
       }
       if (pricing.budget.plusPercent < 0 || pricing.budget.plusPercent > 90) {
         throw new ErrorWithStatusCode(400, "Budget plusPercent must be between 0 and 90.");
