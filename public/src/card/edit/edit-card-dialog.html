@@ -107,7 +107,7 @@
       _handleButton(event) {
         switch (event.detail.button.id) {
           case "content":
-            this.$.dlg.showError("Something went wrong");
+            this.dispatchEvent(new CustomEvent('edit-content', { bubbles: true, composed: true }));
             break;
           case "save":
             this._doSave();
