@@ -138,20 +138,22 @@ export interface CardCollection {
   records: any[];
 }
 
-export interface GetFeedDetails extends Signable {
+export interface GetFeedsDetails extends Signable {
   feeds: RequestedFeedDescriptor[];
   startWithCardId?: string;
+  existingPromotedCardIds: string[];
 }
 
 export interface RequestedFeedDescriptor {
   type: CardFeedType;
   channelHandle?: string;
   maxCount: number;
+  afterCardId?: string;
 }
 
 export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel';
 
-export interface GetFeedResponse extends RestResponse {
+export interface GetFeedsResponse extends RestResponse {
   feeds: CardFeedSet[];
 }
 
@@ -159,6 +161,7 @@ export interface CardFeedSet {
   type: CardFeedType;
   channelHandle?: string;
   cards: CardDescriptor[];
+  moreAvailable: boolean;
 }
 
 export interface CardDescriptor {

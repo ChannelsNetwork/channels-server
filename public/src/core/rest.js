@@ -168,7 +168,7 @@ class RestUtils {
     };
   }
 
-  static getFeedDetails(address, maxCount, type, startWithCardId, channelHandle) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedsDetails(address, maxCount, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
       const feed = { type: type, maxCount: maxCount };
@@ -186,11 +186,17 @@ class RestUtils {
         feeds.push({ type: 'opened', maxCount: maxCount, channelHandle: channelHandle });
       }
     }
+    if (afterCardId) {
+      for (const feed of feeds) {
+        feed.afterCardId = afterCardId;
+      }
+    }
     return {
       address: address,
       timestamp: RestUtils.now(),
       feeds: feeds,
-      startWithCardId: startWithCardId
+      startWithCardId: startWithCardId,
+      existingPromotedCardIds: existingPromotedCardIds
     };
   }
 

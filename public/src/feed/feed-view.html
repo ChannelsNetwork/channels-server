@@ -33,12 +33,20 @@
           right: 16px;
         }
       }
+
+      .buttons {
+        margin: 25px 0;
+        text-align: center;
+      }
     </style>
     <div class="spacer"></div>
     <div class="main">
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
         on-card-payment-due="_onCardPay"></card-feed>
+      <div class="buttons">
+        <button id="btnMore" style="display:none;" on-click="_onMoreClick">More</button>
+      </div>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add" icon-map="[[iconMap]]"></soso-icon>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
@@ -61,7 +69,7 @@
         return {
           feedName: feedName,
           path: 'feed/' + feedName,
-          count: 51,
+          count: 25,
           cardId: cardId,
           channel: null
         };
@@ -73,6 +81,20 @@
           return;
         }
         $router.goto("compose");
+      }
+
+      _onMoreUpdated(value) {
+        this.$.btnMore.disabled = false;
+        if (value) {
+          this.$.btnMore.style.display = "";
+        } else {
+          this.$.btnMore.style.display = "none";
+        }
+      }
+
+      _onMoreClick() {
+        this.$.btnMore.disabled = true;
+        this._fetchMore();
       }
     }
     window.customElements.define(FeedView.is, FeedView);

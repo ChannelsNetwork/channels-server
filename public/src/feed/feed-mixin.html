@@ -81,15 +81,28 @@
           // parse route and fetch
           let parsedRoute = this._parseRoute(route);
           this._parsedRoute = parsedRoute;
+          this._moreAvailable = false;
+          this._promotedCardIds = [];
           if (parsedRoute) {
             this._onDataFetch(parsedRoute);
-            return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, parsedRoute.channel).then((cards) => {
+            return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, null, parsedRoute.channel, this._promotedCardIds).then((feed) => {
+              const cards = feed.cards;
+              this._lastCardId = null;
+              for (const card of cards) {
+                if (card.promoted) {
+                  this._promotedCardIds.push(card.id);
+                } else {
+                  this._lastCardId = card.id;
+                }
+              }
               this._setItems(cards);
               if (cards && cards.length) {
                 this.$.noItems.classList.add("hidden");
               } else {
                 this.$.noItems.classList.remove("hidden");
               }
+              this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+              this._onMoreUpdated(this._moreAvailable);
             });
           }
         });
@@ -97,6 +110,10 @@
 
       _setItems(items) {
         this.set("items", items);
+      }
+
+      _appendItems(items) {
+        this.set('items', this.items.concat(items));
       }
 
       onDeactivate() {
@@ -212,6 +229,28 @@
           }, (err) => {
             reject(err);
           });
+        });
+      }
+
+      _onMoreUpdated(value) {
+        // super class should implement to find out that more cards are avaiable or not
+      }
+
+      _fetchMore() {
+        // called by super class when user requests more cards
+        return $core.getFeed(this._parsedRoute.feedName, this._parsedRoute.count, this._parsedRoute.cardId, this._lastCardId, this._parsedRoute.channel, this._promotedCardIds).then((feed) => {
+          const cards = feed.cards;
+          this._lastCardId = null;
+          for (const card of cards) {
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
+            } else {
+              this._lastCardId = card.id;
+            }
+          }
+          this._appendItems(cards);
+          this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+          this._onMoreUpdated(this._moreAvailable);
         });
       }
     };

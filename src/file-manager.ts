@@ -126,13 +126,12 @@ export class FileManager implements RestServer {
     const d = new Date();
     let key = fileRecord.id;
     const meter = streamMeter();
-    if (filename && filename.length > 0 && filename !== '/') {
-      filename = filename.trim();
-      if (filename.startsWith('/')) {
-        filename = filename.substr(1);
-      }
-      key += '/' + filename;
+    if (!filename) {
+      filename = "content";
     }
+    filename = filename.trim();
+    filename = filename.split(/[^a-zA-Z0-9_\.\-]/).join("");  // Don't want weird characters in filename
+    key += '/' + filename;
     const destination: AWS.S3.PutObjectRequest = {
       Bucket: configuration.get('aws.s3.bucket'),
       Key: key
