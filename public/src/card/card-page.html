@@ -60,7 +60,7 @@
         <p>Loading card</p>
       </div>
       <div id="cardView" class="hidden"></div>
-      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard"></open-card-header>
+      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -116,6 +116,10 @@
         while (node.hasChildNodes()) {
           node.removeChild(node.lastChild);
         }
+      }
+
+      _cardContendUpdated() {
+        this._loadCard();
       }
 
       _loadCard() {

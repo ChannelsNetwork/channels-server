@@ -176,7 +176,7 @@
       _finishSave() {
         let state = this.composer.sharedState || {};
         $core.updateCardState(this._card.id, state).then(() => {
-          this.dispatchEvent(new CustomEvent('content-updated', { bubbles: true, composed: true, detail: { summary: this._summary } }));
+          this.dispatchEvent(new CustomEvent('content-updated', { bubbles: true, composed: true }));
           this.$.spinner.spinning = false;
           this.$.overlay.classList.add("hidden");
           this._onClose();
