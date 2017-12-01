@@ -92,22 +92,19 @@
       }
 
       show(cardData) {
-        if (this._promise) {
-          return this._promise;
-        }
         this.data = cardData;
         this.set('cardTitle', cardData.summary.title);
         this._buttons = [
           { id: 'ok', label: "OK" }
         ];
-        this._promise = new Promise((resolve, reject) => {
-          this._resolve = resolve;
-          this.$.dlg.show();
-        });
         $core.cardStatsHistory(this.data.id, 50).then((response) => {
           this._processResponse(response);
         });
-        return this._promise;
+        return this.$.dlg.show();
+      }
+
+      hide() {
+        return this.$.dlg.hide();
       }
 
       _processResponse(response) {
@@ -204,17 +201,7 @@
       }
 
       _handleButton(event) {
-        this.$.dlg.hide();
-        this._promise = null;
-        switch (event.detail.button.id) {
-          case "ok":
-            this._resolve(true);
-            break;
-          default:
-            this._resolve(false);
-            break;
-        }
-        this._resolve = null;
+        $dialogs.hide(this);
       }
     }
     window.customElements.define(CardAnalyticsDialog.is, CardAnalyticsDialog);

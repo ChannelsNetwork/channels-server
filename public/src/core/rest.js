@@ -231,7 +231,7 @@ class RestUtils {
     return result;
   }
 
-  static updateCardState(address, cardId, summary, state) {
+  static updateCardStateDetails(address, cardId, summary, state) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
