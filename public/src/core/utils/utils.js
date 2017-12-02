@@ -19,12 +19,16 @@ class CoreImageUtils {
           config.maxWidth = maxWidth;
         }
         loadImage(file, (canvas) => {
+          let fileType = 'image/jpeg';
+          if (file.type && file.type === 'image/png') {
+            fileType = file.type;
+          }
           if (asBlob) {
             canvas.toBlob((blob) => {
               resolve(blob);
-            }, 'image/jpeg');
+            }, fileType);
           } else {
-            var base64data = canvas.toDataURL('image/jpeg');
+            var base64data = canvas.toDataURL(fileType);
             resolve(base64data);
           }
         }, config);
