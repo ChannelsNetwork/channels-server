@@ -113,7 +113,9 @@
       }
 
       _appendItems(items) {
-        this.set('items', this.items.concat(items));
+        for (const item of items) {
+          this.push('items', item);
+        }
       }
 
       onDeactivate() {
@@ -251,6 +253,9 @@
           this._appendItems(cards);
           this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
           this._onMoreUpdated(this._moreAvailable);
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
         });
       }
     };

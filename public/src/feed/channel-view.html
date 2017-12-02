@@ -53,7 +53,7 @@
         box-sizing: border-box;
       }
 
-      .buttons {
+      #buttons {
         margin: 25px 0;
         text-align: center;
       }
@@ -74,8 +74,8 @@
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
         on-card-payment-due="_onCardPay"></card-feed>
-      <div class="buttons">
-        <button id="btnMore" style="display:none;" on-click="_onMoreClick">More</button>
+      <div id="buttons" style="display:none;">
+        <button id="btnMore" on-click="_onMoreClick">More</button>
       </div>
     </div>
     <div id="morePanel">
@@ -133,18 +133,11 @@
           for (let i = 0; i < items.length; i++) {
             let d = items[i];
             if (d.promoted) {
-              pitems.push(d);
+              this.push('promotedItems', d);
             } else {
-              npitems.push(d);
+              this.push('items', d);
             }
           }
-        }
-        this.set("items", this.items.concat(npitems));
-        this.set("promotedItems", this.promotedItems.concat(pitems));
-        if (this.promotedItems.length) {
-          this.$.promotedPanel.classList.remove("hidden");
-        } else {
-          this.$.promotedPanel.classList.add("hidden");
         }
       }
 
@@ -162,7 +155,7 @@
         return {
           feedName: "channel",
           path: 'channel/' + handle,
-          count: 25,
+          count: 24,
           cardId: cardId,
           channel: handle
         };
@@ -192,9 +185,9 @@
       _onMoreUpdated(value) {
         this.$.btnMore.disabled = false;
         if (value) {
-          this.$.btnMore.style.display = "";
+          this.$.buttons.style.display = "";
         } else {
-          this.$.btnMore.style.display = "none";
+          this.$.buttons.style.display = "none";
         }
       }
 
