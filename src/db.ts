@@ -883,10 +883,10 @@ export class Database {
     return this.cards.find(query).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
-  async findCardsByRevenue(maxCount: number, userId: string): Promise<CardRecord[]> {
+  async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
-    query["stats.revenue.value"] = { $gt: 0 };
+    query["stats.revenue.value"] = lessThan > 0 ? { $lt: lessThan, $gt: 0 } : { $gt: 0 };
     return this.cards.find(query).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
   }
 
@@ -902,10 +902,13 @@ export class Database {
     ];
   }
 
-  async findCardsByScore(limit: number, userId: string, ads: boolean): Promise<CardRecord[]> {
+  async findCardsByScore(limit: number, userId: string, ads: boolean, scoreLessThan = 0): Promise<CardRecord[]> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
+    if (scoreLessThan) {
+      query.score = { $lt: scoreLessThan };
+    }
     return await this.cards.find(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
@@ -1431,8 +1434,10 @@ export class Database {
     return await this.userCardInfo.findOne<UserCardInfoRecord>({ userId: userId, cardId: cardId });
   }
 
-  async findRecentCardOpens(userId: string, limit = 25): Promise<UserCardInfoRecord[]> {
-    return await this.userCardInfo.find<UserCardInfoRecord>({ userId: userId, lastOpened: { $gt: 0 } }).sort({ lastOpened: -1 }).limit(limit).toArray();
+  async findRecentCardOpens(userId: string, limit = 25, before = 0): Promise<UserCardInfoRecord[]> {
+    const query: any = { userId: userId };
+    query.lastOpened = before > 0 ? { $lt: before, $gt: 0 } : { $gt: 0 };
+    return await this.userCardInfo.find<UserCardInfoRecord>(query).sort({ lastOpened: -1 }).limit(limit).toArray();
   }
 
   async updateUserCardLastImpression(userId: string, cardId: string, value: number): Promise<void> {

@@ -52,6 +52,11 @@
         margin: 20px auto 0;
         box-sizing: border-box;
       }
+
+      #buttons {
+        margin: 25px 0;
+        text-align: center;
+      }
     </style>
     <div class="main">
       <div id="userPanel" class="hidden">
@@ -69,6 +74,9 @@
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
         on-card-payment-due="_onCardPay"></card-feed>
+      <div id="buttons" style="display:none;">
+        <button id="btnMore" on-click="_onMoreClick">More</button>
+      </div>
     </div>
     <div id="morePanel">
       <div id="promotedPanel" class="hidden">
@@ -118,6 +126,21 @@
         }
       }
 
+      _appendItems(items) {
+        let pitems = [];
+        let npitems = [];
+        if (items && items.length) {
+          for (let i = 0; i < items.length; i++) {
+            let d = items[i];
+            if (d.promoted) {
+              this.push('promotedItems', d);
+            } else {
+              this.push('items', d);
+            }
+          }
+        }
+      }
+
       _parseRoute(route) {
         let cardId = null;
         let handle = null;
@@ -132,7 +155,7 @@
         return {
           feedName: "channel",
           path: 'channel/' + handle,
-          count: 51,
+          count: 24,
           cardId: cardId,
           channel: handle
         };
@@ -158,6 +181,21 @@
           this.$.userPanel.classList.add("hidden");
         }
       }
+
+      _onMoreUpdated(value) {
+        this.$.btnMore.disabled = false;
+        if (value) {
+          this.$.buttons.style.display = "";
+        } else {
+          this.$.buttons.style.display = "none";
+        }
+      }
+
+      _onMoreClick() {
+        this.$.btnMore.disabled = true;
+        this._fetchMore();
+      }
+
     }
     window.customElements.define(ChannelView.is, ChannelView);
   </script>
