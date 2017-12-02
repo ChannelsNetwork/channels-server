@@ -258,7 +258,7 @@
               <div id="posBar"></div>
             </div>
           </div>
-          <card-header id="cardHeader" data="[[data]]"></card-header>
+          <card-header id="cardHeader" data="[[data]]" on-summary-updated="_onSummaryUpdated"></card-header>
         </div>
       </div>
       <div id="price">
@@ -528,10 +528,21 @@
         this._refreshPriceTip();
       }
 
+      _onSummaryUpdated(event) {
+        let summary = event.detail.summary;
+        if (summary) {
+          this.set('data.private', summary.private);
+          this.updateSummary(summary);
+          this.onPrivateUpdated();
+        }
+      }
+
       updateSummary(summary) {
         this.set('data.summary.imageUrl', summary.imageUrl);
         this.set('data.summary.title', summary.title);
         this.set('data.summary.text', summary.text);
+        this.set('data.summary.imageWidth', summary.imageWidth);
+        this.set('data.summary.imageHeight', summary.imageHeight);
         this._imageLoaded = false;
         this._loadImage();
         setTimeout(() => {

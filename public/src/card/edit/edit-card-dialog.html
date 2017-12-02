@@ -1,0 +1,204 @@
+<link rel="import" href="../../controls/dialog-view.html">
+<link rel="import" href="../../controls/image-upload.html">
+<link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
+
+<dom-module id="edit-card-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #filePicker {
+        margin: 20px 0 12px;
+        height: 160px;
+      }
+
+      soso-text-input {
+        margin: 18px 0;
+      }
+
+      #private {
+        margin-top: 25px;
+        color: #555;
+      }
+
+      #clearImage {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.8);
+        color: #555;
+        z-index: 1;
+        border-radius: 50%;
+        padding: 5px;
+        border: 2px solid #555;
+        width: 18px;
+        height: 18px;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Edit Card</h3>
+      <div style="position: relative;">
+        <image-upload id="filePicker" on-image-set="_onImageSet"></image-upload>
+        <soso-icon class="hidden" id="clearImage" icon="close" icon-map="[[iconMap]]" on-click="_clearImage"></soso-icon>
+      </div>
+      <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
+      <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
+      <soso-checkbox id="private" label="Keep this card private"></soso-checkbox>
+    </dialog-view>
+  </template>
+  <script>
+    class EditCardDialog extends Polymer.Element {
+      static get is() { return 'edit-card-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array,
+          iconMap: Object
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.iconMap = window._channelIcons;
+      }
+
+      _onImageSet(event) {
+        let hasImage = event.detail.hasImage;
+        if (hasImage) {
+          this._imageCleared = false;
+          this.$.clearImage.classList.remove("hidden");
+        } else {
+          this.$.clearImage.classList.add("hidden");
+        }
+      }
+
+      _clearImage() {
+        this._imageCleared = true;
+        this.$.filePicker.clear();
+        this.$.filePicker.image = null;
+      }
+
+      show(card) {
+        this._buttons = [
+          { id: 'cancel', label: "Cancel" },
+          { id: 'content', label: "Edit content" },
+          { id: 'save', label: "Save" }
+        ];
+
+        this._card = card;
+
+        // initialize state
+        this.$.filePicker.clear();
+        this.$.title.value = card.summary.title || "";
+        this.$.text.value = card.summary.text || "";
+        this.$.private.checked = card.private || false;
+        this.$.filePicker.image = card.summary.imageUrl;
+
+        return this.$.dlg.show();
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "content":
+            this.dispatchEvent(new CustomEvent('edit-content', { bubbles: true, composed: true }));
+            break;
+          case "save":
+            this._doSave();
+            break;
+          default:
+            $dialogs.hide(this);
+            break;
+        }
+      }
+
+      _doSave() {
+        let file = this.$.filePicker.file;
+        if (file) {
+          this.$.dlg.showProgress("Uploading image");
+          $core.uploadImageFile(file, null, 500).then((fileInfo) => {
+            let imageUrl = fileInfo.url;
+            return this._getImageSize(imageUrl).then((size) => {
+              return this._updateCard(imageUrl, size).then(() => {
+                return this._onCardUpdate();
+              });
+            });
+          }).catch((err) => {
+            console.error(err);
+            this.$.dlg.showError(err.message || err || "Oops. Something went wrong.");
+          });
+        } else {
+          this._updateCard(null).then(() => {
+            return this._onCardUpdate();
+          });
+        }
+      }
+
+      _onCardUpdate() {
+        return this._updateCardPrivacy().then(() => {
+          $dialogs.hide(this);
+          if (this._summary) {
+            this._summary.private = this.$.private.checked;
+            this.dispatchEvent(new CustomEvent('summary-updated', { bubbles: true, composed: true, detail: { summary: this._summary } }));
+          }
+        });
+      }
+
+      _updateCardPrivacy() {
+        return new Promise((resolve, reject) => {
+          let isPrivate = this.$.private.checked;
+          if (isPrivate != this._card.private) {
+            $core.updateCardPrivate(this._card.id, isPrivate).then(resolve).catch(reject);
+          } else {
+            resolve();
+          }
+        });
+      }
+
+      _updateCard(imageUrl, size) {
+        this.$.dlg.showProgress("Saving");
+        let img = this._card.summary.imageUrl;
+        let imgW = this._card.summary.imageWidth;
+        let imgH = this._card.summary.imageHeight;
+        if (imageUrl) {
+          img = imageUrl;
+          if (size) {
+            imgW = size[0];
+            imgH = size[1];
+          }
+        } else if (this._imageCleared) {
+          img = null;
+          imgW = 0;
+          imgH = 0;
+        }
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, img, imgW, imgH).then((summary) => {
+          this._summary = summary;
+        });
+      }
+
+      _getImageSize(imageUrl) {
+        return new Promise((resolve, reject) => {
+          if (imageUrl) {
+            let img = new Image();
+            img.addEventListener('load', () => {
+              resolve([img.width, img.height]);
+            });
+            img.addEventListener('error', () => {
+              resolve(null);
+            });
+            img.src = imageUrl;
+          } else {
+            resolve(null);
+          }
+        });
+      }
+    }
+    window.customElements.define(EditCardDialog.is, EditCardDialog);
+  </script>
+</dom-module>

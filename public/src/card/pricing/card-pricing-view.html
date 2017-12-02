@@ -1,0 +1,19 @@
+<dom-module id="card-pricing-view">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+  </template>
+  <script>
+    class CardPricingView extends Polymer.Element {
+      static get is() { return 'card-pricing-view'; }
+      static get properties() {
+        return {
+        };
+      }
+    }
+    window.customElements.define(CardPricingView.is, CardPricingView);
+  </script>
+</dom-module>
