@@ -6,7 +6,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse, EnsureChannelComponentDetails, ChannelComponentResponse, GetFeedDetails, PostCardDetails, CardImpressionDetails, GetFeedResponse, PostCardResponse, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardDescriptor, GetCardDetails, GetCardResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse, EnsureChannelComponentDetails, ChannelComponentResponse, GetFeedsDetails, PostCardDetails, CardImpressionDetails, GetFeedsResponse, PostCardResponse, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardDescriptor, GetCardDetails, GetCardResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
@@ -393,17 +393,18 @@ class TestClient implements RestServer {
   }
 
   private async getFeed(): Promise<void> {
-    const details: GetFeedDetails = {
+    const details: GetFeedsDetails = {
       address: this.keyInfo.address,
       timestamp: Date.now(),
       feeds: [{ type: 'recommended', maxCount: 5 },
       { type: 'top', maxCount: 5 },
       { type: 'new', maxCount: 5 },
       { type: 'mine', maxCount: 5 },
-      { type: 'opened', maxCount: 5 }]
+      { type: 'opened', maxCount: 5 }],
+      existingPromotedCardIds: []
     };
     const detailsString = JSON.stringify(details);
-    const request: RestRequest<GetFeedDetails> = {
+    const request: RestRequest<GetFeedsDetails> = {
       version: 1,
       details: detailsString,
       signature: KeyUtils.signString(detailsString, this.keyInfo)
@@ -416,7 +417,7 @@ class TestClient implements RestServer {
     };
     console.log("get-feed: tx:", JSON.stringify(request, null, 2));
     return new Promise<void>((resolve, reject) => {
-      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/get-feed"), args, (data: GetFeedResponse, serviceResponse: Response) => {
+      this.restClient.post(url.resolve(configuration.get('baseClientUri'), "/d/get-feed"), args, (data: GetFeedsResponse, serviceResponse: Response) => {
         if (serviceResponse.statusCode === 200) {
           console.log("get-feed: rx:", JSON.stringify(data, null, 2));
           resolve();

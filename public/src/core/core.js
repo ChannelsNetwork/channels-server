@@ -290,18 +290,18 @@ class CoreService extends Polymer.Element {
   }
 
   getFeeds(maxCardsPerFeed) {
-    let details = RestUtils.getFeedDetails(this._keys.address, maxCardsPerFeed);
+    let details = RestUtils.getFeedsDetails(this._keys.address, maxCardsPerFeed);
     let request = this._createRequest(details);
-    const url = this.restBase + "/get-feed";
+    const url = this.restBase + "/get-feeds";
     return this.rest.post(url, request);
   }
 
-  getFeed(type, maxCards, startWithCardId, channelHandle) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
-    let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type, startWithCardId, channelHandle);
+  getFeed(type, maxCards, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
+    let details = RestUtils.getFeedsDetails(this._keys.address, maxCards, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds);
     let request = this._createRequest(details);
-    const url = this.restBase + "/get-feed";
+    const url = this.restBase + "/get-feeds";
     return this.rest.post(url, request).then((response) => {
-      return response.feeds[0].cards;
+      return response.feeds[0];
     });
   }
 
