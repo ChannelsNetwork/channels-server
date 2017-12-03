@@ -128,6 +128,7 @@
         this.style.left = 0;
         this.style.width = "100%";
         this.style.height = "100%";
+        $core.cardClosed(this.data.id);
       }
 
       refreshLayout(cardNode) {
@@ -188,6 +189,7 @@
                   this._onCardLoaded(true, packageInfo);
                 }, diff);
               }
+              $core.cardOpened(cardId);
             });
           });
         }).catch((err) => {

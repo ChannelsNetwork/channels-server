@@ -133,10 +133,6 @@
       }
 
       _onCardClosed(event) {
-        let cardItem = event.detail.item;
-        if (cardItem) {
-          $core.cardClosed(cardItem.id);
-        }
         $app.setBarVisible(true);
       }
 
@@ -152,7 +148,6 @@
               });
             });
           } else {
-            $core.cardOpened(card.id);
             let context = {
               card: card,
               scrollTop: $app.scrollValue
