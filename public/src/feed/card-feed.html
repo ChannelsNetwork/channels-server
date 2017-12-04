@@ -20,18 +20,11 @@
         margin: var(--grid-card-margin, 8px);
         box-sizing: border-box;
       }
-
-      .openCardShell {
-        margin: 10px 0;
-        box-sizing: border-box;
-        width: 100%;
-      }
     </style>
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-close="_onCardCloseRequest"
-            on-card-deleted="_onCardDeleted"></card-view>
+          <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-deleted="_onCardDeleted"></card-view>
         </template>
       </dom-repeat>
     </div>
@@ -100,126 +93,11 @@
           });
         }
         this._refreshAttempts = 0;
-        this._refreshOpenCardLayout();
-      }
-
-      _refreshOpenCardLayout() {
-        if (this._openCard) {
-          this._openCard.refreshLayout();
-        }
       }
 
       _onCardOpenRequest(event) {
         event.stopPropagation();
         this.dispatchEvent(new CustomEvent('card-open-request', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
-      }
-
-      _onCardCloseRequest(event) {
-        event.stopPropagation();
-        this.closeCard();
-        this.dispatchEvent(new CustomEvent('card-closed', { bubbles: true, composed: true, detail: { card: event.target, item: event.model.item } }));
-      }
-
-      closeCard() {
-        if (this._openCard) {
-          this._openCard.close();
-          this._openCard.style.height = "";
-          this._openCard = null;
-        }
-        if (this._openCardShell) {
-          this._openCardShell.remove();
-          this._openCardShell = null;
-        }
-      }
-
-      openCard(card) {
-        return new Promise((resolve, reject) => {
-          let current = card;
-          if (!current) {
-            reject("Invalid card");
-            return;
-          }
-
-          // find point of insertion for the opened card
-          let currentTop = current.getBoundingClientRect().top;
-          while (current.previousSibling) {
-            if (current.previousSibling.nodeType !== Node.ELEMENT_NODE) {
-              current = current.previousSibling;
-            } else {
-              let prevTop = current.previousSibling.getBoundingClientRect().top;
-              if (prevTop == currentTop) {
-                current = current.previousSibling;
-              } else {
-                break;
-              }
-            }
-          }
-
-          // if a card is already open, close it
-          if (this._openCard) {
-            this._openCard.close();
-            this._openCard.style.height = "";
-          }
-
-          // Create a new node to contain the open card
-          let node = document.createElement("div");
-          node.classList.add('openCardShell');
-          let shellHeight = window.innerHeight - 100;
-          node.style.height = shellHeight + "px";
-          current.parentElement.insertBefore(node, current);
-          var nodeToRemove = this._openCardShell;
-          this._openCardShell = node;
-
-          // scroll container to offset the inserted node 
-          // The 20 comes from the margin on the shell
-          $app.shell.scrollTop = $app.shell.scrollTop + shellHeight + 20;
-
-          // start animating the card
-          var target = card;
-          this._openCard = target;
-          // callback after animation to resolve the promise 
-          // and clear the state
-          var _restoreStateAfterAnimation = (nodeToRemove) => {
-            this._openCard.style.height = "0px";
-            if (nodeToRemove) {
-              setTimeout(() => {
-                this.style.pointerEvents = "";
-                this._removeNodeAndAdjustScroll(nodeToRemove);
-                setTimeout(() => {
-                  resolve();
-                }, 150);
-              }, 50);
-            } else {
-              this.style.pointerEvents = "";
-              setTimeout(() => {
-                resolve();
-              }, 200);
-            }
-          };
-          requestAnimationFrame(() => {
-            // prevent user action when animating
-            this.style.pointerEvents = "none";
-            // Open card
-            target.open(node).then(() => {
-              // start scrolling to the opened card after 
-              // a slight delay
-              setTimeout(() => {
-                $app.scrollTo(node, 700).then(() => {
-                  _restoreStateAfterAnimation(nodeToRemove);
-                }).catch((err) => {
-                  _restoreStateAfterAnimation(nodeToRemove);
-                });
-              }, 300);
-            }).catch((err) => {
-              _restoreStateAfterAnimation(nodeToRemove);
-            });
-          });
-        });
-      }
-
-      _removeNodeAndAdjustScroll(node) {
-        node.remove();
-        this._openCardShell.scrollIntoView(true);
       }
 
       _onCardDeleted(event) {

@@ -105,6 +105,9 @@
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
         this.$.header.style.opacity = 0;
+        if (this._cardOpened && this.data) {
+          $core.cardClosed(this.data.id);
+        }
       }
 
       _onNoCard() {
@@ -123,6 +126,7 @@
       }
 
       _loadCard() {
+        this._cardOpened = false;
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this._clearNode(this.$.cardView);
@@ -170,6 +174,8 @@
                 setTimeout(() => {
                   if (this._active) {
                     this._startPaymentTimer();
+                    $core.cardOpened(this.data.id);
+                    this._cardOpened = true;
                   }
                 });
               });

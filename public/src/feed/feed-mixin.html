@@ -73,10 +73,6 @@
 
           // clear state
           this._setItems([]);
-          this.$.feed.closeCard();
-          if (this.$.promotedFeed) {
-            this.$.promotedFeed.closeCard();
-          }
 
           // parse route and fetch
           let parsedRoute = this._parseRoute(route);
@@ -132,10 +128,6 @@
         }
       }
 
-      _onCardClosed(event) {
-        $app.setBarVisible(true);
-      }
-
       _onCardOpenRequest(event) {
         let card = event.detail.item;
         if (card) {
@@ -159,29 +151,6 @@
           }
         }
       }
-      // _onCardOpenRequest(event) {
-      //   let card = event.detail.card;
-      //   if (card) {
-      //     // hide toolbar and prevent 
-      //     // toolbar auto scroll-hide behavior
-      //     $app.setBarVisible(false);
-      //     $app.preventScrollBehavior = true;
-
-      //     // let server know card opened
-      //     let cardItem = event.detail.item;
-      //     if (cardItem) {
-      //       $core.cardOpened(cardItem.id);
-      //     }
-
-      //     // open the card in the UI
-      //     this.$.feed.openCard(card).then(() => {
-      //       $app.preventScrollBehavior = false;
-      //     }).catch((err) => {
-      //       console.error(err);
-      //       $app.preventScrollBehavior = false;
-      //     });
-      //   }
-      // }
 
       _onCardImpression(event) {
         let card = event.detail.card;
@@ -192,29 +161,6 @@
             view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
           } else {
             $core.cardImpression(card.id);
-          }
-        }
-      }
-
-      _onCardPay(event) {
-        const card = event.detail.item;
-        const cardView = event.detail.card;
-        if (!card.userSpecific.isPoster) {
-          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
-            card.userSpecific.paidToAuthor = card.pricing.openFee;
-            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
-              card.stats.revenue = response.totalCardRevenue;
-              cardView.onPayment();
-            }).catch((err) => {
-              console.error("Failed to make card payment", err);
-            });
-          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
-            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
-            $core.cardOpenPaymentRedeem(card.id, card.couponId, -card.pricing.openFee, card.by.address).then(() => {
-              cardView.onPayment();
-            }).catch((err) => {
-              console.error("Failed to make card payment", err);
-            });
           }
         }
       }
