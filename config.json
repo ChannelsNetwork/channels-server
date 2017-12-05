@@ -53,5 +53,6 @@
     "analytics": {
       "id": "UA-52117709-13"
     }
-  }
+  },
+  "publicPath": "public"
 }

@@ -19,21 +19,22 @@ export class RootPageHandler implements RestServer {
 
   async initializeRestServices(urlManager: UrlManager, app: Application): Promise<void> {
     this.urlManager = urlManager;
+    const publicPath = configuration.get('publicPath') || "public";
     if (!this.indexContent) {
-      const indexPath = path.join(__dirname, '../../public/index.html');
+      const indexPath = path.join(__dirname, '../../' + publicPath + '/index.html');
       this.indexContent = fs.readFileSync(indexPath, 'utf8');
     }
     if (!this.appContent) {
-      const appPath = path.join(__dirname, '../../public/app.html');
+      const appPath = path.join(__dirname, '../../' + publicPath + '/app.html');
       this.appContent = fs.readFileSync(appPath, 'utf8');
     }
     if (!this.globalJsContent) {
-      const jsPath = path.join(__dirname, '../../public/scripts/global.js');
+      const jsPath = path.join(__dirname, '../../' + publicPath + '/scripts/global.js');
       const gaId = configuration.get('google.analytics.id', "UA-52117709-8");
       this.globalJsContent = "<script>\nwindow.googleAnalyticsId = \"" + gaId + "\";\n" + fs.readFileSync(jsPath, 'utf8') + "\n</script>";
     }
     if (!this.intersectionObserver) {
-      const ioPath = path.join(__dirname, '../../public/scripts/intersection-observer.js');
+      const ioPath = path.join(__dirname, '../../' + publicPath + '/scripts/intersection-observer.js');
       this.intersectionObserver = "\n<script>\n" + fs.readFileSync(ioPath, 'utf8') + "\n</script>";
     }
     if (!this.logoSvg) {

@@ -27,17 +27,14 @@
   <meta name="twitter:image:width" content="{{&og_imagewidth}}">
   <meta name="twitter:image:height" content="{{&og_imageheight}}">
 
+  <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js"></script>
+  <link rel="import" href="{{&public_base}}/src/main-app.html">
+  <script src="{{&public_base}}/scripts/global.js"></script>
+
   <!-- Global javascript - Pre loader -->
-  {{&pre_globaljs}}
-
-  <!-- <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js" defer></script>
-  <link rel="import" href="{{&public_base}}/src/main-app.html" async> -->
-
-  <script src="bower_components/webcomponentsjs/webcomponents-loader.js"></script>
-  <link rel="import" href="src/main-app.html">
-
+  <!-- <script src="bower_components/webcomponentsjs/webcomponents-loader.js"></script>
+  <link rel="import" href="src/main-app.html"> -->
   <!-- Global javascript -->
-  {{&globaljs}}
 
   <style>
     body {

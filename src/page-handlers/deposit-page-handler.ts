@@ -14,8 +14,9 @@ export class DepositPageHandler implements RestServer {
 
   async initializeRestServices(urlManager: UrlManager, app: Application): Promise<void> {
     this.urlManager = urlManager;
+    const publicPath = configuration.get('publicPath') || "public";
     if (!this.content) {
-      const contentPath = path.join(__dirname, '../../public/deposit-page.html');
+      const contentPath = path.join(__dirname, '../../' + publicPath + '/deposit-page.html');
       this.content = fs.readFileSync(contentPath, 'utf8');
     }
     app.get(this.urlManager.getPublicUrl('deposit'), this.handleDepositPage.bind(this));
