@@ -54,5 +54,5 @@
       "id": "UA-52117709-13"
     }
   },
-  "publicPath": "public"
+  "publicPath": "public/build/es5"
 }

@@ -19,7 +19,7 @@ export class RootPageHandler implements RestServer {
 
   async initializeRestServices(urlManager: UrlManager, app: Application): Promise<void> {
     this.urlManager = urlManager;
-    const publicPath = configuration.get('publicPath') || "public";
+    const publicPath = "public";
     if (!this.indexContent) {
       const indexPath = path.join(__dirname, '../../' + publicPath + '/index.html');
       this.indexContent = fs.readFileSync(indexPath, 'utf8');

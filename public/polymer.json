@@ -28,7 +28,8 @@
     "src/compose/compose-card-preview.html",
     "src/card/card-view.html",
     "src/compose/edit-card-summary-dialog.html",
-    "src/core/utils/load-image.html"
+    "src/core/utils/load-image.html",
+    "bower_components/channels-web-utils/channels-key-utils.html"
   ],
   "sources": [
     "src/**/*",
@@ -44,7 +45,7 @@
       "bundle": true,
       "sourcemaps": "true",
       "js": {
-        "minify": true
+        "minify": false
       },
       "css": {
         "minify": true
