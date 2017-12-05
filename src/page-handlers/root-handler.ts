@@ -70,8 +70,8 @@ export class RootPageHandler implements RestServer {
     };
     let preGlobaljs = "";
     let globalJs = this.globalJsContent;
+    globalJs += this.intersectionObserver;
     if (agentInfo.safari || agentInfo.mobile_safari || agentInfo.ie || (userAgent.indexOf("Edge") >= 0)) {
-      globalJs += this.intersectionObserver;
       preGlobaljs = "<script>ShadyDOM = { force: true }; window.customElements.forcePolyfill = true;</script>";
     }
     const view = {
