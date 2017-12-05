@@ -59,6 +59,7 @@ export class RootPageHandler implements RestServer {
   private handlePage(content: string, request: Request, response: Response) {
     const userAgent = request.headers['user-agent'].toString();
     const agentInfo = useragent.is(userAgent);
+    console.log("RootHandler.handlePage User agent", userAgent, agentInfo);
     const ogUrl = configuration.get('baseClientUri');
     const metadata = {
       title: "Channels",
