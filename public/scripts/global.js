@@ -69,6 +69,10 @@ var _getBrowserInfo = function () {
     else if ((objOffsetVersion = objAgent.indexOf("Safari")) != -1) { objbrowserName = "Safari"; objfullVersion = objAgent.substring(objOffsetVersion + 7); if ((objOffsetVersion = objAgent.indexOf("Version")) != -1) objfullVersion = objAgent.substring(objOffsetVersion + 8); }
     else if ((objOffsetName = objAgent.lastIndexOf(' ') + 1) < (objOffsetVersion = objAgent.lastIndexOf('/'))) { objbrowserName = objAgent.substring(objOffsetName, objOffsetVersion); objfullVersion = objAgent.substring(objOffsetVersion + 1); if (objbrowserName.toLowerCase() == objbrowserName.toUpperCase()) { objbrowserName = navigator.appName; } }
 
+    if ((objAgent.indexOf("FBAN") > -1) || (objAgent.indexOf("FBAV") > -1)) {
+      objbrowserName = "facebook";
+    }
+
     if ((ix = objfullVersion.indexOf(";")) != -1)
       objfullVersion = objfullVersion.substring(0, ix);
     if ((ix = objfullVersion.indexOf(" ")) != -1)
@@ -117,6 +121,9 @@ var _onLoad = function () {
         break;
       case "Edge":
         showVersionPanel = binfo.version < 15;
+        break;
+      case "facebook":
+        showVersionPanel = false;
         break;
       default:
         showVersionPanel = true;
