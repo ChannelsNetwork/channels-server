@@ -16,6 +16,7 @@ class CoreService extends Polymer.Element {
     this.rest = new RestService();
     this.cardManager = new CardManager(this);
     this.userManager = new UserManager(this);
+    this.social = new SocialService();
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
