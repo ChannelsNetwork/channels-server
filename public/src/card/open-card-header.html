@@ -123,7 +123,7 @@
         display: none;
       }
 
-      .menuVoteSection {
+      .menuDivider {
         border-top: 1px solid #d8d8d8;
         margin-top: 5px;
       }
@@ -177,11 +177,15 @@
         <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
         <progress-icon id="likeRating" class="novotes"></progress-icon>
       </div>
-      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" on-click="_onLink"></soso-icon>
+      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]"></soso-icon>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
       <soso-icon id="actionsIcon" icon="expand-more" icon-map="[[iconMap]]"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
 
+      <soso-dropdown for="shareIcon" alignment="right" offset="0">
+        <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_onLink">Grab card URL</li>
+      </soso-dropdown>
       <soso-dropdown for="moreIcon" alignment="right" offset="0">
         <li on-click="_editCard">Edit Card</li>
         <li on-click="_analytics">Analytics</li>
@@ -199,11 +203,12 @@
         </li>
       </soso-dropdown>
       <soso-dropdown for="actionsIcon" alignment="right" offset="0">
-        <li on-click="_onLink">Share card</li>
-        <li id="editAction" on-click="_editCard">Edit Card</li>
+        <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_onLink">Grab card URL</li>
+        <li id="editAction" class="menuDivider" on-click="_editCard">Edit Card</li>
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
-        <li class="menuVoteSection">[[ratingTip]]</li>
+        <li class="menuDivider">[[ratingTip]]</li>
         <li id="voteItem2" class="horizontal layout center">
           <div style="padding: 0 5px;">
             <soso-icon id="downIcon2" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
@@ -502,6 +507,14 @@
         this._import("../dialogs/share-link-dialog.html").then(() => {
           return this.$.shareDialog.show(cardUrl);
         });
+      }
+
+      _tweet() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.tweet(cardText, cardUrl);
+        }
       }
 
       _import(url) {

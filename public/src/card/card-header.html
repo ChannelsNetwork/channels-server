@@ -65,7 +65,7 @@
       </div>
       <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
       <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
-      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" class="actionIcon" on-click="_onLink"></soso-icon>
+      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" class="actionIcon"></soso-icon>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="actionIcon hidden"></soso-icon>
 
       <!-- Drop downs -->
@@ -77,6 +77,10 @@
       </soso-dropdown>
       <soso-dropdown for="authorImage" alignment="left" offset="5">
         <li on-click="_openUserChannel">More by [[data.by.name]]</li>
+      </soso-dropdown>
+      <soso-dropdown for="shareIcon" alignment="right" offset="-5">
+        <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_onLink">Grab card URL</li>
       </soso-dropdown>
 
       <!-- Tooltips -->
@@ -244,6 +248,14 @@
         this._import("../dialogs/share-link-dialog.html").then(() => {
           return this.$.shareDialog.show(cardUrl);
         });
+      }
+
+      _tweet() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.tweet(cardText, cardUrl);
+        }
       }
 
       _import(url) {
