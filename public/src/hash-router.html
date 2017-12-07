@@ -67,13 +67,26 @@
       }
 
       onHashChange() {
+        let pathname = window.location.pathname;
         let hash = window.location.hash || "";
-        if (hash) {
-          hash = hash.substring(1);
-        }
-        const segments = hash.split("/") || [];
-        for (var i = 1; i < segments.length; i++) {
-          segments[i] = decodeURIComponent(segments[i]);
+        let segments = [];
+        if ((!hash) && pathname.indexOf('/c/') === 0) {
+          let cardId = pathname.substring(3);
+          segments = ["card", decodeURIComponent(cardId)];
+        } else {
+          if (hash) {
+            hash = hash.substring(1);
+          } else {
+            hash = "";
+          }
+          segments = hash.split("/") || [];
+          for (var i = 1; i < segments.length; i++) {
+            segments[i] = decodeURIComponent(segments[i]);
+          }
+          if (pathname.indexOf('/c/') === 0) {
+            window.location.replace('/app/#' + hash);
+            return;
+          }
         }
         this.set("route", {
           segments: segments,
