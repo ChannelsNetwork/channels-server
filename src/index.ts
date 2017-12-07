@@ -19,6 +19,7 @@ import { userManager } from "./user-manager";
 import { feedManager } from "./feed-manager";
 import { cardManager } from "./card-manager";
 import { fileManager } from "./file-manager";
+import { rootPageManager } from "./root-page-manager";
 import { newsManager } from "./news-manager";
 import { testClient } from "./testing/test-client";
 import { awsManager } from "./aws-manager";
@@ -38,7 +39,7 @@ class ChannelsNetworkWebClient {
   private app: express.Application;
   private server: net.Server;
   private started: number;
-  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager];
+  private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager];
   private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
