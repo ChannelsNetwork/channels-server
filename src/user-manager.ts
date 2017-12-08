@@ -229,8 +229,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         subsidyRate: await priceRegulator.getUserSubsidyRate(),
         operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
         operatorAddress: networkEntity.getOperatorAddress(),
-        networkDeveloperRoyaltyFraction: networkEntity.getNetworkDeveloperRoyaltyFraction(),
-        networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
         referralFraction: networkEntity.getReferralFraction(),
         withdrawalsEnabled: bank.withdrawalsEnabled,
         depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null

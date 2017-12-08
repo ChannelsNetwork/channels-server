@@ -10,6 +10,7 @@ import { BankTransactionResult } from "./interfaces/socket-messages";
 import { SignedObject } from "./interfaces/signed-object";
 
 const HIVEPOINT_PREMINING_AMOUNT = 13000000;
+const CHANNELS_NETWORK_TAX_RATE = 0.1;
 
 export class NetworkEntity implements Initializable {
   private networkEntityKeyInfo: KeyInfo;
@@ -105,15 +106,11 @@ export class NetworkEntity implements Initializable {
   }
 
   getOperatorTaxFraction(): number {
-    return 0.03;
+    return CHANNELS_NETWORK_TAX_RATE;
   }
 
   getOperatorAddress(): string {
     return this.networkEntityKeyInfo.address;
-  }
-
-  getNetworkDeveloperRoyaltyFraction(): number {
-    return 0.05;
   }
 
   getNetworkDevelopeAddress(): string {

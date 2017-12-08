@@ -403,10 +403,7 @@ class CoreService extends Polymer.Element {
       recipients.push(RestUtils.bankTransactionRecipient(cardDeveloperAddress, "fraction", "card-developer-royalty", cardDeveloperFraction));
     }
     if (this._registration.operatorAddress) {
-      recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", "network-operations", this._registration.operatorTaxFraction));
-    }
-    if (this._registration.networkDeveloperAddress) {
-      recipients.push(RestUtils.bankTransactionRecipient(this._registration.networkDeveloperAddress, "fraction", "network-creator-royalty", this._registration.networkDeveloperRoyaltyFraction));
+      recipients.push(RestUtils.bankTransactionRecipient(this._registration.operatorAddress, "fraction", "network-fee", this._registration.operatorTaxFraction));
     }
     if (referrerAddress) {
       recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", "referral-fee", this._registration.referralFraction));

@@ -29,8 +29,6 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   subsidyRate: number;
   operatorTaxFraction: number;
   operatorAddress: string;
-  networkDeveloperRoyaltyFraction: number;
-  networkDeveloperAddress: string;
   referralFraction: number;
   withdrawalsEnabled: boolean;
   depositUrl: string;
@@ -510,7 +508,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-fee" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 
