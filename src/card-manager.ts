@@ -46,6 +46,40 @@ const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 
+const CARD_AWARDS_BY_OPENS = [
+  [10000, 100],
+  [100000, 20],
+  [1000000, 3],
+  [10000000, 0.4],
+  [100000000, 0.05],
+  [1000000000, 0.006],
+  [1500000000, 0.003],
+  [2250000000, 0.0015],
+  [3375000000, 0.00075],
+  [5062500000, 0.000375],
+  [7593750000, 0.0001875],
+  [11390625000, 0.00009375],
+  [17085937500, 0.000046875],
+  [25628906250, 0.0000234375],
+  [38443359375, 0.00001171875],
+  [57665039063, 0.000005859375],
+  [86497558594, 0.0000029296875],
+  [129746337891, 0.00000146484375],
+  [194619506836, 0.000000732421875],
+  [291929260254, 0.0000003662109375],
+  [437893890381, 0.0000001831054688],
+  [656840835571, 0.00000009155273438],
+  [985261253357, 0.00000004577636719],
+  [1477891880035, 0.00000002288818359],
+  [2216837820053, 0.0000000114440918],
+  [3325256730080, 0.000000005722045898],
+  [4987885095119, 0.000000002861022949],
+  [7481827642679, 0.000000001430511475],
+  [11222741464019, 0.0000000007152557373],
+  [16834112196028, 0.0000000003576278687],
+  [25251168294042, 0.0000000001788139343]
+];
+
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -447,6 +481,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, transaction.amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, transaction.amount, transactionResult.record.id);
+      const shareAward = await this.computeCardOpenShareAward();
+      await db.incrementUserShares(author, shareAward);
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
@@ -455,7 +491,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         card.budget.available = newBudgetAvailable;
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
-      await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"], transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0);
+      await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"], transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, shareAward, 1);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardPayResponse = {
         serverVersion: SERVER_VERSION,
@@ -468,6 +504,32 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.error("User.handleCardPay: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  async computeCardOpenShareAward(): Promise<number> {
+    const network = await db.getNetwork(true);
+    const cumOpens = network.cumulativeCardOpens;
+    let result = 0;
+    for (let i = 1; i < CARD_AWARDS_BY_OPENS.length - 1; i++) {
+      result = CARD_AWARDS_BY_OPENS[i - 1][1];
+      if (cumOpens < CARD_AWARDS_BY_OPENS[i][0]) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  async computeOpensBeforeNextAwardReduction(): Promise<number> {
+    const network = await db.getNetwork(true);
+    const cumOpens = network.cumulativeCardOpens;
+    let result = 0;
+    for (let i = 1; i < CARD_AWARDS_BY_OPENS.length - 1; i++) {
+      if (cumOpens < CARD_AWARDS_BY_OPENS[i][0]) {
+        result = CARD_AWARDS_BY_OPENS[i][0] - cumOpens;
+        break;
+      }
+    }
+    return result;
   }
 
   private async handleRedeemCardOpen(request: Request, response: Response): Promise<void> {
@@ -569,6 +631,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
+      const shareAward = await this.computeCardOpenShareAward();
+      await db.incrementUserShares(author, shareAward);
+      await db.incrementNetworkTotals(0, 0, 0, 0, shareAward, 1);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardRedeemOpenResponse = {
         serverVersion: SERVER_VERSION,

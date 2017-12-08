@@ -20,6 +20,7 @@ import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
+import { cardManager } from "./card-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -61,6 +62,27 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
       }
     }
+
+    if (SERVER_VERSION < 125) {
+      // To handle the transition to ChannelShares, we need to update each user with the ChannelShares they have already
+      // earned based on the number of transactions for their cards
+      const users = await db.getAllUsers("normal");
+      const award = await cardManager.computeCardOpenShareAward();
+      for (const user of users) {
+        if (user.channelShares === 0) {
+          let count = 0;
+          const cards = await db.findCardsByAuthorId(user.id);
+          for (const card of cards) {
+            count += card.stats.uniqueOpens.value;
+          }
+          if (count > 0) {
+            await db.incrementUserShares(user, award * count);
+            await db.incrementNetworkTotals(0, 0, 0, 0, award * count, count);
+          }
+        }
+      }
+    }
+
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
@@ -586,11 +608,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (updateBalance) {
       await this.updateUserBalance(user);
     }
-    const network = await db.getNetwork();
+    const network = await db.getNetwork(true);
     const result: UserStatus = {
       goLive: this.goLiveDate,
       userBalance: user.balance,
       userBalanceAt: user.balanceLastUpdated,
+      channelShares: user.channelShares,
       minBalanceAfterWithdrawal: user.minBalanceAfterWithdrawal,
       targetBalance: user.targetBalance,
       inviteCode: user.inviterCode.toUpperCase(),
@@ -598,7 +621,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       invitationsRemaining: user.invitationsRemaining,
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       totalPublisherRevenue: network.totalPublisherRevenue,
-      totalCardDeveloperRevenue: network.totalCardDeveloperRevenue
+      totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
+      totalPaidCardOpens: network.cumulativeCardOpens,
+      totalSharesOutstanding: network.totalSharesOutstanding,
+      openCardAward: await cardManager.computeCardOpenShareAward(),
+      opensRemainingBeforeNextReduction: await cardManager.computeOpensBeforeNextAwardReduction()
     };
     return result;
   }

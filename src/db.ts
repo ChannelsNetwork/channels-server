@@ -8,6 +8,8 @@ import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult,
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 
+const NETWORK_CACHE_TIMEOUT = 1000 * 15;
+
 export class Database {
   private db: Db;
   private oldUsers: Collection;
@@ -33,6 +35,8 @@ export class Database {
   private cardStatsHistory: Collection;
   private bankDeposits: Collection;
   private bowerPackages: Collection;
+  private lastNetworkFetch = 0;
+  private cachedNetwork: NetworkRecord;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -76,6 +80,12 @@ export class Database {
           totalWithdrawals: 0
         }
       });
+      await this.networks.updateMany({ totalSharesOutstanding: { $exists: false } }, {
+        $set: {
+          totalSharesOutstanding: 0,
+          cumulativeCardOpens: 0
+        }
+      });
     } else {
       const record: NetworkRecord = {
         id: '1',
@@ -84,7 +94,9 @@ export class Database {
         totalPublisherRevenue: 0,
         totalCardDeveloperRevenue: 0,
         totalDeposits: 0,
-        totalWithdrawals: 0
+        totalWithdrawals: 0,
+        totalSharesOutstanding: 0,
+        cumulativeCardOpens: 0
       };
       await this.networks.insert(record);
     }
@@ -132,6 +144,7 @@ export class Database {
     await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
 
     await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
+    await this.users.updateMany({ channelShares: { $exists: false } }, { $set: { channelShares: 0 } });
   }
 
   private async initializeCards(): Promise<void> {
@@ -318,11 +331,16 @@ export class Database {
     await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
   }
 
-  async getNetwork(): Promise<NetworkRecord> {
-    return await this.networks.findOne({ id: '1' });
+  async getNetwork(allowCache = false): Promise<NetworkRecord> {
+    if (allowCache && Date.now() - this.lastNetworkFetch < NETWORK_CACHE_TIMEOUT) {
+      return this.cachedNetwork;
+    }
+    this.cachedNetwork = await this.networks.findOne({ id: '1' });
+    this.lastNetworkFetch = Date.now();
+    return this.cachedNetwork;
   }
 
-  async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number): Promise<void> {
+  async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrTotalShares: number, incrCumulativeOpens: number): Promise<void> {
     const update: any = {};
     if (incrPublisherRev) {
       update.totalPublisherRevenue = incrPublisherRev;
@@ -335,6 +353,12 @@ export class Database {
     }
     if (incrWithdrawals) {
       update.totalWithdrawals = incrWithdrawals;
+    }
+    if (incrTotalShares) {
+      update.totalSharesOutstanding = incrTotalShares;
+    }
+    if (incrCumulativeOpens) {
+      update.cumulativeCardOpens = incrCumulativeOpens;
     }
     await this.networks.updateOne({ id: "1" }, { $inc: update });
   }
@@ -367,7 +391,8 @@ export class Database {
       lastContact: now,
       storage: 0,
       admin: false,
-      ipAddresses: []
+      ipAddresses: [],
+      channelShares: 0
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -399,6 +424,10 @@ export class Database {
     await this.users.updateOne({ id: user.id }, { $unset: { recoveryCode: 1, recoveryCodeExpires: 1 } });
     delete user.recoveryCode;
     delete user.recoveryCodeExpires;
+  }
+
+  async getAllUsers(type: UserAccountType): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ type: type }).toArray();
   }
 
   async findUserById(id: string): Promise<UserRecord> {
@@ -544,8 +573,9 @@ export class Database {
     if (onlyIfLastBalanceUpdated) {
       query.balanceLastUpdated = onlyIfLastBalanceUpdated;
     }
+    const incClause: any = { balance: incrementBalanceBy };
     const result = await this.users.updateOne(query, {
-      $inc: { balance: incrementBalanceBy },
+      $inc: incClause,
       $set: { balanceBelowTarget: balanceBelowTarget, balanceLastUpdated: now }
     });
     if (result.modifiedCount > 0) {
@@ -560,6 +590,11 @@ export class Database {
         user.balanceLastUpdated = updatedUser.balanceLastUpdated;
       }
     }
+  }
+
+  async incrementUserShares(user: UserRecord, incrementBy: number): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $inc: { channelShares: incrementBy } });
+    user.channelShares += incrementBy;
   }
 
   async addUserIpAddress(userRecord: UserRecord, ipAddress: string): Promise<void> {
@@ -702,6 +737,10 @@ export class Database {
       query.state = "active";
     }
     return await this.cards.findOne<CardRecord>(query);
+  }
+
+  async findCardsByAuthorId(userId: string): Promise<CardRecord[]> {
+    return await this.cards.find<CardRecord>({ "by.id": userId }).toArray();
   }
 
   async findCardMostRecentByType(type: CardType): Promise<CardRecord> {

@@ -9,6 +9,8 @@ import { bank } from "./bank";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { SignedObject } from "./interfaces/signed-object";
 
+const HIVEPOINT_PREMINING_AMOUNT = 13000000;
+
 export class NetworkEntity implements Initializable {
   private networkEntityKeyInfo: KeyInfo;
   private networkDeveloperKeyInfo: KeyInfo;
@@ -50,9 +52,9 @@ export class NetworkEntity implements Initializable {
     if (!existingNetwork) {
       await db.insertUser("network", this.networkEntityKeyInfo.address, this.networkEntityKeyInfo.publicKeyPem, null, null, "_network_", 0, 0, 0, 0, null, "network");
     }
-    const existingNetworkDeveloper = await db.findNetworkDeveloperUser();
-    if (!existingNetworkDeveloper) {
-      await db.insertUser("networkDeveloper", this.networkDeveloperKeyInfo.address, this.networkDeveloperKeyInfo.publicKeyPem, null, null, "_networkDeveloper_", 0, 0, 0, 0, null, "network developer");
+    let networkDeveloper = await db.findNetworkDeveloperUser();
+    if (!networkDeveloper) {
+      networkDeveloper = await db.insertUser("networkDeveloper", this.networkDeveloperKeyInfo.address, this.networkDeveloperKeyInfo.publicKeyPem, null, null, "_networkDeveloper_", 0, 0, 0, 0, null, "network developer");
     }
     // If there are no bank transactions in mongo yet, we need to retroactively add these
     // for the original grant and interest
@@ -92,6 +94,13 @@ export class NetworkEntity implements Initializable {
           await this.performBankTransaction(interestPayment, null, true, false);
         }
       }
+    }
+
+    // Following is to handle transition to new ChannelShares model
+
+    if (networkDeveloper.channelShares === 0) {
+      await db.incrementUserShares(networkDeveloper, HIVEPOINT_PREMINING_AMOUNT);
+      await db.incrementNetworkTotals(0, 0, 0, 0, HIVEPOINT_PREMINING_AMOUNT, 0);
     }
   }
 

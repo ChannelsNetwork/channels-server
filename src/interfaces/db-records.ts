@@ -26,6 +26,7 @@ export interface UserRecord {
   recoveryCode?: string;
   recoveryCodeExpires?: number;
   ipAddresses: string[];
+  channelShares: number;
 }
 
 export interface OldUserRecord {
@@ -82,6 +83,8 @@ export interface NetworkRecord {
   totalCardDeveloperRevenue: number;
   totalDeposits: number;
   totalWithdrawals: number;
+  totalSharesOutstanding: number;
+  cumulativeCardOpens: number;
 }
 
 export interface CardRecord {

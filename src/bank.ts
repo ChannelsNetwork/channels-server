@@ -179,7 +179,7 @@ export class Bank implements RestServer, Initializable {
       }
       html += "</div>";
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
-      await db.incrementNetworkTotals(0, 0, 0, amountInUSD);
+      await db.incrementNetworkTotals(0, 0, 0, amountInUSD, 0, 0);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: BankWithdrawResponse = {
         serverVersion: SERVER_VERSION,
@@ -317,7 +317,7 @@ export class Bank implements RestServer, Initializable {
         transaction.toRecipients.push(recipient);
         const transactionResult = await networkEntity.performBankTransaction(transaction, null, false, true);
         await db.updateBankDeposit(depositRecord.id, "completed", transactionResult.record.at, transactionResponse, transactionResult.record.id);
-        await db.incrementNetworkTotals(0, 0, netAmount, 0);
+        await db.incrementNetworkTotals(0, 0, netAmount, 0, 0, 0);
       } else {
         await db.updateBankDeposit(depositRecord.id, "failed", Date.now(), transactionResponse, null);
         response.json(transactionResponse);

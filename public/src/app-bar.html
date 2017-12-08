@@ -53,6 +53,11 @@
         margin-left: 10px;
       }
 
+      #sharesLabel {
+        font-size: 60%;
+        margin-top: -5px;
+      }
+
       a {
         text-align: center;
       }
@@ -146,7 +151,10 @@
       </div>
       <a href="#balance">
         <div id="balancePanel" class="horizontal layout center">
-          <span id="balanceLabel" style="opacity: 0;">[[balance]]</span>
+          <div style="text-align:right;">
+            <div id="balanceLabel" style="opacity: 0;">[[balance]]</div>
+            <div id="sharesLabel" style="display:none;">[[shares]]</div>
+          </div>
         </div>
       </a>
     </div>
@@ -219,10 +227,12 @@
         }
         this._refreshBalance();
         this.$.balanceLabel.style.opacity = 1;
+        this.$.sharesLabel.style.display = this.shares > 0 ? "" : "none";
       }
 
       _refreshBalance() {
         this.balance = "ℂ" + this._truncateBalance($core.balance);
+        this.shares = this._truncateShares($core.channelShares);
       }
 
       _truncateBalance(value) {
@@ -230,6 +240,19 @@
           return "0.000";
         }
         return (Math.floor(value * 1000) / 1000).toFixed(3);
+      }
+
+      _truncateShares(value) {
+        if (!value) {
+          return "0";
+        }
+        if (value >= 100) {
+          return Math.floor(value);
+        } else if (value >= 10) {
+          return (Math.floor(value * 100) / 100).toFixed(2);
+        } else {
+          return (Math.floor(value * 1000) / 1000).toFixed(3);
+        }
       }
 
       _onClick(event) {

@@ -61,6 +61,7 @@ export interface UserStatus {
   goLive: number;
   userBalance: number;
   userBalanceAt: number;
+  channelShares: number;
   minBalanceAfterWithdrawal: number;
   targetBalance: number;
   inviteCode: string;
@@ -69,6 +70,10 @@ export interface UserStatus {
   cardBasePrice: number;
   totalPublisherRevenue: number;
   totalCardDeveloperRevenue: number;
+  totalPaidCardOpens: number;
+  totalSharesOutstanding: number;
+  openCardAward: number;
+  opensRemainingBeforeNextReduction: number;
 }
 
 export interface RequestRecoveryCodeDetails {

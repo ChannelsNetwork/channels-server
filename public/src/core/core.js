@@ -605,11 +605,46 @@ class CoreService extends Polymer.Element {
     return result;
   }
 
+  get channelShares() {
+    if (!this._userStatus || !this._registration) {
+      return 0;
+    }
+    return this._userStatus.channelShares;
+  }
+
   get minBalanceAfterWithdrawal() {
     if (!this._userStatus) {
       return 0;
     }
     return this._userStatus.minBalanceAfterWithdrawal;
+  }
+
+  get totalPaidCardOpens() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.totalPaidCardOpens;
+  }
+
+  get totalSharesOutstanding() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.totalSharesOutstanding;
+  }
+
+  get openCardAward() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.openCardAward;
+  }
+
+  get opensRemainingBeforeNextReduction() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.opensRemainingBeforeNextReduction;
   }
 
   get baseCardPrice() {

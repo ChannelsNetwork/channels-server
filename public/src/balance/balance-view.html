@@ -143,22 +143,26 @@
       }
 
       .totalCard {
-        display: inline-block;
         text-align: left;
-        max-width: 140px;
-        margin: 10px;
+        margin: 10px 0;
       }
 
       .totalCard label {
-        font-size: 12px;
+        width: 250px;
+        max-width: 60%;
+        display: inline-block;
+        font-size: 16px;
+      }
+
+      .totalCard div {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 16px;
       }
 
       .networkTotals {
         text-align: left;
-      }
-
-      .networkTotal {
-        font-size: 20px;
+        margin-top: 40px;
       }
 
       #withdrawExplain {
@@ -181,43 +185,69 @@
     </style>
     <div id="fullContent">
       <div class="content">
-        <p>
-          This is your balance in ChannelCoins.
-        </p>
-        <p>Use these to open cards or to promote your own cards.</p>
-        <p>Earn these when others open cards you posted. You can also earn coins by viewing promoted content.</p>
-        <div class="balancePanel">
-          <div id="balanceCard" class="balance">
-            <label>Balance</label>
-            <div>[[balance]]</div>
-          </div>
-          <div class="buttonPanel">
-            <div class="row">
-              <button id="btnDeposit" on-click="_onDepositClick" disabled>Deposit</button>
+        <div>
+          <p>
+            This is your balance in ChannelCoins.
+          </p>
+          <p>Use these to open cards or to promote your own cards.</p>
+          <p>Earn these when others open cards you posted. You can also earn coins by viewing promoted content.</p>
+          <div class="balancePanel">
+            <div id="balanceCard" class="balance">
+              <label>Balance</label>
+              <div>[[balance]]</div>
             </div>
-            <div class="horizontal layout center row">
-              <div>
-                <button id="btnWithdraw" disabled on-click="_onWithdrawClick">Withdraw</button>
+            <div class="buttonPanel">
+              <div class="row">
+                <button id="btnDeposit" on-click="_onDepositClick" disabled>Deposit</button>
               </div>
-              <div class="flex" id="withdrawExplain">Minimum balance of ℂ6.00 required for withdrawal</div>
+              <div class="horizontal layout center row">
+                <div>
+                  <button id="btnWithdraw" disabled on-click="_onWithdrawClick">Withdraw</button>
+                </div>
+                <div class="flex" id="withdrawExplain">Minimum balance of ℂ6.00 required for withdrawal</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p>
+            This is your share of the ownership in Channels.
+          </p>
+          <p>You earn these shares every time someone opens one of your cards and pays for it, or you pay them.</p>
+          <p>These shares provide voting rights as well as other eventual benefits such as dividend payments.</p>
+          <div class="balancePanel">
+            <div id="shareCard" class="balance">
+              <label>ChannelShares</label>
+              <div>[[shares]]</div>
             </div>
           </div>
         </div>
         <div class="networkTotals">
+          <div>Network Information</div>
           <div class="totalCard">
-            <label>Network-Wide Publisher Revenues</label>
+            <label>Total Paid Card Opens</label>
+            <div class="networkTotal">[[totalCardOpens]]</div>
+          </div>
+          <div class="totalCard">
+            <label>Total Publisher Revenues</label>
             <div class="networkTotal">[[totalPublisherRevenues]]</div>
           </div>
-          <div class="totalCard">
-            <label>Network-Wide Card Developer Revenues</label>
+          <!-- <div class="totalCard">
+            <label>Total Card Developer Revenues</label>
             <div class="networkTotal">[[totalCardDeveloperRevenues]]</div>
+          </div> -->
+          <div class="totalCard">
+            <label>Total ChannelShares</label>
+            <div class="networkTotal">[[totalShares]]</div>
           </div>
-        </div>
-        <div class="footer" style="display:none;">
-          <p>Want to earn extra coins for you and your friends?</p>
-          <p>
-            <a on-click="onInvite">Invite a friend</a>
-          </p>
+          <div class="totalCard">
+            <label>Current mining reward (ChannelShares)</label>
+            <div class="networkTotal">[[cardOpenReward]]</div>
+          </div>
+          <div class="totalCard">
+            <label>Opens before next reward reduction</label>
+            <div class="networkTotal">[[remainingBeforeReduction]]</div>
+          </div>
         </div>
       </div>
       <div id="bankStatement" style="display:none;">
@@ -270,15 +300,17 @@
         $core.register().then((info) => {
           $core.updateBalance().then(() => {
             this.$.balanceCard.style.opacity = 1;
+            this.$.shareCard.style.opacity = 1;
             const at = Date.now();
             const initial = info.status.userBalance || 0;
             this.balanceTimer = setInterval(() => {
               this.balance = "ℂ" + $core.balance.toFixed(8);
+              this.shares = $core.channelShares.toFixed(8);
+              this._refreshNetworkTotals();
             }, 250);
             this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
             this.$.withdrawExplain.style.display = this.$.btnWithdraw.disabled ? "" : "none";
             this._refreshTransactions();
-            this._refreshNetworkTotals();
             if ($core.depositUrl) {
               this.$.btnDeposit.disabled = false;
             }
@@ -441,6 +473,10 @@
       _refreshNetworkTotals() {
         this.set('totalPublisherRevenues', this._displayCoins($core.networkTotalPublisherRevenue));
         this.set('totalCardDeveloperRevenues', this._displayCoins($core.networkTotalCardDeveloperRevenue));
+        this.set('totalCardOpens', $core.totalPaidCardOpens);
+        this.set('totalShares', $core.totalSharesOutstanding);
+        this.set('cardOpenReward', $core.openCardAward.toFixed(8));
+        this.set('remainingBeforeReduction', $core.opensRemainingBeforeNextReduction);
       }
 
       _displayCoins(value) {
