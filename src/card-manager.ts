@@ -522,9 +522,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   async computeOpensBeforeNextAwardReduction(): Promise<number> {
     const network = await db.getNetwork(true);
     const cumOpens = network.cumulativeCardOpens;
-    let result = 0;
+    let result = CARD_AWARDS_BY_OPENS[0][0] - cumOpens;
     for (let i = 1; i < CARD_AWARDS_BY_OPENS.length - 1; i++) {
-      if (cumOpens < CARD_AWARDS_BY_OPENS[i][0]) {
+      if (cumOpens > CARD_AWARDS_BY_OPENS[i - 1][0]) {
         result = CARD_AWARDS_BY_OPENS[i][0] - cumOpens;
         break;
       }
