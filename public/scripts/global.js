@@ -51,6 +51,26 @@ var _loadAnalytics = function () {
   }, 1000);
 };
 
+var _loadFacebook = function () {
+  window.fbAsyncInit = function () {
+    FB.init({
+      appId: '361330987672920',
+      xfbml: true,
+      version: 'v2.11'
+    });
+    FB.AppEvents.logPageView();
+  };
+  setTimeout(() => {
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) { return; }
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  }, 1000);
+};
+
 var _getBrowserInfo = function () {
   if (window._browserInfo) {
     return window._browserInfo;
@@ -104,6 +124,7 @@ var _hideInvalidVersionDialog = function () {
 
 var _onLoad = function () {
   _loadAnalytics();
+  _loadFacebook();
 
   // Check browser compatibility
   let binfo = _getBrowserInfo();

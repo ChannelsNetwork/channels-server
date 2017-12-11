@@ -24,14 +24,11 @@ import { channelsComponentManager } from "./channels-component-manager";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
-import * as Mustache from 'mustache';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as escapeHtml from 'escape-html';
 import * as LRU from 'lru-cache';
 import * as url from 'url';
 import * as universalAnalytics from 'universal-analytics';
 import { Utils } from "./utils";
+import { rootPageManager } from "./root-page-manager";
 
 const promiseLimit = require('promise-limit');
 
@@ -51,7 +48,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private urlManager: UrlManager;
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
-  private cardTemplate: string;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
   private analyticsVisitor: universalAnalytics.Visitor;
 
@@ -118,8 +114,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (lastMutation) {
       this.lastMutationIndexSent = lastMutation.index;
     }
-    const appPath = path.join(__dirname, '../templates/web/card.html');
-    this.cardTemplate = fs.readFileSync(appPath, 'utf8');
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
@@ -140,23 +134,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         ul: request.headers['accept-language']
       }).send();
     }
-
-    const ogUrl = configuration.get('baseClientUri');
-    const view = {
-      og_title: escapeHtml(card.summary.title),
-      og_description: escapeHtml(card.summary.text),
-      og_url: this.urlManager.getAbsoluteUrl('/c/' + card.id),
-      og_image: card.summary.imageUrl,
-      og_imagewidth: card.summary.imageWidth,
-      og_imageheight: card.summary.imageHeight,
-      clientPageUrl: this.urlManager.getAbsoluteUrl('/app/#card/' + card.id),
-      og_article_published_time: new Date(card.postedAt).toISOString(),
-      author: card.by.name
-    };
-    const output = Mustache.render(this.cardTemplate, view);
-    response.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
-    response.contentType('text/html');
-    response.status(200).send(output);
+    await rootPageManager.handlePage("card", request, response, card);
   }
 
   private async handleGetCard(request: Request, response: Response): Promise<void> {

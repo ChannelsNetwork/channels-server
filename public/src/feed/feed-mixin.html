@@ -147,9 +147,17 @@
             if (this._parsedRoute) {
               context.feed = this._parsedRoute.path;
             }
-            $router.goto(['card', card.id], context, 'shift-left');
+            window.location.assign(this._getCardUrl(card.id));
           }
         }
+      }
+
+      _getCardUrl(cardId) {
+        let root = window.location.origin;
+        if (!root) {
+          root = window.location.protocol + "://" + window.location.host;
+        }
+        return (root + "/c/" + cardId);
       }
 
       _onCardImpression(event) {
