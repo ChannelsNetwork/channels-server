@@ -80,6 +80,7 @@
       </soso-dropdown>
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_facebook">Share on Facebook</li>
         <li on-click="_onLink">Grab card URL</li>
       </soso-dropdown>
 
@@ -255,6 +256,14 @@
           const cardUrl = this._shareUrl;
           const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
           $core.social.tweet(cardText, cardUrl);
+        }
+      }
+
+      _facebook() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.facebookShare(cardText, cardUrl);
         }
       }
 

@@ -10,6 +10,18 @@ class SocialService {
     let href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&via=channelscc&url=" + encodeURIComponent(url);
     window.open(href, '', windowOptions + ',width=' + width + ',height=' + height + ',left=' + left + ',top=' + top);
   }
+
+  facebookShare(text, url) {
+    return new Promise((resolve, reject) => {
+      FB.ui({
+        method: 'share',
+        href: url,
+        quote: text
+      }, (response) => {
+        resolve(response);
+      });
+    });
+  }
 }
 
 class CoreImageUtils {
