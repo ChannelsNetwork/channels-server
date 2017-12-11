@@ -15,8 +15,7 @@ class SocialService {
     return new Promise((resolve, reject) => {
       FB.ui({
         method: 'share',
-        href: url,
-        quote: text
+        href: url
       }, (response) => {
         resolve(response);
       });
