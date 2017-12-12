@@ -42,6 +42,7 @@ const OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const DEFAULT_CARD_PAYMENT_DELAY = 1000 * 10;
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
@@ -156,7 +157,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
-        card: cardState
+        card: cardState,
+        paymentDelayMsecs: DEFAULT_CARD_PAYMENT_DELAY
       };
       response.json(reply);
     } catch (err) {
