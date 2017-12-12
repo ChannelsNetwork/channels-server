@@ -10,7 +10,7 @@
         font-size: 16px;
       }
 
-      .termsLink {
+      a.termsLink {
         color: var(--bg-yellow);
       }
 
@@ -78,9 +78,19 @@
   <script>
     class TermsPanel extends Polymer.Element {
       static get is() { return 'terms-panel'; }
-      static get properties() {
-        return {
-        };
+      reset() {
+        if (this.$.agree) {
+          this.$.agree.checked = false;
+          this.$.agree.style.pointerEvents = "auto";
+        }
+      }
+      _onChecked() {
+        if (this.$.agree.checked) {
+          this.$.agree.style.pointerEvents = "none";
+          setTimeout(() => {
+            this.dispatchEvent(new CustomEvent('tncs-agreed', { bubbles: true, composed: true }));
+          }, 500);
+        }
       }
     }
     window.customElements.define(TermsPanel.is, TermsPanel);

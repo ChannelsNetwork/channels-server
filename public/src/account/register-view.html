@@ -224,6 +224,7 @@
         let password = this.$.password.value.trim() || null;
         this._setMessage("Registering");
         $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
+          $core.agreeToTnCs();
           $router.goto("register-photo", { returnRoute: this.returnRoute });
         }).catch((err) => {
           console.error(err);

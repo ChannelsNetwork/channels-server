@@ -167,7 +167,6 @@
         <button id="mine">Mine</button>
       </a>
     </div>
-    <agree-terms-view id="terms" class="hidden"></agree-terms-view>
   </template>
   <script>
     class AppBar extends Polymer.Element {
@@ -279,32 +278,6 @@
           this.$[subpath].classList.add("selected");
         } else {
           this.$.recommended.classList.add("selected");
-        }
-      }
-
-      setPendingMode(value) {
-        if (value != this._pending) {
-          this._pending = value;
-          if (this._pending) {
-            this.style.height = "100vh";
-            this.$.container.classList.add("mute");
-            Polymer.importHref(this.resolveUrl('account/agree-terms-view.html'), () => {
-              this.$.terms.classList.remove('hidden');
-              this.$.terms.reset();
-              setTimeout(() => {
-                this.$.terms.style.opacity = 1;
-              }, 300);
-            });
-          } else {
-            this.style.height = "60px";
-            this.$.container.classList.remove("mute");
-            if (this.$.terms) {
-              this.$.terms.style.opacity = 0;
-              setTimeout(() => {
-                this.$.terms.classList.add('hidden');
-              }, 300);
-            }
-          }
         }
       }
     }

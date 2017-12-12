@@ -6,7 +6,6 @@
 <link rel="import" href="app-styles.html">
 <link rel="import" href="hash-router.html">
 <link rel="import" href="app-bar.html">
-<link rel="import" href="account/terms-panel.html">
 
 <dom-module id="main-app">
   <template>
@@ -52,6 +51,9 @@
         bottom: 0;
         right: 0;
         box-shadow: 0 -1px 6px -1px rgba(0, 0, 0, 0.6);
+        margin: 5px;
+        box-sizing: border-box;
+        border-radius: 3px;
       }
     </style>
 
@@ -80,8 +82,8 @@
       <!-- Test pages -->
       <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
     </soso-pages>
-    <terms-panel></terms-panel>
-    <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
+    <terms-panel id="termsPanel" class="hidden" on-tncs-agreed="_onTermsAgreed"></terms-panel>
+    <app-bar id="toolbar"></app-bar>
 
     <div id="reloadingPanel" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
@@ -118,31 +120,17 @@
       }
 
       _onRouteChange(event) {
-        if ($core.hasKeys() && $core.isAgreedToTnCs()) {
-          this._handleRouteChange(event.detail.route);
-        } else {
-          this._pendingRoute = event.detail.route;
-          this._setBarVisible(true);
-          requestAnimationFrame(() => {
-            this.$.toolbar.setPendingMode(true);
+        const pageName = this._handleRouteChange(event.detail.route);
+        if ((pageName === 'card') && (!$core.isAgreedToTnCs())) {
+          return this._import("account/terms-panel.html").then(() => {
+            this.$.termsPanel.classList.remove("hidden");
           });
-          setTimeout(() => {
-            $core.register();
-          }, 500);
         }
       }
 
       _onTermsAgreed() {
-        this.$.toolbar.setPendingMode(false);
-        $core.register().then(() => {
-          $core.agreeToTnCs();
-          requestAnimationFrame(() => {
-            if (this._pendingRoute) {
-              this._handleRouteChange(this._pendingRoute);
-              this._pendingRoute = null;
-            }
-          });
-        });
+        $core.agreeToTnCs();
+        this.$.termsPanel.classList.add("hidden");
       }
 
       _clearNode(node) {
@@ -241,6 +229,8 @@
             window.ga('send', 'pageview', "/" + pageToReport);
           } catch (err) { }
         }
+
+        return pageName;
       }
 
       _attachScrollListener() {
