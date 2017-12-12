@@ -46,7 +46,7 @@
               if (proceed) {
                 this.onHashChange();
               } else {
-                if (history.replaceState) {
+                if (history.pushState) {
                   history.pushState(null, null, this._oldUrl);
                   // history.replaceState(null, null, this._oldUrl);
                 } else {
