@@ -159,6 +159,7 @@ class CoreService extends Polymer.Element {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
         const newKeys = $keyUtils.generateKey(privateKey);
         this._switchToSignedInKeys(newKeys, trust);
+        this.agreeToTnCs();
         return this.getUserProfile();
       }).catch((err) => {
         throw new Error("Your handle or password is incorrect.");
