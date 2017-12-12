@@ -89,6 +89,16 @@
         margin-left: -10px;
       }
 
+      #termsPanel {
+        margin-top: 16px;
+        font-size: 12px;
+        color: #808080;
+      }
+
+      #termsPanel a {
+        color: var(--dark-green);
+      }
+
       @media (max-width: 550px) {
         .dialog .card {
           box-shadow: none;
@@ -136,6 +146,10 @@
           <div class="buttons">
             <button style="margin-right: 10px;" on-click="_onCancel">Cancel</button>
             <button id="btnSave" on-click="_onSave">Save</button>
+            <div id="termsPanel">
+              By registering you agree to our
+              <a href="/d/terms.html" class="termsLink" target="_blank">terms and conditions</a>.
+            </div>
           </div>
           <div class="buttons">
             <div>
