@@ -43,6 +43,8 @@ const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const DEFAULT_CARD_PAYMENT_DELAY = 1000 * 10;
+const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
+const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
@@ -155,10 +157,28 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("Missing card state");
         return;
       }
+      let delay = DEFAULT_CARD_PAYMENT_DELAY;
+      const now = Date.now();
+      if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
+        const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
+        // Here, we're seeing if this is a new user and there have been a lot of other new users from the same
+        // IP address recently, in which case, this may be someone using incognito windows to fraudulently
+        // purchase cards.  So we slow down payment based on how recently other users from the same IP
+        // address were registered
+        for (const otherUser of otherUsers) {
+          if (otherUser.id === user.id) {
+            continue;
+          }
+          if (now - otherUser.added > MINIMUM_USER_FRAUD_AGE) {
+            break;
+          }
+          delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
+        }
+      }
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
         card: cardState,
-        paymentDelayMsecs: DEFAULT_CARD_PAYMENT_DELAY
+        paymentDelayMsecs: delay
       };
       response.json(reply);
     } catch (err) {

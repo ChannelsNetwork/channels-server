@@ -148,6 +148,7 @@
             }
           }
           this.data = cardData.card;
+          this.paymentInterval = cardData.paymentDelayMsecs || 10000;
 
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
@@ -241,18 +242,18 @@
         }
 
         this._prevOpenDuration = $core.cardManager.getCachedCardData(this.cardId, "prev-operation-duration") || 0;
-        if (this._prevOpenDuration >= 10000) {
+        if (this._prevOpenDuration >= this.paymentInterval) {
           this._onPaymentDue();
         } else {
           this._paymentTimerStart = (new Date()).getTime();
-          this._paymentTimerInterval = 10000 - this._prevOpenDuration;
+          this._paymentTimerInterval = this.paymentInterval - this._prevOpenDuration;
           this._paymentTimer = setInterval(() => {
             if (this._active) {
               let now = (new Date()).getTime();
               if ((now - this._paymentTimerStart) >= this._paymentTimerInterval) {
                 this._onPaymentDue();
               } else {
-                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / 10000) * 100;
+                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / this.paymentInterval) * 100;
                 this.$.header.showTimer(value);
               }
             }
