@@ -111,6 +111,7 @@ export class Database {
     await this.users.createIndex({ type: 1, lastContact: -1 });
     await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
     await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
+    await this.users.createIndex({ ipAddresses: 1, added: -1 });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -442,6 +443,10 @@ export class Database {
 
   async findUserByEmail(emailAddress: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ "identity.emailAddress": emailAddress.toLowerCase() });
+  }
+
+  async findUsersByIpAddress(ipAddress: string, limit = 25): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ ipAddresses: ipAddress }).sort({ added: -1 }).limit(limit).toArray();
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {

@@ -77,7 +77,7 @@
         this._active = true;
         this._route = route;
         this.data = null;
-        this.paymentDelay = 10000;
+        this.paymentInterval = 10000;
         $core.register().then(() => {
           if (route.segments.length < 2) {
             this._onNoCard();
@@ -149,7 +149,7 @@
             }
           }
           this.data = cardData.card;
-          this.paymentDelay = cardData.paymentDelayMsecs || 10000;
+          this.paymentInterval = cardData.paymentDelayMsecs || 10000;
 
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
@@ -243,18 +243,18 @@
         }
 
         this._prevOpenDuration = $core.cardManager.getCachedCardData(this.cardId, "prev-operation-duration") || 0;
-        if (this._prevOpenDuration >= this.paymentDelay) {
+        if (this._prevOpenDuration >= this.paymentInterval) {
           this._onPaymentDue();
         } else {
           this._paymentTimerStart = (new Date()).getTime();
-          this._paymentTimerInterval = this.paymentDelay - this._prevOpenDuration;
+          this._paymentTimerInterval = this.paymentInterval - this._prevOpenDuration;
           this._paymentTimer = setInterval(() => {
             if (this._active) {
               let now = (new Date()).getTime();
               if ((now - this._paymentTimerStart) >= this._paymentTimerInterval) {
                 this._onPaymentDue();
               } else {
-                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / this.paymentDelay) * 100;
+                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / this.paymentInterval) * 100;
                 this.$.header.showTimer(value);
               }
             }
