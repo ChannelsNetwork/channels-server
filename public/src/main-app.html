@@ -6,6 +6,7 @@
 <link rel="import" href="app-styles.html">
 <link rel="import" href="hash-router.html">
 <link rel="import" href="app-bar.html">
+<link rel="import" href="account/terms-panel.html">
 
 <dom-module id="main-app">
   <template>
@@ -45,6 +46,13 @@
         letter-spacing: 0.1em;
         text-align: center;
       }
+
+      terms-panel {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        box-shadow: 0 -1px 6px -1px rgba(0, 0, 0, 0.6);
+      }
     </style>
 
     <soso-pages id="pages">
@@ -72,6 +80,7 @@
       <!-- Test pages -->
       <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
     </soso-pages>
+    <terms-panel></terms-panel>
     <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
 
     <div id="reloadingPanel" class="horizontal layout center hidden">
