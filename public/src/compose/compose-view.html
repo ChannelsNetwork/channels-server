@@ -30,7 +30,7 @@
       <compose-card-content data-label="Card content"></compose-card-content>
       <compose-card-pricing data-label="Pricing"></compose-card-pricing>
       <compose-card-promotion data-label="Budget"></compose-card-promotion>
-      <compose-card-publish data-label="Publish" on-compose-publish="_onPublish"></compose-card-publish>
+      <compose-card-publish id="publishPage" data-label="Publish" on-compose-publish="_onPublish"></compose-card-publish>
     </soso-wizard>
   </template>
   <script>
@@ -84,10 +84,8 @@
         ).then(() => {
           $router.goto("feed/mine");
         }).catch((err) => {
-          console.error("Failed to publish card", err);
-          $app.showError(err).then(() => {
-            this._onCancel();
-          });
+          this.$.wiz.navigationEnabled = true;
+          this.$.publishPage.onPublishFail(err);
         });
       }
     }
