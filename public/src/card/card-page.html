@@ -77,7 +77,7 @@
         this._active = true;
         this._route = route;
         this.data = null;
-        this.paymentDelay = 10000;
+        this.paymentInterval = 10000;
         $core.register().then(() => {
           if (route.segments.length < 2) {
             this._onNoCard();
