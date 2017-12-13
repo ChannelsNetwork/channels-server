@@ -117,6 +117,9 @@
             window.location.reload();
           }, 3000);
         });
+        window.addEventListener('home-panel-hidden', () => {
+          this.style.paddingTop = "60px";
+        });
       }
 
       _onRouteChange(event) {
@@ -184,8 +187,15 @@
               homePanelVisible = true;
             }
           }
+          if (homePanelVisible) {
+            homePanelVisible = !($core.storage.getItem("homePanelState") === 'closed');
+          }
           homePanel.style.display = homePanelVisible ? "block" : "none";
           homePanel.style.borderBottom = "1px solid #e5e5e5";
+        }
+        let hpc = document.getElementById("homePanelClose");
+        if (hpc) {
+          hpc.style.display = "block";
         }
 
         const showToolbar = activePage.dataset.toolbar == "true";

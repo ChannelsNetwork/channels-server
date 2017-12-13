@@ -218,6 +218,24 @@
       text-decoration: none !important;
     }
 
+    .homePanel #homePanelClose {
+      display: block;
+      position: absolute;
+      top: 110px;
+      right: 10px;
+      border-radius: 50%;
+      border: 2px solid;
+      padding: 6px;
+      height: 16px;
+      width: 16px;
+      opacity: 0.6;
+      cursor: pointer;
+    }
+
+    .homePanel #homePanelClose:hover {
+      opacity: 0.9;
+    }
+
     @media (max-width: 600px) {
       body {
         font-size: 16px;
@@ -286,7 +304,17 @@
         _$[list[i]] = document.getElementById(list[i]);
       }
     }
-    var _onLoad = function () {
+    var _hideHomePanel = function () {
+      let hp = document.getElementById('homePanel');
+      if (hp) {
+        hp.style.display = "none";
+      }
+      if (window.localStorage) {
+        window.localStorage.setItem("homePanelState", "closed");
+      }
+      window.dispatchEvent(new CustomEvent('home-panel-hidden', { bubbles: true, composed: true }));
+    };
+    var _refreshHomePanel = function () {
       _loadIds(['textPanel', 'cu', 'cl', 'b1', 'b2', 'b3']);
       _$.cu.classList.remove("hidden");
       _$.cl.classList.remove("hidden");
@@ -301,15 +329,18 @@
       let hash = window.location.hash;
       console.log(hash);
       let mainPanelVisible = ((!hash) || (hash === '#') || (hash === '#feed') || (hash === '#feed/') || (hash === '#feed/recommended'));
+      if (mainPanelVisible && window.localStorage) {
+        mainPanelVisible = !(window.localStorage.getItem("homePanelState") === 'closed');
+      }
       let hp = document.getElementById('homePanel');
       if (hp) {
         hp.style.display = mainPanelVisible ? "block" : "none";
       }
     };
     if (document.readyState === 'complete') {
-      _onLoad();
+      _refreshHomePanel();
     } else {
-      window.addEventListener("load", _onLoad);
+      window.addEventListener("load", _refreshHomePanel);
     }
   </script>
 </head>
@@ -344,6 +375,7 @@
           </p>
         </div>
       </div>
+      <img id="homePanelClose" style="display: none;" src="/s/icons/close.png" onclick="_hideHomePanel();">
     </section>
   </article>
 
