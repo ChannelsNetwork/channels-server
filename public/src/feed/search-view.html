@@ -63,6 +63,7 @@
       static get is() { return 'search-view'; }
 
       onActivate(route) {
+        this._promotedCardIds = [];
         this.$.buttons.style.display = "none";
         this.$.noItems.style.display = "none";
         this._searchString = route.segments > 1 ? decodeURIComponent(route.segments[1]) : null
