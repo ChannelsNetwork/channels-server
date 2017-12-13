@@ -599,7 +599,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       invitationsRemaining: user.invitationsRemaining,
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       totalPublisherRevenue: network.totalPublisherRevenue,
-      totalCardDeveloperRevenue: network.totalCardDeveloperRevenue
+      totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
+      publisherSubsidies: await networkEntity.getPublisherSubsidies()
     };
     return result;
   }

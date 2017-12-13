@@ -642,6 +642,20 @@ class CoreService extends Polymer.Element {
     return this._userStatus.totalCardDeveloperRevenue;
   }
 
+  get publishSubsidiesRemainingToday() {
+    if (!this._userStatus || !this._userStatus.publisherSubsidies) {
+      return 0;
+    }
+    return this._userStatus.publisherSubsidies.remainingToday;
+  }
+
+  get publishSubsidiesPerPaidOpen() {
+    if (!this._userStatus || !this._userStatus.publisherSubsidies) {
+      return 0;
+    }
+    return this._userStatus.publisherSubsidies.perOpen;
+  }
+
   _fire(name, detail) {
     let ce = new CustomEvent(name, { bubbles: true, composed: true, detail: (detail || {}) });
     window.dispatchEvent(ce);

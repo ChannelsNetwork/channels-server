@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -455,7 +455,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         card.budget.available = newBudgetAvailable;
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
-      await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"], transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0);
+
+      const publisherSubsidy = await this.payPublisherSubsidy(author, card, now);
+      await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardPayResponse = {
         serverVersion: SERVER_VERSION,
@@ -468,6 +470,38 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.error("User.handleCardPay: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async payPublisherSubsidy(author: UserRecord, card: CardRecord, now: number): Promise<number> {
+    const subsidyDay = await db.findLatestPublisherSubsidyDay();
+    if (!subsidyDay || subsidyDay.coinsPaid >= subsidyDay.totalCoins) {
+      return 0;
+    }
+    const amount = subsidyDay.coinsPerPaidOpen;
+    await db.incrementLatestPublisherSubsidyPaid(subsidyDay.starting, amount);
+    const recipient: BankTransactionRecipientDirective = {
+      address: author.address,
+      portion: "remainder",
+      reason: "publisher-subsidy-recipient"
+    };
+    const details: BankTransactionDetails = {
+      address: null,
+      timestamp: null,
+      type: "transfer",
+      reason: "publisher-subsidy",
+      relatedCardId: card.id,
+      relatedCouponId: null,
+      amount: amount,
+      toRecipients: [recipient]
+    };
+    const transactionResult = await networkEntity.performBankTransaction(details, card.summary.title, false, true);
+    await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
+    const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
+    if (card.budget && card.budget.available !== newBudgetAvailable) {
+      card.budget.available = newBudgetAvailable;
+      await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
+    }
+    return amount;
   }
 
   private async handleRedeemCardOpen(request: Request, response: Response): Promise<void> {
