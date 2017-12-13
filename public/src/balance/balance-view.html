@@ -320,7 +320,7 @@
                           amount: (-transaction.details.amount).toFixed(6),
                           address: this._displayAddress(recipient.address),
                           reason: this._displayReason(transaction.details, true),
-                          cardHref: transaction.details.relatedCardId ? "/app/#card/" + transaction.details.relatedCardId : null,
+                          cardHref: transaction.details.relatedCardId ? "#card/" + transaction.details.relatedCardId : null,
                           cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
                           cardTitle: transaction.relatedCardTitle
                         });
@@ -363,7 +363,7 @@
                         amount: amount.toFixed(6),
                         address: this._displayAddress(transaction.details.address),
                         reason: this._displayReason(transaction.details, false),
-                        cardHref: transaction.details.relatedCardId ? "/app/#card/" + transaction.details.relatedCardId : null,
+                        cardHref: transaction.details.relatedCardId ? "/#card/" + transaction.details.relatedCardId : null,
                         cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
                         cardTitle: transaction.relatedCardTitle
                       });
