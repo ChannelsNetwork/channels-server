@@ -307,12 +307,12 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  search(searchString, limit) {
-    let details = RestUtils.search(this._keys.address, searchString, limit);
+  search(searchString, skip, limit, existingPromotedCardIds) {
+    let details = RestUtils.search(this._keys.address, searchString, skip, limit, existingPromotedCardIds);
     let request = this._createRequest(details);
     const url = this.restBase + "/search";
     return this.rest.post(url, request).then((response) => {
-      return response.cards;
+      return response;
     });
   }
 

@@ -374,7 +374,6 @@ export interface CardPricingInfo {
     plusPercent: number;
   };
   coupon?: SignedObject;   // BankCouponDetails
-  searchText: string;
 }
 
 export interface UpdateCardPricingResponse extends RestResponse { }

@@ -1,0 +1,248 @@
+<link rel="import" href="card-feed.html">
+<link rel="import" href="../channel-icons.html">
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+
+<dom-module id="search-view">
+  <template>
+    <style is="custom-style" include="app-styles feed-styles">
+      .main {
+        padding: 0 0 200px;
+      }
+
+      #buttons {
+        margin: 25px 0;
+        text-align: center;
+      }
+
+      .searchArea {
+        margin: 40px 0;
+        text-align: center;
+      }
+
+      #search {
+        width: 60%;
+        max-width: 500px;
+        text-align: left;
+      }
+
+      #btnSearch {
+        margin-left: 5px;
+      }
+
+      .main {
+        padding: 0 0 90px;
+        text-align: center;
+      }
+
+      soso-spinner {
+        margin: 50px;
+      }
+
+      #feed {
+        text-align: left;
+      }
+    </style>
+    <div class="spacer"></div>
+    <div class="searchArea horizontal layout center-center">
+      <soso-text-input id="search" label="Enter search words/phrase" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
+      <button id="btnSearch" on-click="_onSearch">Search</button>
+    </div>
+    <div class="main">
+      <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
+      <div id="noItems" style="display:none;">There are no matching cards</div>
+      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
+      <div id="buttons" style="display:none;">
+        <button id="btnMore" on-click="_onMoreClick">More</button>
+      </div>
+    </div>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
+  </template>
+  <script>
+    class SearchView extends Polymer.Element {
+      static get is() { return 'search-view'; }
+
+      onActivate(route) {
+        this.$.buttons.style.display = "none";
+        this.$.noItems.style.display = "none";
+        this._searchString = route.segments > 1 ? decodeURIComponent(route.segments[1]) : null
+        this.$.search.value = this._searchString;
+        this.$.btnSearch.disabled = true;
+        this.$.search.input.focus();
+        $core.register().then(() => {
+          // register event handlers
+          this._resizeListener = _debounce(() => {
+            this._onResize();
+          }, 350);
+          window.addEventListener("resize", this._resizeListener);
+          this._onResize();
+          let preventReload = false;
+          if (route.context) {
+            preventReload = route.context.preventReload;
+          }
+          if (preventReload && this.items && this.items.length) {
+            $app.scrollTo(route.context.scrollTop);
+            $router.context = null;
+            return;
+          }
+          $router.context = null;
+          this._setItems([]);
+          if (this._searchString) {
+            this._search();
+          }
+        });
+      }
+
+      _setItems(items) {
+        this.set("items", items);
+      }
+
+      _appendItems(items) {
+        for (const item of items) {
+          this.push('items', item);
+        }
+      }
+
+      _onInput() {
+        this.$.btnSearch.disabled = this.$.search.value.trim().length === 0 ? true : false;
+      }
+
+      _onKeyDown(event) {
+        if (event.keyCode === 13 && this.$.search.value.trim().length > 0) {
+          this._onSearch();
+        }
+      }
+
+      _onSearch() {
+        this._searchString = this.$.search.value.trim();
+        if (this._searchString.length > 0) {
+          this._search();
+        }
+      }
+
+      _onMoreUpdated(value) {
+        this.$.btnMore.disabled = false;
+        if (value) {
+          this.$.buttons.style.display = "";
+        } else {
+          this.$.buttons.style.display = "none";
+        }
+      }
+
+      _search() {
+        this.$.buttons.style.display = "none";
+        this.$.noItems.style.display = "none";
+        let finished = false;
+        setTimeout(() => {
+          if (!finished) {
+            this.$.spinner.style.display = "";
+          }
+        }, 100)
+        $core.search(this._searchString, 0, 24, this._promotedCardIds).then((searchResponse) => {
+          this.$.spinner.style.display = "none";
+          finished = true;
+          this._skip = searchResponse.nextSkip;
+          const cards = searchResponse.cards;
+          for (const card of cards) {
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
+            }
+          }
+          this._setItems(cards);
+          if (cards.length === 0) {
+            this.$.noItems.style.display = "";
+          } else {
+            this.$.noItems.style.display = "none";
+          }
+          this._onMoreUpdated(searchResponse.moreAvailable);
+        });
+      }
+
+      _onMoreClick() {
+        this.$.btnMore.disabled = true;
+        $core.search(this._searchString, this._skip, 24, this._promotedCardIds).then((searchResponse) => {
+          this._skip = searchResponse.nextSkip;
+          const cards = searchResponse.cards;
+          for (const card of cards) {
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
+            }
+          }
+          this._appendItems(cards);
+          this._onMoreUpdated(searchResponse.moreAvailable);
+        });
+      }
+
+      onDeactivate() {
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      _onResize() {
+        this.$.feed.refreshLayout();
+        if (this.$.promotedFeed) {
+          this.$.promotedFeed.refreshLayout();
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("balance");
+                }
+              });
+            });
+          } else {
+            let context = {
+              card: card,
+              scrollTop: $app.scrollValue
+            };
+            if (this._parsedRoute) {
+              context.search = this._searchString;
+            }
+            window.location.assign(this._getCardUrl(card.id));
+          }
+        }
+      }
+
+      _getCardUrl(cardId) {
+        let root = window.location.origin;
+        if (!root) {
+          root = window.location.protocol + "://" + window.location.host;
+        }
+        return (root + "/c/" + cardId);
+      }
+
+      _onCardImpression(event) {
+        let card = event.detail.card;
+        let view = event.detail.view;
+        if (card && view) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
+            $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+          } else {
+            $core.cardImpression(card.id);
+          }
+        }
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+    }
+    window.customElements.define(SearchView.is, SearchView);
+  </script>
+</dom-module>

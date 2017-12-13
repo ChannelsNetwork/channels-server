@@ -461,12 +461,14 @@ class RestUtils {
     };
   }
 
-  static search(address, searchString, limit) {
+  static search(address, searchString, skip, limit, existingPromotedCardIds) {
     return {
       address: address,
       timestamp: RestUtils.now(),
       searchString: searchString,
-      limit: limit
+      skip: skip,
+      limit: limit,
+      existingPromotedCardIds: existingPromotedCardIds
     };
   }
 }

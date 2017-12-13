@@ -309,8 +309,10 @@
 
       _doCardClose(cardId) {
         let feed = null;
+        let search = null;
         if (this._route && this._route.context) {
           feed = this._route.context.feed;
+          search = this._route.context.search;
         }
         if (feed) {
           $router.goto(feed, {
@@ -318,6 +320,12 @@
             scrollTop: this._route.context.scrollTop || 0
           });
           return;
+        }
+        if (search) {
+          $router.goto("search", {
+            preventReload: true,
+            scrollTop: this._route.context.scrollTop || 0
+          });
         }
         if (cardId) {
           $router.goto("feed", "recommended", cardId);
