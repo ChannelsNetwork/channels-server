@@ -1,6 +1,7 @@
 <link rel="import" href="feed-mixin.html">
 <link rel="import" href="card-feed.html">
 <link rel="import" href="../channel-icons.html">
+<link rel="import" href="../home/publicity-panel.html">
 
 <dom-module id="feed-view">
   <template>
@@ -39,7 +40,8 @@
         text-align: center;
       }
     </style>
-    <div class="spacer"></div>
+    <div id="spacer" class="spacer"></div>
+    <publicity-panel id="pubPanel" class="hidden"></publicity-panel>
     <div class="main">
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
@@ -55,7 +57,16 @@
       static get is() { return 'feed-view'; }
 
       _onActivate() {
+        this._active = true;
         this.$.buttons.style.display = "none";
+      }
+
+      _onDeactivate() {
+        this._active = false;
+        if (this._statusListener) {
+          window.removeEventListener('channels-user-status', this._statusListener);
+          this._statusListener = null;
+        }
       }
 
       _parseRoute(route) {
@@ -69,6 +80,18 @@
             cardId = route.segments[2];
           }
         }
+        this._feedName = feedName;
+        this._refreshPromotionVisibility();
+
+        if (!this._statusListener) {
+          this._statusListener = () => {
+            if (this._active) {
+              this.$.pubPanel.refresh();
+            }
+          };
+          window.addEventListener("channels-user-status", this._statusListener);
+        }
+
         return {
           feedName: feedName,
           path: 'feed/' + feedName,
@@ -76,6 +99,17 @@
           cardId: cardId,
           channel: null
         };
+      }
+
+      _refreshPromotionVisibility() {
+        if (this._feedName === "recommended") {
+          this.$.pubPanel.classList.remove("hidden");
+          this.$.spacer.classList.add("hidden");
+          this.$.pubPanel.refresh();
+        } else {
+          this.$.pubPanel.classList.add("hidden");
+          this.$.spacer.classList.remove("hidden");
+        }
       }
 
       _compose() {

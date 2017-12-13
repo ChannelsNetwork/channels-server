@@ -1,0 +1,62 @@
+<dom-module id="publicity-panel">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        background: white;
+        border-bottom: 1px solid #e5e5e5;
+        margin-bottom: 30px;
+        padding: 40px 0 20px;
+      }
+
+      .content {
+        max-width: 1168px;
+        margin: 0 auto;
+        padding: 16px;
+        text-align: center;
+      }
+
+      h2 {
+        margin-bottom: 20px;
+      }
+
+      .row {
+        margin-top: 5px;
+      }
+
+      .price {
+        background: #ffeb3b;
+        padding: 5px 10px;
+        border-radius: 5px;
+      }
+    </style>
+    <div class="content">
+      <h2>Early Publisher Bonus!</h2>
+      <div class="row">We are offering daily publisher bonuses.</div>
+      <div class="row">Today's bonus:
+        <span class="price">[[bonus]]</span> per view
+      </div>
+      <div class="row">Remaining budget for the day:
+        <span class="price">[[remaining]]</span>
+      </div>
+    </div>
+  </template>
+  <script>
+    class PublicityPanel extends Polymer.Element {
+      static get is() { return 'publicity-panel'; }
+      static get properties() {
+        return {
+          bonus: String,
+          remaining: String
+        };
+      }
+
+      refresh() {
+        this.bonus = "$1";
+        this.remaining = "$117";
+        console.log("Refresh promotion panel");
+      }
+    }
+    window.customElements.define(PublicityPanel.is, PublicityPanel);
+  </script>
+</dom-module>

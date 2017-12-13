@@ -55,6 +55,10 @@
         // super class may implement
       }
 
+      _onDeactivate() {
+        // super class may implement
+      }
+
       onActivate(route) {
         this._onActivate();
         $core.register().then(() => {
@@ -120,6 +124,7 @@
       }
 
       onDeactivate() {
+        this._onDeactivate();
         if (this._resizeListener) {
           window.removeEventListener("resize", this._resizeListener);
           this._resizeListener = null;
