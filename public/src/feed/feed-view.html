@@ -54,6 +54,10 @@
     class FeedView extends FeedMixin(Polymer.Element) {
       static get is() { return 'feed-view'; }
 
+      _onActivate() {
+        this.$.buttons.style.display = "none";
+      }
+
       _parseRoute(route) {
         let feedName = "recommended";
         let cardId = null;

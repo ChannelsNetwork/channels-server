@@ -51,7 +51,12 @@
         // TODO: super class may implement this to fetch specific data
       }
 
+      _onActivate() {
+        // super class may implement
+      }
+
       onActivate(route) {
+        this._onActivate();
         $core.register().then(() => {
           // register event handlers
           this._resizeListener = _debounce(() => {
