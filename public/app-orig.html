@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+  <title>Channels</title>
+  <meta name="description" content="{{&og_description}}">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/s/images/fav2.png" type="image/png">
+  <link href="/s/styles/fonts.css" rel="stylesheet">
+  <link id="restBase" rel="session" href="{{&rest_base}}">
+  <link id="publicBase" rel="session" href="{{&public_base}}">
+
+  <meta property="og:title" content="Channels">
+  <meta property="og:description" content="{{&og_description}}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{&og_url}}">
+  <meta property="og:image" content="{{&og_image}}">
+  <meta property="og:image:width" content="{{&og_imagewidth}}">
+  <meta property="og:image:height" content="{{&og_imageheight}}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:site" content="@channelscc">
+  <meta name="twitter:title" content="{{&og_title}}">
+  <meta name="twitter:description" content="{{&og_description}}">
+  <meta name="twitter:image" content="{{&og_image}}">
+  <meta name="twitter:image:width" content="{{&og_imagewidth}}">
+  <meta name="twitter:image:height" content="{{&og_imageheight}}">
+
+  <!-- Global javascript - Pre loader -->
+  {{&pre_globaljs}}
+
+  <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js" defer></script>
+  <link rel="import" href="{{&public_base}}/src/main-app.html" async>
+
+  <!-- Global javascript -->
+  {{&globaljs}}
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Open Sans', 'Roboto', sans-serif;
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      color: #292929;
+      font-size: 18px;
+    }
+
+    #temp-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+    }
+
+    #temp-toolbar {
+      height: 60px;
+      padding: 0 0 0 16px;
+      background: #213034;
+      color: white;
+      position: relative;
+    }
+
+    #temp-card-panel {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+      -ms-flex-direction: row;
+      -webkit-flex-direction: row;
+      flex-direction: row;
+      -ms-flex-wrap: wrap;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      overflow: hidden;
+    }
+
+    .temp-card {
+      height: 500px;
+      margin: 13px;
+      min-width: 300px;
+      max-width: 100%;
+      box-sizing: border-box;
+      border-radius: 3px;
+      -ms-flex: 1 1 0.000000001px;
+      -webkit-flex: 1;
+      flex: 1;
+      -webkit-flex-basis: 0.000000001px;
+      flex-basis: 0.000000001px;
+      border: 1px solid #f0f0f0;
+    }
+
+    .temp-card-img {
+      background: #f5f5f5;
+      height: 40%;
+    }
+
+    .temp-card-text {
+      background: #f5f5f5;
+      height: 30px;
+      margin: 20px 0 0 10px;
+    }
+
+    .temp-balance {
+      background: rgb(255, 235, 59);
+      height: 100%;
+      width: 96px;
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
+
+    #svg-logo-small {
+      display: none;
+    }
+
+    #svg-logo {
+      display: block;
+    }
+
+    #invalidVersionPanel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      background: rgba(38, 48, 52, 0.9);
+      color: white;
+      font-size: 15px;
+      z-index: 10;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 16px;
+      }
+      .temp-balance {
+        height: 100%;
+        width: 70px;
+        position: absolute;
+        top: 0;
+        right: 0;
+      }
+      #svg-logo-small {
+        display: block;
+      }
+      #svg-logo {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="temp-panel">
+    <div id="temp-toolbar">
+      {{&svglogo}}
+      <div class="temp-balance"></div>
+    </div>
+    <div id="temp-card-panel">
+      <div class="temp-card">
+        <div class="temp-card-img"></div>
+        <div class="temp-card-text" style="width: 80%;"></div>
+        <div class="temp-card-text" style="width: 60%;"></div>
+        <div class="temp-card-text" style="width: 40%;"></div>
+      </div>
+      <div class="temp-card">
+        <div class="temp-card-img"></div>
+        <div class="temp-card-text" style="width: 80%;"></div>
+        <div class="temp-card-text" style="width: 60%;"></div>
+        <div class="temp-card-text" style="width: 40%;"></div>
+      </div>
+      <div class="temp-card">
+        <div class="temp-card-img"></div>
+        <div class="temp-card-text" style="width: 80%;"></div>
+        <div class="temp-card-text" style="width: 60%;"></div>
+        <div class="temp-card-text" style="width: 40%;"></div>
+      </div>
+      <div class="temp-card">
+        <div class="temp-card-img"></div>
+        <div class="temp-card-text" style="width: 80%;"></div>
+        <div class="temp-card-text" style="width: 60%;"></div>
+        <div class="temp-card-text" style="width: 40%;"></div>
+      </div>
+      <div class="temp-card">
+        <div class="temp-card-img"></div>
+        <div class="temp-card-text" style="width: 80%;"></div>
+        <div class="temp-card-text" style="width: 60%;"></div>
+        <div class="temp-card-text" style="width: 40%;"></div>
+      </div>
+      <div class="temp-card">
+        <div class="temp-card-img"></div>
+        <div class="temp-card-text" style="width: 80%;"></div>
+        <div class="temp-card-text" style="width: 60%;"></div>
+        <div class="temp-card-text" style="width: 40%;"></div>
+      </div>
+    </div>
+  </div>
+  <main-app></main-app>
+  <div id="dialogShell"></div>
+  <div id="invalidVersionPanel" style="display: none;">
+    You're running an older and unsupported browser. Channels works best on the latest Chrome and Firefox.
+    <button style="margin-left: 5px; background: white;" onclick="_hideInvalidVersionDialog()">Close</button>
+  </div>
+</body>
+
+</html>

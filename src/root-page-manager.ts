@@ -38,6 +38,8 @@ export class RootPageManager implements Initializable {
   }
 
   async handlePage(type: string, request: Request, response: Response, card?: CardRecord): Promise<void> {
+    this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
+
     // analyze user agent
     const userAgent = request.headers['user-agent'].toString();
     const agentInfo = useragent.is(userAgent);

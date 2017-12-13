@@ -174,10 +174,24 @@
           }
         }
 
+        // home pane visibility
+        const homePanel = document.getElementById("homePanel");
+        let homePanelVisible = false;
+        if (homePanel) {
+          if (pageName === 'feed') {
+            let feedType = route.segments[1];
+            if ((!feedType) || (feedType === 'recommended')) {
+              homePanelVisible = true;
+            }
+          }
+          homePanel.style.display = homePanelVisible ? "block" : "none";
+          homePanel.style.borderBottom = "1px solid #e5e5e5";
+        }
+
         const showToolbar = activePage.dataset.toolbar == "true";
         const forcePreventScroll = activePage.dataset.preventscroll === "true";
         this._preventScroll = forcePreventScroll || (!showToolbar);
-        this.style.paddingTop = showToolbar ? "60px" : "0";
+        this.style.paddingTop = (showToolbar && (!homePanelVisible)) ? "60px" : "0";
 
         const pageHref = activePage.dataset.href;
         let animation = route.animation;
