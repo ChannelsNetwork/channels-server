@@ -1,5 +1,4 @@
 <link rel="import" href="../controls/dialog-view.html">
-<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 
@@ -33,6 +32,8 @@
         if (this._promise) {
           return this._promise;
         }
+        this.$.filePicker.clear();
+        this._file = null;
         this.summary = summary;
         this.$.title.value = summary.title;
         this.$.text.value = summary.text;

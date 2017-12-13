@@ -16,9 +16,11 @@
       #header {
         z-index: 1;
         position: fixed;
-        top: 0;
+        top: 60px;
         left: 0;
         right: 0;
+        opacity: 0;
+        transition: opacity 0.25s ease;
       }
 
       #nocard {
@@ -58,7 +60,7 @@
         <p>Loading card</p>
       </div>
       <div id="cardView" class="hidden"></div>
-      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard"></open-card-header>
+      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -75,6 +77,7 @@
         this._active = true;
         this._route = route;
         this.data = null;
+        this.paymentInterval = 10000;
         $core.register().then(() => {
           if (route.segments.length < 2) {
             this._onNoCard();
@@ -93,12 +96,19 @@
           }, 600);
         });
         $router.animation = null;
+        setTimeout(() => {
+          this.$.header.style.opacity = 1;
+        }, 1250);
       }
 
       onDeactivate() {
         this._active = false;
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
+        this.$.header.style.opacity = 0;
+        if (this._cardOpened && this.data) {
+          $core.cardClosed(this.data.id);
+        }
       }
 
       _onNoCard() {
@@ -112,7 +122,12 @@
         }
       }
 
+      _cardContendUpdated() {
+        this._loadCard();
+      }
+
       _loadCard() {
+        this._cardOpened = false;
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this._clearNode(this.$.cardView);
@@ -134,6 +149,7 @@
             }
           }
           this.data = cardData.card;
+          this.paymentInterval = cardData.paymentDelayMsecs || 10000;
 
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
@@ -160,6 +176,8 @@
                 setTimeout(() => {
                   if (this._active) {
                     this._startPaymentTimer();
+                    $core.cardOpened(this.data.id);
+                    this._cardOpened = true;
                   }
                 });
               });
@@ -225,18 +243,18 @@
         }
 
         this._prevOpenDuration = $core.cardManager.getCachedCardData(this.cardId, "prev-operation-duration") || 0;
-        if (this._prevOpenDuration >= 10000) {
+        if (this._prevOpenDuration >= this.paymentInterval) {
           this._onPaymentDue();
         } else {
           this._paymentTimerStart = (new Date()).getTime();
-          this._paymentTimerInterval = 10000 - this._prevOpenDuration;
+          this._paymentTimerInterval = this.paymentInterval - this._prevOpenDuration;
           this._paymentTimer = setInterval(() => {
             if (this._active) {
               let now = (new Date()).getTime();
               if ((now - this._paymentTimerStart) >= this._paymentTimerInterval) {
                 this._onPaymentDue();
               } else {
-                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / 10000) * 100;
+                let value = (((now - this._paymentTimerStart) + this._prevOpenDuration) / this.paymentInterval) * 100;
                 this.$.header.showTimer(value);
               }
             }

@@ -27,10 +27,11 @@
 
       .main {
         border-bottom: 1px solid #e5e5e5;
+        padding: 0 0 50px;
       }
 
       #morePanel {
-        padding: 32px 20px;
+        padding: 32px 0px;
         max-width: 1200px;
         margin: 0 auto;
         box-sizing: border-box;
@@ -40,6 +41,21 @@
       a:visited,
       a:hover {
         color: var(--dark-green);
+      }
+
+      #promotedPanel {
+        padding: 0 0 50px;
+      }
+
+      #promotedFeed {
+        max-width: 1200px;
+        margin: 20px auto 0;
+        box-sizing: border-box;
+      }
+
+      #buttons {
+        margin: 25px 0;
+        text-align: center;
       }
     </style>
     <div class="main">
@@ -56,11 +72,19 @@
         </div>
       </div>
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
-      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-card-closed="_onCardClosed" on-impression="_onCardImpression"
-        on-card-payment-due="_onCardPay"></card-feed>
+      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
+      <div id="buttons" style="display:none;">
+        <button id="btnMore" on-click="_onMoreClick">More</button>
+      </div>
     </div>
     <div id="morePanel">
-      <a href="#feed">View your feed</a> to see more cards.
+      <div id="promotedPanel" class="hidden">
+        <div style="letter-spacing: 0.05em; padding: 0 16px;">Promoted cards</div>
+        <card-feed id="promotedFeed" items="[[promotedItems]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"
+          on-card-payment-due="_onCardPay"></card-feed>
+      </div>
+      <div style="padding: 0 16px;">
+        <a href="#feed">View your feed</a> to see more cards.</div>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -73,8 +97,51 @@
           handleInfo: {
             type: Object,
             observer: '_onHandleInfo'
-          }
+          },
+          promotedItems: Array
         };
+      }
+
+      _onActivate() {
+        this.$.buttons.style.display = "none";
+      }
+
+      _setItems(items) {
+        let pitems = [];
+        let npitems = [];
+        if (items && items.length) {
+          for (let i = 0; i < items.length; i++) {
+            let d = items[i];
+            if (d.promoted) {
+              pitems.push(d);
+            } else {
+              npitems.push(d);
+            }
+          }
+        }
+        this.set("items", npitems);
+        this.set("promotedItems", pitems);
+
+        if (pitems.length) {
+          this.$.promotedPanel.classList.remove("hidden");
+        } else {
+          this.$.promotedPanel.classList.add("hidden");
+        }
+      }
+
+      _appendItems(items) {
+        let pitems = [];
+        let npitems = [];
+        if (items && items.length) {
+          for (let i = 0; i < items.length; i++) {
+            let d = items[i];
+            if (d.promoted) {
+              this.push('promotedItems', d);
+            } else {
+              this.push('items', d);
+            }
+          }
+        }
       }
 
       _parseRoute(route) {
@@ -91,7 +158,7 @@
         return {
           feedName: "channel",
           path: 'channel/' + handle,
-          count: 25,
+          count: 24,
           cardId: cardId,
           channel: handle
         };
@@ -117,6 +184,21 @@
           this.$.userPanel.classList.add("hidden");
         }
       }
+
+      _onMoreUpdated(value) {
+        this.$.btnMore.disabled = false;
+        if (value) {
+          this.$.buttons.style.display = "";
+        } else {
+          this.$.buttons.style.display = "none";
+        }
+      }
+
+      _onMoreClick() {
+        this.$.btnMore.disabled = true;
+        this._fetchMore();
+      }
+
     }
     window.customElements.define(ChannelView.is, ChannelView);
   </script>

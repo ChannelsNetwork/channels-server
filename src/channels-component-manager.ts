@@ -156,6 +156,7 @@ export class ChannelsComponentManager implements RestServer {
     }
     console.log("Bower: initializing new bower.json...");
     return new Promise<void>((resolve, reject) => {
+      fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands
         .init({ interactive: true, cwd: this.shadowComponentsDirectory })
         .on('prompt', (prompts: inquirer.Question[], callback: (answers: inquirer.Answers) => void) => {
@@ -183,6 +184,7 @@ export class ChannelsComponentManager implements RestServer {
   private async _updateAll(): Promise<void> {
     console.log("Bower: updating all existing...");
     return new Promise<void>((resolve, reject) => {
+      fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands
         .update([], { json: true, production: true, save: true, "force-latest": true }, { cwd: this.shadowComponentsDirectory })
         .on('end', (installed: any) => {
@@ -208,6 +210,7 @@ export class ChannelsComponentManager implements RestServer {
       return cached;
     }
     return new Promise<BowerUnversionedPackageInfo>((resolve, reject) => {
+      fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands.info(pkg)
         .on('end', (data: BowerUnversionedPackageInfo) => {
           console.log("Package info: ", data);
@@ -228,6 +231,7 @@ export class ChannelsComponentManager implements RestServer {
       return cached;
     }
     return new Promise<BowerPackageMeta>((resolve, reject) => {
+      fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands.info(pkg)
         .on('end', (data: BowerPackageMeta) => {
           console.log("Package info: ", data);
@@ -248,6 +252,7 @@ export class ChannelsComponentManager implements RestServer {
     }
     return new Promise<BowerInstallResult>((resolve, reject) => {
       console.log("Bower.install " + fullPkgName + "...");
+      fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands
         .install([fullPkgName + "=" + nameToInstall], { "force-latest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
         .on('end', (installed: { [name: string]: BowerInstallPackageResult }) => {

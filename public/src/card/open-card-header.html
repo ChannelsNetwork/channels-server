@@ -16,7 +16,6 @@
         background: #fafafa;
         font-size: 14px;
         height: 60px;
-        border-radius: 3px 3px 0 0;
       }
 
       #pricePanel {
@@ -124,7 +123,7 @@
         display: none;
       }
 
-      .menuVoteSection {
+      .menuDivider {
         border-top: 1px solid #d8d8d8;
         margin-top: 5px;
       }
@@ -178,14 +177,18 @@
         <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
         <progress-icon id="likeRating" class="novotes"></progress-icon>
       </div>
-      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" on-click="_onLink"></soso-icon>
+      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]"></soso-icon>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
       <soso-icon id="actionsIcon" icon="expand-more" icon-map="[[iconMap]]"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
 
+      <soso-dropdown for="shareIcon" alignment="right" offset="0">
+        <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_facebook">Share on Facebook</li>
+        <li on-click="_onLink">Grab card URL</li>
+      </soso-dropdown>
       <soso-dropdown for="moreIcon" alignment="right" offset="0">
-        <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
-        <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_editCard">Edit Card</li>
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
@@ -201,10 +204,13 @@
         </li>
       </soso-dropdown>
       <soso-dropdown for="actionsIcon" alignment="right" offset="0">
-        <li on-click="_onLink">Share card</li>
+        <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_facebook">Share on Facebook</li>
+        <li on-click="_onLink">Grab card URL</li>
+        <li id="editAction" class="menuDivider" on-click="_editCard">Edit Card</li>
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
-        <li class="menuVoteSection">[[ratingTip]]</li>
+        <li class="menuDivider">[[ratingTip]]</li>
         <li id="voteItem2" class="horizontal layout center">
           <div style="padding: 0 5px;">
             <soso-icon id="downIcon2" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
@@ -251,7 +257,6 @@
         this._refreshPrice();
         this._refreshRating();
         this._refreshMore();
-        this._refreshMenu();
       }
 
       _refreshPrice() {
@@ -336,20 +341,12 @@
           this.$.moreIcon.classList.remove("hidden");
           this.$.analyticsAction.classList.remove("hidden");
           this.$.deleteAction.classList.remove("hidden");
+          this.$.editAction.classList.remove("hidden");
         } else {
           this.$.moreIcon.classList.add("hidden");
           this.$.analyticsAction.classList.add("hidden");
           this.$.deleteAction.classList.add("hidden");
-        }
-      }
-
-      _refreshMenu() {
-        if (this.data && this.data.private) {
-          this.$.liPrivate.classList.add("hidden");
-          this.$.liPublic.classList.remove("hidden");
-        } else {
-          this.$.liPrivate.classList.remove("hidden");
-          this.$.liPublic.classList.add("hidden");
+          this.$.editAction.classList.add("hidden");
         }
       }
 
@@ -401,7 +398,6 @@
         if (this.data) {
           $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
             this.data.private = response.newValue;
-            this._refreshMenu();
           }).catch((err) => {
             console.error("Failed to updated private flag", err);
             $app.showError("Oops. Something went wrong. Failed to updated private flag.");
@@ -428,6 +424,28 @@
               });
             });
           }
+        });
+      }
+
+      _editCard() {
+        this._import("edit/edit-card-dialog.html").then(() => {
+          let dlg = $dialogs.open("edit-card-dialog", this.data);
+          dlg.addEventListener('summary-updated', (event) => {
+            event.stopPropagation();
+            this.data.summary = event.detail.summary;
+            this.data.private = event.detail.summary.private;
+            window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+          });
+          dlg.addEventListener('edit-content', () => {
+            dlg.hide();
+            this._import("edit/edit-card-content-dialog.html").then(() => {
+              let editDialog = $dialogs.open("edit-card-content-dialog", this.data);
+              editDialog.addEventListener('content-updated', (event) => {
+                event.stopPropagation();
+                this.dispatchEvent(new CustomEvent('content-updated', { bubbles: true, composed: true }));
+              });
+            });
+          });
         });
       }
 
@@ -491,6 +509,22 @@
         this._import("../dialogs/share-link-dialog.html").then(() => {
           return this.$.shareDialog.show(cardUrl);
         });
+      }
+
+      _tweet() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.tweet(cardText, cardUrl);
+        }
+      }
+
+      _facebook() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.facebookShare(cardText, cardUrl);
+        }
       }
 
       _import(url) {

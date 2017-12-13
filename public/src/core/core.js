@@ -16,6 +16,7 @@ class CoreService extends Polymer.Element {
     this.rest = new RestService();
     this.cardManager = new CardManager(this);
     this.userManager = new UserManager(this);
+    this.social = new SocialService();
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
@@ -158,6 +159,7 @@ class CoreService extends Polymer.Element {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
         const newKeys = $keyUtils.generateKey(privateKey);
         this._switchToSignedInKeys(newKeys, trust);
+        this.agreeToTnCs();
         return this.getUserProfile();
       }).catch((err) => {
         throw new Error("Your handle or password is incorrect.");
@@ -290,18 +292,18 @@ class CoreService extends Polymer.Element {
   }
 
   getFeeds(maxCardsPerFeed) {
-    let details = RestUtils.getFeedDetails(this._keys.address, maxCardsPerFeed);
+    let details = RestUtils.getFeedsDetails(this._keys.address, maxCardsPerFeed);
     let request = this._createRequest(details);
-    const url = this.restBase + "/get-feed";
+    const url = this.restBase + "/get-feeds";
     return this.rest.post(url, request);
   }
 
-  getFeed(type, maxCards, startWithCardId, channelHandle) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
-    let details = RestUtils.getFeedDetails(this._keys.address, maxCards, type, startWithCardId, channelHandle);
+  getFeed(type, maxCards, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
+    let details = RestUtils.getFeedsDetails(this._keys.address, maxCards, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds);
     let request = this._createRequest(details);
-    const url = this.restBase + "/get-feed";
+    const url = this.restBase + "/get-feeds";
     return this.rest.post(url, request).then((response) => {
-      return response.feeds[0].cards;
+      return response.feeds[0];
     });
   }
 
@@ -328,7 +330,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState, searchText) {
+  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -338,9 +340,41 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState, searchText);
+    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
+    return this.rest.post(url, request);
+  }
+
+  updateCardSummary(cardId, title, text, linkUrl, imageUrl, imageWidth, imageHeight) {
+    const cardSummary = RestUtils.cardStateSummary(title, text, linkUrl, imageUrl, imageWidth, imageHeight);
+    const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, cardSummary);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-state-update";
+    return this.rest.post(url, request).then(() => {
+      return cardSummary;
+    });
+  }
+
+  updateCardState(cardId, state) {
+    const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, null, state);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-state-update";
+    return this.rest.post(url, request);
+  }
+
+  updateCardPricing(cardId, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent) {
+    let coupon;
+    if (promotionFee + openPayment > 0) {
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+      const couponDetailsString = JSON.stringify(couponDetails);
+      coupon = {
+        objectString: couponDetailsString,
+        signature: this._sign(couponDetailsString)
+      }
+    }
+    const details = RestUtils.updateCardState(this._keys.address, cardId, RestUtils.cardPricing(promotionFee, openPayment, openFeeUntis, budgetAmount, budgetPlusPercent, coupon));
+    const url = this.restBase + "/card-pricing-update";
     return this.rest.post(url, request);
   }
 

@@ -51,6 +51,26 @@ var _loadAnalytics = function () {
   }, 1000);
 };
 
+var _loadFacebook = function () {
+  window.fbAsyncInit = function () {
+    FB.init({
+      appId: '361330987672920',
+      xfbml: true,
+      version: 'v2.11'
+    });
+    FB.AppEvents.logPageView();
+  };
+  setTimeout(() => {
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) { return; }
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  }, 1000);
+};
+
 var _getBrowserInfo = function () {
   if (window._browserInfo) {
     return window._browserInfo;
@@ -68,6 +88,10 @@ var _getBrowserInfo = function () {
     else if ((objOffsetVersion = objAgent.indexOf("Firefox")) != -1) { objbrowserName = "Firefox"; objfullVersion = objAgent.substring(objOffsetVersion + 8); }
     else if ((objOffsetVersion = objAgent.indexOf("Safari")) != -1) { objbrowserName = "Safari"; objfullVersion = objAgent.substring(objOffsetVersion + 7); if ((objOffsetVersion = objAgent.indexOf("Version")) != -1) objfullVersion = objAgent.substring(objOffsetVersion + 8); }
     else if ((objOffsetName = objAgent.lastIndexOf(' ') + 1) < (objOffsetVersion = objAgent.lastIndexOf('/'))) { objbrowserName = objAgent.substring(objOffsetName, objOffsetVersion); objfullVersion = objAgent.substring(objOffsetVersion + 1); if (objbrowserName.toLowerCase() == objbrowserName.toUpperCase()) { objbrowserName = navigator.appName; } }
+
+    if ((objAgent.indexOf("FBAN") > -1) || (objAgent.indexOf("FBAV") > -1)) {
+      objbrowserName = "facebook";
+    }
 
     if ((ix = objfullVersion.indexOf(";")) != -1)
       objfullVersion = objfullVersion.substring(0, ix);
@@ -100,6 +124,7 @@ var _hideInvalidVersionDialog = function () {
 
 var _onLoad = function () {
   _loadAnalytics();
+  _loadFacebook();
 
   // Check browser compatibility
   let binfo = _getBrowserInfo();
@@ -117,6 +142,9 @@ var _onLoad = function () {
         break;
       case "Edge":
         showVersionPanel = binfo.version < 15;
+        break;
+      case "facebook":
+        showVersionPanel = false;
         break;
       default:
         showVersionPanel = true;

@@ -30,8 +30,8 @@ const DIGITS = '0123456789';
 const ANNUAL_INTEREST_RATE = 0.3;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 15;
-const RECOVERY_CODE_LIFETIME = 1000 * 60 * 5;
-const MAX_USER_IP_ADDRESSES = 32;
+const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
+const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 5;
 const DEFAULT_TARGET_BALANCE = 5;
 
@@ -120,20 +120,21 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.register-user", requestBody.detailsObject.address);
       const ipAddressHeader = request.headers['x-forwarded-for'] as string;
       let ipAddress: string;
+      if (ipAddressHeader) {
+        const ipAddresses = ipAddressHeader.split(',');
+        if (ipAddresses.length >= 2) {
+          ipAddress = ipAddresses[0].trim();
+        }
+      } else if (request.ip) {
+        ipAddress = request.ip.trim();
+      }
       console.log("UserManager.register-user: ip address", request.headers);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
-        if (ipAddressHeader) {
-          const ipAddresses = ipAddressHeader.split(',');
-          if (ipAddresses.length >= 2) {
-            const ip = ipAddresses[0].trim();
-            if (ip.length > 0 && userRecord.ipAddresses.indexOf(ip) < 0) {
-              ipAddress = ip;
-              await db.addUserIpAddress(userRecord, ip);
-              if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
-                await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
-              }
-            }
+        if (ipAddress && ipAddress.length > 0 && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
+          await db.addUserIpAddress(userRecord, ipAddress);
+          if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
+            await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
           }
         }
       } else {

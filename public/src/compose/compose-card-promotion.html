@@ -58,7 +58,7 @@
           <div>What is your budget for this card?</div>
           <div class="row">
             ℂ
-            <soso-number-input id="budgetCoins" value="10" step="1" min="1" max="[[maxBudget]]"></soso-number-input>
+            <soso-number-input id="budgetCoins" value="10" step="1" min="0" max="[[maxBudget]]"></soso-number-input>
             <span id="budgetPlus">plus
               <soso-number-input id="budgetPercent" value="20" step="1" min="0" max="90"></soso-number-input>
               % of earnings from this card
@@ -121,7 +121,7 @@
             this.$.amount.value = (this.minimumRecommendation + (this.maximumRecommendation - this.minimumRecommendation) / 2).toFixed(3);
           }
           this.set('maxBudget', Math.floor($core.balance * 0.9));
-          this.$.budgetCoins.value = Math.min(15, $core.balance * 0.25).toFixed(0);
+          this.$.budgetCoins.value = Math.max(0, Math.min(15, $core.balance * 0.25)).toFixed(0);
           this.$.budgetPlus.style.display = pricing.fee && pricing.fee.expandReach ? "" : "none";
           this.$.next.disabled = false;
           this.dispatchEvent(new CustomEvent('next-enable', { bubbles: true, composed: true }));
@@ -141,7 +141,7 @@
         return new Promise((resolve, reject) => {
           let promotion = {
             amount: +this.$.amount.value,
-            budgetCoins: +this.$.budgetCoins.value
+            budgetCoins: Math.max(0, Math.min(+this.$.budgetCoins.value, $core.balance * 0.9))  // To ensure we don't get rejected by the server
           };
           let pricing = this.wizard.data.pricing;
           if (pricing && pricing.fee) {

@@ -45,6 +45,16 @@
         letter-spacing: 0.1em;
         text-align: center;
       }
+
+      terms-panel {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        box-shadow: 0 -1px 6px -1px rgba(0, 0, 0, 0.6);
+        margin: 5px;
+        box-sizing: border-box;
+        border-radius: 3px;
+      }
     </style>
 
     <soso-pages id="pages">
@@ -68,11 +78,12 @@
       <feed-view id="feed" class="feed page" data-toolbar="true" data-href="feed/feed-view.html"></feed-view>
       <channel-view class="channel page" data-toolbar="true" data-href="feed/channel-view.html"></channel-view>
       <compose-view class="compose page" data-href="compose/compose-view.html"></compose-view>
-      <card-page class="card page" data-href="card/card-page.html"></card-page>
+      <card-page class="card page" data-toolbar="true" data-preventscroll="true" data-href="card/card-page.html"></card-page>
       <!-- Test pages -->
       <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
     </soso-pages>
-    <app-bar id="toolbar" on-tncs-agreed="_onTermsAgreed"></app-bar>
+    <terms-panel id="termsPanel" class="hidden" on-tncs-agreed="_onTermsAgreed"></terms-panel>
+    <app-bar id="toolbar"></app-bar>
 
     <div id="reloadingPanel" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box;">Channels is updating</div>
@@ -109,31 +120,23 @@
       }
 
       _onRouteChange(event) {
-        if ($core.hasKeys() && $core.isAgreedToTnCs()) {
-          this._handleRouteChange(event.detail.route);
-        } else {
-          this._pendingRoute = event.detail.route;
-          this._setBarVisible(true);
-          requestAnimationFrame(() => {
-            this.$.toolbar.setPendingMode(true);
+        const pageName = this._handleRouteChange(event.detail.route);
+        if ((pageName === 'card') && (!$core.isAgreedToTnCs())) {
+          return this._import("account/terms-panel.html").then(() => {
+            this.$.termsPanel.classList.remove("hidden");
           });
-          setTimeout(() => {
-            $core.register();
-          }, 500);
         }
       }
 
       _onTermsAgreed() {
-        this.$.toolbar.setPendingMode(false);
-        $core.register().then(() => {
-          $core.agreeToTnCs();
-          requestAnimationFrame(() => {
-            if (this._pendingRoute) {
-              this._handleRouteChange(this._pendingRoute);
-              this._pendingRoute = null;
-            }
-          });
-        });
+        $core.agreeToTnCs();
+        this.$.termsPanel.classList.add("hidden");
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
       }
 
       _handleRouteChange(route) {
@@ -153,6 +156,12 @@
           }
         }
 
+        // close pending dialogs
+        let dlgShell = document.getElementById("dialogShell");
+        if (dlgShell) {
+          this._clearNode(dlgShell);
+        }
+
         // Notify prev page it's being hidden
         if (this._lastPage) {
           if (this._lastPage != activePage) {
@@ -166,7 +175,8 @@
         }
 
         const showToolbar = activePage.dataset.toolbar == "true";
-        this._preventScroll = !showToolbar;
+        const forcePreventScroll = activePage.dataset.preventscroll === "true";
+        this._preventScroll = forcePreventScroll || (!showToolbar);
         this.style.paddingTop = showToolbar ? "60px" : "0";
 
         const pageHref = activePage.dataset.href;
@@ -219,6 +229,8 @@
             window.ga('send', 'pageview', "/" + pageToReport);
           } catch (err) { }
         }
+
+        return pageName;
       }
 
       _attachScrollListener() {

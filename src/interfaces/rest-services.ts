@@ -138,20 +138,22 @@ export interface CardCollection {
   records: any[];
 }
 
-export interface GetFeedDetails extends Signable {
+export interface GetFeedsDetails extends Signable {
   feeds: RequestedFeedDescriptor[];
   startWithCardId?: string;
+  existingPromotedCardIds: string[];
 }
 
 export interface RequestedFeedDescriptor {
   type: CardFeedType;
   channelHandle?: string;
   maxCount: number;
+  afterCardId?: string;
 }
 
 export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel';
 
-export interface GetFeedResponse extends RestResponse {
+export interface GetFeedsResponse extends RestResponse {
   feeds: CardFeedSet[];
 }
 
@@ -159,6 +161,7 @@ export interface CardFeedSet {
   type: CardFeedType;
   channelHandle?: string;
   cards: CardDescriptor[];
+  moreAvailable: boolean;
 }
 
 export interface CardDescriptor {
@@ -298,6 +301,7 @@ export interface GetCardDetails extends Signable {
 
 export interface GetCardResponse extends RestResponse {
   card: CardDescriptor;
+  paymentDelayMsecs: number;
 }
 
 export interface CardStatsHistoryDetails extends Signable {
@@ -329,8 +333,39 @@ export interface PostCardDetails extends Signable {
   linkUrl?: string;
   title?: string;
   text: string;
+  searchText: string;
   private: boolean;
   cardType?: string;
+  pricing: CardPricingInfo;
+  sharedState: CardState;
+}
+
+export interface PostCardResponse extends RestResponse {
+  cardId: string;
+  couponId?: string;
+}
+
+export interface UpdateCardStateDetails extends Signable {
+  cardId: string;
+  summary?: {
+    imageUrl: string;
+    imageWidth: number;
+    imageHeight: number;
+    linkUrl: string;
+    title: string;
+    text: string;
+  };
+  state?: CardState;
+}
+
+export interface UpdateCardStateResponse extends RestResponse { }
+
+export interface UpdateCardPricingDetails extends Signable {
+  cardId: string;
+  pricing: CardPricingInfo;
+}
+
+export interface CardPricingInfo {
   promotionFee?: number;
   openPayment?: number; // for ads, in ChannelCoin
   openFeeUnits?: number; // for content, 1..10
@@ -338,15 +373,11 @@ export interface PostCardDetails extends Signable {
     amount: number;
     plusPercent: number;
   };
-  sharedState: CardState;
   coupon?: SignedObject;   // BankCouponDetails
   searchText: string;
 }
 
-export interface PostCardResponse extends RestResponse {
-  cardId: string;
-  couponId?: string;
-}
+export interface UpdateCardPricingResponse extends RestResponse { }
 
 export interface UpdateCardPrivateDetails extends Signable {
   cardId: string;
@@ -550,9 +581,13 @@ export interface BraintreeTransactionError {
 
 export interface SearchDetails extends Signable {
   searchString: string;
+  skip: number;
   limit: number;
+  existingPromotedCardIds: string[];
 }
 
 export interface SearchResponse extends RestResponse {
   cards: CardDescriptor[];
+  moreAvailable: boolean;
+  nextSkip: number;
 }

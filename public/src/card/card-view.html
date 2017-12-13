@@ -258,7 +258,7 @@
               <div id="posBar"></div>
             </div>
           </div>
-          <card-header id="cardHeader" data="[[data]]"></card-header>
+          <card-header id="cardHeader" data="[[data]]" on-summary-updated="_onSummaryUpdated"></card-header>
         </div>
       </div>
       <div id="price">
@@ -277,7 +277,6 @@
         <div style="max-width: 210px;">[[promotedTip]]</div>
       </soso-tooltip>
     </div>
-    <open-card id="openCard" data="[[data]]" on-card-payment-due="_onCardPaymentDue"></open-card>
   </template>
   <script src="card-view-helper.js"></script>
   <script>
@@ -465,53 +464,6 @@
         this.dispatchEvent(new CustomEvent("card-open", { bubbles: true, composed: true, detail: { id: this.data ? this.data.id : "" } }));
       }
 
-      open(node) {
-        return this._import("open-card.html").then(() => {
-          this._cardOpen = true;
-          this.$.cardHeader.style.opacity = 0;
-          this.$.rating.style.opacity = 0;
-          this.$.cardShell.style.opacity = 0;
-          this.style.pointerEvents = "none";
-          return this.$.openCard.open(node);
-        });
-      }
-
-      close(animate) {
-        this._cardOpen = false;
-        this.$.cardHeader.style.opacity = 1;
-        this.$.rating.style.opacity = 1;
-        this.$.cardShell.style.opacity = 1;
-        this.style.pointerEvents = "";
-        this.$.openCard.close(animate);
-      }
-
-      refreshLayout() {
-        if (this._cardOpen) {
-          this.$.openCard.refreshLayout(this);
-        }
-      }
-
-      _import(path) {
-        return new Promise((resolve, reject) => {
-          Polymer.importHref(this.resolveUrl(path), () => {
-            resolve();
-          }, (err) => {
-            reject(err);
-          });
-        });
-      }
-
-      _onCardPaymentDue(event) {
-        event.stopPropagation();
-        this.dispatchEvent(new CustomEvent('card-payment-due', { bubbles: true, composed: true, detail: { card: this, item: this.data } }));
-      }
-
-      onPayment() {
-        this._refreshPaidCheck();
-        this.$.openCard.data = this.data;
-        this.$.openCard.onPayment();
-      }
-
       onPrivateUpdated() {
         this.$.cardHeader.onPrivateUpdated();
       }
@@ -528,10 +480,21 @@
         this._refreshPriceTip();
       }
 
+      _onSummaryUpdated(event) {
+        let summary = event.detail.summary;
+        if (summary) {
+          this.set('data.private', summary.private);
+          this.updateSummary(summary);
+          this.onPrivateUpdated();
+        }
+      }
+
       updateSummary(summary) {
         this.set('data.summary.imageUrl', summary.imageUrl);
         this.set('data.summary.title', summary.title);
         this.set('data.summary.text', summary.text);
+        this.set('data.summary.imageWidth', summary.imageWidth);
+        this.set('data.summary.imageHeight', summary.imageHeight);
         this._imageLoaded = false;
         this._loadImage();
         setTimeout(() => {

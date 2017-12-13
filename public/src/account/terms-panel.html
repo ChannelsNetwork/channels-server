@@ -1,0 +1,98 @@
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<dom-module id="terms-panel">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        background: rgba(38, 48, 52, 0.98);
+        color: white;
+        padding: 8px 16px 5px;
+        font-size: 16px;
+      }
+
+      a.termsLink {
+        color: var(--bg-yellow);
+      }
+
+      h3 {
+        color: white;
+      }
+
+      .logoPanel {
+        padding-right: 40px;
+        height: 100px;
+        width: 100px;
+      }
+
+      .logo {
+        display: block;
+        height: 100%;
+        box-sizing: border-box;
+        width: auto;
+        margin: 0 auto;
+      }
+
+      p {
+        margin: 12px 0;
+      }
+
+      soso-checkbox {
+        --soso-checkbox-color: var(--bg-yellow);
+        --soso-checkbox-width: 2em;
+        --soso-checkbox-height: 2em;
+        letter-spacing: 0.05em;
+      }
+
+      @media (max-width: 550px) {
+        .logoPanel {
+          display: none;
+        }
+        :host {
+          padding: 5px;
+          font-size: 14px;
+        }
+        p {
+          margin: 5px 0;
+        }
+      }
+    </style>
+    <div id="content" class="horizontal layout center">
+      <div class="logoPanel">
+        <a href="/" target="_blank">
+          <img class="logo" alt="channels" src="/s/images/logos/logo_200.png">
+        </a>
+      </div>
+      <div class="flex">
+        <h3>Welcome to
+          <a href="/" target="_blank">Channels</a>
+        </h3>
+        <p>Here are our
+          <a href="/d/terms.html" class="termsLink" target="_blank">terms and conditions</a>. You can learn more about Channels
+          <a href="/" class="termsLink" target="_blank">here</a>.</p>
+        <p>
+          <soso-checkbox id="agree" label="I agree and I'm not a robot." on-change="_onChecked"></soso-checkbox>
+        </p>
+      </div>
+    </div>
+  </template>
+  <script>
+    class TermsPanel extends Polymer.Element {
+      static get is() { return 'terms-panel'; }
+      reset() {
+        if (this.$.agree) {
+          this.$.agree.checked = false;
+          this.$.agree.style.pointerEvents = "auto";
+        }
+      }
+      _onChecked() {
+        if (this.$.agree.checked) {
+          this.$.agree.style.pointerEvents = "none";
+          setTimeout(() => {
+            this.dispatchEvent(new CustomEvent('tncs-agreed', { bubbles: true, composed: true }));
+          }, 500);
+        }
+      }
+    }
+    window.customElements.define(TermsPanel.is, TermsPanel);
+  </script>
+</dom-module>

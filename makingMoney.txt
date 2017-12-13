@@ -1,0 +1,19 @@
+Channels is a place for buying and selling content.  Content is hosted on a card.  Every card has a price tag.  If it is yellow, the consumer pays to open that card.  If green, the consumer earns money by opening that card.  A little green up-arrow on a card tells you that you've earned money just from seeing that card in your feed.
+
+Every Channels user has a balance shown in the top-right corner.  It goes up or down as you open cards or others open your cards.
+
+To make money on Channels, you need to post a card.  You do that by tapping on the yellow "+" button in the bottom-right corner of your feed.  You can post whatever kind of content you want, but remember that you should only post content that you own.  
+
+While posting your content, you need to set a price on it.  Actually, you set a "price level", because Channels will adjust the pricing on all cards based on how much money is available from promoters and advertisers.  Even if you want to earn money for your card, you might also choose to promote your card, paying potential readers a bit to get your card into their feed.
+
+After posting your card, you should try to get as many people as possible to look at it.  You'll get paid every time anyone opens your card and keeps it open for at least 10 seconds.  So you should share your card on other social media so that your followers there will come to your card.
+
+Now you're ready to start watching as others open your card.  From the card's menu, click on analytics.
+
+And, finally, the best part.  Once you've earned some money from your card, you can withdraw it to get your hands on the money.  Tap on your balance in the top-right corner and then tap on withdraw.  All you need is an email address.  Your balance is in ChannelCoins, and they currently trade for US$1.00 each.
+
+Post all the cards you want.  Remember that quality counts.
+
+You might be wondering where does this money you earn come from?  It comes from the users who open your cards.  Their balance goes down while yours goes up.  Some of those user may buy ChannelCoins to keep their balance up.  But most consumers earn money by viewing promoted cards that pay them.  Also, while we're getting Channels up and running, we (the people behind Channels) are paying subsidies to users who consume content.  Eventually those subsidies will go away as more advertisers come on board.
+
+Suggestions or questions?  Send us a tweet.

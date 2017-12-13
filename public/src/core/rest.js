@@ -168,7 +168,7 @@ class RestUtils {
     };
   }
 
-  static getFeedDetails(address, maxCount, type, startWithCardId, channelHandle) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedsDetails(address, maxCount, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
       const feed = { type: type, maxCount: maxCount };
@@ -186,11 +186,17 @@ class RestUtils {
         feeds.push({ type: 'opened', maxCount: maxCount, channelHandle: channelHandle });
       }
     }
+    if (afterCardId) {
+      for (const feed of feeds) {
+        feed.afterCardId = afterCardId;
+      }
+    }
     return {
       address: address,
       timestamp: RestUtils.now(),
       feeds: feeds,
-      startWithCardId: startWithCardId
+      startWithCardId: startWithCardId,
+      existingPromotedCardIds: existingPromotedCardIds
     };
   }
 
@@ -202,28 +208,82 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState, searchText) {
+  static postCardDetails(address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
       imageUrl: imageUrl,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
       linkUrl: linkUrl,
       title: title,
       text: text,
       private: isPrivate,
       cardType: packageName,            // same as sent to ensure-component
-      promotionFee: promotionFee,
-      openPayment: openPayment,         // only for ads
-      openFeeUnits: openFeeUnits,       // 1..10
-      coupon: coupon,                   // signed BankCouponDetails
-      sharedState: initialState,        // {properties: {...}, collections: {...}}
-      searchText: searchText
+      pricing: {
+        promotionFee: promotionFee,
+        openPayment: openPayment,         // only for ads
+        openFeeUnits: openFeeUnits,       // 1..10
+        coupon: coupon,                   // signed BankCouponDetails  
+      },
+      searchText: searchText,
+      sharedState: initialState         // {properties: {...}, collections: {...}}
     };
     if (budgetAmount || budgetPlusPercent) {
-      result.budget = {
+      result.pricing.budget = {
         amount: budgetAmount ? budgetAmount : 0,
         plusPercent: budgetPlusPercent ? budgetPlusPercent : 0
       };
+    }
+    return result;
+  }
+
+  static updateCardStateDetails(address, cardId, summary, state) {
+    const result = {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+    if (summary) {
+      result.summary = summary;
+    }
+    if (state) {
+      result.state = state;
+    }
+    return result;
+  }
+
+  static cardStateSummary(title, text, linkUrl, imageUrl, imageWidth, imageHeight) {
+    return {
+      title: title,
+      text: text,
+      linkUrl: linkUrl,
+      imageUrl: imageUrl,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight
+    };
+  }
+
+  static updateCardPricing(address, cardId, pricing) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      pricing: pricing
+    };
+  }
+
+  static cardPricing(promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon) {
+    const result = {
+      promotionFee: promotionFee,
+      openPayment: openPayment,
+      openFeeUntis: openFeeUnits,
+      budget: {
+        amount: budgetAmount,
+        plusPercent: budgetPlusPercent
+      }
+    };
+    if (coupon) {
+      result.coupon = coupon;
     }
     return result;
   }

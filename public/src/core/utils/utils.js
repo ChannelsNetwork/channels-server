@@ -1,3 +1,28 @@
+class SocialService {
+  tweet(text, url) {
+    let windowOptions = "scrollbars=yes,resizable=yes,toolbar=no,location=yes";
+    let width = 550;
+    let height = 420;
+    let winHeight = screen.height || window.innerHeight;
+    let winWidth = screen.width || window.innerWidth;
+    let left = Math.round((winWidth / 2) - (width / 2));
+    let top = Math.round((winHeight / 2) - (height / 2));
+    let href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&via=channelscc&url=" + encodeURIComponent(url);
+    window.open(href, '', windowOptions + ',width=' + width + ',height=' + height + ',left=' + left + ',top=' + top);
+  }
+
+  facebookShare(text, url) {
+    return new Promise((resolve, reject) => {
+      FB.ui({
+        method: 'share',
+        href: url
+      }, (response) => {
+        resolve(response);
+      });
+    });
+  }
+}
+
 class CoreImageUtils {
   static resample(file, maxWidth, asBlob) {
     return new Promise((resolve, reject) => {
@@ -19,12 +44,16 @@ class CoreImageUtils {
           config.maxWidth = maxWidth;
         }
         loadImage(file, (canvas) => {
+          let fileType = 'image/jpeg';
+          if (file.type && file.type === 'image/png') {
+            fileType = file.type;
+          }
           if (asBlob) {
             canvas.toBlob((blob) => {
               resolve(blob);
-            }, 'image/jpeg');
+            }, fileType);
           } else {
-            var base64data = canvas.toDataURL('image/jpeg');
+            var base64data = canvas.toDataURL(fileType);
             resolve(base64data);
           }
         }, config);

@@ -54,7 +54,7 @@
 
       soso-dropdown {
         font-size: 14px;
-        z-index: 1;
+        z-index: 2;
       }
     </style>
     <div class="horizontal layout center bar">
@@ -65,18 +65,23 @@
       </div>
       <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
       <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
-      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" class="actionIcon" on-click="_onLink"></soso-icon>
+      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]" class="actionIcon"></soso-icon>
       <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="actionIcon hidden"></soso-icon>
 
       <!-- Drop downs -->
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
-        <li id="liPrivate" on-click="_makePrivate" class="hidden">Make private</li>
-        <li id="liPublic" on-click="_makePublic" class="hidden">Make public</li>
+        <li on-click="_editCard">Edit Card</li>
+        <!-- <li on-click="_editPricing">Card Pricing</li> -->
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
       <soso-dropdown for="authorImage" alignment="left" offset="5">
         <li on-click="_openUserChannel">More by [[data.by.name]]</li>
+      </soso-dropdown>
+      <soso-dropdown for="shareIcon" alignment="right" offset="-5">
+        <li on-click="_tweet">Share on Twitter</li>
+        <li on-click="_facebook">Share on Facebook</li>
+        <li on-click="_onLink">Grab card URL</li>
       </soso-dropdown>
 
       <!-- Tooltips -->
@@ -87,7 +92,8 @@
         <div style="min-width: 75px;">Total card revenue</div>
       </soso-tooltip>
     </div>
-    <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
+
+    <!-- Dialogs -->
     <share-link-dialog id="shareDialog"></share-link-dialog>
   </template>
   <script>
@@ -153,7 +159,6 @@
         } else {
           this.$.privateIcon.classList.add("hidden");
         }
-        this._refreshMenu();
       }
 
       _refreshMore() {
@@ -165,39 +170,29 @@
         }
       }
 
-      _refreshMenu() {
-        if (this.data && this.data.private) {
-          this.$.liPrivate.classList.add("hidden");
-          this.$.liPublic.classList.remove("hidden");
-        } else {
-          this.$.liPrivate.classList.remove("hidden");
-          this.$.liPublic.classList.add("hidden");
-        }
-      }
-
       onPrivateUpdated() {
         this._refreshPrivate();
       }
 
-      _makePrivate() {
-        this._updatePrivate(true);
-      }
+      // _makePrivate() {
+      //   this._updatePrivate(true);
+      // }
 
-      _makePublic() {
-        this._updatePrivate(false);
-      }
+      // _makePublic() {
+      //   this._updatePrivate(false);
+      // }
 
-      _updatePrivate(isPrivate) {
-        if (this.data) {
-          $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
-            this.data.private = response.newValue;
-            this._refreshPrivate();
-          }).catch((err) => {
-            console.error("Failed to updated private flag", err);
-            $app.showError("Failed to updated private flag.");
-          });
-        }
-      }
+      // _updatePrivate(isPrivate) {
+      //   if (this.data) {
+      //     $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
+      //       this.data.private = response.newValue;
+      //       this._refreshPrivate();
+      //     }).catch((err) => {
+      //       console.error("Failed to updated private flag", err);
+      //       $app.showError("Failed to updated private flag.");
+      //     });
+      //   }
+      // }
 
       _deleteCard() {
         $app.confirm("This will delete this card permanently.  Are you sure?", null, "Delete").then((result) => {
@@ -214,7 +209,23 @@
 
       _analytics() {
         this._import("card-analytics-dialog.html").then(() => {
-          this.$.analyticsDialog.show(this.data);
+          $dialogs.open("card-analytics-dialog", this.data);
+        });
+      }
+
+      _editCard() {
+        this._import("edit/edit-card-dialog.html").then(() => {
+          let dlg = $dialogs.open("edit-card-dialog", this.data);
+          dlg.addEventListener('summary-updated', (event) => {
+            event.stopPropagation();
+            this.dispatchEvent(new CustomEvent('summary-updated', { bubbles: true, composed: true, detail: event.detail }));
+          });
+          dlg.addEventListener('edit-content', () => {
+            dlg.hide();
+            this._import("edit/edit-card-content-dialog.html").then(() => {
+              $dialogs.open("edit-card-content-dialog", this.data);
+            });
+          });
         });
       }
 
@@ -238,6 +249,22 @@
         this._import("../dialogs/share-link-dialog.html").then(() => {
           return this.$.shareDialog.show(cardUrl);
         });
+      }
+
+      _tweet() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.tweet(cardText, cardUrl);
+        }
+      }
+
+      _facebook() {
+        if (this.data) {
+          const cardUrl = this._shareUrl;
+          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+          $core.social.facebookShare(cardText, cardUrl);
+        }
       }
 
       _import(url) {

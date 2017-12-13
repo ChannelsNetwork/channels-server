@@ -51,7 +51,12 @@
         // TODO: super class may implement this to fetch specific data
       }
 
+      _onActivate() {
+        // super class may implement
+      }
+
       onActivate(route) {
+        this._onActivate();
         $core.register().then(() => {
           // register event handlers
           this._resizeListener = _debounce(() => {
@@ -72,25 +77,46 @@
           $router.context = null;
 
           // clear state
-          this.set('items', []);
-          this.$.feed.closeCard();
+          this._setItems([]);
 
           // parse route and fetch
           let parsedRoute = this._parseRoute(route);
           this._parsedRoute = parsedRoute;
+          this._moreAvailable = false;
+          this._promotedCardIds = [];
           if (parsedRoute) {
             this._onDataFetch(parsedRoute);
-            // return $core.search("Schubert").then((cards) => {
-            return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, parsedRoute.channel).then((cards) => {
-              this.set("items", cards);
+            return $core.getFeed(parsedRoute.feedName, parsedRoute.count, parsedRoute.cardId, null, parsedRoute.channel, this._promotedCardIds).then((feed) => {
+              const cards = feed.cards;
+              this._lastCardId = null;
+              for (const card of cards) {
+                if (card.promoted) {
+                  this._promotedCardIds.push(card.id);
+                } else {
+                  this._lastCardId = card.id;
+                }
+              }
+              this._setItems(cards);
               if (cards && cards.length) {
                 this.$.noItems.classList.add("hidden");
               } else {
                 this.$.noItems.classList.remove("hidden");
               }
+              this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+              this._onMoreUpdated(this._moreAvailable);
             });
           }
         });
+      }
+
+      _setItems(items) {
+        this.set("items", items);
+      }
+
+      _appendItems(items) {
+        for (const item of items) {
+          this.push('items', item);
+        }
       }
 
       onDeactivate() {
@@ -102,14 +128,9 @@
 
       _onResize() {
         this.$.feed.refreshLayout();
-      }
-
-      _onCardClosed(event) {
-        let cardItem = event.detail.item;
-        if (cardItem) {
-          $core.cardClosed(cardItem.id);
+        if (this.$.promotedFeed) {
+          this.$.promotedFeed.refreshLayout();
         }
-        $app.setBarVisible(true);
       }
 
       _onCardOpenRequest(event) {
@@ -124,7 +145,6 @@
               });
             });
           } else {
-            $core.cardOpened(card.id);
             let context = {
               card: card,
               scrollTop: $app.scrollValue
@@ -132,33 +152,18 @@
             if (this._parsedRoute) {
               context.feed = this._parsedRoute.path;
             }
-            $router.goto(['card', card.id], context, 'shift-left');
+            window.location.assign(this._getCardUrl(card.id));
           }
         }
       }
-      // _onCardOpenRequest(event) {
-      //   let card = event.detail.card;
-      //   if (card) {
-      //     // hide toolbar and prevent 
-      //     // toolbar auto scroll-hide behavior
-      //     $app.setBarVisible(false);
-      //     $app.preventScrollBehavior = true;
 
-      //     // let server know card opened
-      //     let cardItem = event.detail.item;
-      //     if (cardItem) {
-      //       $core.cardOpened(cardItem.id);
-      //     }
-
-      //     // open the card in the UI
-      //     this.$.feed.openCard(card).then(() => {
-      //       $app.preventScrollBehavior = false;
-      //     }).catch((err) => {
-      //       console.error(err);
-      //       $app.preventScrollBehavior = false;
-      //     });
-      //   }
-      // }
+      _getCardUrl(cardId) {
+        let root = window.location.origin;
+        if (!root) {
+          root = window.location.protocol + "://" + window.location.host;
+        }
+        return (root + "/c/" + cardId);
+      }
 
       _onCardImpression(event) {
         let card = event.detail.card;
@@ -173,29 +178,6 @@
         }
       }
 
-      _onCardPay(event) {
-        const card = event.detail.item;
-        const cardView = event.detail.card;
-        if (!card.userSpecific.isPoster) {
-          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
-            card.userSpecific.paidToAuthor = card.pricing.openFee;
-            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
-              card.stats.revenue = response.totalCardRevenue;
-              cardView.onPayment();
-            }).catch((err) => {
-              console.error("Failed to make card payment", err);
-            });
-          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
-            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
-            $core.cardOpenPaymentRedeem(card.id, card.couponId, -card.pricing.openFee, card.by.address).then(() => {
-              cardView.onPayment();
-            }).catch((err) => {
-              console.error("Failed to make card payment", err);
-            });
-          }
-        }
-      }
-
       _import(url) {
         return new Promise((resolve, reject) => {
           Polymer.importHref(this.resolveUrl(url), () => {
@@ -203,6 +185,31 @@
           }, (err) => {
             reject(err);
           });
+        });
+      }
+
+      _onMoreUpdated(value) {
+        // super class should implement to find out that more cards are avaiable or not
+      }
+
+      _fetchMore() {
+        // called by super class when user requests more cards
+        return $core.getFeed(this._parsedRoute.feedName, this._parsedRoute.count, this._parsedRoute.cardId, this._lastCardId, this._parsedRoute.channel, this._promotedCardIds).then((feed) => {
+          const cards = feed.cards;
+          this._lastCardId = null;
+          for (const card of cards) {
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
+            } else {
+              this._lastCardId = card.id;
+            }
+          }
+          this._appendItems(cards);
+          this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+          this._onMoreUpdated(this._moreAvailable);
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
         });
       }
     };

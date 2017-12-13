@@ -31,6 +31,7 @@
         width: 100%;
         height: 100%;
         box-sizing: border-box;
+        pointer-events: none;
       }
 
       #overlay {
@@ -155,7 +156,37 @@
         this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
         this.wizard.data.summary.title = this.cardData.summary.title;
         this.wizard.data.summary.text = this.cardData.summary.text;
-        this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
+        this._setImageSize().then(() => {
+          this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
+        });
+      }
+
+      onPublishFail(err) {
+        console.error("Failed to publish card", err);
+        this.$.spinner.spinning = false;
+        $app.showError(err).then(() => {
+          this.$.overlay.classList.add("hidden");
+        });
+      }
+
+      _setImageSize() {
+        return new Promise((resolve, reject) => {
+          const imageUrl = this.cardData.summary.imageUrl;
+          if (imageUrl) {
+            let img = new Image();
+            img.addEventListener('load', () => {
+              this.wizard.data.summary.imageWidth = img.width;
+              this.wizard.data.summary.imageHeight = img.height;
+              resolve();
+            });
+            img.addEventListener('error', () => {
+              resolve();
+            });
+            img.src = imageUrl;
+          } else {
+            resolve();
+          }
+        });
       }
 
       onTransitioningIn(forward) {
@@ -165,6 +196,8 @@
         const cardData = {
           summary: {
             imageUrl: data.summary.imageURL,
+            imageWidth: data.summary.imageWidth,
+            imageHeight: data.summary.imageHeight,
             title: data.summary.title,
             text: data.summary.text
           },

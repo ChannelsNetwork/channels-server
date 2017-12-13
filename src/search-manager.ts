@@ -34,11 +34,17 @@ export class SearchManager implements RestServer {
       if (!user) {
         return;
       }
+      if (!requestBody.detailsObject.searchString) {
+        response.status(400).send("Missing search string");
+        return;
+      }
       console.log("SearchManager.search", requestBody.detailsObject);
-      const cards = await feedManager.search(user, requestBody.detailsObject.searchString, requestBody.detailsObject.limit);
+      const result = await feedManager.search(user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit, requestBody.detailsObject.existingPromotedCardIds);
       const reply: SearchResponse = {
         serverVersion: SERVER_VERSION,
-        cards: cards
+        cards: result.cards,
+        moreAvailable: result.moreAvailable,
+        nextSkip: (requestBody.detailsObject.skip || 0) + result.cards.length
       };
       response.json(reply);
     } catch (err) {
