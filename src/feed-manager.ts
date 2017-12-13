@@ -166,16 +166,18 @@ export class FeedManager implements Initializable, RestServer {
 
   private async mergeWithAdCards(user: UserRecord, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
     const amalgamated: CardDescriptor[] = [];
-    // First we check to see if there is an announcement card that we need to show.
-    const announcementCard = await db.findCardMostRecentByType("announcement");
     let announcementAddedId: string;
-    if (announcementCard) {
-      // Check to see if the user has already opened this
-      const userCardInfo = await db.findUserCardInfo(user.id, announcementCard.id);
-      if (!userCardInfo || !userCardInfo.lastOpened) {
-        const announcement = await this.populateCard(announcementCard, true, user);
-        amalgamated.push(announcement);
-        announcementAddedId = announcementCard.id;
+    if (cards.length > 0) {
+      // First we check to see if there is an announcement card that we need to show.
+      const announcementCard = await db.findCardMostRecentByType("announcement");
+      if (announcementCard) {
+        // Check to see if the user has already opened this
+        const userCardInfo = await db.findUserCardInfo(user.id, announcementCard.id);
+        if (!userCardInfo || !userCardInfo.lastOpened) {
+          const announcement = await this.populateCard(announcementCard, true, user);
+          amalgamated.push(announcement);
+          announcementAddedId = announcementCard.id;
+        }
       }
     }
     // Now we have to inject ad slots if necessary, and populate those ad slots with cards that offer
