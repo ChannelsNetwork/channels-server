@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -33,6 +33,7 @@ export class Database {
   private cardStatsHistory: Collection;
   private bankDeposits: Collection;
   private bowerPackages: Collection;
+  private publisherSubsidyDays: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -61,6 +62,7 @@ export class Database {
     await this.initializeCardStatsHistory();
     await this.initializeBankDeposits();
     await this.initializeBowerPackages();
+    await this.initializePublisherSubsidyDays();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -68,12 +70,9 @@ export class Database {
     await this.networks.createIndex({ id: 1 }, { unique: true });
     const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
     if (existing) {
-      await this.networks.updateMany({ totalPublisherRevenue: { $exists: false } }, {
+      await this.networks.updateMany({ totalPublisherSubsidies: { $exists: false } }, {
         $set: {
-          totalPublisherRevenue: 0,
-          totalCardDeveloperRevenue: 0,
-          totalDeposits: 0,
-          totalWithdrawals: 0
+          totalPublisherSubsidies: 0
         }
       });
     } else {
@@ -84,7 +83,8 @@ export class Database {
         totalPublisherRevenue: 0,
         totalCardDeveloperRevenue: 0,
         totalDeposits: 0,
-        totalWithdrawals: 0
+        totalWithdrawals: 0,
+        totalPublisherSubsidies: 0
       };
       await this.networks.insert(record);
     }
@@ -319,11 +319,16 @@ export class Database {
     await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
   }
 
+  private async initializePublisherSubsidyDays(): Promise<void> {
+    this.publisherSubsidyDays = this.db.collection('publisherSubsidyDays');
+    await this.publisherSubsidyDays.createIndex({ starting: -1 }, { unique: true });
+  }
+
   async getNetwork(): Promise<NetworkRecord> {
     return await this.networks.findOne({ id: '1' });
   }
 
-  async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number): Promise<void> {
+  async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrPublisherSubsidies: number): Promise<void> {
     const update: any = {};
     if (incrPublisherRev) {
       update.totalPublisherRevenue = incrPublisherRev;
@@ -336,6 +341,9 @@ export class Database {
     }
     if (incrWithdrawals) {
       update.totalWithdrawals = incrWithdrawals;
+    }
+    if (incrPublisherSubsidies) {
+      update.totalPublisherSubsidies = incrPublisherSubsidies;
     }
     await this.networks.updateOne({ id: "1" }, { $inc: update });
   }
@@ -1589,6 +1597,30 @@ export class Database {
 
   async findBowerPackage(packageName: string): Promise<BowerPackageRecord> {
     return this.bowerPackages.findOne<BowerPackageRecord>({ packageName: packageName });
+  }
+
+  async insertPublisherSubsidyDays(starting: number, totalCoins: number, coinsPerPaidOpen: number): Promise<PublisherSubsidyDayRecord> {
+    const record: PublisherSubsidyDayRecord = {
+      starting: starting,
+      totalCoins: totalCoins,
+      coinsPerPaidOpen: coinsPerPaidOpen,
+      coinsPaid: 0
+    };
+    await this.publisherSubsidyDays.insert(record);
+    return record;
+  }
+
+  async findLatestPublisherSubsidyDay(): Promise<PublisherSubsidyDayRecord> {
+    const result = await this.publisherSubsidyDays.find().sort({ starting: -1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
+  }
+
+  async incrementLatestPublisherSubsidyPaid(starting: number, incrementBy: number): Promise<void> {
+    await this.publisherSubsidyDays.updateOne({ starting: starting }, { $inc: { coinsPaid: incrementBy } });
   }
 
 }
