@@ -23,7 +23,8 @@
             observer: 'onRoute'
           },
           context: Object,
-          animation: String
+          animation: String,
+          validator: Object
         };
       }
 
@@ -33,11 +34,31 @@
 
       connectedCallback() {
         super.connectedCallback();
+        this.validator = null;
         if (this._attached) {
           return;
         }
-        window.addEventListener("hashchange", () => {
-          this.onHashChange();
+        window.addEventListener("hashchange", (event) => {
+          this._pendingUrl = event.newURL;
+          this._oldUrl = event.oldURL;
+          if (this.validator && this.validator.validateHashChange) {
+            this.validator.validateHashChange(this._pendingUrl, this._oldUrl).then((proceed) => {
+              if (proceed) {
+                this.onHashChange();
+              } else {
+                if (history.pushState) {
+                  history.pushState(null, null, this._oldUrl);
+                  // history.replaceState(null, null, this._oldUrl);
+                } else {
+                  this.onHashChange();
+                }
+              }
+            }).catch(() => {
+              this.onHashChange();
+            });
+          } else {
+            this.onHashChange();
+          }
         });
         this._attached = true;
         window.requestAnimationFrame(() => {
