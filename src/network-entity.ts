@@ -2,16 +2,24 @@ import { Initializable } from "./interfaces/initializable";
 import { UrlManager } from "./url-manager";
 import { configuration } from "./configuration";
 import { KeyUtils, KeyInfo } from "./key-utils";
-import { Signable, BankTransactionRecipientDirective, BankTransactionDetails } from "./interfaces/rest-services";
+import { Signable, BankTransactionRecipientDirective, BankTransactionDetails, PublisherSubsidiesInfo } from "./interfaces/rest-services";
 import { BankTransactionRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { bank } from "./bank";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { SignedObject } from "./interfaces/signed-object";
+import * as moment from "moment-timezone";
+
+const PUBLISHER_SUBSIDY_MINIMUM_COINS = 101;
+const PUBLISHER_SUBSIDY_MAXIMUM_COINS = 150;
+const PUBLISHER_SUBSIDY_COINS_PER_OPEN = 1.00;
 
 export class NetworkEntity implements Initializable {
   private networkEntityKeyInfo: KeyInfo;
   private networkDeveloperKeyInfo: KeyInfo;
+  private publisherSubsidyMinCoins: number;
+  private publisherSubsidyMaxCoins: number;
+  private publisherSubsidyCoinsPerOpen: number;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     let privateKey: Uint8Array;
@@ -31,6 +39,9 @@ export class NetworkEntity implements Initializable {
       privateKey = KeyUtils.generatePrivateKey();
     }
     this.networkDeveloperKeyInfo = KeyUtils.getKeyInfo(privateKey);
+    this.publisherSubsidyMinCoins = configuration.get('subsidies.minCoins', PUBLISHER_SUBSIDY_MINIMUM_COINS);
+    this.publisherSubsidyMaxCoins = configuration.get('subsidies.maxCoins', PUBLISHER_SUBSIDY_MAXIMUM_COINS);
+    this.publisherSubsidyCoinsPerOpen = configuration.get('subsidies.coinsPerOpen', PUBLISHER_SUBSIDY_COINS_PER_OPEN);
   }
 
   private getKeyInfo(entityName: string): KeyInfo {
@@ -92,6 +103,30 @@ export class NetworkEntity implements Initializable {
           await this.performBankTransaction(interestPayment, null, true, false);
         }
       }
+    }
+    await this.poll();
+    setInterval(() => {
+      void this.poll();
+    }, 1000 * 60);
+  }
+
+  async getPublisherSubsidies(): Promise<PublisherSubsidiesInfo> {
+    const subsidyDay = await db.findLatestPublisherSubsidyDay();
+    const result: PublisherSubsidiesInfo = {
+      remainingToday: Math.max(0, subsidyDay.totalCoins - subsidyDay.coinsPaid),
+      perOpen: subsidyDay.coinsPerPaidOpen
+    };
+    return result;
+  }
+
+  private async poll(): Promise<void> {
+    const subsidyDay = await db.findLatestPublisherSubsidyDay();
+    const midnightToday = +moment().startOf('day');
+    const now = Date.now();
+    const totalCoins = this.publisherSubsidyMinCoins + Math.round(Math.random() * (this.publisherSubsidyMaxCoins - this.publisherSubsidyMinCoins));
+    if (!subsidyDay || midnightToday > subsidyDay.starting) {
+      console.log("Network.poll: Adding new publisher subsidy day", totalCoins, this.publisherSubsidyCoinsPerOpen);
+      await db.insertPublisherSubsidyDays(midnightToday, totalCoins, this.publisherSubsidyCoinsPerOpen);
     }
   }
 
