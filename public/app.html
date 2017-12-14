@@ -327,7 +327,6 @@
       });
 
       let hash = window.location.hash;
-      console.log(hash);
       let mainPanelVisible = ((!hash) || (hash === '#') || (hash === '#feed') || (hash === '#feed/') || (hash === '#feed/recommended'));
       if (mainPanelVisible && window.localStorage) {
         mainPanelVisible = !(window.localStorage.getItem("homePanelState") === 'closed');

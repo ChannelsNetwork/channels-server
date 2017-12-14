@@ -102,6 +102,7 @@
         window.$app = this;
         window.$core = new CoreService();
         this._barShowing = true;
+        this._homePanelVisible = false;
       }
 
       connectedCallback() {
@@ -197,6 +198,7 @@
         if (hpc) {
           hpc.style.display = "block";
         }
+        this._homePanelVisible = homePanelVisible;
 
         const showToolbar = activePage.dataset.toolbar == "true";
         const forcePreventScroll = activePage.dataset.preventscroll === "true";
@@ -325,6 +327,10 @@
 
       get scrollValue() {
         return (window.pageYOffset !== undefined) ? window.pageYOffset : (document.documentElement.scrollTop || document.body.scrollTop);
+      }
+
+      get homePanelVisible() {
+        return this._homePanelVisible
       }
 
       scrollTo(value) {

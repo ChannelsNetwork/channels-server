@@ -3,10 +3,11 @@
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
-        background: white;
+        background: #f0f0fa;
         border-bottom: 1px solid #e5e5e5;
         margin-bottom: 30px;
-        padding: 40px 0 20px;
+        padding: 20px 0 20px;
+        font-size: 18px;
       }
 
       .content {
@@ -28,11 +29,18 @@
         background: #ffeb3b;
         padding: 5px 10px;
         border-radius: 5px;
+        font-size: 20px;
+      }
+
+      @media (max-width: 600px) {
+        .price {
+          font-size: 18px;
+        }
       }
     </style>
     <div class="content">
-      <h2>Early Publisher Bonus!</h2>
-      <div class="row">We are offering daily publisher bonuses.</div>
+      <h2>Early Publisher Bonus</h2>
+      <div class="row">We are offering daily publisher bonuses. Don't miss it!</div>
       <div class="row">Today's bonus:
         <span class="price">[[bonus]]</span> per view
       </div>
@@ -52,9 +60,8 @@
       }
 
       refresh() {
-        this.bonus = "$1";
-        this.remaining = "$117";
-        console.log("Refresh promotion panel");
+        this.bonus = "$" + $core.publishSubsidiesPerPaidOpen;
+        this.remaining = "$" + $core.publishSubsidiesRemainingToday;
       }
     }
     window.customElements.define(PublicityPanel.is, PublicityPanel);
