@@ -50,7 +50,7 @@
     <div id="altHome" class="hidden">
       Channels is a place where you can publish your awesome content and get paid for it.
     </div>
-    <publicity-panel id="pubPanel" class="hidden"></publicity-panel>
+    <publicity-panel id="pubPanel" class="hidden" on-create-card="_compose"></publicity-panel>
     <div class="main">
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>

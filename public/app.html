@@ -218,22 +218,14 @@
       text-decoration: none !important;
     }
 
-    .homePanel #homePanelClose {
-      display: block;
-      position: absolute;
-      top: 110px;
-      right: 10px;
-      border-radius: 50%;
-      border: 2px solid;
-      padding: 6px;
-      height: 16px;
-      width: 16px;
-      opacity: 0.6;
-      cursor: pointer;
+    .homePanel #homeButtons {
+      padding-top: 15px;
     }
 
-    .homePanel #homePanelClose:hover {
-      opacity: 0.9;
+    #abtcntnt {
+      width: 0;
+      height: 0;
+      overflow: hidden;
     }
 
     @media (max-width: 600px) {
@@ -260,7 +252,7 @@
 
     @media (max-width: 650px) {
       .homePanel {
-        padding: 110px 5px 15px;
+        padding: 100px 0 3px;
       }
       .homePanel .panel {
         padding: 10px;
@@ -272,13 +264,16 @@
       }
 
       .homePanel h1 {
-        font-size: 28px;
+        font-size: 26px;
       }
 
       .homePanel h2 {
-        font-size: 20px;
+        font-size: 18px;
+        line-height: 1;
       }
-
+      .homePanel #logoPanel {
+        display: none;
+      }
       .homePanel #logo {
         width: 100px;
         height: 100px;
@@ -291,8 +286,8 @@
       }
 
       .homePanel .content {
-        font-size: 16px;
-        line-height: 1.35;
+        font-size: 15px;
+        line-height: 1.25;
       }
     }
   </style>
@@ -304,16 +299,6 @@
         _$[list[i]] = document.getElementById(list[i]);
       }
     }
-    var _hideHomePanel = function () {
-      let hp = document.getElementById('homePanel');
-      if (hp) {
-        hp.style.display = "none";
-      }
-      if (window.localStorage) {
-        window.localStorage.setItem("homePanelState", "closed");
-      }
-      window.dispatchEvent(new CustomEvent('home-panel-hidden', { bubbles: true, composed: true }));
-    };
     var _refreshHomePanel = function () {
       _loadIds(['textPanel', 'cu', 'cl', 'b1', 'b2', 'b3']);
       _$.cu.classList.remove("hidden");
@@ -328,9 +313,6 @@
 
       let hash = window.location.hash;
       let mainPanelVisible = ((!hash) || (hash === '#') || (hash === '#feed') || (hash === '#feed/') || (hash === '#feed/recommended'));
-      if (mainPanelVisible && window.localStorage) {
-        mainPanelVisible = !(window.localStorage.getItem("homePanelState") === 'closed');
-      }
       let hp = document.getElementById('homePanel');
       if (hp) {
         hp.style.display = mainPanelVisible ? "block" : "none";
@@ -364,17 +346,16 @@
           <p>Channels is the world's first content network using micropayments. A place where you can publish content and get
             paid every time someone views it.</p>
           <h2>Share your creativity and get paid for it!</h2>
-          <p>
+          <div id="homeButtons">
             <a href="#about">
               <button>Learn more</button>
             </a>
             <a href="https://twitter.com/channelscc" target="_blank">
               <button>Follow us on Twitter</button>
             </a>
-          </p>
+          </div>
         </div>
       </div>
-      <img id="homePanelClose" style="display: none;" src="/s/icons/close.png" onclick="_hideHomePanel();">
     </section>
   </article>
 
@@ -384,6 +365,136 @@
     You're running an older and unsupported browser. Channels works best on the latest Chrome and Firefox.
     <button style="margin-left: 5px; background: white;" onclick="_hideInvalidVersionDialog()">Close</button>
   </div>
+  <article id="abtcntnt">
+    <section id="whatSection">
+      <div class="content">
+        <h1>What is Channels?</h1>
+        <p>The web is filled with great content. But most creators are getting paid little or nothing for their work.</p>
+        <p>We're going to change that.</p>
+        <p>Channels is pioneering a new way for content creators to get paid.
+          <b>A simple micro payment site for content</b>. Publish on Channels and earn money for every view.</p>
+      </div>
+    </section>
+    <section id="contentSection">
+      <div class="content">
+        <h1>Content on Channels</h1>
+        <p>Web content is diverse: videos, photos, articles, apps, games, and much more.</p>
+        <p>
+          <b>Post whatever content you want</b> using the card best suited to it.</p>
+        <p>
+          <b>Set the price</b> someone pays you to view it.</p>
+        <p>If you have web development skills,
+          <b>create your own card design</b>. And collect royalties if others use it to post their cards.</p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>How Does It Work</h1>
+        <p>Each person that comes to Channels automatically has an account set up for them with an initial balance of 5 tokens,
+          which we call
+          <b>ChannelCoins</b>. We use the symbol, ℂ, to represent these tokens. So ℂ0.25, for example, means one quarter of
+          one ChannelCoin token.
+        </p>
+        <p>Users see
+          <b>cards</b> that others have posted, each with a price tag. When they open a card for the first time (and keep it
+          open for at least 10 seconds), a transaction is made between that consumer and the author of that card. Based on
+          the card's price, a small quantity of tokens are transferred from the buyer's account to the seller's account.
+          Or, if the card's author is promoting their content, that transfer may happen in the other direction.
+        </p>
+        <p>If your balance is above ℂ5.00, Channels will not show you promoted content. So users who prefer not to see advertising
+          can simply purchase tokens to cover the content they consume.
+        </p>
+        <p>The card's author sets the pricing level on their cards. Channels uses this information to set the final prices,
+          so as to keep a balance between how much money is coming into the network and how much is going out. This is what
+          ensures that authors are getting paid well, but consumers are not seeing excessive advertising. Channels takes
+          10% of the tokens paid from consumers to authors.
+        </p>
+        <p>Unlike other platforms (like Medium and YouTube), Channels does not support a single type of content. You can post
+          videos, articles, games, news, etc. We have built-in card designs supporting the common types. But Channels can
+          support virtually
+          <a href="#learn-card-development">any kind of content</a> that can be hosted on the web.</p>
+        <p>You can sell tokens you have in excess of ℂ5.00. Currently ChannelCoin tokens can be exchanged 1:1 with US dollars.
+          Eventually that exchange rate may change.</p>
+        <p>While Channels is in its early stages, we are paying token subsidies to both consumers and authors as a way to provide
+          incentives for good content. Consumer subsidies mean that without consuming any promoted content, the network may
+          pay small subsidies over time until the consumer's balance has been restored. Author subsidies, if available, supplement
+          the amount paid by the consumer for opening a card -- keeping the prices for consumers low, while providing compelling
+          rewards for the best content.</p>
+        <p>Questions or comments?
+          <a href="https://twitter.com/channelscc" target="_blank">Send us a tweet.</a>
+        </p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>FAQ</h1>
+        <div class="question">
+          <p class="q">How can someone pay for content before they even sign in?</p>
+          <p class="a">Without you worrying about it, Channels is performing these transactions using cryptocurrency techniques. So we
+            don't need your identity in order to be able to let you participate in a transaction. We assign each new user
+            a unique key and track their balance using that key. You only need to provide your identity when you want to
+            post content so that consumers know more about the author of the content.</p>
+        </div>
+        <div class="question">
+          <p class="q">How much money can I make?</p>
+          <p class="a">There's no limit. You're competing for consumers who will pay you. So post good content. And then share your cards
+            with your followers on social media and elsewhere. Channels is still young, so don't expect a huge audience if
+            you don't help to bring them.</p>
+        </div>
+        <div class="question">
+          <p class="q">Why should I drop my existing system (YouTube, Medium, Vimeo, Patreon, my own site, etc.)?</p>
+          <p class="a">You don't have to. We don't require that your content is exclusive. But when telling your followers about where
+            to find your content, we encourage you to point them to your card on Channels. They will appreciate being able
+            to support you financially in a small way. Your content won't have ads in front of it. And you may very well
+            make more money per view than you would have on another platform.</p>
+        </div>
+        <div class="question">
+          <p class="q">Can I post any content I want?</p>
+          <p class="a">No. You should not post content that is not appropriate for a general audience. Also, we take copyright law very
+            seriously. You should only post content that you own the rights to use. That includes photos and audio you embed
+            in your content. (By searching the web for "free stock photos", you will find sources for content you can use
+            without restriction.)
+          </p>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>Team</h1>
+        <p>
+          <a href="/">Channels</a> is built and operated by Hivepoint, Inc. We're located in Palo Alto, California.
+        </p>
+        <div class="horizontal layout">
+          <div class="person flex">
+            <user-image image="/s/images/team/kingston.jpg"></user-image>
+            <div>Kingston Duffie</div>
+          </div>
+          <div class="person flex">
+            <user-image image="/s/images/team/carl.jpg"></user-image>
+            <div>Carl Hubbard</div>
+          </div>
+          <div class="person flex">
+            <user-image image="/s/images/team/preet.jpg"></user-image>
+            <div>Preet Shihn</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>Contact Us</h1>
+        <p>The best way to reach us is at
+          <a href="https://twitter.com/channelscc" target="_blank">@channelscc</a> on Twitter. If you have a question or comment, send us a tweet and we'll respond promptly.</p>
+        <p>If you prefer email, you can reach us at
+          <a href="mailto:support@channels.cc">support@channels.cc</a>.</p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <a href="/d/terms.html">Our Terms of Service</a>
+      </div>
+    </section>
+  </article>
 </body>
 
 </html>
