@@ -43,6 +43,26 @@
         margin-top: 20px;
         margin-left: -10px;
       }
+
+      #morePanel {
+        padding: 30px 16px;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 20px;
+        text-align: center;
+      }
+
+      #morePanelContent {
+        max-width: 700px;
+        box-sizing: border-box;
+        margin: 0 auto;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
     </style>
     <div id="nocard" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box; padding: 16px;">
@@ -60,6 +80,11 @@
         <p>Loading card</p>
       </div>
       <div id="cardView" class="hidden"></div>
+      <div id="morePanel" class="hidden">
+        <div id="morePanelContent">
+          <a href="/#feed">View your feed</a> to see more cards.
+        </div>
+      </div>
       <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
@@ -130,7 +155,9 @@
         this._cardOpened = false;
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
+        this.$.morePanel.classList.add("hidden");
         this._clearNode(this.$.cardView);
+
         // show loading spinner
         this.$.cardView.classList.add("hidden");
         this.$.header.classList.add("disabled");
@@ -215,6 +242,8 @@
         cardNode.user = $core.profile;
         cardNode.services = $core.cardManager.cardService;
         this.$.cardView.appendChild(cardNode);
+
+        this.$.morePanel.classList.remove("hidden");
       }
 
       _stopPaymentTimer() {

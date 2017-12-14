@@ -43,12 +43,12 @@
       }
 
       _onCancel() {
-        this._canceled = true;
+        this._userClosed = true;
         $router.goto("feed");
       }
 
       onActivate() {
-        this._canceled = false;
+        this._userClosed = false;
         this.$.wiz.navigationEnabled = true;
         this.$.wiz.reset();
         this.$.wiz.instanceStamp = (new Date()).getTime();
@@ -79,7 +79,7 @@
       validateHashChange() {
         return new Promise((resolve, reject) => {
           let hasData = this.$.wiz.data && this.$.wiz.data.cardInfo;
-          if (this._canceled || (!hasData)) {
+          if (this._userClosed || (!hasData)) {
             resolve(true);
           } else {
             $app.confirm(this._pendingDataMessage, null, "Leave").then((result) => {
@@ -94,7 +94,7 @@
       _attachLeaveListener() {
         this._detachLeaveListener();
         this._unloadListener = function (event) {
-          if (!this._canceled) {
+          if (!this._userClosed) {
             const message = this._pendingDataMessage;
             event.returnValue = message;
             return message;
@@ -113,6 +113,7 @@
       _onPublish() {
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
+        this._userClosed = true;
         $core.postCard(data.summary.imageURL,
           data.summary.imageWidth,
           data.summary.imageHeight,
