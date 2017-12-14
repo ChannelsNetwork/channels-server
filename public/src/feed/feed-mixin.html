@@ -11,7 +11,7 @@
       }
 
       .spacer {
-        height: 50px;
+        height: 40px;
       }
 
       #feed {
@@ -52,6 +52,10 @@
       }
 
       _onActivate() {
+        // super class may implement
+      }
+
+      _onDeactivate() {
         // super class may implement
       }
 
@@ -120,6 +124,7 @@
       }
 
       onDeactivate() {
+        this._onDeactivate();
         if (this._resizeListener) {
           window.removeEventListener("resize", this._resizeListener);
           this._resizeListener = null;
@@ -162,7 +167,14 @@
         if (!root) {
           root = window.location.protocol + "://" + window.location.host;
         }
-        return (root + "/c/" + cardId);
+        let q = "";
+        if ($router.route) {
+          let segments = $router.route.segments;
+          if (segments && segments.length) {
+            q = encodeURIComponent(segments.join("/"));
+          }
+        }
+        return (root + "/c/" + cardId + (q ? ("?ret=" + q) : ""));
       }
 
       _onCardImpression(event) {

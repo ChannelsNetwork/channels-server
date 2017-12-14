@@ -19,7 +19,7 @@ export class RootPageHandler implements RestServer {
   }
 
   private handleHomePage(request: Request, response: Response) {
-    rootPageManager.handlePage("index", request, response);
+    rootPageManager.handlePage("app", request, response);
   }
 }
 

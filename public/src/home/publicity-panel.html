@@ -1,0 +1,92 @@
+<dom-module id="publicity-panel">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        background: #f0f0fa;
+        border-bottom: 1px solid #e5e5e5;
+        margin-bottom: 30px;
+        padding: 20px 0 20px;
+        font-size: 18px;
+      }
+
+      .content {
+        max-width: 1168px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      .row {
+        max-width: 800px;
+      }
+
+      .price {
+        background: #ffeb3b;
+        padding: 2px 10px;
+        border-radius: 3px;
+        font-size: 20px;
+      }
+
+      button:hover {
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+        box-shadow: 0 1px 0px 0;
+      }
+
+      @media (max-width: 600px) {
+        :host {
+          padding: 0;
+          font-size: 15px;
+          margin-bottom: 15px;
+        }
+        .content {
+          padding: 10px 16px;
+        }
+        .price {
+          font-size: 16px;
+        }
+        h2 {
+          font-size: 22px;
+        }
+      }
+    </style>
+    <div class="content">
+      <h2>Early Publisher Bonus</h2>
+      <p class="row">We're offering daily cash bonuses to early content creators. Every time your content is viewed, you get
+        <span class="price">[[bonus]]</span> until the daily budget of
+        <span class="price">[[remaining]]</span> is reached.
+        <a href="https://medium.com/channels-network/channels-is-launching-f36f39846f17" target="_blank">Learn more.</a>
+      </p>
+      <div id="homeButtons">
+        <button on-click="_createCard">Create a card</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class PublicityPanel extends Polymer.Element {
+      static get is() { return 'publicity-panel'; }
+      static get properties() {
+        return {
+          bonus: String,
+          remaining: String
+        };
+      }
+
+      refresh() {
+        this.bonus = "$" + $core.publishSubsidiesPerPaidOpen;
+        this.remaining = "$" + $core.publishSubsidiesRemainingToday;
+      }
+
+      _createCard() {
+        this.dispatchEvent(new CustomEvent('create-card', { bubbles: true, composed: true }));
+      }
+    }
+    window.customElements.define(PublicityPanel.is, PublicityPanel);
+  </script>
+</dom-module>
