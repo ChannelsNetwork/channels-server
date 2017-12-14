@@ -167,7 +167,14 @@
         if (!root) {
           root = window.location.protocol + "://" + window.location.host;
         }
-        return (root + "/c/" + cardId);
+        let q = "";
+        if ($router.route) {
+          let segments = $router.route.segments;
+          if (segments && segments.length) {
+            q = encodeURIComponent(segments.join("/"));
+          }
+        }
+        return (root + "/c/" + cardId + (q ? ("?ret=" + q) : ""));
       }
 
       _onCardImpression(event) {

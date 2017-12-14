@@ -307,6 +307,13 @@
         }
       }
 
+      _getUrlParameter(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        var results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+      };
+
       _doCardClose(cardId) {
         let feed = null;
         if (this._route && this._route.context) {
@@ -318,16 +325,26 @@
             scrollTop: this._route.context.scrollTop || 0
           });
           return;
-        }
-        if (cardId) {
-          $router.goto("feed", "recommended", cardId);
         } else {
-          if (this.data) {
-            $router.goto(["channel", this.data.by.handle]);
-          } else {
-            $router.goto("");
+          let q = location.search;
+          if (q) {
+            feed = this._getUrlParameter("ret");
+          }
+          if (feed) {
+            $router.goto(feed);
+            return;
           }
         }
+        $router.goto("feed");
+        // if (cardId) {
+        //   $router.goto("feed", "recommended", cardId);
+        // } else {
+        //   if (this.data) {
+        //     $router.goto(["channel", this.data.by.handle]);
+        //   } else {
+        //     $router.goto("");
+        //   }
+        // }
       }
     }
     window.customElements.define(CardPage.is, CardPage);
