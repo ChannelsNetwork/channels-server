@@ -66,7 +66,7 @@
         this._promotedCardIds = [];
         this.$.buttons.style.display = "none";
         this.$.noItems.style.display = "none";
-        this._searchString = route.segments > 1 ? decodeURIComponent(route.segments[1]) : null
+        this._searchString = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null
         this.$.search.value = this._searchString;
         this.$.btnSearch.disabled = true;
         this.$.search.input.focus();
@@ -217,7 +217,8 @@
         if (!root) {
           root = window.location.protocol + "://" + window.location.host;
         }
-        return (root + "/c/" + cardId);
+        let q = "search/" + encodeURIComponent(this._searchString);
+        return root + "/c/" + cardId + "?ret=" + q;
       }
 
       _onCardImpression(event) {
