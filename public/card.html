@@ -115,6 +115,12 @@
       z-index: 10;
     }
 
+    #abtcntnt {
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+
     @media (max-width: 600px) {
       body {
         font-size: 16px;
@@ -155,6 +161,9 @@
     You're running an older and unsupported browser. Channels works best on the latest Chrome and Firefox.
     <button style="margin-left: 5px; background: white;" onclick="_hideInvalidVersionDialog()">Close</button>
   </div>
+  <article id="abtcntnt">
+    {{&seoContent}}
+  </article>
 </body>
 
 </html>

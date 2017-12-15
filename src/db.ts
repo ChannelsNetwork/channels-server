@@ -712,7 +712,7 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, { $set: { lock: { server: '', at: 0 } } });
   }
 
-  async findCardById(id: string, includeInactive: boolean): Promise<CardRecord> {
+  async findCardById(id: string, includeInactive: boolean, includeSearchText: boolean = false): Promise<CardRecord> {
     if (!id) {
       return null;
     }
@@ -720,7 +720,11 @@ export class Database {
     if (!includeInactive) {
       query.state = "active";
     }
-    return await this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
+    if (includeSearchText) {
+      return await this.cards.findOne<CardRecord>(query);
+    } else {
+      return await this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
+    }
   }
 
   async findCardMostRecentByType(type: CardType): Promise<CardRecord> {
