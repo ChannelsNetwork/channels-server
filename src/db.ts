@@ -589,9 +589,12 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, fileIds: string[], promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
+    }
+    if (!fileIds) {
+      fileIds = [];
     }
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
@@ -653,7 +656,8 @@ export class Database {
       curation: {
         block: false
       },
-      type: "normal"
+      type: "normal",
+      fileIds: fileIds
     };
     if (coupon) {
       record.coupons.push(coupon);

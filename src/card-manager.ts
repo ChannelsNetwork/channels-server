@@ -29,6 +29,7 @@ import * as url from 'url';
 import * as universalAnalytics from 'universal-analytics';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
+import { fileManager } from "./file-manager";
 
 const promiseLimit = require('promise-limit');
 
@@ -931,8 +932,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       couponId = couponRecord.id;
     }
     const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, promotionScores, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, details.fileIds, promotionScores, cardId);
     await this.announceCard(card, user);
+    await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
       html += "<div>User: " + user.identity.name + "</div>";

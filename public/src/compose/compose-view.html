@@ -51,6 +51,8 @@
         this._userClosed = false;
         this.$.wiz.navigationEnabled = true;
         this.$.wiz.reset();
+        $core.cardManager.cardService.clearUploadedFileIds();
+
         this.$.wiz.instanceStamp = (new Date()).getTime();
 
         $core.register().then((info) => {
@@ -80,15 +82,38 @@
         return new Promise((resolve, reject) => {
           let hasData = this.$.wiz.data && this.$.wiz.data.cardInfo;
           if (this._userClosed || (!hasData)) {
-            resolve(true);
+            this._finalizeAndCleanup().then(() => {
+              resolve(true);
+            }).catch((err) => {
+              console.log("compose.validateHashChange error", err);
+              resolve(true);
+            });
           } else {
             $app.confirm(this._pendingDataMessage, null, "Leave").then((result) => {
-              resolve(result);
+              if (result) {
+                this._finalizeAndCleanup().then(() => {
+                  resolve(true);
+                }).catch((err) => {
+                  console.log("compose.validateHashChange error", err);
+                  resolve(true);
+                });
+              } else {
+                resolve(false);
+              }
             }).catch(() => {
-              resolve(true);
+              this._finalizeAndCleanup().then(() => {
+                resolve(true);
+              }).catch((err) => {
+                console.log("compose.validateHashChange error", err);
+                resolve(true);
+              });
             });
           }
         });
+      }
+
+      _finalizeAndCleanup() {
+        return $core.cardManager.cardService.discardUploadedFiles();
       }
 
       _attachLeaveListener() {
@@ -127,8 +152,10 @@
           data.pricing && data.pricing.fee ? data.pricing.fee.priceLevel : 0,
           data.promotion && data.promotion.budgetCoins ? data.promotion.budgetCoins : 0,
           data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
+          $core.cardManager.cardService.uploadedFileIds,
           data.cardSharedState
         ).then(() => {
+          $core.cardManager.cardService.clearUploadedFileIds();
           $router.goto("feed/mine");
         }).catch((err) => {
           this.$.wiz.navigationEnabled = true;

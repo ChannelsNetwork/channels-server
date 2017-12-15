@@ -321,7 +321,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, initialState) {
+  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -331,7 +331,7 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
@@ -509,6 +509,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  discardFiles(fileIds) {
+    let details = RestUtils.discardFiles(this._keys.address, fileIds);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/discard-files";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
@@ -532,6 +539,7 @@ class CoreService extends Polymer.Element {
     const url = this.restBase + "/upload";
     return this.rest.postFile(url, formData);
   }
+
 
   isValidEmail(emailAddress) {
     const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;

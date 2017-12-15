@@ -464,7 +464,8 @@ class TestClient implements RestServer {
       sharedState: {
         properties: { hello: "world" },
         collections: {}
-      }
+      },
+      fileIds: []
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<PostCardDetails> = {

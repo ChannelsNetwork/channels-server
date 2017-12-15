@@ -343,6 +343,7 @@ export interface PostCardDetails extends Signable {
   cardType?: string;
   pricing: CardPricingInfo;
   sharedState: CardState;
+  fileIds: string[];
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -582,3 +583,9 @@ export interface BraintreeTransactionError {
   code: string;
   message: string;
 }
+
+export interface DiscardFilesDetails extends Signable {
+  fileIds: string[];
+}
+
+export interface DiscardFilesResponse extends RestResponse { }
