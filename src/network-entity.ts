@@ -121,7 +121,7 @@ export class NetworkEntity implements Initializable {
 
   private async poll(): Promise<void> {
     const subsidyDay = await db.findLatestPublisherSubsidyDay();
-    const midnightToday = +moment().startOf('day');
+    const midnightToday = +moment().tz('America/Los_Angeles').startOf('day');
     const now = Date.now();
     const totalCoins = this.publisherSubsidyMinCoins + Math.round(Math.random() * (this.publisherSubsidyMaxCoins - this.publisherSubsidyMinCoins));
     if (!subsidyDay || midnightToday > subsidyDay.starting) {
