@@ -40,7 +40,7 @@ export class RootPageManager implements Initializable {
   }
 
   async handlePage(type: string, request: Request, response: Response, card?: CardRecord): Promise<void> {
-    this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
+    // this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
 
     // analyze user agent
     const userAgent = request.headers['user-agent'].toString();
@@ -59,6 +59,7 @@ export class RootPageManager implements Initializable {
       author: 'Channels',
       publishedTime: ''
     };
+    let searchText = "";
     if (card && card.summary) {
       if (card.summary.title) {
         metadata.title = escapeHtml(card.summary.title);
@@ -72,6 +73,9 @@ export class RootPageManager implements Initializable {
       }
       metadata.author = card.by.name;
       metadata.publishedTime = new Date(card.postedAt).toISOString();
+    }
+    if (card && card.searchText) {
+      searchText = "<p>" + card.searchText + "</p>";
     }
 
     // Replace in template
@@ -89,7 +93,8 @@ export class RootPageManager implements Initializable {
       svglogo: this.templates['svglogo'],
       analyticsId: configuration.get('google.analytics.id', "UA-52117709-8"),
       og_published_time: metadata.publishedTime,
-      og_author: metadata.author
+      og_author: metadata.author,
+      seoContent: searchText
     };
     const output = Mustache.render(this.templates[type], view);
     response.setHeader("Cache-Control", 'public, max-age=' + 15);
