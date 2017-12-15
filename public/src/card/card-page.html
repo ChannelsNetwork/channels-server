@@ -336,11 +336,16 @@
         }
       }
 
-      _getUrlParameter(name) {
+      _getUrlParameter(name, doNotDecode) {
         name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
         var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
         var results = regex.exec(location.search);
-        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        // KD: Based on discussion with Preet about encoding of segments within return
+        if (doNotDecode) {
+          return results === null ? '' : results[1].replace(/\+/g, ' ');
+        } else {
+          return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
       };
 
       _doCardClose(cardId) {
@@ -369,7 +374,7 @@
         } else {
           let q = location.search;
           if (q) {
-            feed = this._getUrlParameter("ret");
+            feed = this._getUrlParameter("ret", true);
           }
           if (feed) {
             $router.goto(feed);
