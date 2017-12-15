@@ -339,6 +339,7 @@ export interface PostCardDetails extends Signable {
   linkUrl?: string;
   title?: string;
   text: string;
+  searchText: string;
   private: boolean;
   cardType?: string;
   pricing: CardPricingInfo;
@@ -584,6 +585,18 @@ export interface BraintreeTransactionError {
   message: string;
 }
 
+export interface SearchDetails extends Signable {
+  searchString: string;
+  skip: number;
+  limit: number;
+  existingPromotedCardIds: string[];
+}
+
+export interface SearchResponse extends RestResponse {
+  cards: CardDescriptor[];
+  moreAvailable: boolean;
+  nextSkip: number;
+}
 export interface DiscardFilesDetails extends Signable {
   fileIds: string[];
 }

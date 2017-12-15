@@ -147,6 +147,7 @@
           if (this.composer && this.composer.isReady) {
             this.wizard.data.cardSharedState = this.composer.sharedState || {};
             this.wizard.data.summary = this.composer.summary || {};
+            this.wizard.data.searchText = this.composer.searchText;
           }
         }
         resolve();

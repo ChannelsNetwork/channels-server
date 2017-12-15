@@ -457,6 +457,7 @@ class TestClient implements RestServer {
       address: this.keyInfo.address,
       timestamp: Date.now(),
       text: "hello world",
+      searchText: "hello world",
       private: false,
       pricing: {
         openFeeUnits: 1

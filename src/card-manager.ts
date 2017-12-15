@@ -47,6 +47,8 @@ const DEFAULT_CARD_PAYMENT_DELAY = 1000 * 10;
 const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 
+const MAX_SEARCH_STRING_LENGTH = 2000000;
+
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -214,6 +216,30 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.error("User.handlePostCard: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  searchTextFromSharedState(sharedState: CardState): string {
+    let result = this.getObjectStringRecursive(sharedState);
+    if (result.length > MAX_SEARCH_STRING_LENGTH) {
+      result = result.substr(0, MAX_SEARCH_STRING_LENGTH);
+    }
+    return result;
+  }
+
+  private getObjectStringRecursive(object: any): string {
+    let result = "";
+    if (typeof object === 'string') {
+      result = object;
+    } else if (Array.isArray(object)) {
+      for (const item of object) {
+        result += this.getObjectStringRecursive(item) + " ";
+      }
+    } else if (typeof object === 'object') {
+      for (const key of Object.keys(object)) {
+        result += this.getObjectStringRecursive(object[key]) + " ";
+      }
+    }
+    return result.trim();
   }
 
   private async insertCardSharedState(card: CardRecord, state: CardState): Promise<void> {
@@ -932,7 +958,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       couponId = couponRecord.id;
     }
     const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, details.fileIds, promotionScores, cardId);
+    const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, searchText, details.fileIds, promotionScores, cardId);
     await this.announceCard(card, user);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {

@@ -166,16 +166,18 @@ export class FeedManager implements Initializable, RestServer {
 
   private async mergeWithAdCards(user: UserRecord, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
     const amalgamated: CardDescriptor[] = [];
-    // First we check to see if there is an announcement card that we need to show.
-    const announcementCard = await db.findCardMostRecentByType("announcement");
     let announcementAddedId: string;
-    if (announcementCard) {
-      // Check to see if the user has already opened this
-      const userCardInfo = await db.findUserCardInfo(user.id, announcementCard.id);
-      if (!userCardInfo || !userCardInfo.lastOpened) {
-        const announcement = await this.populateCard(announcementCard, true, user);
-        amalgamated.push(announcement);
-        announcementAddedId = announcementCard.id;
+    if (cards.length > 0) {
+      // First we check to see if there is an announcement card that we need to show.
+      const announcementCard = await db.findCardMostRecentByType("announcement");
+      if (announcementCard) {
+        // Check to see if the user has already opened this
+        const userCardInfo = await db.findUserCardInfo(user.id, announcementCard.id);
+        if (!userCardInfo || !userCardInfo.lastOpened) {
+          const announcement = await this.populateCard(announcementCard, true, user);
+          amalgamated.push(announcement);
+          announcementAddedId = announcementCard.id;
+        }
       }
     }
     // Now we have to inject ad slots if necessary, and populate those ad slots with cards that offer
@@ -641,7 +643,7 @@ export class FeedManager implements Initializable, RestServer {
         './icon.png',
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, [], null,
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, sample.text, [], null,
         cardId);
       await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
@@ -960,6 +962,15 @@ export class FeedManager implements Initializable, RestServer {
 
   private getPreviewUrl(relative: string): string {
     return this.urlManager.getStaticUrl("preview/" + relative, true);
+  }
+
+  async search(user: UserRecord, searchString: string, skip: number, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
+    if (!limit || limit < 1 || limit > 999) {
+      limit = 50;
+    }
+    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
+    const cards = await this.populateCards(cardRecords, false, user);
+    return await this.mergeWithAdCards(user, cards, cardRecords.length > limit, limit, existingPromotedCardIds);
   }
 }
 

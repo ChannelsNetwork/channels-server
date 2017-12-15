@@ -307,6 +307,15 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  search(searchString, skip, limit, existingPromotedCardIds) {
+    let details = RestUtils.search(this._keys.address, searchString, skip, limit, existingPromotedCardIds);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/search";
+    return this.rest.post(url, request).then((response) => {
+      return response;
+    });
+  }
+
   ensureComponent(packageName) {
     let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
     let request = this._createRequest(details);
@@ -321,7 +330,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, fileIds, initialState) {
+  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -331,7 +340,7 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
