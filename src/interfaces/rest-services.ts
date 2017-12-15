@@ -69,6 +69,12 @@ export interface UserStatus {
   cardBasePrice: number;
   totalPublisherRevenue: number;
   totalCardDeveloperRevenue: number;
+  publisherSubsidies: PublisherSubsidiesInfo;
+}
+
+export interface PublisherSubsidiesInfo {
+  remainingToday: number;
+  perOpen: number;
 }
 
 export interface RequestRecoveryCodeDetails {
@@ -338,6 +344,7 @@ export interface PostCardDetails extends Signable {
   cardType?: string;
   pricing: CardPricingInfo;
   sharedState: CardState;
+  fileIds: string[];
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -507,7 +514,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 
@@ -590,3 +597,8 @@ export interface SearchResponse extends RestResponse {
   moreAvailable: boolean;
   nextSkip: number;
 }
+export interface DiscardFilesDetails extends Signable {
+  fileIds: string[];
+}
+
+export interface DiscardFilesResponse extends RestResponse { }

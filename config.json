@@ -53,5 +53,10 @@
     "analytics": {
       "id": "UA-52117709-13"
     }
+  },
+  "subsidies": {
+    "minCoins": 150,
+    "maxCoins": 150,
+    "coinsPerOpen": 1.00
   }
 }

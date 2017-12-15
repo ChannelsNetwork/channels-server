@@ -57,14 +57,39 @@ class CardManager {
 class CardService {
   constructor(core) {
     this._core = core;
+    this._uploadedFileIds = [];
   }
 
   upload(file, filename) {
-    return this._core.uploadFile(file, filename);
+    return this._core.uploadFile(file, filename).then((result) => {
+      this._uploadedFileIds.push(result.fileId);
+      return result;
+    });
   }
 
   uploadImage(file, filename) {
-    return this._core.uploadImageFile(file, filename);
+    return this._core.uploadImageFile(file, filename).then((result) => {
+      this._uploadedFileIds.push(result.fileId);
+      return result;
+    });
+  }
+
+  get uploadedFileIds() {
+    return this._uploadedFileIds;
+  }
+
+  clearUploadedFileIds() {
+    this._uploadedFileIds = [];
+  }
+
+  discardUploadedFiles() {
+    if (this._uploadedFileIds.length > 0) {
+      return this._core.discardFiles(this._uploadedFileIds).then(() => {
+        this._uploadedFileIds = [];
+      });
+    } else {
+      return Promise.resolve();
+    }
   }
 }
 

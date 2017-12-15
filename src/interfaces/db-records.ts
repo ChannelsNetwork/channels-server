@@ -82,6 +82,7 @@ export interface NetworkRecord {
   totalCardDeveloperRevenue: number;
   totalDeposits: number;
   totalWithdrawals: number;
+  totalPublisherSubsidies: number;
 }
 
 export interface CardRecord {
@@ -138,6 +139,7 @@ export interface CardRecord {
   };
   searchText: string;
   type: CardType;
+  fileIds: string[];
 }
 
 export type CardType = "normal" | "announcement";
@@ -271,7 +273,7 @@ export interface CardCollectionItemRecord {
   value: any;
 }
 
-export type FileStatus = "started" | "aborted" | "failed" | "uploading" | "complete";
+export type FileStatus = "started" | "aborted" | "failed" | "uploading" | "complete" | "final" | "deleted";
 
 export interface FileRecord {
   id: string;
@@ -403,7 +405,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -450,4 +452,11 @@ export interface BowerPackageRecord {
   installed: number;
   package: string;  // stringified BowerInstallResult;
   channelComponent: ChannelComponentDescriptor;
+}
+
+export interface PublisherSubsidyDayRecord {
+  starting: number;  // start date
+  totalCoins: number;
+  coinsPerPaidOpen: number;
+  coinsPaid: number;
 }
