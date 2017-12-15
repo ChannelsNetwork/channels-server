@@ -75,7 +75,7 @@ export class RootPageManager implements Initializable {
       metadata.publishedTime = new Date(card.postedAt).toISOString();
     }
     if (card && card.searchText) {
-      searchText = "<p>" + card.searchText + "</p>";
+      searchText = "<p>" + escapeHtml(card.searchText) + "</p>";
     }
 
     // Replace in template
