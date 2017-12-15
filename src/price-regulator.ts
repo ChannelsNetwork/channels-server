@@ -23,7 +23,7 @@ const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24 * 3;
 const SUBSIDY_PERIOD = 1000 * 60 * 60 * 24;
 const MAXIMUM_BASE_CARD_FEE = 0.05;
 const MINIMUM_BASE_CARD_FEE = 0.001;
-const MAXIMUM_SUBSIDY_RATE = 5 / (1000 * 60 * 60 * 24);
+const MAXIMUM_SUBSIDY_RATE = 5 / (1000 * 60 * 60 * 24 * 3);
 
 export class PriceRegulator implements Initializable {
   private lastSubsidyRate = 0;
