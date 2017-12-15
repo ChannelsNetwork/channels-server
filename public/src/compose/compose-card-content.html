@@ -143,15 +143,13 @@
       _finishTransition(forward, resolve) {
         this.$.spinner.spinning = false;
         this.$.overlay.classList.add("hidden");
-        if (!forward) {
-          resolve();
-        } else {
+        if (forward) {
           if (this.composer && this.composer.isReady) {
             this.wizard.data.cardSharedState = this.composer.sharedState || {};
             this.wizard.data.summary = this.composer.summary || {};
           }
-          resolve();
         }
+        resolve();
       }
     }
     window.customElements.define(ComposeCardContent.is, ComposeCardContent);

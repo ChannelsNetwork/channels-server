@@ -138,6 +138,7 @@ export interface CardRecord {
     block: boolean;
   };
   type: CardType;
+  fileIds: string[];
 }
 
 export type CardType = "normal" | "announcement";
@@ -271,7 +272,7 @@ export interface CardCollectionItemRecord {
   value: any;
 }
 
-export type FileStatus = "started" | "aborted" | "failed" | "uploading" | "complete";
+export type FileStatus = "started" | "aborted" | "failed" | "uploading" | "complete" | "final" | "deleted";
 
 export interface FileRecord {
   id: string;

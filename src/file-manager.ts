@@ -8,13 +8,16 @@ import { db } from "./db";
 import { UserRecord, FileRecord } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import * as Busboy from 'busboy';
-import * as AWS from 'aws-sdk';
 import * as s3Stream from "s3-upload-stream";
 import * as uuid from "uuid";
 import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
 import { GetObjectRequest } from "aws-sdk/clients/s3";
+import { DiscardFilesDetails, DiscardFilesResponse, RestRequest } from "./interfaces/rest-services";
+import { SERVER_VERSION } from "./server-version";
+import { RestHelper } from "./rest-helper";
+import * as AWS from 'aws-sdk';
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -36,6 +39,24 @@ export class FileManager implements RestServer {
     this.registerHandlers();
   }
 
+  async finalizeFiles(user: UserRecord, fileIds: string[]): Promise<void> {
+    for (const fileId of fileIds) {
+      const fileRecord = await db.findFileById(fileId);
+      if (fileRecord) {
+        if (fileRecord.ownerId !== user.id) {
+          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not owned by this user", user.id, fileRecord);
+        } else if (fileRecord.status === "complete") {
+          console.log("FileManager.finalizeFiles: setting state of file to 'final'", fileRecord);
+          await db.updateFileStatus(fileRecord, "final");
+        } else {
+          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not currently 'complete'", fileRecord);
+        }
+      } else {
+        console.error("FileManager.finalizeFiles: Ignoring request to finalize a missing file", fileId);
+      }
+    }
+  }
+
   private registerHandlers(): void {
     if (this.s3StreamUploader) {
       this.app.post(this.urlManager.getDynamicUrl('upload'), (request: Request, response: Response) => {
@@ -43,6 +64,9 @@ export class FileManager implements RestServer {
       });
       this.app.get('/f/:fileId/:fileName', (request: Request, response: Response) => {
         void this.handleFetch(request, response);
+      });
+      this.app.post(this.urlManager.getDynamicUrl('discard-files'), (request: Request, response: Response) => {
+        void this.handleDiscardFiles(request, response);
       });
     }
   }
@@ -74,6 +98,7 @@ export class FileManager implements RestServer {
           break;
         case 'fileName':
           requestedFileName = val.toString();
+          break;
         default:
           break;
       }
@@ -219,6 +244,68 @@ export class FileManager implements RestServer {
       response.set(headerName, header);
     }
   }
+
+  private async handleDiscardFiles(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<DiscardFilesDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      const fileRecords: FileRecord[] = [];
+      if (requestBody.detailsObject.fileIds && requestBody.detailsObject.fileIds.length > 0) {
+        for (const fileId of requestBody.detailsObject.fileIds) {
+          const fileRecord = await db.findFileById(fileId);
+          if (fileRecord) {
+            if (fileRecord.ownerId !== user.id) {
+              response.status(401).send("You can only discard files you uploaded");
+              return;
+            }
+            fileRecords.push(fileRecord);
+          } else {
+            response.status(404).send("No such file");
+            return;
+          }
+        }
+      }
+      console.log("FileManager.discard-files", requestBody.detailsObject);
+      for (const fileRecord of fileRecords) {
+        if (fileRecord.status === "complete") {
+          await db.updateFileStatus(fileRecord, "deleted");
+          await this.deleteS3File(fileRecord);
+          console.log("FileManager.handleDiscardFiles: file deleted", fileRecord.filename);
+        } else if (fileRecord.status === "final") {
+          console.error("FileManager.handleDiscardFiles: file discard request for 'final' file ignored", fileRecord);
+        } else {
+          console.warn("FileManager.handleDiscardFiles: request to discard file in incomplete state.  Ignored.", fileRecord);
+        }
+      }
+      const reply: DiscardFilesResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("File.handleDiscardFiles: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private deleteS3File(fileRecord: FileRecord): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const deleteObjectRequest: AWS.S3.DeleteObjectRequest = {
+        Bucket: fileRecord.s3.bucket,
+        Key: fileRecord.s3.key
+      };
+      this.s3.deleteObject(deleteObjectRequest, (err: AWS.AWSError, data: AWS.S3.DeleteObjectOutput) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
 }
 
 const fileManager = new FileManager();
