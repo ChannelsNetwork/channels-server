@@ -35,6 +35,7 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import { depositPageHandler } from "./page-handlers/deposit-page-handler";
 import { searchManager } from "./search-manager";
+const xFrameOptions = require('x-frame-options');
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
@@ -58,6 +59,7 @@ class ChannelsNetworkWebClient {
       await initializable.initialize(this.urlManager);
     }
     await this.setupExpress();
+    this.app.use(xFrameOptions());
 
     require('express-ws')(this.app, this.server);
     this.wsapp = this.app as ExpressWithSockets;
