@@ -147,7 +147,7 @@ export class Database {
     const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
     for (const marketingUser of noMarketing) {
       const genericUser = marketingUser as any;
-      const includeInMailingList = !genericUser.sourcing || genericUser.source.mailingList;
+      const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
       await this.users.updateOne({ id: marketingUser.id }, {
         $set: {
           marketing: {
