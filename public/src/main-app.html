@@ -2,9 +2,9 @@
 <link rel="import" href="../bower_components/shadycss/apply-shim.html">
 <link rel="import" href="../bower_components/polymer/lib/utils/import-href.html">
 <link rel="import" href="../bower_components/soso-pages/soso-pages.html">
+<link rel="import" href="../bower_components/soso-router/soso-router.html">
 <link rel="import" href="core/core.html">
 <link rel="import" href="app-styles.html">
-<link rel="import" href="hash-router.html">
 <link rel="import" href="app-bar.html">
 
 <dom-module id="main-app">
@@ -93,7 +93,7 @@
     <confirm-dialog id="dlgConfirm"></confirm-dialog>
     <error-dialog id="dlgError"></error-dialog>
 
-    <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
+    <soso-router id="router" on-route-change="_onRouteChange"></soso-router>
   </template>
   <script>
     class MainApp extends Polymer.Element {
@@ -126,7 +126,11 @@
       }
 
       _onRouteChange(event) {
-        const pageName = this._handleRouteChange(event.detail.route);
+        this._handleRouteChange(event.detail.route);
+      }
+
+      _onRouteChange2(event) {
+        const pageName = this._handleRouteChange2(event.detail.route);
         if ((pageName === 'card') && (!$core.isAgreedToTnCs())) {
           return this._import("account/terms-panel.html").then(() => {
             this.$.termsPanel.classList.remove("hidden");
@@ -146,6 +150,10 @@
       }
 
       _handleRouteChange(route) {
+        console.log("Route:", route);
+      }
+
+      _handleRouteChange2(route) {
         let pageName = route.segments[0] || "feed";
         pageName = pageName.trim();
         const pages = this.shadowRoot.querySelectorAll(".page");
