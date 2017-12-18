@@ -41,8 +41,8 @@ export class Database {
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
     await this.initializeOldUsers();
-    await this.initializeUsers();
     await this.initializeCards();
+    await this.initializeUsers();
     await this.initializeMutationIndexes();
     await this.initializeMutations();
     await this.initializeCardProperties();
@@ -133,6 +133,39 @@ export class Database {
     await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
 
     await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
+
+    const unnamedUsers = await this.users.find<UserRecord>({ identity: { $exists: true }, "identity.firstName": { $exists: false } }).toArray();
+    for (const unnamed of unnamedUsers) {
+      await this.users.updateOne({ id: unnamed.id }, {
+        $set: {
+          "identity.firstName": Utils.getFirstName(unnamed.identity.name),
+          "identity.lastName": Utils.getLastName(unnamed.identity.name)
+        }
+      });
+    }
+
+    const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
+    for (const marketingUser of noMarketing) {
+      const genericUser = marketingUser as any;
+      const includeInMailingList = !genericUser.sourcing || genericUser.source.mailingList;
+      await this.users.updateOne({ id: marketingUser.id }, {
+        $set: {
+          marketing: {
+            includeInMailingList: includeInMailingList
+          }
+        }
+      });
+    }
+
+    const noLastPostedUsers = await this.users.find<UserRecord>({ lastPosted: { $exists: false } }).toArray();
+    for (const noLastPosted of noLastPostedUsers) {
+      const lastCard = await this.findLastCardByUser(noLastPosted.id);
+      let lastPosted = 0;
+      if (lastCard) {
+        lastPosted = lastCard.postedAt;
+      }
+      await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
+    }
   }
 
   private async initializeCards(): Promise<void> {
@@ -353,7 +386,7 @@ export class Database {
     return await this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -377,7 +410,11 @@ export class Database {
       lastContact: now,
       storage: 0,
       admin: false,
-      ipAddresses: []
+      ipAddresses: [],
+      lastPosted: 0,
+      marketing: {
+        includeInMailingList: includeInMailingList
+      }
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -397,6 +434,10 @@ export class Database {
 
   async updateUserBalance(userId: string, value: number): Promise<void> {
     await this.users.updateOne({ id: userId }, { $set: { balance: value } });
+  }
+
+  async updateUserLastPosted(userId: string, value: number): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { lastPosted: value } });
   }
 
   async updateUserRecoveryCode(user: UserRecord, code: string, expires: number): Promise<void> {
@@ -458,6 +499,10 @@ export class Database {
     return await this.users.find<UserRecord>({ ipAddresses: ipAddress }).sort({ added: -1 }).limit(limit).toArray();
   }
 
+  async findUsersWithIdentity(limit = 500): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ identity: { $exists: true } }).sort({ lastContact: -1 }).limit(limit).toArray();
+  }
+
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
     await this.users.updateOne({ id: userRecord.id }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
@@ -467,7 +512,7 @@ export class Database {
     await this.users.deleteOne({ id: id });
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, handle: string, imageUrl: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageUrl: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
     const update: any = {};
     if (!userRecord.identity) {
       userRecord.identity = {
@@ -475,12 +520,22 @@ export class Database {
         handle: null,
         imageUrl: null,
         location: null,
-        emailAddress: null
+        emailAddress: null,
+        firstName: null,
+        lastName: null
       };
     }
     if (name) {
       update["identity.name"] = name;
       userRecord.identity.name = name;
+    }
+    if (firstName) {
+      update["identity.firstName"] = firstName;
+      userRecord.identity.firstName = firstName;
+    }
+    if (lastName) {
+      update["identity.lastName"] = lastName;
+      userRecord.identity.lastName = lastName;
     }
     if (handle) {
       update["identity.handle"] = handle.toLowerCase();
@@ -525,6 +580,11 @@ export class Database {
       publicKey: publicKey,
       added: now
     });
+  }
+
+  async updateUserMailingList(userRecord: UserRecord, mailingList: boolean): Promise<void> {
+    await this.users.updateOne({ id: userRecord.id }, { $set: { "marketing.includeInMailingList": mailingList } });
+    userRecord.marketing.includeInMailingList = mailingList;
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
@@ -724,6 +784,15 @@ export class Database {
       return await this.cards.findOne<CardRecord>(query);
     } else {
       return await this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
+    }
+  }
+
+  async findLastCardByUser(userId: string): Promise<CardRecord> {
+    const results = await this.cards.find<CardRecord>({ "by.id": userId }).sort({ postedAt: -1 }).limit(1).toArray();
+    if (results.length > 0) {
+      return results[0];
+    } else {
+      return null;
     }
   }
 

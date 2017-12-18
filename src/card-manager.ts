@@ -982,6 +982,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       html += "</div>";
       void emailManager.sendInternalNotification("Card posted", "", html);
     }
+    await db.updateUserLastPosted(user.id, card.postedAt);
     return card;
   }
 
