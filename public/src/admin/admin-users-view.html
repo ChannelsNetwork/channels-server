@@ -78,6 +78,7 @@
           <div class="headerCell">First</div>
           <div class="headerCell">Last</div>
           <div class="headerCell">Handle</div>
+          <div class="headerCell">Email</div>
           <div class="headerCell">Registered</div>
           <div class="headerCell right">Balance</div>
           <div class="headerCell">Last Contact</div>
@@ -94,6 +95,7 @@
             <div class="cell">[[item.firstName]]</div>
             <div class="cell">[[item.lastName]]</div>
             <div class="cell">[[item.handle]]</div>
+            <div class="cell">[[item.email]]</div>
             <div class="cell">[[item.registered]]</div>
             <div class="cell right">[[item.balance]]</div>
             <div class="cell">[[item.lastContact]]</div>
@@ -109,12 +111,13 @@
       </div>
       <h2>CSV</h2>
       <div class="csv">
-        <div class="csvRow">First, Last, Handle, Posts, Private, Revenue, Balance, Storage, IP Address, Mailing List</div>
+        <div class="csvRow">First, Last, Handle, Email, Posts, Private, Revenue, Balance, Storage, IP Address, Mailing List</div>
         <template is="dom-repeat" items="[[users]]">
           <div class="csvRow">
             <div class="csvCell">[[item.firstName]]</div>,
             <div class="csvCell">[[item.lastName]]</div>,
             <div class="csvCell">[[item.handle]]</div>,
+            <div class="csvCell">[[item.email]]</div>,
             <div class="csvCell">[[item.cardsPosted]]</div>,
             <div class="csvCell">[[item.privateCards]]</div>,
             <div class="csvCell">[[item.cardRevenue]]</div>,
@@ -164,6 +167,7 @@
               id: user.id,
               firstName: user.identity ? user.identity.firstName : "",
               lastName: user.identity ? user.identity.lastName : "",
+              email: user.identity ? user.identity.emailAddress : "",
               handle: user.identity ? user.identity.handle : "",
               registered: this._displayTimestamp(user.added),
               balance: user.balance.toFixed(3),
