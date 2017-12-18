@@ -24,6 +24,7 @@ import * as path from "path";
 import * as fs from 'fs';
 import { Cursor } from "mongodb";
 import { channelsComponentManager } from "./channels-component-manager";
+import { Utils } from "./utils";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -933,7 +934,9 @@ export class FeedManager implements Initializable, RestServer {
       handle: handle,
       imageUrl: imageUrl,
       emailAddress: emailAddress,
-      location: null
+      location: null,
+      firstName: Utils.getFirstName(name),
+      lastName: Utils.getLastName(name)
     };
     const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, id, identity);
     const grantDetails: BankTransactionDetails = {

@@ -20,12 +20,20 @@ export interface UserRecord {
   invitationsRemaining: number;
   invitationsAccepted: number;
   lastContact: number;
+  lastPosted: number;
   identity?: UserIdentity;
   storage: number;
   admin: boolean;
   recoveryCode?: string;
   recoveryCodeExpires?: number;
   ipAddresses: string[];
+  marketing: UserMarketingInfo;
+}
+
+export type UserStatus = "active" | "deleted";
+
+export interface UserMarketingInfo {
+  includeInMailingList: boolean;
 }
 
 export interface OldUserRecord {
@@ -72,6 +80,8 @@ export interface UserIdentity {
   imageUrl: string;
   location: string;
   emailAddress: string;
+  firstName: string;
+  lastName: string;
 }
 
 export interface NetworkRecord {

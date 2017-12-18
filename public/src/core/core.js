@@ -684,5 +684,19 @@ class CoreService extends Polymer.Element {
       this._fire("channels-user-status", this._userStatus);
     });
   }
+
+  admin_getUsers(limit) {
+    let details = RestUtils.admin_getUsers(this._keys.address, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-users";
+    return this.rest.post(url, request);
+  }
+
+  admin_setUserMailingList(userId, includeInMailingList) {
+    let details = RestUtils.admin_setUserMailingList(this._keys.address, userId, includeInMailingList);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-set-user-mailing-list";
+    return this.rest.post(url, request);
+  }
 }
 window.customElements.define(CoreService.is, CoreService);

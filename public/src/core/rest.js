@@ -480,4 +480,21 @@ class RestUtils {
       fileIds: fileIds
     };
   }
+
+  static admin_getUsers(address, limit) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      limit: limit
+    };
+  }
+
+  static admin_setUserMailingList(address, userId, includeInMailingList) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      userId: userId,
+      mailingList: includeInMailingList
+    };
+  }
 }

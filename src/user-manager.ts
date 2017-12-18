@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -20,6 +20,7 @@ import { bank } from "./bank";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
+import { Utils } from "./utils";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -99,6 +100,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('get-handle'), (request: Request, response: Response) => {
       void this.handleGetHandle(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-users'), (request: Request, response: Response) => {
+      void this.handleAdminGetUsers(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-set-user-mailing-list'), (request: Request, response: Response) => {
+      void this.handleAdminSetUserMailingList(request, response);
     });
   }
 
@@ -212,7 +219,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         networkDeveloperAddress: networkEntity.getNetworkDevelopeAddress(),
         referralFraction: networkEntity.getReferralFraction(),
         withdrawalsEnabled: bank.withdrawalsEnabled,
-        depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null
+        depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null,
+        admin: userRecord.admin
       };
       response.json(registerResponse);
     } catch (err) {
@@ -364,7 +372,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
       if (configuration.get("notifications.userIdentityChange")) {
         let html = "<div>";
         html += "<div>userId: " + user.id + "</div>";
@@ -537,6 +545,75 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetHandle: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminGetUsers(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetUsersDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      const users = await db.findUsersWithIdentity(requestBody.detailsObject.limit);
+      console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
+      const usersWithData: AdminUserInfo[] = [];
+      for (const userInfo of users) {
+        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false);
+        let privateCards = 0;
+        let cardRevenue = 0;
+        for (const card of cards) {
+          privateCards += card.private ? 1 : 0;
+          cardRevenue += card.stats.revenue.value;
+        }
+        const item: AdminUserInfo = {
+          user: userInfo,
+          cardsPosted: cards.length,
+          privateCards: privateCards,
+          cardRevenue: cardRevenue
+        };
+        usersWithData.push(item);
+      }
+      const reply: AdminGetUsersResponse = {
+        serverVersion: SERVER_VERSION,
+        users: usersWithData
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleAdminGetUsers: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminSetUserMailingList(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminSetUserMailingListDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      const mailingListUser = await db.findUserById(requestBody.detailsObject.userId);
+      if (!mailingListUser) {
+        response.status(404).send("No such user");
+        return;
+      }
+      await db.updateUserMailingList(mailingListUser, requestBody.detailsObject.mailingList ? true : false);
+      console.log("UserManager.admin-set-user-mailing-list", user.id, requestBody.detailsObject);
+      const reply: AdminSetUserMailingListResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleAdminSetUserMailingList: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
