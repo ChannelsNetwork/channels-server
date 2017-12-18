@@ -59,7 +59,6 @@ class ChannelsNetworkWebClient {
       await initializable.initialize(this.urlManager);
     }
     await this.setupExpress();
-    this.app.use(xFrameOptions());
 
     require('express-ws')(this.app, this.server);
     this.wsapp = this.app as ExpressWithSockets;
@@ -116,6 +115,7 @@ class ChannelsNetworkWebClient {
     this.app.use(bodyParser.urlencoded({
       extended: true
     }));
+    this.app.use(xFrameOptions());
 
     // this.app.use((req: Request, res: Response, next: NextFunction) => {
     //   res.setHeader("Access-Control-Allow-Origin", "*");
