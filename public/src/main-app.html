@@ -126,11 +126,7 @@
       }
 
       _onRouteChange(event) {
-        this._handleRouteChange(event.detail.route);
-      }
-
-      _onRouteChange2(event) {
-        const pageName = this._handleRouteChange2(event.detail.route);
+        const pageName = this._handleRouteChange(event.detail.route);
         if ((pageName === 'card') && (!$core.isAgreedToTnCs())) {
           return this._import("account/terms-panel.html").then(() => {
             this.$.termsPanel.classList.remove("hidden");
@@ -150,12 +146,8 @@
       }
 
       _handleRouteChange(route) {
-        console.log("Route:", route);
-      }
-
-      _handleRouteChange2(route) {
-        let pageName = route.segments[0] || "feed";
-        pageName = pageName.trim();
+        let segments = route.segments;
+        let pageName = segments[0] || "feed";
         const pages = this.shadowRoot.querySelectorAll(".page");
         let activePage = this.shadowRoot.querySelector("." + pageName);
         if (!activePage) {
@@ -193,7 +185,7 @@
         let homePanelVisible = false;
         if (homePanel) {
           if (pageName === 'feed') {
-            let feedType = route.segments[1];
+            let feedType = segments[1];
             if ((!feedType) || (feedType === 'recommended')) {
               homePanelVisible = true;
             }
@@ -214,7 +206,6 @@
         const forcePreventScroll = activePage.dataset.preventscroll === "true";
         this._preventScroll = forcePreventScroll || (!showToolbar);
         this.style.paddingTop = (showToolbar && (!homePanelVisible)) ? "60px" : "0";
-
         const pageHref = activePage.dataset.href;
         let animation = route.animation;
         if (!animation) {
@@ -225,8 +216,7 @@
             }
           }
         }
-        animation = animation || activePage.dataset.animationIn || "dissolve";
-
+        animation = animation || activePage.dataset.animationIn || "none";
         this.$.pages.animation = animation;
         this._setBarVisible(showToolbar);
 
@@ -257,9 +247,9 @@
         if (window.ga) {
           try {
             let pageToReport = pageName + "";
-            if (route.segments.length > 1) {
-              for (let i = 1; i < route.segments.length; i++) {
-                pageToReport += "/" + route.segments[i];
+            if (segments.length > 1) {
+              for (let i = 1; i < segments.length; i++) {
+                pageToReport += "/" + segments[i];
               }
             }
             window.ga('send', 'pageview', "/" + pageToReport);

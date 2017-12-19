@@ -120,7 +120,6 @@
             $router.goto("");
           }, 600);
         });
-        $router.animation = null;
         setTimeout(() => {
           this.$.header.style.opacity = 1;
         }, 1250);
@@ -370,7 +369,7 @@
           return;
         }
         if (cardId) {
-          $router.goto("feed", "recommended", cardId);
+          $router.goto("feed/recommended/" + encodeURIComponent(cardId));
         } else {
           let q = location.search;
           if (q) {

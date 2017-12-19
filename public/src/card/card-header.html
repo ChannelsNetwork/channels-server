@@ -230,7 +230,7 @@
       }
 
       _openUserChannel() {
-        $router.goto(["channel", this.data.by.handle]);
+        $router.goto("channel/" + encodeURIComponent(this.data.by.handle));
       }
 
       get _shareUrl() {
