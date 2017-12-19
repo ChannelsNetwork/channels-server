@@ -158,7 +158,7 @@
         return {
           type: "feed",
           feedName: "channel",
-          path: 'channel/' + handle,
+          path: '/channel/' + encodeURIComponent(handle),
           count: 24,
           cardId: cardId,
           channel: handle

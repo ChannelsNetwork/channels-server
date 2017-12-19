@@ -205,11 +205,9 @@
           } else {
             let context = {
               card: card,
-              scrollTop: $app.scrollValue
+              scrollTop: $app.scrollValue,
+              returnPath: "/search/" + encodeURIComponent(this._searchString || "")
             };
-            if (this._parsedRoute) {
-              context.search = this._searchString;
-            }
             $router.goto("/c/" + encodeURIComponent(card.id), context);
           }
         }

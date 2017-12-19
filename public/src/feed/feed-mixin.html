@@ -155,7 +155,7 @@
               scrollTop: $app.scrollValue
             };
             if (this._parsedRoute) {
-              context.feed = this._parsedRoute.path;
+              context.returnPath = this._parsedRoute.path;
             }
             $router.goto("/c/" + encodeURIComponent(card.id), context);
           }

@@ -335,77 +335,20 @@
         }
       }
 
-      _getUrlParameter(name, doNotDecode) {
-        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-        var results = regex.exec(location.search);
-        // KD: Based on discussion with Preet about encoding of segments within return
-        if (doNotDecode) {
-          return results === null ? '' : results[1].replace(/\+/g, ' ');
-        } else {
-          return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-        }
-      };
-
       _doCardClose(cardId) {
+        console.log("card return", this._route);
+        if (this._route && this._route.context) {
+          let context = this._route.context;
+          let retContext = {
+            preventReload: true,
+            scrollTop: this._route.context.scrollTop || 0
+          };
+          if (context.returnPath) {
+            $router.goto(context.returnPath, retContext);
+            return;
+          }
+        }
         $router.goto("");
-
-        // let feed = null;
-        // let search = null;
-        // if (this._route && this._route.context) {
-        //   feed = this._route.context.feed;
-        //   search = this._route.context.search;
-        // }
-        // if (feed) {
-        //   $router.goto(feed, {
-        //     preventReload: true,
-        //     scrollTop: this._route.context.scrollTop || 0
-        //   });
-        //   return;
-        // }
-        // if (search) {
-        //   $router.goto("search", {
-        //     preventReload: true,
-        //     scrollTop: this._route.context.scrollTop || 0
-        //   });
-        //   return;
-        // }
-
-        // let feed = null;
-        // let search = null;
-        // if (this._route && this._route.context) {
-        //   feed = this._route.context.feed;
-        //   search = this._route.context.search;
-        // }
-        // if (feed) {
-        //   $router.goto(feed, {
-        //     preventReload: true,
-        //     scrollTop: this._route.context.scrollTop || 0
-        //   });
-        //   return;
-        // }
-        // if (search) {
-        //   $router.goto("search", {
-        //     preventReload: true,
-        //     scrollTop: this._route.context.scrollTop || 0
-        //   });
-        //   return;
-        // }
-        // if (cardId) {
-        //   $router.goto("feed", "recommended", cardId);
-        // } else {
-        //   let q = location.search;
-        //   if (q) {
-        //     feed = this._getUrlParameter("ret");
-        //   }
-        //   if (feed) {
-        //     $router.goto(feed);
-        //     return;
-        //   }
-        // }
-        // $router.goto("feed");
-
-
       }
     }
     window.customElements.define(CardPage.is, CardPage);
