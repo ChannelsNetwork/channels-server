@@ -311,8 +311,8 @@
         _$.textPanel.style.transform = "none";
       });
 
-      let hash = window.location.hash;
-      let mainPanelVisible = ((!hash) || (hash === '#') || (hash === '#feed') || (hash === '#feed/') || (hash === '#feed/recommended'));
+      let pathname = window.location.pathname;
+      let mainPanelVisible = ((!pathname) || (pathname === "/") || (pathname === "/feed") || (pathname === "/feed/") || (pathname === "/feed/recommended"));
       let hp = document.getElementById('homePanel');
       if (hp) {
         hp.style.display = mainPanelVisible ? "block" : "none";
