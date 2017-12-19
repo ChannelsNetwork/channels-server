@@ -35,6 +35,8 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import { depositPageHandler } from "./page-handlers/deposit-page-handler";
 import { searchManager } from "./search-manager";
+import { clientServices } from "./client-services";
+
 const xFrameOptions = require('x-frame-options');
 
 class ChannelsNetworkWebClient {
@@ -42,7 +44,7 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private started: number;
   private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager];
+  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
