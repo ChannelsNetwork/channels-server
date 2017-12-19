@@ -348,6 +348,29 @@
       };
 
       _doCardClose(cardId) {
+        $router.goto("");
+
+        // let feed = null;
+        // let search = null;
+        // if (this._route && this._route.context) {
+        //   feed = this._route.context.feed;
+        //   search = this._route.context.search;
+        // }
+        // if (feed) {
+        //   $router.goto(feed, {
+        //     preventReload: true,
+        //     scrollTop: this._route.context.scrollTop || 0
+        //   });
+        //   return;
+        // }
+        // if (search) {
+        //   $router.goto("search", {
+        //     preventReload: true,
+        //     scrollTop: this._route.context.scrollTop || 0
+        //   });
+        //   return;
+        // }
+
         // let feed = null;
         // let search = null;
         // if (this._route && this._route.context) {
@@ -369,18 +392,20 @@
         //   return;
         // }
         // if (cardId) {
-        //   $router.goto("feed/recommended/" + encodeURIComponent(cardId));
+        //   $router.goto("feed", "recommended", cardId);
         // } else {
         //   let q = location.search;
         //   if (q) {
-        //     feed = this._getUrlParameter("ret", true);
+        //     feed = this._getUrlParameter("ret");
         //   }
         //   if (feed) {
         //     $router.goto(feed);
         //     return;
         //   }
         // }
-        $router.goto("");
+        // $router.goto("feed");
+
+
       }
     }
     window.customElements.define(CardPage.is, CardPage);

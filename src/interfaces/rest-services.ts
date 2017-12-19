@@ -617,6 +617,8 @@ export interface AdminUserInfo {
   cardsPosted: number;
   privateCards: number;
   cardRevenue: number;
+  cardsOpened: number;
+  cardsBought: number;
 }
 
 export interface AdminSetUserMailingListDetails extends Signable {
@@ -625,3 +627,12 @@ export interface AdminSetUserMailingListDetails extends Signable {
 }
 
 export interface AdminSetUserMailingListResponse extends RestResponse { }
+
+export interface QueryPageDetails extends Signable {
+  url: string;
+}
+
+export interface QueryPageResponse extends RestResponse {
+  embeddable: boolean;
+  notEmbeddableReason?: string;
+}

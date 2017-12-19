@@ -147,7 +147,7 @@ export class Database {
     const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
     for (const marketingUser of noMarketing) {
       const genericUser = marketingUser as any;
-      const includeInMailingList = !genericUser.sourcing || genericUser.source.mailingList;
+      const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
       await this.users.updateOne({ id: marketingUser.id }, {
         $set: {
           marketing: {
@@ -1528,6 +1528,10 @@ export class Database {
 
   async findUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
     return await this.userCardInfo.findOne<UserCardInfoRecord>({ userId: userId, cardId: cardId });
+  }
+
+  async findUserCardInfoForUser(userId: string): Promise<UserCardInfoRecord[]> {
+    return await this.userCardInfo.find<UserCardInfoRecord>({ userId: userId }).sort({ cardId: 1 }).toArray();
   }
 
   async findRecentCardOpens(userId: string, limit = 25, before = 0): Promise<UserCardInfoRecord[]> {

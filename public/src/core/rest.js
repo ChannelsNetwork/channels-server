@@ -497,4 +497,12 @@ class RestUtils {
       mailingList: includeInMailingList
     };
   }
+
+  static queryPage(address, url) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      url: url
+    };
+  }
 }
