@@ -374,7 +374,7 @@
         } else {
           let q = location.search;
           if (q) {
-            feed = this._getUrlParameter("ret", true);
+            feed = this._getUrlParameter("ret");
           }
           if (feed) {
             $router.goto(feed);
