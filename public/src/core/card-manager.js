@@ -91,6 +91,10 @@ class CardService {
       return Promise.resolve();
     }
   }
+
+  queryPage(url) {
+    return this._core.queryPage(url);
+  }
 }
 
 class UserManager {

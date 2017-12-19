@@ -625,3 +625,12 @@ export interface AdminSetUserMailingListDetails extends Signable {
 }
 
 export interface AdminSetUserMailingListResponse extends RestResponse { }
+
+export interface QueryPageDetails extends Signable {
+  url: string;
+}
+
+export interface QueryPageResponse extends RestResponse {
+  embeddable: boolean;
+  notEmbeddableReason?: string;
+}

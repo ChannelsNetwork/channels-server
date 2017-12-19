@@ -525,6 +525,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  queryPage(queryUrl) {
+    let details = RestUtils.queryPage(this._keys.address, queryUrl);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/query-page";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
