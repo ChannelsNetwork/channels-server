@@ -282,7 +282,7 @@
       }
 
       _onCancel() {
-        $router.goto("account");
+        $router.goto("/account");
       }
 
       _onInput() {
@@ -356,7 +356,7 @@
 
       _updateProfile(name, email, imageUrl) {
         $core.updateUserProfile(name, null, null, imageUrl, email, null).then(() => {
-          $router.goto("account");
+          $router.goto("/account");
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong.");

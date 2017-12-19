@@ -44,7 +44,7 @@
 
       _onCancel() {
         this._userClosed = true;
-        $router.goto("feed");
+        $router.goto("/feed");
       }
 
       onActivate() {
@@ -63,7 +63,7 @@
             return;
           }
           if (!$core.profile || !$core.profile.handle) {
-            $router.goto("register", { returnRoute: { success: "compose", cancel: "feed" } });
+            $router.goto("/register", { returnRoute: { success: "compose", cancel: "feed" } });
             return;
           }
         });
@@ -157,7 +157,7 @@
           data.cardSharedState
         ).then(() => {
           $core.cardManager.cardService.clearUploadedFileIds();
-          $router.goto("feed/mine");
+          $router.goto("/feed/mine");
         }).catch((err) => {
           this.$.wiz.navigationEnabled = true;
           this.$.publishPage.onPublishFail(err);

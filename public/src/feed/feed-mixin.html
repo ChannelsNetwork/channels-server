@@ -145,7 +145,7 @@
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {
-                  $router.goto("balance");
+                  $router.goto("/balance");
                 }
               });
             });
@@ -157,24 +157,9 @@
             if (this._parsedRoute) {
               context.feed = this._parsedRoute.path;
             }
-            window.location.assign(this._getCardUrl(card.id));
+            $router.goto("/c/" + encodeURIComponent(card.id), context);
           }
         }
-      }
-
-      _getCardUrl(cardId) {
-        let root = window.location.origin;
-        if (!root) {
-          root = window.location.protocol + "://" + window.location.host;
-        }
-        let q = "";
-        if ($router.route) {
-          let segments = $router.route.segments;
-          if (segments && segments.length) {
-            q = encodeURIComponent(segments.join("/"));
-          }
-        }
-        return (root + "/c/" + cardId + (q ? ("?ret=" + q) : ""));
       }
 
       _onCardImpression(event) {

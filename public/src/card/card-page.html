@@ -181,7 +181,7 @@
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {
-                  $router.goto("balance");
+                  $router.goto("/balance");
                 } else {
                   this._doCardClose(this.data.id);
                 }
@@ -348,48 +348,39 @@
       };
 
       _doCardClose(cardId) {
-        let feed = null;
-        let search = null;
-        if (this._route && this._route.context) {
-          feed = this._route.context.feed;
-          search = this._route.context.search;
-        }
-        if (feed) {
-          $router.goto(feed, {
-            preventReload: true,
-            scrollTop: this._route.context.scrollTop || 0
-          });
-          return;
-        }
-        if (search) {
-          $router.goto("search", {
-            preventReload: true,
-            scrollTop: this._route.context.scrollTop || 0
-          });
-          return;
-        }
-        if (cardId) {
-          $router.goto("feed/recommended/" + encodeURIComponent(cardId));
-        } else {
-          let q = location.search;
-          if (q) {
-            feed = this._getUrlParameter("ret", true);
-          }
-          if (feed) {
-            $router.goto(feed);
-            return;
-          }
-        }
-        $router.goto("feed");
+        // let feed = null;
+        // let search = null;
+        // if (this._route && this._route.context) {
+        //   feed = this._route.context.feed;
+        //   search = this._route.context.search;
+        // }
+        // if (feed) {
+        //   $router.goto(feed, {
+        //     preventReload: true,
+        //     scrollTop: this._route.context.scrollTop || 0
+        //   });
+        //   return;
+        // }
+        // if (search) {
+        //   $router.goto("search", {
+        //     preventReload: true,
+        //     scrollTop: this._route.context.scrollTop || 0
+        //   });
+        //   return;
+        // }
         // if (cardId) {
-        //   $router.goto("feed", "recommended", cardId);
+        //   $router.goto("feed/recommended/" + encodeURIComponent(cardId));
         // } else {
-        //   if (this.data) {
-        //     $router.goto(["channel", this.data.by.handle]);
-        //   } else {
-        //     $router.goto("");
+        //   let q = location.search;
+        //   if (q) {
+        //     feed = this._getUrlParameter("ret", true);
+        //   }
+        //   if (feed) {
+        //     $router.goto(feed);
+        //     return;
         //   }
         // }
+        $router.goto("");
       }
     }
     window.customElements.define(CardPage.is, CardPage);

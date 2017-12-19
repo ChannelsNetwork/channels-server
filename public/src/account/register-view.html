@@ -239,7 +239,7 @@
         this._setMessage("Registering");
         $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
           $core.agreeToTnCs();
-          $router.goto("register-photo", { returnRoute: this.returnRoute });
+          $router.goto("/register-photo", { returnRoute: this.returnRoute });
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong when registering your handle.");
@@ -312,7 +312,7 @@
       }
 
       _onSignIn() {
-        $router.goto("signin");
+        $router.goto("/signin");
       }
 
       _validateHandle() {
