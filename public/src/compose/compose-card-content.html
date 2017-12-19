@@ -132,6 +132,10 @@
             }).catch((err) => {
               this.$.spinner.spinning = false;
               this.$.overlay.classList.add("hidden");
+              if (!forward) {
+                this._finishTransition(forward, resolve);
+                return;
+              }
               reject(err);
             });
           } else {
