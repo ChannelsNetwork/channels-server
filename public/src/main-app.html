@@ -253,7 +253,7 @@
               }
             }
             window.ga('send', 'pageview', "/" + pageToReport);
-          } catch (err) { }
+          } catch (err) { console.warn(err); }
         }
 
         return pageName;
