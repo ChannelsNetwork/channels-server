@@ -84,6 +84,8 @@
           <div class="headerCell">Last Contact</div>
           <div class="headerCell">Last Posted</div>
           <div class="headerCell right">Total Posts</div>
+          <div class="headerCell right">Cards Opened</div>
+          <div class="headerCell right">Cards Bought</div>
           <div class="headerCell right">Private</div>
           <div class="headerCell right">Revenue</div>
           <div class="headerCell right">Storage (MB)</div>
@@ -101,6 +103,8 @@
             <div class="cell">[[item.lastContact]]</div>
             <div class="cell">[[item.lastPosted]]</div>
             <div class="cell right">[[item.cardsPosted]]</div>
+            <div class="cell right">[[item.cardsOpened]]</div>
+            <div class="cell right">[[item.cardsBought]]</div>
             <div class="cell right">[[item.privateCards]]</div>
             <div class="cell right">[[item.cardRevenue]]</div>
             <div class="cell right">[[item.storage]]</div>
@@ -111,7 +115,9 @@
       </div>
       <h2>CSV</h2>
       <div class="csv">
-        <div class="csvRow">First, Last, Handle, Email, Posts, Private, Revenue, Balance, Storage, IP Address, Mailing List</div>
+        <div class="csvRow">First, Last, Handle, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage, IP Address, Mailing
+          List
+        </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="csvRow">
             <div class="csvCell">[[item.firstName]]</div>,
@@ -119,6 +125,8 @@
             <div class="csvCell">[[item.handle]]</div>,
             <div class="csvCell">[[item.email]]</div>,
             <div class="csvCell">[[item.cardsPosted]]</div>,
+            <div class="csvCell">[[item.cardsOpened]]</div>,
+            <div class="csvCell">[[item.cardsBought]]</div>,
             <div class="csvCell">[[item.privateCards]]</div>,
             <div class="csvCell">[[item.cardRevenue]]</div>,
             <div class="csvCell">[[item.balance]]</div>,
@@ -179,7 +187,9 @@
               includeInMailingList: user.marketing.includeInMailingList,
               cardsPosted: userInfo.cardsPosted,
               privateCards: userInfo.privateCards,
-              cardRevenue: userInfo.cardRevenue.toFixed(3)
+              cardRevenue: userInfo.cardRevenue.toFixed(3),
+              cardsOpened: userInfo.cardsOpened,
+              cardsBought: userInfo.cardsBought
             });
           }
           this.set('users', users);

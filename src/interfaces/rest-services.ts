@@ -617,6 +617,8 @@ export interface AdminUserInfo {
   cardsPosted: number;
   privateCards: number;
   cardRevenue: number;
+  cardsOpened: number;
+  cardsBought: number;
 }
 
 export interface AdminSetUserMailingListDetails extends Signable {

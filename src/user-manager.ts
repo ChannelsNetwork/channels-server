@@ -571,11 +571,24 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           privateCards += card.private ? 1 : 0;
           cardRevenue += card.stats.revenue.value;
         }
+        let cardsBought = 0;
+        let cardsOpened = 0;
+        const userCards = await db.findUserCardInfoForUser(userInfo.id);
+        for (const userCard of userCards) {
+          if (userCard.lastOpened && userCard.lastOpened > 0) {
+            cardsOpened++;
+          }
+          if (userCard.paidToAuthor && userCard.paidToAuthor > 0) {
+            cardsBought++;
+          }
+        }
         const item: AdminUserInfo = {
           user: userInfo,
           cardsPosted: cards.length,
           privateCards: privateCards,
-          cardRevenue: cardRevenue
+          cardRevenue: cardRevenue,
+          cardsBought: cardsBought,
+          cardsOpened: cardsOpened
         };
         usersWithData.push(item);
       }
