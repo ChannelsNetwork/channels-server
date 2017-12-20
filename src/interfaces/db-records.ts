@@ -114,6 +114,7 @@ export interface CardRecord {
     title: string;
     text: string;
   };
+  keywords: string[];
   private: boolean;
   cardType: {
     package: string;

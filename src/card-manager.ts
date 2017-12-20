@@ -1314,6 +1314,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           title: record.summary.title,
           text: record.summary.text,
         },
+        keywords: record.keywords,
         private: record.private,
         cardType: {
           package: record.cardType.package,

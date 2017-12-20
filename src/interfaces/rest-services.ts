@@ -197,6 +197,7 @@ export interface CardDescriptor {
     title: string;
     text: string;
   };
+  keywords: string[];
   cardType: {
     package: string;
     iconUrl: string;

@@ -208,6 +208,8 @@ export class Database {
         }
       }
     }
+
+    await this.cards.updateMany({ keywords: { $exists: false } }, { $set: { keywords: [] } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -676,6 +678,7 @@ export class Database {
         title: title,
         text: text,
       },
+      keywords: [],
       private: isPrivate,
       cardType: {
         package: cardType,
