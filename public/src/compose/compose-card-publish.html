@@ -1,5 +1,6 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -78,6 +79,10 @@
         margin-top: 25px;
       }
 
+      #keywords {
+        margin-bottom: 25px;
+      }
+
       @media (max-width: 600px) {
         .container {
           padding: 20px 16px 20px;
@@ -103,6 +108,7 @@
           <h2>Review and Publish</h2>
           <p>This is how your card will look to others when you post it.</p>
           <div>
+            <soso-text-input id="keywords" label="Keywords" placeholder="Keywords"></soso-text-input>
             <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
           </div>
           <div id="cardDeveloper" style="display:none;">
@@ -156,6 +162,7 @@
         this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
         this.wizard.data.summary.title = this.cardData.summary.title;
         this.wizard.data.summary.text = this.cardData.summary.text;
+        this.wizard.data.keywords = this._getKeywords();
         this._setImageSize().then(() => {
           this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
         });
@@ -250,14 +257,17 @@
           const editSummary = {
             imageUrl: this.cardData.summary.imageUrl,
             title: this.cardData.summary.title,
-            text: this.cardData.summary.text
+            text: this.cardData.summary.text,
+            keywords: this._getKeywords()
           };
           this.wizard.headerVisible = false;
-          this.$.editDialog.show(editSummary).then((resultSummary) => {
+          this.$.editDialog.show(editSummary).then((result) => {
             this.wizard.headerVisible = true;
-            if (resultSummary) {
-              this.$.cardView.updateSummary(resultSummary);
-              this.cardData.summary = resultSummary;
+            if (result) {
+              this.$.cardView.updateSummary(result.summary);
+              this.cardData.summary = result.summary;
+              this.$.keywords = result.keywords.join(', ');
+              this.cardData.keywords = result.keywords;
             }
           }).catch((err) => {
             console.error(err);
@@ -268,6 +278,24 @@
           console.error(err);
           $app.showError("Oops. There was a problem loading the edit dialog.");
         });
+      }
+
+      _getKeywords() {
+        if (!this.$.keywords.value) {
+          return [];
+        }
+        const keywords = [];
+        let delimiter = ',';
+        if (this.$.keywords.value.indexOf(',') < 0) {
+          delimiter = " ";
+        }
+        const userKeys = this.$.keywords.value.split(delimiter);
+        for (const k of userKeys) {
+          if (k.trim().length > 0) {
+            keywords.push(k.trim());
+          }
+        }
+        return keywords;
       }
 
       _import(url) {

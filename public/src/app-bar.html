@@ -165,6 +165,9 @@
       <a href="#feed/recommended">
         <button id="recommended">Recommended</button>
       </a>
+      <a href="#browse">
+        <button id="browse">Browse</button>
+      </a>
       <a href="#feed/new">
         <button id="new">New</button>
       </a>
@@ -281,6 +284,7 @@
       _showFeedsBar(subpath) {
         this.$.feedsBar.classList.remove("hidden");
         this.$.recommended.classList.remove("selected");
+        this.$.browse.classList.remove("selected");
         this.$.new.classList.remove("selected");
         this.$.top.classList.remove("selected");
         this.$.mine.classList.remove("selected");

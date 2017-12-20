@@ -861,9 +861,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-state-update", requestBody.detailsObject);
-      if (requestBody.detailsObject.summary) {
+      let keywords: string[];
+      if (requestBody.detailsObject.keywords && requestBody.detailsObject.keywords.length > 0) {
+        keywords = [];
+        for (const k of requestBody.detailsObject.keywords) {
+          keywords.push(k.trim().toLowerCase());
+        }
+      }
+      if (requestBody.detailsObject.summary || keywords) {
         const summary = requestBody.detailsObject.summary;
-        await db.updateCardSummary(card, summary.title, summary.text, summary.linkUrl, summary.imageUrl, summary.imageWidth, summary.imageHeight);
+        await db.updateCardSummary(card, summary.title, summary.text, summary.linkUrl, summary.imageUrl, summary.imageWidth, summary.imageHeight, keywords);
       }
       if (requestBody.detailsObject.state) {
         await db.deleteCardProperties(card.id);
@@ -958,8 +965,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       couponId = couponRecord.id;
     }
     const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0);
+    const keywords: string[] = [];
+    if (details.keywords) {
+      for (const keyword of details.keywords) {
+        keywords.push(keyword.trim().toLowerCase());
+      }
+    }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, searchText, details.fileIds, promotionScores, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, promotionScores, cardId);
     await this.announceCard(card, user);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
@@ -1280,6 +1293,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           title: record.summary.title,
           text: record.summary.text,
         },
+        keywords: record.keywords,
         private: record.private,
         cardType: {
           package: record.cardType.package,

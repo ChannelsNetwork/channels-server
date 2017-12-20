@@ -8,7 +8,7 @@ import { db } from "./db";
 import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -72,6 +72,12 @@ export class FeedManager implements Initializable, RestServer {
   private registerHandlers(): void {
     this.app.post(this.urlManager.getDynamicUrl('get-feeds'), (request: Request, response: Response) => {
       void this.handleGetFeeds(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('search-topic'), (request: Request, response: Response) => {
+      void this.handleSearchTopic(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('list-topics'), (request: Request, response: Response) => {
+      void this.handleListTopics(request, response);
     });
   }
 
@@ -146,6 +152,51 @@ export class FeedManager implements Initializable, RestServer {
     result.cards = batch.cards;
     result.moreAvailable = batch.moreAvailable;
     return result;
+  }
+
+  private async handleSearchTopic(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<SearchTopicDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("FeedManager.search-topic", requestBody.detailsObject);
+      const batch = await this.performSearchTopic(user, requestBody.detailsObject.topic, requestBody.detailsObject.maxCount, requestBody.detailsObject.afterCardId, requestBody.detailsObject.promotedCardIds);
+      const reply: SearchTopicResponse = {
+        serverVersion: SERVER_VERSION,
+        cards: batch.cards,
+        moreAvailable: batch.moreAvailable
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleSearchTopic: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleListTopics(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<ListTopicsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("FeedManager.list-topics", requestBody.detailsObject);
+      const topicRecords = await db.listCardTopics();
+      const topics: string[] = [];
+      for (const record of topicRecords) {
+        topics.push(record.topicWithCase);
+      }
+      const reply: ListTopicsResponse = {
+        serverVersion: SERVER_VERSION,
+        topics: topics
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleListTopics: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
   }
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
@@ -448,6 +499,27 @@ export class FeedManager implements Initializable, RestServer {
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
+  private async performSearchTopic(user: UserRecord, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+    let score = 0;
+    if (afterCardId) {
+      const afterCard = await db.findCardById(afterCardId, true);
+      if (afterCard) {
+        score = afterCard.score;
+      }
+    }
+    const topicRecord = await db.findCardTopicByName(topic);
+    if (!topicRecord) {
+      const emptyResult: CardBatch = {
+        cards: [],
+        moreAvailable: false
+      };
+      return emptyResult;
+    }
+    const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1);
+    const result = await this.populateCards(cards, false, user);
+    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+  }
+
   private async populateCards(cards: CardRecord[], promoted: boolean, user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
     const promises: Array<Promise<CardDescriptor>> = [];
     const orderedCards: CardRecord[] = [];
@@ -644,7 +716,7 @@ export class FeedManager implements Initializable, RestServer {
         './icon.png',
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, sample.text, [], null,
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, ["sample"], sample.text, [], null,
         cardId);
       await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));

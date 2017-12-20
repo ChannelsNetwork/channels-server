@@ -47,6 +47,7 @@
       </div>
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
+      <soso-text-input id="keywords" label="Keywords" placeholder="Keywords"></soso-text-input>
       <soso-checkbox id="private" label="Keep this card private"></soso-checkbox>
     </dialog-view>
   </template>
@@ -94,6 +95,7 @@
         this.$.filePicker.clear();
         this.$.title.value = card.summary.title || "";
         this.$.text.value = card.summary.text || "";
+        this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
         this.$.filePicker.image = card.summary.imageUrl;
 
@@ -177,9 +179,27 @@
           imgW = 0;
           imgH = 0;
         }
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, img, imgW, imgH).then((summary) => {
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, img, imgW, imgH, this._getKeywords()).then((summary) => {
           this._summary = summary;
         });
+      }
+
+      _getKeywords() {
+        if (!this.$.keywords.value) {
+          return [];
+        }
+        const keywords = [];
+        let delimiter = ',';
+        if (this.$.keywords.value.indexOf(',') < 0) {
+          delimiter = " ";
+        }
+        const userKeys = this.$.keywords.value.split(delimiter);
+        for (const k of userKeys) {
+          if (k.trim().length > 0) {
+            keywords.push(k.trim());
+          }
+        }
+        return keywords;
       }
 
       _getImageSize(imageUrl) {

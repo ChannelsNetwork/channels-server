@@ -1,0 +1,317 @@
+<link rel="import" href="card-feed.html">
+<link rel="import" href="../channel-icons.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
+<dom-module id="browse-view">
+  <template>
+    <style is="custom-style" include="app-styles feed-styles">
+      #topicArea {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 15px;
+      }
+
+      .main {
+        max-width: 1200px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding: 0 0 200px;
+      }
+
+      #buttons {
+        margin: 25px 0;
+        text-align: center;
+      }
+
+      .searchArea {
+        margin: 40px 0;
+        text-align: center;
+      }
+
+      #search {
+        width: 60%;
+        max-width: 500px;
+        text-align: left;
+      }
+
+      #btnSearch {
+        margin-left: 5px;
+      }
+
+      .main {
+        padding: 0 0 90px;
+        text-align: center;
+      }
+
+      soso-spinner {
+        margin: 50px;
+      }
+
+      #feed {
+        text-align: left;
+      }
+
+      .topicTitle {
+        font-size: 24px;
+        cursor: pointer;
+      }
+
+      .topicTitle:hover {
+        text-decoration: underline;
+      }
+
+      .selectionTitle {
+        font-size: 32px;
+      }
+
+      #titleArea {
+        margin: 15px 0 25px;
+      }
+
+      #btnBrowse {
+        margin-left: 15px;
+        font-size: 14px;
+      }
+    </style>
+    <div class="spacer"></div>
+    <div class="container">
+      <div id="topicArea">
+        <dom-repeat items="[[topics]]">
+          <template>
+            <div class="topicTitle" on-click="_onTopic">[[item]]</div>
+          </template>
+        </dom-repeat>
+      </div>
+      <div id="titleArea" class="horizontal layout center-center" style="display:none;">
+        <div class="selectionTitle">[[selectionTitle]]</div>
+        <button id="btnBrowse" on-click="_onBrowse">Browse</button>
+      </div>
+      <div class="main">
+        <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
+        <div id="noItems" style="display:none;">There are no cards in this topic</div>
+        <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
+        <div id="buttons" style="display:none;">
+          <button id="btnMore" on-click="_onMoreClick">More</button>
+        </div>
+      </div>
+    </div>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
+  </template>
+  <script>
+    class BrowseView extends Polymer.Element {
+      static get is() { return 'browse-view'; }
+      static get properties() {
+        return {
+          items: Array,
+          topics: Array,
+          selectionTitle: String
+        };
+      }
+
+      onActivate(route) {
+        this._promotedCardIds = [];
+        this.$.buttons.style.display = "none";
+        this.$.noItems.style.display = "none";
+        this.$.titleArea.style.display = "none";
+        this.$.topicArea.style.display = "";
+        this._topic = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null
+        $core.register().then(() => {
+          // register event handlers
+          this._resizeListener = _debounce(() => {
+            this._onResize();
+          }, 350);
+          window.addEventListener("resize", this._resizeListener);
+          this._onResize();
+          let preventReload = false;
+          if (route.context) {
+            preventReload = route.context.preventReload;
+          }
+          if (preventReload && this.items && this.items.length) {
+            $app.scrollTo(route.context.scrollTop);
+            $router.context = null;
+            return;
+          }
+          $router.context = null;
+          this._setItems([]);
+          if (this._topic) {
+            this._showTopic();
+          } else {
+            this._showTopics();
+          }
+        });
+      }
+
+      _setItems(items) {
+        this.set("items", items);
+      }
+
+      _appendItems(items) {
+        for (const item of items) {
+          this.push('items', item);
+        }
+      }
+
+      _onMoreUpdated(value) {
+        this.$.btnMore.disabled = false;
+        if (value) {
+          this.$.buttons.style.display = "";
+        } else {
+          this.$.buttons.style.display = "none";
+        }
+      }
+
+      _showTopics() {
+        $core.listTopics().then((response) => {
+          this.set('topics', response.topics);
+        });
+      }
+
+      _onTopic(event) {
+        this._topic = event.model.item;
+        this.$.topicArea.style.display = "none";
+        this.$.titleArea.style.display = "";
+        this.set('selectionTitle', this._topic);
+        this._showTopic();
+      }
+
+      _onBrowse() {
+        this.$.topicArea.style.display = "";
+        this.$.titleArea.style.display = "none";
+        this.set('items', []);
+      }
+
+      _showTopic() {
+        this.$.buttons.style.display = "none";
+        this.$.noItems.style.display = "none";
+        let finished = false;
+        setTimeout(() => {
+          if (!finished) {
+            this.$.spinner.style.display = "";
+          }
+        }, 100)
+        $core.searchTopic(this._topic, 24, null, this._promotedCardIds).then((topicResponse) => {
+          this.$.spinner.style.display = "none";
+          finished = true;
+          const cards = topicResponse.cards;
+          this._lastCardId = null;
+          for (const card of cards) {
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
+            } else {
+              this._lastCardId = card.id;
+            }
+          }
+          this._setItems(cards);
+          this.$.noItems.style.display = cards && cards.length ? "none" : "";
+          this._moreAvailable = topicResponse.moreAvailable && this._lastCardId ? true : false;
+          this._onMoreUpdated(this._moreAvailable);
+        });
+      }
+
+      _onMoreClick() {
+        this.$.btnMore.disabled = true;
+        return $core.searchTopic(this._topic, 24, this._lastCardId, this._promotedCardIds).then((topicResponse) => {
+          const cards = topicResponse.cards;
+          this._lastCardId = null;
+          for (const card of cards) {
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
+            } else {
+              this._lastCardId = card.id;
+            }
+          }
+          this._appendItems(cards);
+          this._moreAvailable = topicResponse.moreAvailable && this._lastCardId ? true : false;
+          this._onMoreUpdated(this._moreAvailable);
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMoreUpdated(value) {
+        this.$.btnMore.disabled = false;
+        if (value) {
+          this.$.buttons.style.display = "";
+        } else {
+          this.$.buttons.style.display = "none";
+        }
+      }
+
+      _onMoreClick() {
+        this.$.btnMore.disabled = true;
+        this._fetchMore();
+      }
+
+      onDeactivate() {
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      _onResize() {
+        this.$.feed.refreshLayout();
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("balance");
+                }
+              });
+            });
+          } else {
+            let context = {
+              card: card,
+              scrollTop: $app.scrollValue
+            };
+            if (this._parsedRoute) {
+              context.topic = this._topic;
+            }
+            window.location.assign(this._getCardUrl(card.id));
+          }
+        }
+      }
+
+      _getCardUrl(cardId) {
+        let root = window.location.origin;
+        if (!root) {
+          root = window.location.protocol + "://" + window.location.host;
+        }
+        let q = "browse/" + encodeURIComponent(this._topic);
+        return root + "/c/" + cardId + "?ret=" + q;
+      }
+
+      _onCardImpression(event) {
+        let card = event.detail.card;
+        let view = event.detail.view;
+        if (card && view) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
+            $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+          } else {
+            $core.cardImpression(card.id);
+          }
+        }
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+    }
+    window.customElements.define(BrowseView.is, BrowseView);
+  </script>
+</dom-module>

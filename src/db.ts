@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -34,6 +34,7 @@ export class Database {
   private bankDeposits: Collection;
   private bowerPackages: Collection;
   private publisherSubsidyDays: Collection;
+  private cardTopics: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -63,6 +64,7 @@ export class Database {
     await this.initializeBankDeposits();
     await this.initializeBowerPackages();
     await this.initializePublisherSubsidyDays();
+    await this.initializeCardTopics();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -183,31 +185,23 @@ export class Database {
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, private: 1, "promotionScores.e": -1 });
-    await this.cards.createIndex({ state: 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text" });
+    await this.cards.createIndex({ state: 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 10, "summary.text": 5, "keywords": 7, "by.name": 5, "by.handle": 5 } });
 
     await this.cards.updateMany({ curation: { $exists: false } }, { $set: { curation: { block: false } } });
     await this.cards.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.cards.createIndex({ type: 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, keywords: 1, score: -1 });
 
     // Migration: from single coupon per card to multiple  coupon > coupons, couponId > couponIds
     await this.cards.updateMany({ coupons: { $exists: false } }, { $set: { coupons: [] } });
     await this.cards.updateMany({ couponIds: { $exists: false } }, { $set: { couponIds: [] } });
 
-    let cards = await this.cards.find<CardRecord>({ coupon: { $exists: true } }).toArray();
-    for (const card of cards) {
+    const withOldCoupon = await this.cards.find<CardRecord>({ coupon: { $exists: true } }).toArray();
+    for (const card of withOldCoupon) {
       await this.cards.updateOne({ id: card.id }, { $push: { coupons: card.coupon, couponIds: card.couponId }, $unset: { coupon: 1, couponId: 1 } });
     }
 
-    if (SERVER_VERSION <= 100) {
-      console.log("Db.initializeCards: Stripping version portion from card type on existing cards");
-      cards = await this.cards.find<CardRecord>({}).toArray();
-      for (const card of cards) {
-        if (card.cardType && card.cardType.package && card.cardType.package.indexOf('#') > 0) {
-          const packageName = card.cardType.package.split('#')[0];
-          await this.cards.updateOne({ id: card.id }, { $set: { "cardType.package": packageName } });
-        }
-      }
-    }
+    await this.cards.updateMany({ keywords: { $exists: false } }, { $set: { keywords: [] } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -356,6 +350,27 @@ export class Database {
   private async initializePublisherSubsidyDays(): Promise<void> {
     this.publisherSubsidyDays = this.db.collection('publisherSubsidyDays');
     await this.publisherSubsidyDays.createIndex({ starting: -1 }, { unique: true });
+  }
+
+  private async initializeCardTopics(): Promise<void> {
+    this.cardTopics = this.db.collection('cardTopics');
+    await this.cardTopics.createIndex({ id: 1 }, { unique: true });
+    await this.cardTopics.createIndex({ status: 1, topicWithCase: 1 });
+
+    const count = await this.cardTopics.count({});
+    if (count === 0) {
+      for (const item of DEFAULT_CARD_TOPICS) {
+        const record: CardTopicRecord = {
+          id: uuid.v4(),
+          status: "active",
+          topicNoCase: item.topic.toLowerCase(),
+          topicWithCase: item.topic,
+          keywords: item.keywords,
+          added: Date.now()
+        };
+        await this.cardTopics.insert(record);
+      }
+    }
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -650,7 +665,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, searchText: string, fileIds: string[], promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -676,6 +691,7 @@ export class Database {
         title: title,
         text: text,
       },
+      keywords: keywords || [],
       private: isPrivate,
       cardType: {
         package: cardType,
@@ -854,7 +870,7 @@ export class Database {
     card.promotionScores = promotionScores;
   }
 
-  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageUrl: string, imageWidth: number, imageHeight: number): Promise<void> {
+  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageUrl: string, imageWidth: number, imageHeight: number, keywords: string[]): Promise<void> {
     const update: any = {
       summary: {
         title: title,
@@ -865,6 +881,9 @@ export class Database {
         imageHeight: imageHeight
       }
     };
+    if (keywords) {
+      update.keywords = keywords;
+    }
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
 
@@ -1006,6 +1025,17 @@ export class Database {
       query.score = { $lt: scoreLessThan };
     }
     return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
+  }
+
+  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit = 24): Promise<CardRecord[]> {
+    const query: any = {
+      state: "active",
+      keywords: { $in: keywords }
+    };
+    if (scoreLessThan > 0) {
+      query.score = { $lt: scoreLessThan };
+    }
+    return await this.cards.find<CardRecord>(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
   findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
@@ -1710,8 +1740,41 @@ export class Database {
     await this.publisherSubsidyDays.updateOne({ starting: starting }, { $inc: { coinsPaid: incrementBy } });
   }
 
+  async listCardTopics(): Promise<CardTopicRecord[]> {
+    return await this.cardTopics.find<CardTopicRecord>({ status: "active" }).sort({ topicWithCase: 1 }).toArray();
+  }
+
+  async findCardTopicByName(name: string): Promise<CardTopicRecord> {
+    return await this.cardTopics.findOne<CardTopicRecord>({ topicNoCase: name.toLowerCase() });
+  }
+
 }
 
 const db = new Database();
 
 export { db };
+
+interface CardTopicDescriptor {
+  topic: string;
+  keywords: string[];
+}
+
+const DEFAULT_CARD_TOPICS = [
+  { topic: "Writing", keywords: ["writing", "poetry", "blog", "essay", "prose", "blog", "short story", "story", "novel", "memo", "fiction", "non-fiction"] },
+  { topic: "Photography", keywords: ["photography", "photo", "photo-essay", "picture", "pictures"] },
+  { topic: "Film", keywords: ["film", "video", "time-lapsed", "animation"] },
+  { topic: "Opinion", keywords: ["opinion"] },
+  { topic: "Food", keywords: ["food", "cook", "cooking", "recipe", "kitchen"] },
+  { topic: "Travel", keywords: ["travel"] },
+  { topic: "Music", keywords: ["music", "song", "band"] },
+  { topic: "Politics", keywords: ["politics"] },
+  { topic: "Channels", keywords: ["channels"] },
+  { topic: "Sports", keywords: ["sports", "yoga", "climbing", "football", "baseball", "basketball"] },
+  { topic: "Art", keywords: ["art", "painting", "drawing", "literature", "sculpture"] },
+  { topic: "Crafts", keywords: ["crafts", "woodworking", "sewing", "batik"] },
+  { topic: "Games", keywords: ["games"] },
+  { topic: "Interactive", keywords: ["interactive"] },
+  { topic: "How To", keywords: ["how to", "howto"] },
+  { topic: "Money", keywords: ["money", "currency", "cryptocurrency"] },
+  { topic: "Technology", keywords: ["technology", "computers", "computer", "internet", "web"] }
+];

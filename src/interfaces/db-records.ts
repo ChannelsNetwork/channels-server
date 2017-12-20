@@ -114,6 +114,7 @@ export interface CardRecord {
     title: string;
     text: string;
   };
+  keywords: string[];
   private: boolean;
   cardType: {
     package: string;
@@ -470,3 +471,14 @@ export interface PublisherSubsidyDayRecord {
   coinsPerPaidOpen: number;
   coinsPaid: number;
 }
+
+export interface CardTopicRecord {
+  id: string;
+  status: CardTopicStatus;
+  topicNoCase: string;
+  topicWithCase: string;
+  keywords: string[];
+  added: number;
+}
+
+export type CardTopicStatus = "active" | "hidden";
