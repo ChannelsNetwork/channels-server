@@ -6,8 +6,12 @@
 <dom-module id="browse-view">
   <template>
     <style is="custom-style" include="app-styles feed-styles">
+      .spacer {
+        margin-top: 50px;
+      }
+
       #topicArea {
-        max-width: 600px;
+        max-width: 800px;
         margin: 0 auto;
         padding: 15px;
       }
@@ -53,7 +57,9 @@
       }
 
       .topicTitle {
-        font-size: 24px;
+        display: inline-block;
+        width: 7em;
+        font-size: 21px;
         cursor: pointer;
       }
 
@@ -66,7 +72,10 @@
       }
 
       #titleArea {
-        margin: 15px 0 25px;
+        max-width: 1200px;
+        margin: 15px auto 25px;
+        box-sizing: border-box;
+        padding: 0 15px;
       }
 
       #btnBrowse {
@@ -77,19 +86,21 @@
     <div class="spacer"></div>
     <div class="container">
       <div id="topicArea">
-        <dom-repeat items="[[topics]]">
-          <template>
-            <div class="topicTitle" on-click="_onTopic">[[item]]</div>
-          </template>
-        </dom-repeat>
+        <h1 style="margin-bottom:15px;">Topics</h1>
+        <div class="horizontal layout wrap">
+          <dom-repeat items="[[topics]]">
+            <template>
+              <div class="topicTitle" on-click="_onTopic">[[item]]</div>
+            </template>
+          </dom-repeat>
+        </div>
       </div>
       <div id="titleArea" class="horizontal layout center-center" style="display:none;">
-        <div class="selectionTitle">[[selectionTitle]]</div>
-        <button id="btnBrowse" on-click="_onBrowse">Browse</button>
+        <div class="selectionTitle flex">[[selectionTitle]]</div>
       </div>
       <div class="main">
         <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
-        <div id="noItems" style="display:none;">There are no cards in this topic</div>
+        <div id="noItems" style="display:none;margin-left:15px;text-align:left;">There are no cards in this topic</div>
         <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
         <div id="buttons" style="display:none;">
           <button id="btnMore" on-click="_onMoreClick">More</button>
@@ -110,36 +121,65 @@
       }
 
       onActivate(route) {
-        this._promotedCardIds = [];
+        if (this._loaded) {
+          this._activate(route);
+        } else {
+          this._load(route).then(() => {
+            this._activate(route);
+          });
+        }
+      }
+
+      _load(route) {
         this.$.buttons.style.display = "none";
         this.$.noItems.style.display = "none";
         this.$.titleArea.style.display = "none";
         this.$.topicArea.style.display = "";
-        this._topic = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null
-        $core.register().then(() => {
-          // register event handlers
-          this._resizeListener = _debounce(() => {
-            this._onResize();
-          }, 350);
-          window.addEventListener("resize", this._resizeListener);
-          this._onResize();
-          let preventReload = false;
-          if (route.context) {
-            preventReload = route.context.preventReload;
-          }
-          if (preventReload && this.items && this.items.length) {
-            $app.scrollTo(route.context.scrollTop);
-            $router.context = null;
-            return;
-          }
-          $router.context = null;
-          this._setItems([]);
-          if (this._topic) {
-            this._showTopic();
-          } else {
-            this._showTopics();
-          }
+        return new Promise((resolve, reject) => {
+          this._loaded = true;
+          $core.register().then(() => {
+            // register event handlers
+            this._resizeListener = _debounce(() => {
+              this._onResize();
+            }, 350);
+            this._setItems([]);
+            this._showTopics().then(() => {
+              resolve();
+            });
+          });
         });
+      }
+
+      _activate(route) {
+        window.addEventListener("resize", this._resizeListener);
+        this._onResize();
+        this._promotedCardIds = [];
+        this.$.buttons.style.display = "none";
+        this.$.noItems.style.display = "none";
+        this.$.topicArea.style.display = "";
+        const newTopic = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null;
+        if (!newTopic) {
+          this.$.titleArea.style.display = "none";
+          this.set('items', []);
+        } else if (this._topic === newTopic) {
+          this.$.titleArea.style.display = "";
+        } else {
+          this.$.titleArea.style.display = "none";
+          this.set('items', []);
+          this._topic = newTopic;
+          this._showTopic();
+        }
+      }
+
+      onDeactivate() {
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      _onResize() {
+        this.$.feed.refreshLayout();
       }
 
       _setItems(items) {
@@ -162,26 +202,24 @@
       }
 
       _showTopics() {
-        $core.listTopics().then((response) => {
+        return $core.listTopics().then((response) => {
           this.set('topics', response.topics);
         });
       }
 
       _onTopic(event) {
         this._topic = event.model.item;
-        this.$.topicArea.style.display = "none";
-        this.$.titleArea.style.display = "";
-        this.set('selectionTitle', this._topic);
+        $router.goto(["browse", this._topic]);
         this._showTopic();
       }
 
       _onBrowse() {
-        this.$.topicArea.style.display = "";
-        this.$.titleArea.style.display = "none";
-        this.set('items', []);
+        $router.goto(["browse"]);
       }
 
       _showTopic() {
+        this.$.titleArea.style.display = "";
+        this.set('selectionTitle', this._topic);
         this.$.buttons.style.display = "none";
         this.$.noItems.style.display = "none";
         let finished = false;
@@ -206,6 +244,9 @@
           this.$.noItems.style.display = cards && cards.length ? "none" : "";
           this._moreAvailable = topicResponse.moreAvailable && this._lastCardId ? true : false;
           this._onMoreUpdated(this._moreAvailable);
+          setTimeout(() => {
+            $app.scrollTo(this.$.topicArea.offsetHeight);
+          }, 50);
         });
       }
 
@@ -242,17 +283,6 @@
       _onMoreClick() {
         this.$.btnMore.disabled = true;
         this._fetchMore();
-      }
-
-      onDeactivate() {
-        if (this._resizeListener) {
-          window.removeEventListener("resize", this._resizeListener);
-          this._resizeListener = null;
-        }
-      }
-
-      _onResize() {
-        this.$.feed.refreshLayout();
       }
 
       _onCardOpenRequest(event) {

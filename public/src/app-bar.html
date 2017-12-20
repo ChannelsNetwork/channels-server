@@ -264,6 +264,8 @@
           }
           if (path === 'feed') {
             this._showFeedsBar(route.segments[1] || "");
+          } else if (path === 'browse') {
+            this._showFeedsBar('browse');
           }
         } else {
           this._showFeedsBar("");

@@ -57,6 +57,6 @@
   "subsidies": {
     "minCoins": 150,
     "maxCoins": 150,
-    "coinsPerOpen": 1.00
+    "coinsPerOpen": 0.95
   }
 }
