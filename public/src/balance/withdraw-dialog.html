@@ -224,7 +224,7 @@
       }
 
       _onCancel() {
-        $router.goto("balance");
+        $router.goto("/balance");
       }
 
       _onSave() {
@@ -233,7 +233,7 @@
         this.$.email.disabled = true;
         this.$.withdrawalAmount.disabled = true;
         $core.withdraw(Number(this.$.withdrawalAmount.value), this.$.email.value).then(() => {
-          $router.goto("balance");
+          $router.goto("/balance");
         });
       }
 

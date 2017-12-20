@@ -148,7 +148,7 @@
             <button id="btnSave" on-click="_onSave">Save</button>
             <div id="termsPanel">
               By registering you agree to our
-              <a href="/d/terms.html" class="termsLink" target="_blank">terms and conditions</a>.
+              <a href="/d/terms.html" rel="external" class="termsLink" target="_blank">terms and conditions</a>.
             </div>
           </div>
           <div class="buttons">
@@ -239,7 +239,8 @@
         this._setMessage("Registering");
         $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
           $core.agreeToTnCs();
-          $router.goto("register-photo", { returnRoute: this.returnRoute });
+          $core.analytics.event("user", "register");
+          $router.goto("/register-photo", { returnRoute: this.returnRoute });
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong when registering your handle.");
@@ -312,7 +313,7 @@
       }
 
       _onSignIn() {
-        $router.goto("signin");
+        $router.goto("/signin");
       }
 
       _validateHandle() {

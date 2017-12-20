@@ -1,4 +1,5 @@
 <link rel="import" href="card-feed.html">
+<link rel="import" href="feed-mixin.html">
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
@@ -66,13 +67,6 @@
       static get is() { return 'search-view'; }
 
       onActivate(route) {
-        this._promotedCardIds = [];
-        this.$.buttons.style.display = "none";
-        this.$.noItems.style.display = "none";
-        this._searchString = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null
-        this.$.search.value = this._searchString;
-        this.$.btnSearch.disabled = true;
-        this.$.search.input.focus();
         $core.register().then(() => {
           // register event handlers
           this._resizeListener = _debounce(() => {
@@ -80,16 +74,22 @@
           }, 350);
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
-          let preventReload = false;
-          if (route.context) {
-            preventReload = route.context.preventReload;
-          }
-          if (preventReload && this.items && this.items.length) {
+
+          // if query has not changes, do not search again
+          let searchQuery = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null;
+          if (this._searchString === searchQuery) {
             $app.scrollTo(route.context.scrollTop);
-            $router.context = null;
             return;
           }
-          $router.context = null;
+
+          this._promotedCardIds = [];
+          this.$.buttons.style.display = "none";
+          this.$.noItems.style.display = "none";
+          this._searchString = searchQuery;
+          this.$.search.value = searchQuery;
+          this.$.btnSearch.disabled = true;
+          this.$.search.input.focus();
+
           this._setItems([]);
           if (this._searchString) {
             this._search();
@@ -118,9 +118,9 @@
       }
 
       _onSearch() {
-        this._searchString = this.$.search.value.trim();
-        if (this._searchString.length > 0) {
-          this._search();
+        let q = this.$.search.value.trim();
+        if (q) {
+          $router.goto("/search/" + encodeURIComponent(q));
         }
       }
 
@@ -198,30 +198,22 @@
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {
-                  $router.goto("balance");
+                  $router.goto("/balance");
                 }
               });
             });
           } else {
             let context = {
               card: card,
-              scrollTop: $app.scrollValue
+              scrollTop: $app.scrollValue,
+              returnPath: "/search/" + encodeURIComponent(this._searchString || "")
             };
-            if (this._parsedRoute) {
-              context.search = this._searchString;
-            }
-            window.location.assign(this._getCardUrl(card.id));
+            $router.updateContext({
+              scrollTop: $app.scrollValue
+            });
+            $router.goto("/c/" + encodeURIComponent(card.id), context);
           }
         }
-      }
-
-      _getCardUrl(cardId) {
-        let root = window.location.origin;
-        if (!root) {
-          root = window.location.protocol + "://" + window.location.host;
-        }
-        let q = "search/" + encodeURIComponent(this._searchString);
-        return root + "/c/" + cardId + "?ret=" + q;
       }
 
       _onCardImpression(event) {

@@ -232,7 +232,7 @@
         this._setMessage("Validating");
 
         $core.requestRecoveryCode(handle, email).then(() => {
-          $router.goto("recover");
+          $router.goto("/recover");
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong.", true);
