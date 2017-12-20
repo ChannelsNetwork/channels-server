@@ -239,6 +239,7 @@
         this._setMessage("Registering");
         $core.updateUserProfile(name, handle, null, null, email, password, this.$.trust.checked).then(() => {
           $core.agreeToTnCs();
+          $core.analytics.event("user", "register");
           $router.goto("/register-photo", { returnRoute: this.returnRoute });
         }).catch((err) => {
           console.error(err);

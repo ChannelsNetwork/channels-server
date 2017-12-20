@@ -243,18 +243,8 @@
         // notify toolbar
         this.$.toolbar.onRoute(route);
 
-        // notify analytics 
-        if (window.ga) {
-          try {
-            let pageToReport = pageName + "";
-            if (segments.length > 1) {
-              for (let i = 1; i < segments.length; i++) {
-                pageToReport += "/" + segments[i];
-              }
-            }
-            window.ga('send', 'pageview', "/" + pageToReport);
-          } catch (err) { console.warn(err); }
-        }
+        // notify analytics
+        $core.analytics.page(window.location.pathname || "/");
 
         return pageName;
       }

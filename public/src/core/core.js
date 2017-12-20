@@ -17,6 +17,22 @@ class CoreService extends Polymer.Element {
     this.cardManager = new CardManager(this);
     this.userManager = new UserManager(this);
     this.social = new SocialService();
+    this.analytics = {
+      event: function (category, action, label, value) {
+        if (window.ga) {
+          try {
+            window.ga('send', 'event', category, action, label, value);
+          } catch (err) { console.warn(err); }
+        }
+      },
+      page: function (pathname) {
+        if (window.ga) {
+          try {
+            window.ga('send', 'pageview', pathname);
+          } catch (err) { console.warn(err); }
+        }
+      }
+    };
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;

@@ -156,6 +156,7 @@
           $core.cardManager.cardService.uploadedFileIds,
           data.cardSharedState
         ).then(() => {
+          $core.analytics.event("card", "publish");
           $core.cardManager.cardService.clearUploadedFileIds();
           $router.goto("/feed/mine");
         }).catch((err) => {
