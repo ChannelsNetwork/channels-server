@@ -498,7 +498,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       return 0;
     }
     const cardsBought = await db.countUserCardsPaid(user.id);
-    const amount = cardsBought === 0 ? subsidyDay.newUserBonus : subsidyDay.returnUserBonus;
+    const amount = cardsBought <= 1 ? subsidyDay.newUserBonus : subsidyDay.returnUserBonus;
     await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
