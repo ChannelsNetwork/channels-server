@@ -57,6 +57,7 @@
   "subsidies": {
     "minCoins": 150,
     "maxCoins": 150,
-    "coinsPerOpen": 1.00
+    "coinsPerOpen": 1.00,
+    "returnUserBonus": 0.25
   }
 }

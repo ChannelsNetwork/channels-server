@@ -74,8 +74,10 @@ export interface UserStatus {
 }
 
 export interface PublisherSubsidiesInfo {
+  dayStarting: number;
   remainingToday: number;
-  perOpen: number;
+  newUserBonus: number;
+  returnUserBonus: number;
 }
 
 export interface RequestRecoveryCodeDetails {

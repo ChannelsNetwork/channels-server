@@ -470,4 +470,5 @@ export interface PublisherSubsidyDayRecord {
   totalCoins: number;
   coinsPerPaidOpen: number;
   coinsPaid: number;
+  returnUserBonus: number;
 }
