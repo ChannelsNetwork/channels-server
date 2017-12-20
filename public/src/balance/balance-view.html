@@ -292,7 +292,7 @@
       }
 
       onInvite() {
-        $router.goto("invite", { returnPage: "balance" });
+        $router.goto("/invite", { returnPage: "balance" });
       }
 
       onDeactivate() {
@@ -320,7 +320,7 @@
                           amount: (-transaction.details.amount).toFixed(6),
                           address: this._displayAddress(recipient.address),
                           reason: this._displayReason(transaction.details, true),
-                          cardHref: transaction.details.relatedCardId ? "#card/" + transaction.details.relatedCardId : null,
+                          cardHref: transaction.details.relatedCardId ? "/c/" + transaction.details.relatedCardId : null,
                           cardStyle: transaction.details.relatedCardId ? "" : "display:none;",
                           cardTitle: transaction.relatedCardTitle
                         });
@@ -424,7 +424,7 @@
 
       _onWithdrawClick() {
         if ($core.balance >= $core.minBalanceAfterWithdrawal + 1) {
-          $router.goto("withdraw")
+          $router.goto("/withdraw")
         } else {
           this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
         }
@@ -434,7 +434,7 @@
         if ($core.profile && $core.profile.handle) {
           window.location = $core.depositUrl;
         } else {
-          $router.goto("register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
+          $router.goto("/register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
         }
       }
 

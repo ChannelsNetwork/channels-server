@@ -47,7 +47,10 @@ var _loadAnalytics = function () {
         m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
     })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
     ga('create', window.googleAnalyticsId || "UA-52117709-8", 'auto');
-    ga('send', 'pageview', '/');
+    ga('send', 'pageview', window.location.pathname || "/");
+    if (window._pending_ga_address) {
+      ga('set', 'userId', window._pending_ga_address);
+    }
   }, 1000);
 };
 

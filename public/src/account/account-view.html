@@ -125,15 +125,15 @@
       }
 
       _onEdit() {
-        $router.goto("edit-profile");
+        $router.goto("/edit-profile");
       }
 
       _onSignOut() {
         $core.signOut().then(() => {
-          $router.goto("");
+          window.location.assign("/");
         }).catch((err) => {
           console.error(err);
-          $router.goto("");
+          window.location.assign("/");
         })
       }
 

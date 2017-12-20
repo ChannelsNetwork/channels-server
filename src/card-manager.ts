@@ -26,7 +26,6 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as LRU from 'lru-cache';
 import * as url from 'url';
-import * as universalAnalytics from 'universal-analytics';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
@@ -57,13 +56,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
-  private analyticsVisitor: universalAnalytics.Visitor;
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
-    if (configuration.get('google.analytics.id')) {
-      this.analyticsVisitor = universalAnalytics(configuration.get('google.analytics.id'));
-    }
   }
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
@@ -133,17 +128,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!card) {
       response.redirect('/');
       return;
-    }
-    if (this.analyticsVisitor) {
-      this.analyticsVisitor.pageview({
-        dp: request.url,
-        dh: request.headers.host,
-        uip: request.headers['x-forwarded-for'] || request.connection.remoteAddress,
-        ua: request.headers['user-agent'],
-        dr: request.headers.referrer || request.headers.referer,
-        de: request.headers['accept-encoding'],
-        ul: request.headers['accept-language']
-      }).send();
     }
     await rootPageManager.handlePage("card", request, response, card);
   }

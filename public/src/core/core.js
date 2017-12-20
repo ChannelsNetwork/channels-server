@@ -17,6 +17,33 @@ class CoreService extends Polymer.Element {
     this.cardManager = new CardManager(this);
     this.userManager = new UserManager(this);
     this.social = new SocialService();
+    this.analytics = {
+      event: function (category, action) {
+        if (window.ga) {
+          try {
+            window.ga('send', 'event', category, action);
+          } catch (err) { console.warn(err); }
+        }
+      },
+      page: function (pathname) {
+        if (window.ga) {
+          try {
+            window.ga('send', 'pageview', pathname);
+          } catch (err) { console.warn(err); }
+        }
+      },
+      setUser: function (address) {
+        if (address) {
+          if (window.ga) {
+            try {
+              window.ga('set', 'userId', address);
+            } catch (err) { console.warn(err); }
+          } else {
+            window._pending_ga_address = address;
+          }
+        }
+      }
+    };
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
@@ -119,6 +146,7 @@ class CoreService extends Polymer.Element {
         this._userStatus = result.status;
         this._fire("channels-user-status", this._userStatus);
         this._fire("channels-registration", this._registration);
+        this.analytics.setUser(this._keys.address);
         return this.getUserProfile().then((profile) => {
           setInterval(() => {
             this.updateBalance();

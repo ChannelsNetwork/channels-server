@@ -44,7 +44,9 @@ class ChannelsNetworkWebClient {
   private server: net.Server;
   private started: number;
   private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager];
-  private restServers: RestServer[] = [rootPageHandler, userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices];
+
+  // DO NOT INCLUDE rootPageHandler in restServers. It is added after adding the static handler
+  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
@@ -171,6 +173,10 @@ class ChannelsNetworkWebClient {
     } else {
       this.server = http.createServer(this.app);
     }
+
+    // add default/root page handler
+    await rootPageHandler.initializeRestServices(this.urlManager, this.app);
+
     this.server.listen(configuration.get('client.port'), (err: any) => {
       if (err) {
         console.error("Failure listening", err);
