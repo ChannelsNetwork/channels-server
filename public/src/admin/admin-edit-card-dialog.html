@@ -1,0 +1,104 @@
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../controls/image-upload.html">
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+
+<dom-module id="admin-edit-card-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      soso-text-input {
+        margin: 18px 0;
+      }
+
+      #blocked {
+        margin-top: 25px;
+        color: #555;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Admin Edit Card</h3>
+      <soso-text-input id="keywords" label="Keywords" placeholder="Keywords"></soso-text-input>
+      <soso-checkbox id="blocked" label="Blocked"></soso-checkbox>
+    </dialog-view>
+  </template>
+  <script>
+    class AdminEditCardDialog extends Polymer.Element {
+      static get is() { return 'admin-edit-card-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      show(cardId) {
+        this._buttons = [
+          { id: 'cancel', label: "Cancel" },
+          { id: 'save', label: "Save" }
+        ];
+        this.$.keywords.value = "";
+        this.$.blocked.checked = false;
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          $core.getCard(cardId).then((response) => {
+            this.card = response.card;
+            this.$.keywords.value = this.card.keywords ? this.card.keywords.join(', ') : '';
+            this.$.blocked.checked = this.card.blocked || false;
+            this.$.dlg.show();
+          });
+        });
+        return this._promise;
+
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "save":
+            this._doSave();
+            break;
+          default:
+            this.hide();
+            this._resolve(false);
+            break;
+        }
+      }
+
+      _doSave() {
+        $core.admin_updateCard(this.card.id, this._getKeywords(), this.$.blocked.checked).then(() => {
+          this.hide();
+          this._resolve(true);
+        });
+      }
+
+      _getKeywords() {
+        if (!this.$.keywords.value) {
+          return [];
+        }
+        const keywords = [];
+        let delimiter = ',';
+        if (this.$.keywords.value.indexOf(',') < 0) {
+          delimiter = " ";
+        }
+        const userKeys = this.$.keywords.value.split(delimiter);
+        for (const k of userKeys) {
+          if (k.trim().length > 0) {
+            keywords.push(k.trim());
+          }
+        }
+        return keywords;
+      }
+    }
+    window.customElements.define(AdminEditCardDialog.is, AdminEditCardDialog);
+  </script>
+</dom-module>

@@ -36,7 +36,7 @@
     "clientTester": {
       "enabled": true
     },
-    "useSamples": false
+    "useSamples": true
   },
   "components": {},
   "networkEntity": {
@@ -57,6 +57,7 @@
   "subsidies": {
     "minCoins": 150,
     "maxCoins": 150,
-    "coinsPerOpen": 0.95
+    "coinsPerOpen": 1.00,
+    "returnUserBonus": 0.25
   }
 }

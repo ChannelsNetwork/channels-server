@@ -17,6 +17,33 @@ class CoreService extends Polymer.Element {
     this.cardManager = new CardManager(this);
     this.userManager = new UserManager(this);
     this.social = new SocialService();
+    this.analytics = {
+      event: function (category, action) {
+        if (window.ga) {
+          try {
+            window.ga('send', 'event', category, action);
+          } catch (err) { console.warn(err); }
+        }
+      },
+      page: function (pathname) {
+        if (window.ga) {
+          try {
+            window.ga('send', 'pageview', pathname);
+          } catch (err) { console.warn(err); }
+        }
+      },
+      setUser: function (address) {
+        if (address) {
+          if (window.ga) {
+            try {
+              window.ga('set', 'userId', address);
+            } catch (err) { console.warn(err); }
+          } else {
+            window._pending_ga_address = address;
+          }
+        }
+      }
+    };
 
     this._keys = this.storage.getItem(_CKeys.KEYS, true);
     this._profile = null;
@@ -119,6 +146,7 @@ class CoreService extends Polymer.Element {
         this._userStatus = result.status;
         this._fire("channels-user-status", this._userStatus);
         this._fire("channels-registration", this._registration);
+        this.analytics.setUser(this._keys.address);
         return this.getUserProfile().then((profile) => {
           setInterval(() => {
             this.updateBalance();
@@ -684,14 +712,21 @@ class CoreService extends Polymer.Element {
     if (!this._userStatus || !this._userStatus.publisherSubsidies) {
       return 0;
     }
-    return this._userStatus.publisherSubsidies.remainingToday;
+    return this._userStatus.publisherSubsidies.remainingToday || 0;
   }
 
-  get publishSubsidiesPerPaidOpen() {
+  get publishSubsidiesPerPaidOpenReturningUser() {
     if (!this._userStatus || !this._userStatus.publisherSubsidies) {
       return 0;
     }
-    return this._userStatus.publisherSubsidies.perOpen;
+    return this._userStatus.publisherSubsidies.returnUserBonus || 0;
+  }
+
+  get publishSubsidiesPerPaidOpenNewUser() {
+    if (!this._userStatus || !this._userStatus.publisherSubsidies) {
+      return 0;
+    }
+    return this._userStatus.publisherSubsidies.newUserBonus || 0;
   }
 
   _fire(name, detail) {
@@ -713,11 +748,26 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getCards(limit) {
+    let details = RestUtils.admin_getCards(this._keys.address, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-cards";
+    return this.rest.post(url, request);
+  }
+
   admin_setUserMailingList(userId, includeInMailingList) {
     let details = RestUtils.admin_setUserMailingList(this._keys.address, userId, includeInMailingList);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-set-user-mailing-list";
     return this.rest.post(url, request);
   }
+
+  admin_updateCard(cardId, keywords, blocked) {
+    let details = RestUtils.admin_updateCard(this._keys.address, cardId, keywords, blocked);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-update-card";
+    return this.rest.post(url, request);
+  }
+
 }
 window.customElements.define(CoreService.is, CoreService);

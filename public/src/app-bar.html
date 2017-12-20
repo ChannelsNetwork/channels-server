@@ -99,85 +99,85 @@
         height: 40px;
       }
     </style>
-    <div id="container" class="horizontal layout center" on-click="_onClick">
+    <div id="container" class="horizontal layout center">
       <a id="logoLink" href="/">
         <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
       </a>
       <div id="spacer" class="flex"></div>
       <div id="linksBar" class="horizontal layout center">
-        <a href="#feed">
+        <a href="/feed">
           <button id="feed">Feed</button>
         </a>
-        <a href="#about">
+        <a href="/about">
           <button id="about">About</button>
         </a>
-        <a id="accountLink" href="#account" class="hidden">
+        <a id="accountLink" href="/account" class="hidden">
           <button id="account">Account</button>
         </a>
-        <a id="signInLink" href="#signin">
+        <a id="signInLink" href="/signin">
           <button id="signin">Sign In</button>
         </a>
-        <a id="searchLink" href="#search">
+        <a id="searchLink" href="/search">
           <button id="search">
             <soso-icon icon="search" icon-map="[[iconMap]]"></soso-icon>
           </button>
         </a>
       </div>
       <div id="iconsBar" class="flex horizontal layout center">
-        <a class="flex" href="#feed">
+        <a class="flex" href="/feed">
           <button id="ifeed">
             <soso-icon icon="apps" icon-map="[[iconMap]]"></soso-icon>
             <div>Feed</div>
           </button>
         </a>
-        <a class="flex" href="#about">
+        <a class="flex" href="/about">
           <button id="iabout">
             <soso-icon icon="info" icon-map="[[iconMap]]"></soso-icon>
             <div>About</div>
           </button>
         </a>
-        <a id="accountButton" class="flex hidden" href="#account">
+        <a id="accountButton" class="flex hidden" href="/account">
           <button id="iaccount">
             <soso-icon icon="account" icon-map="[[iconMap]]"></soso-icon>
             <div>Account</div>
           </button>
         </a>
-        <a id="signInButton" class="flex" href="#signin">
+        <a id="signInButton" class="flex" href="/signin">
           <button id="isignin">
             <soso-icon icon="account" icon-map="[[iconMap]]"></soso-icon>
             <div>Sign In</div>
           </button>
         </a>
-        <a id="searchButton" class="flex" href="#search">
+        <a id="searchButton" class="flex" href="/search">
           <button id="isearch">
             <soso-icon icon="search" icon-map="[[iconMap]]"></soso-icon>
             <div>Search</div>
           </button>
         </a>
       </div>
-      <a href="#balance">
+      <a href="/balance">
         <div id="balancePanel" class="horizontal layout center">
           <span id="balanceLabel" style="opacity: 0;">[[balance]]</span>
         </div>
       </a>
     </div>
     <div id="feedsBar" class="flex horizontal layout center hidden">
-      <a href="#feed/recommended">
+      <a href="/feed/recommended">
         <button id="recommended">Recommended</button>
       </a>
-      <a href="#browse">
+      <a href="/browse">
         <button id="browse">Browse</button>
       </a>
-      <a href="#feed/new">
+      <a href="/feed/new">
         <button id="new">New</button>
       </a>
-      <a href="#feed/top">
+      <a href="/feed/top">
         <button id="top">Top</button>
       </a>
-      <a href="#feed/opened">
+      <a href="/feed/opened">
         <button id="opened">Opened</button>
       </a>
-      <a id="mineLink" href="#feed/mine" class="hidden">
+      <a id="mineLink" href="/feed/mine" class="hidden">
         <button id="mine">Mine</button>
       </a>
     </div>
@@ -243,10 +243,6 @@
           return "0.000";
         }
         return (Math.floor(value * 1000) / 1000).toFixed(3);
-      }
-
-      _onClick(event) {
-        event.stopPropagation();
       }
 
       onRoute(route) {

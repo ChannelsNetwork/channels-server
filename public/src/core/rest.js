@@ -493,12 +493,30 @@ class RestUtils {
     };
   }
 
+  static admin_getCards(address, limit) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      limit: limit
+    };
+  }
+
   static admin_setUserMailingList(address, userId, includeInMailingList) {
     return {
       address: address,
       timestamp: RestUtils.now(),
       userId: userId,
       mailingList: includeInMailingList
+    };
+  }
+
+  static admin_updateCard(address, cardId, keywords, blocked) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      keywords: keywords,
+      blocked: blocked
     };
   }
 

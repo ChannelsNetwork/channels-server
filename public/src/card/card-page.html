@@ -82,7 +82,7 @@
       <div id="cardView" class="hidden"></div>
       <div id="morePanel" class="hidden">
         <div id="morePanelContent">
-          <a href="/#feed">View your feed</a> to see more cards.
+          <a href="/feed">View your feed</a> to see more cards.
         </div>
       </div>
       <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
@@ -120,7 +120,6 @@
             $router.goto("");
           }, 600);
         });
-        $router.animation = null;
         setTimeout(() => {
           this.$.header.style.opacity = 1;
         }, 1250);
@@ -182,7 +181,7 @@
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {
-                  $router.goto("balance");
+                  $router.goto("/balance");
                 } else {
                   this._doCardClose(this.data.id);
                 }
@@ -306,6 +305,7 @@
             card.userSpecific.paidToAuthor = card.pricing.openFee;
             $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
               card.stats.revenue = response.totalCardRevenue;
+              $core.analytics.event("card", "paid");
               this._onPaymentSuccess();
             }).catch((err) => {
               console.error("Failed to make card payment", err);
@@ -336,61 +336,18 @@
         }
       }
 
-      _getUrlParameter(name, doNotDecode) {
-        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-        var results = regex.exec(location.search);
-        // KD: Based on discussion with Preet about encoding of segments within return
-        if (doNotDecode) {
-          return results === null ? '' : results[1].replace(/\+/g, ' ');
-        } else {
-          return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-        }
-      };
-
       _doCardClose(cardId) {
-        let feed = null;
-        let search = null;
         if (this._route && this._route.context) {
-          feed = this._route.context.feed;
-          search = this._route.context.search;
-        }
-        if (feed) {
-          $router.goto(feed, {
-            preventReload: true,
+          let context = this._route.context;
+          let retContext = {
             scrollTop: this._route.context.scrollTop || 0
-          });
-          return;
-        }
-        if (search) {
-          $router.goto("search", {
-            preventReload: true,
-            scrollTop: this._route.context.scrollTop || 0
-          });
-          return;
-        }
-        if (cardId) {
-          $router.goto("feed", "recommended", cardId);
-        } else {
-          let q = location.search;
-          if (q) {
-            feed = this._getUrlParameter("ret");
-          }
-          if (feed) {
-            $router.goto(feed);
+          };
+          if (context.returnPath) {
+            $router.goto(context.returnPath, retContext);
             return;
           }
         }
-        $router.goto("feed");
-        // if (cardId) {
-        //   $router.goto("feed", "recommended", cardId);
-        // } else {
-        //   if (this.data) {
-        //     $router.goto(["channel", this.data.by.handle]);
-        //   } else {
-        //     $router.goto("");
-        //   }
-        // }
+        $router.goto("");
       }
     }
     window.customElements.define(CardPage.is, CardPage);

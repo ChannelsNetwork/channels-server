@@ -13,6 +13,7 @@ import * as moment from "moment-timezone";
 const PUBLISHER_SUBSIDY_MINIMUM_COINS = 101;
 const PUBLISHER_SUBSIDY_MAXIMUM_COINS = 150;
 const PUBLISHER_SUBSIDY_COINS_PER_OPEN = 1.00;
+const PUBLISHER_SUBSIDY_RETURN_USER_BONUS = 0.25;
 
 export class NetworkEntity implements Initializable {
   private networkEntityKeyInfo: KeyInfo;
@@ -20,6 +21,7 @@ export class NetworkEntity implements Initializable {
   private publisherSubsidyMinCoins: number;
   private publisherSubsidyMaxCoins: number;
   private publisherSubsidyCoinsPerOpen: number;
+  private publisherSubsidyReturnUserBonus: number;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     let privateKey: Uint8Array;
@@ -42,6 +44,7 @@ export class NetworkEntity implements Initializable {
     this.publisherSubsidyMinCoins = configuration.get('subsidies.minCoins', PUBLISHER_SUBSIDY_MINIMUM_COINS);
     this.publisherSubsidyMaxCoins = configuration.get('subsidies.maxCoins', PUBLISHER_SUBSIDY_MAXIMUM_COINS);
     this.publisherSubsidyCoinsPerOpen = configuration.get('subsidies.coinsPerOpen', PUBLISHER_SUBSIDY_COINS_PER_OPEN);
+    this.publisherSubsidyReturnUserBonus = configuration.get('subsidies.returnUserBonus', PUBLISHER_SUBSIDY_RETURN_USER_BONUS);
   }
 
   private getKeyInfo(entityName: string): KeyInfo {
@@ -113,8 +116,10 @@ export class NetworkEntity implements Initializable {
   async getPublisherSubsidies(): Promise<PublisherSubsidiesInfo> {
     const subsidyDay = await db.findLatestPublisherSubsidyDay();
     const result: PublisherSubsidiesInfo = {
+      dayStarting: subsidyDay.starting,
       remainingToday: Math.max(0, subsidyDay.totalCoins - subsidyDay.coinsPaid),
-      perOpen: subsidyDay.coinsPerPaidOpen
+      newUserBonus: subsidyDay.coinsPerPaidOpen,
+      returnUserBonus: subsidyDay.returnUserBonus || 0.25
     };
     return result;
   }
@@ -126,7 +131,7 @@ export class NetworkEntity implements Initializable {
     const totalCoins = this.publisherSubsidyMinCoins + Math.round(Math.random() * (this.publisherSubsidyMaxCoins - this.publisherSubsidyMinCoins));
     if (!subsidyDay || midnightToday > subsidyDay.starting) {
       console.log("Network.poll: Adding new publisher subsidy day", totalCoins, this.publisherSubsidyCoinsPerOpen);
-      await db.insertPublisherSubsidyDays(midnightToday, totalCoins, this.publisherSubsidyCoinsPerOpen);
+      await db.insertPublisherSubsidyDays(midnightToday, totalCoins, this.publisherSubsidyCoinsPerOpen, this.publisherSubsidyReturnUserBonus);
     }
   }
 

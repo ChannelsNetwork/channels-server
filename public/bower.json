@@ -31,7 +31,8 @@
     "soso-number-input": "SosoElements/soso-number-input#^0.1.5",
     "soso-icon": "SosoElements/soso-icon#^0.0.1",
     "soso-tooltip": "SosoElements/soso-tooltip#^0.0.4",
-    "soso-dropdown": "SosoElements/soso-dropdown#^0.0.2"
+    "soso-dropdown": "SosoElements/soso-dropdown#^0.0.2",
+    "soso-router": "SosoElements/soso-router#^0.0.6"
   },
   "devDependencies": {
     "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",

@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -26,7 +26,6 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as LRU from 'lru-cache';
 import * as url from 'url';
-import * as universalAnalytics from 'universal-analytics';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
@@ -44,8 +43,10 @@ const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const DEFAULT_CARD_PAYMENT_DELAY = 1000 * 10;
+const CARD_PAYMENT_DELAY_PER_LEVEL = 1000 * 5;
 const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
+const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 
@@ -55,13 +56,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
-  private analyticsVisitor: universalAnalytics.Visitor;
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
-    if (configuration.get('google.analytics.id')) {
-      this.analyticsVisitor = universalAnalytics(configuration.get('google.analytics.id'));
-    }
   }
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
@@ -113,6 +110,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     this.app.post(this.urlManager.getDynamicUrl('card-pricing-update'), (request: Request, response: Response) => {
       void this.handleCardPricingUpdate(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('admin-update-card'), (request: Request, response: Response) => {
+      void this.handleAdminUpdateCard(request, response);
+    });
   }
 
   async initialize2(): Promise<void> {
@@ -128,17 +128,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!card) {
       response.redirect('/');
       return;
-    }
-    if (this.analyticsVisitor) {
-      this.analyticsVisitor.pageview({
-        dp: request.url,
-        dh: request.headers.host,
-        uip: request.headers['x-forwarded-for'] || request.connection.remoteAddress,
-        ua: request.headers['user-agent'],
-        dr: request.headers.referrer || request.headers.referer,
-        de: request.headers['accept-encoding'],
-        ul: request.headers['accept-language']
-      }).send();
     }
     await rootPageManager.handlePage("card", request, response, card);
   }
@@ -161,6 +150,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       let delay = DEFAULT_CARD_PAYMENT_DELAY;
+      if (cardState.pricing.openFeeUnits > 1) {
+        delay += (cardState.pricing.openFeeUnits - 1) * CARD_PAYMENT_DELAY_PER_LEVEL;
+      }
       const now = Date.now();
       if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
         const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
@@ -176,6 +168,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             break;
           }
           delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
+          console.warn("Card.handleGetCard: imposing extra delay penalty", delay);
         }
       }
       const reply: GetCardResponse = {
@@ -483,7 +476,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
 
-      const publisherSubsidy = await this.payPublisherSubsidy(author, card, now);
+      const publisherSubsidy = await this.payPublisherSubsidy(user, author, card, transaction.amount, now);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardPayResponse = {
@@ -499,13 +492,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  private async payPublisherSubsidy(author: UserRecord, card: CardRecord, now: number): Promise<number> {
-    const subsidyDay = await db.findLatestPublisherSubsidyDay();
-    if (!subsidyDay || subsidyDay.coinsPaid >= subsidyDay.totalCoins) {
+  private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
+    const subsidyDay = await networkEntity.getPublisherSubsidies();
+    if (!subsidyDay || subsidyDay.remainingToday <= 0) {
       return 0;
     }
-    const amount = subsidyDay.coinsPerPaidOpen;
-    await db.incrementLatestPublisherSubsidyPaid(subsidyDay.starting, amount);
+    const cardsBought = await db.countUserCardsPaid(user.id);
+    const amount = cardsBought <= 1 ? subsidyDay.newUserBonus : subsidyDay.returnUserBonus;
+    await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
       portion: "remainder",
@@ -936,6 +930,37 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  async handleAdminUpdateCard(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminUpdateCardDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing cardId");
+        return;
+      }
+      const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
+      if (!card) {
+        return;
+      }
+      console.log("CardManager.admin-update-card", requestBody.detailsObject);
+      await db.updateCardAdmin(card, requestBody.detailsObject.keywords, requestBody.detailsObject.blocked);
+      const reply: AdminUpdateCardResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleAdminUpdateCard: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async getRequestedCard(user: UserRecord, cardId: string, response: Response): Promise<CardRecord> {
     const card = await db.findCardById(cardId, false);
     if (!card) {
@@ -1255,7 +1280,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1330,7 +1355,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           paidToReader: userInfo ? userInfo.paidToReader : 0,
           earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
           earnedFromReader: userInfo ? userInfo.earnedFromReader : 0
-        }
+        },
+        blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false
       };
       if (includeState) {
         card.state = {

@@ -2,9 +2,9 @@
 <link rel="import" href="../bower_components/shadycss/apply-shim.html">
 <link rel="import" href="../bower_components/polymer/lib/utils/import-href.html">
 <link rel="import" href="../bower_components/soso-pages/soso-pages.html">
+<link rel="import" href="../bower_components/soso-router/soso-router.html">
 <link rel="import" href="core/core.html">
 <link rel="import" href="app-styles.html">
-<link rel="import" href="hash-router.html">
 <link rel="import" href="app-bar.html">
 
 <dom-module id="main-app">
@@ -84,6 +84,7 @@
       <!-- Test pages -->
       <test-page class="test page" data-href="obsolete/test-page.html"></test-page>
       <admin-users-view class="admin-users page" data-href="admin/admin-users-view.html"></admin-users-view>
+      <admin-cards-view class="admin-cards page" data-href="admin/admin-cards-view.html"></admin-cards-view>
     </soso-pages>
     <terms-panel id="termsPanel" class="hidden" on-tncs-agreed="_onTermsAgreed"></terms-panel>
     <app-bar id="toolbar"></app-bar>
@@ -94,7 +95,7 @@
     <confirm-dialog id="dlgConfirm"></confirm-dialog>
     <error-dialog id="dlgError"></error-dialog>
 
-    <hash-router id="router" on-route-change="_onRouteChange"></hash-router>
+    <soso-router id="router" on-route-change="_onRouteChange"></soso-router>
   </template>
   <script>
     class MainApp extends Polymer.Element {
@@ -121,9 +122,6 @@
             window.location.reload();
           }, 3000);
         });
-        window.addEventListener('home-panel-hidden', () => {
-          this.style.paddingTop = "60px";
-        });
       }
 
       _onRouteChange(event) {
@@ -147,8 +145,11 @@
       }
 
       _handleRouteChange(route) {
-        let pageName = route.segments[0] || "feed";
-        pageName = pageName.trim();
+        let segments = route.segments;
+        let pageName = segments[0] || "feed";
+        if (pageName === 'c') {
+          pageName = "card";
+        }
         const pages = this.shadowRoot.querySelectorAll(".page");
         let activePage = this.shadowRoot.querySelector("." + pageName);
         if (!activePage) {
@@ -186,7 +187,7 @@
         let homePanelVisible = false;
         if (homePanel) {
           if (pageName === 'feed') {
-            let feedType = route.segments[1];
+            let feedType = segments[1];
             if ((!feedType) || (feedType === 'recommended')) {
               homePanelVisible = true;
             }
@@ -207,7 +208,6 @@
         const forcePreventScroll = activePage.dataset.preventscroll === "true";
         this._preventScroll = forcePreventScroll || (!showToolbar);
         this.style.paddingTop = (showToolbar && (!homePanelVisible)) ? "60px" : "0";
-
         const pageHref = activePage.dataset.href;
         let animation = route.animation;
         if (!animation) {
@@ -218,8 +218,7 @@
             }
           }
         }
-        animation = animation || activePage.dataset.animationIn || "dissolve";
-
+        animation = animation || activePage.dataset.animationIn || "none";
         this.$.pages.animation = animation;
         this._setBarVisible(showToolbar);
 
@@ -246,18 +245,8 @@
         // notify toolbar
         this.$.toolbar.onRoute(route);
 
-        // notify analytics 
-        if (window.ga) {
-          try {
-            let pageToReport = pageName + "";
-            if (route.segments.length > 1) {
-              for (let i = 1; i < route.segments.length; i++) {
-                pageToReport += "/" + route.segments[i];
-              }
-            }
-            window.ga('send', 'pageview', "/" + pageToReport);
-          } catch (err) { }
-        }
+        // notify analytics
+        $core.analytics.page(window.location.pathname || "/");
 
         return pageName;
       }
