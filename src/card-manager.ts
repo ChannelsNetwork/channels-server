@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -112,6 +112,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('card-pricing-update'), (request: Request, response: Response) => {
       void this.handleCardPricingUpdate(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-update-card'), (request: Request, response: Response) => {
+      void this.handleAdminUpdateCard(request, response);
     });
   }
 
@@ -929,6 +932,37 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  async handleAdminUpdateCard(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminUpdateCardDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing cardId");
+        return;
+      }
+      const card = await this.getRequestedCard(user, requestBody.detailsObject.cardId, response);
+      if (!card) {
+        return;
+      }
+      console.log("CardManager.admin-update-card", requestBody.detailsObject);
+      await db.updateCardAdmin(card, requestBody.detailsObject.keywords, requestBody.detailsObject.blocked);
+      const reply: AdminUpdateCardResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleAdminUpdateCard: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async getRequestedCard(user: UserRecord, cardId: string, response: Response): Promise<CardRecord> {
     const card = await db.findCardById(cardId, false);
     if (!card) {
@@ -1242,7 +1276,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
+  async populateCardState(cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1316,7 +1350,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           paidToReader: userInfo ? userInfo.paidToReader : 0,
           earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
           earnedFromReader: userInfo ? userInfo.earnedFromReader : 0
-        }
+        },
+        blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false
       };
       if (includeState) {
         card.state = {

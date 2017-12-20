@@ -875,6 +875,14 @@ export class Database {
     (card.stats as any)[statName] = { value: value, lastSnapshot: 0 };
   }
 
+  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean): Promise<void> {
+    const update: any = {
+      keywords: keywords,
+      "curation.block": blocked
+    };
+    await this.cards.updateOne({ id: card.id }, { $set: update });
+  }
+
   async updateCardPricing(card: CardRecord, promotionFee: number, openPayment: number, openFeeUnits: number, couponId: string, coupon: SignedObject, budgetAmount: number, plusPercent: number, budgetAvailable: boolean): Promise<void> {
     const update: any = {
       $set: {
@@ -963,7 +971,12 @@ export class Database {
     } else if (after) {
       query.postedAt = { $gt: after };
     }
-    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return await this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+  }
+
+  async findCardsByTime(limit: number): Promise<CardRecord[]> {
+    limit = limit || 500;
+    return await this.cards.find<CardRecord>({ state: "active" }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
   async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
