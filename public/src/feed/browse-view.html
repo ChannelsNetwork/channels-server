@@ -1,4 +1,5 @@
 <link rel="import" href="card-feed.html">
+<link rel="import" href="feed-mixin.html">
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
@@ -58,13 +59,11 @@
 
       .topicTitle {
         display: inline-block;
-        width: 7em;
-        font-size: 21px;
-        cursor: pointer;
+        width: 160px;
       }
 
-      .topicTitle:hover {
-        text-decoration: underline;
+      .topicLink {
+        font-size: 21px;
       }
 
       .selectionTitle {
@@ -90,7 +89,9 @@
         <div class="horizontal layout wrap">
           <dom-repeat items="[[topics]]">
             <template>
-              <div class="topicTitle" on-click="_onTopic">[[item]]</div>
+              <div class="topicTitle">
+                <a href="[[item.link]]" class="topicLink">[[item.topic]]</a>
+              </div>
             </template>
           </dom-repeat>
         </div>
@@ -203,18 +204,25 @@
 
       _showTopics() {
         return $core.listTopics().then((response) => {
-          this.set('topics', response.topics);
+          const items = [];
+          for (const topic of response.topics) {
+            items.push({
+              topic: topic,
+              link: "/browse/" + encodeURIComponent(topic)
+            });
+          }
+          this.set('topics', items);
         });
       }
 
       _onTopic(event) {
         this._topic = event.model.item;
-        $router.goto(["browse", this._topic]);
+        $router.goto("/browse/" + this._topic);
         this._showTopic();
       }
 
       _onBrowse() {
-        $router.goto(["browse"]);
+        $router.goto("/browse");
       }
 
       _showTopic() {
@@ -292,7 +300,7 @@
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {
-                  $router.goto("balance");
+                  $router.goto("/balance");
                 }
               });
             });
