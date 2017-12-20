@@ -670,14 +670,21 @@ class CoreService extends Polymer.Element {
     if (!this._userStatus || !this._userStatus.publisherSubsidies) {
       return 0;
     }
-    return this._userStatus.publisherSubsidies.remainingToday;
+    return this._userStatus.publisherSubsidies.remainingToday || 0;
   }
 
-  get publishSubsidiesPerPaidOpen() {
+  get publishSubsidiesPerPaidOpenReturningUser() {
     if (!this._userStatus || !this._userStatus.publisherSubsidies) {
       return 0;
     }
-    return this._userStatus.publisherSubsidies.perOpen;
+    return this._userStatus.publisherSubsidies.returnUserBonus || 0;
+  }
+
+  get publishSubsidiesPerPaidOpenNewUser() {
+    if (!this._userStatus || !this._userStatus.publisherSubsidies) {
+      return 0;
+    }
+    return this._userStatus.publisherSubsidies.newUserBonus || 0;
   }
 
   _fire(name, detail) {

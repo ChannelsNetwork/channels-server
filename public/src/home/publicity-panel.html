@@ -58,8 +58,9 @@
     </style>
     <div class="content">
       <h2>Early Publisher Bonus</h2>
-      <p class="row">We're offering daily cash bonuses to early content creators. Every time your content is viewed, you get
-        <span class="price">[[bonus]]</span> with
+      <p class="row">We're offering daily cash bonuses to early content creators. We pay you a
+        <span class="price">[[newUserBonus]]</span> bonus for each new Channels user who views your content, or
+        <span class="price">[[returningUserBonus]]</span> for every other user, with
         <span class="price">[[remaining]]</span> remaining today.
         <a href="https://medium.com/channels-network/channels-is-launching-f36f39846f17" target="_blank">Learn more.</a>
       </p>
@@ -73,13 +74,15 @@
       static get is() { return 'publicity-panel'; }
       static get properties() {
         return {
-          bonus: String,
+          newUserBonus: String,
+          returningUserBonus: String,
           remaining: String
         };
       }
 
       refresh() {
-        this.bonus = "$" + $core.publishSubsidiesPerPaidOpen.toFixed(2);
+        this.newUserBonus = "$" + $core.publishSubsidiesPerPaidOpenNewUser.toFixed(2);
+        this.returningUserBonus = "$" + $core.publishSubsidiesPerPaidOpenReturningUser.toFixed(2);
         this.remaining = "$" + $core.publishSubsidiesRemainingToday.toFixed(2);
       }
 

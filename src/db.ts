@@ -1516,6 +1516,10 @@ export class Database {
     return await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: -1 }).limit(limit).toArray();
   }
 
+  async countUserCardsPaid(userId: string): Promise<number> {
+    return await this.userCardActions.count({ userId: userId, action: "pay" });
+  }
+
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
     let record = await this.findUserCardInfo(userId, cardId);
     if (!record) {
@@ -1702,12 +1706,13 @@ export class Database {
     return this.bowerPackages.findOne<BowerPackageRecord>({ packageName: packageName });
   }
 
-  async insertPublisherSubsidyDays(starting: number, totalCoins: number, coinsPerPaidOpen: number): Promise<PublisherSubsidyDayRecord> {
+  async insertPublisherSubsidyDays(starting: number, totalCoins: number, coinsPerPaidOpen: number, returnUserBonus: number): Promise<PublisherSubsidyDayRecord> {
     const record: PublisherSubsidyDayRecord = {
       starting: starting,
       totalCoins: totalCoins,
       coinsPerPaidOpen: coinsPerPaidOpen,
-      coinsPaid: 0
+      coinsPaid: 0,
+      returnUserBonus: returnUserBonus
     };
     await this.publisherSubsidyDays.insert(record);
     return record;

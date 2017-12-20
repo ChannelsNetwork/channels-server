@@ -44,8 +44,10 @@ const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const DEFAULT_CARD_PAYMENT_DELAY = 1000 * 10;
+const CARD_PAYMENT_DELAY_PER_LEVEL = 1000 * 5;
 const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
+const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 
@@ -164,6 +166,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       let delay = DEFAULT_CARD_PAYMENT_DELAY;
+      if (cardState.pricing.openFeeUnits > 1) {
+        delay += (cardState.pricing.openFeeUnits - 1) * CARD_PAYMENT_DELAY_PER_LEVEL;
+      }
       const now = Date.now();
       if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
         const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
@@ -179,6 +184,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             break;
           }
           delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
+          console.warn("Card.handleGetCard: imposing extra delay penalty", delay);
         }
       }
       const reply: GetCardResponse = {
@@ -486,7 +492,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
 
-      const publisherSubsidy = await this.payPublisherSubsidy(author, card, now);
+      const publisherSubsidy = await this.payPublisherSubsidy(user, author, card, transaction.amount, now);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardPayResponse = {
@@ -502,13 +508,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  private async payPublisherSubsidy(author: UserRecord, card: CardRecord, now: number): Promise<number> {
-    const subsidyDay = await db.findLatestPublisherSubsidyDay();
-    if (!subsidyDay || subsidyDay.coinsPaid >= subsidyDay.totalCoins) {
+  private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
+    const subsidyDay = await networkEntity.getPublisherSubsidies();
+    if (!subsidyDay || subsidyDay.remainingToday <= 0) {
       return 0;
     }
-    const amount = subsidyDay.coinsPerPaidOpen;
-    await db.incrementLatestPublisherSubsidyPaid(subsidyDay.starting, amount);
+    const cardsBought = await db.countUserCardsPaid(user.id);
+    const amount = cardsBought === 0 ? subsidyDay.newUserBonus : subsidyDay.returnUserBonus;
+    await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
       portion: "remainder",
