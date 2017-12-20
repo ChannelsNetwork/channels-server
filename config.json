@@ -36,7 +36,7 @@
     "clientTester": {
       "enabled": true
     },
-    "useSamples": false
+    "useSamples": true
   },
   "components": {},
   "networkEntity": {
