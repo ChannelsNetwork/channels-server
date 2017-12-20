@@ -31,6 +31,17 @@ class CoreService extends Polymer.Element {
             window.ga('send', 'pageview', pathname);
           } catch (err) { console.warn(err); }
         }
+      },
+      setUser: function (address) {
+        if (address) {
+          if (window.ga) {
+            try {
+              window.ga('set', 'userId', address);
+            } catch (err) { console.warn(err); }
+          } else {
+            window._pending_ga_address = address;
+          }
+        }
       }
     };
 
@@ -135,6 +146,7 @@ class CoreService extends Polymer.Element {
         this._userStatus = result.status;
         this._fire("channels-user-status", this._userStatus);
         this._fire("channels-registration", this._registration);
+        this.analytics.setUser(this._keys.address);
         return this.getUserProfile().then((profile) => {
           setInterval(() => {
             this.updateBalance();
