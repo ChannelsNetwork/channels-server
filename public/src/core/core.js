@@ -18,10 +18,10 @@ class CoreService extends Polymer.Element {
     this.userManager = new UserManager(this);
     this.social = new SocialService();
     this.analytics = {
-      event: function (category, action, label, value) {
+      event: function (category, action) {
         if (window.ga) {
           try {
-            window.ga('send', 'event', category, action, label, value);
+            window.ga('send', 'event', category, action);
           } catch (err) { console.warn(err); }
         }
       },
