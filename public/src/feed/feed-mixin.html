@@ -69,22 +69,18 @@
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
 
-          let preventReload = false;
-          if (route.context) {
-            preventReload = route.context.preventReload;
+          // parse route and fetch only if route is different
+          let parsedRoute = this._parseRoute(route);
+          if (this._parsedRoute) {
+            if (parsedRoute.path === this._parsedRoute.path) {
+              $app.scrollTo(route.context.scrollTop);
+              return;
+            }
           }
-          if (preventReload && this.items && this.items.length) {
-            $app.scrollTo(route.context.scrollTop);
-            $router.context = null;
-            return;
-          }
-          $router.context = null;
 
           // clear state
           this._setItems([]);
 
-          // parse route and fetch
-          let parsedRoute = this._parseRoute(route);
           this._parsedRoute = parsedRoute;
           this._moreAvailable = false;
           this._promotedCardIds = [];
@@ -157,6 +153,9 @@
             if (this._parsedRoute) {
               context.returnPath = this._parsedRoute.path;
             }
+            $router.updateContext({
+              scrollTop: $app.scrollValue
+            });
             $router.goto("/c/" + encodeURIComponent(card.id), context);
           }
         }
