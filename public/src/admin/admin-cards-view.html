@@ -1,0 +1,214 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+<link rel="import" href="admin-edit-card-dialog.html">
+
+<dom-module id="admin-cards-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 0 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+    </style>
+    <div id="container">
+      <h1>Active Cards</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">Title</div>
+          <div class="headerCell">Keywords</div>
+          <div class="headerCell">Posted</div>
+          <div class="headerCell">Author</div>
+          <div class="headerCell">Private</div>
+          <div class="headerCell">Package</div>
+          <div class="headerCell right">Score</div>
+          <div class="headerCell right">Revenue</div>
+          <div class="headerCell right">Promotion Fee</div>
+          <div class="headerCell right">Open Fee</div>
+          <div class="headerCell right">Impressions</div>
+          <div class="headerCell right">Unique Impressions</div>
+          <div class="headerCell right">Opens</div>
+          <div class="headerCell right">UniqueOpens</div>
+          <div class="headerCell right">Likes</div>
+          <div class="headerCell right">Dislikes</div>
+          <div class="headerCell center">Blocked</div>
+          <div class="headerCell"></div>
+        </div>
+        <template is="dom-repeat" items="[[cards]]">
+          <div class="row">
+            <div class="cell toggle" on-click="_onClick">[[item.title]]</div>
+            <div class="cell">[[item.keywords]]</div>
+            <div class="cell">[[item.posted]]</div>
+            <div class="cell">[[item.author]]</div>
+            <div class="cell center">[[item.private]]</div>
+            <div class="cell">[[item.package]]</div>
+            <div class="cell right">[[item.score]]</div>
+            <div class="cell right">[[item.revenue]]</div>
+            <div class="cell right">[[item.promotionFee]]</div>
+            <div class="cell right">[[item.openFee]]</div>
+            <div class="cell right">[[item.impressions]]</div>
+            <div class="cell right">[[item.uniqueImpressions]]</div>
+            <div class="cell right">[[item.opens]]</div>
+            <div class="cell right">[[item.uniqueOpens]]</div>
+            <div class="cell right">[[item.likes]]</div>
+            <div class="cell right">[[item.dislikes]]</div>
+            <div class="cell center">[[item.blocked]]</div>
+            <div class="cell center toggle" on-click="_onEdit">edit</div>
+          </div>
+        </template>
+      </div>
+      <admin-edit-card-dialog id="editDialog"></admin-edit-card-dialog>
+    </div>
+  </template>
+  <script>
+    class AdminCardsView extends Polymer.Element {
+      static get is() { return 'admin-cards-view'; }
+      static get properties() {
+        return {
+          cards: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('cards', []);
+        $core.admin_getCards(500).then((response) => {
+          const cards = [];
+          for (const cardInfo of response.cards) {
+            const card = cardInfo.descriptor;
+            let pkg = card.cardType && card.cardType.package ? card.cardType.package : '';
+            if (pkg) {
+              const parts = pkg.split('/');
+              pkg = parts[parts.length - 1];
+            }
+            cards.push({
+              id: card.id,
+              title: card.summary.title,
+              keywords: card.keywords.join(', '),
+              posted: this._displayTimestamp(card.postedAt),
+              author: card.by.name,
+              private: card.private ? "yes" : "",
+              package: pkg,
+              score: card.score.toFixed(3),
+              revenue: card.stats.revenue ? card.stats.revenue.toFixed(2) : "",
+              promotionFee: card.pricing.promotionFee ? card.pricing.promotionFee.toFixed(2) : "",
+              openFee: card.pricing.openFee ? card.pricing.openFee.toFixed(2) : "",
+              impressions: card.stats.impressions,
+              uniqueImpressions: card.stats.uniqueImpressions,
+              opens: card.stats.opens,
+              uniqueOpens: card.stats.uniqueOpens,
+              likes: card.stats.likes,
+              dislikes: card.stats.dislikes,
+              blocked: card.blocked ? "yes" : ""
+            });
+          }
+          this.set('cards', cards);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onClick(event) {
+        $router.goto(["card", event.model.item.id]);
+      }
+
+      _onEdit(event) {
+        this.$.editDialog.show(event.model.item.id).then((result) => {
+          if (result) {
+            this._refresh();
+          }
+        });
+      }
+    }
+    window.customElements.define(AdminCardsView.is, AdminCardsView);
+  </script>
+</dom-module>

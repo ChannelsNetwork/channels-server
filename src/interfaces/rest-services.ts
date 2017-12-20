@@ -197,6 +197,7 @@ export interface CardDescriptor {
     title: string;
     text: string;
   };
+  keywords: string[];
   cardType: {
     package: string;
     iconUrl: string;
@@ -227,6 +228,8 @@ export interface CardDescriptor {
     user: CardState;
     shared: CardState;
   };
+
+  blocked: boolean;
 }
 
 export interface CardDescriptorStatistics {
@@ -612,6 +615,18 @@ export interface AdminGetUsersResponse extends RestResponse {
   users: AdminUserInfo[];
 }
 
+export interface AdminGetCardsDetails extends Signable {
+  limit: number;
+}
+
+export interface AdminGetCardsResponse extends RestResponse {
+  cards: AdminCardInfo[];
+}
+
+export interface AdminCardInfo {
+  descriptor: CardDescriptor;
+}
+
 export interface AdminUserInfo {
   user: UserRecord;
   cardsPosted: number;
@@ -627,6 +642,14 @@ export interface AdminSetUserMailingListDetails extends Signable {
 }
 
 export interface AdminSetUserMailingListResponse extends RestResponse { }
+
+export interface AdminUpdateCardDetails extends Signable {
+  cardId: string;
+  keywords: string[];
+  blocked: boolean;
+}
+
+export interface AdminUpdateCardResponse extends RestResponse { }
 
 export interface QueryPageDetails extends Signable {
   url: string;

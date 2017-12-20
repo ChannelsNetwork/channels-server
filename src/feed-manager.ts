@@ -8,7 +8,7 @@ import { db } from "./db";
 import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -72,6 +72,9 @@ export class FeedManager implements Initializable, RestServer {
   private registerHandlers(): void {
     this.app.post(this.urlManager.getDynamicUrl('get-feeds'), (request: Request, response: Response) => {
       void this.handleGetFeeds(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-cards'), (request: Request, response: Response) => {
+      void this.handleAdminGetCards(request, response);
     });
   }
 
@@ -479,8 +482,8 @@ export class FeedManager implements Initializable, RestServer {
     return finalResult;
   }
 
-  private async populateCard(card: CardRecord, promoted: boolean, user?: UserRecord): Promise<CardDescriptor> {
-    return await cardManager.populateCardState(card.id, false, promoted, user);
+  private async populateCard(card: CardRecord, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+    return await cardManager.populateCardState(card.id, false, promoted, user, includeAdmin);
   }
 
   private async poll(): Promise<void> {
@@ -975,6 +978,34 @@ export class FeedManager implements Initializable, RestServer {
     const cards = await this.populateCards(cardRecords, false, user);
     return await this.mergeWithAdCards(user, cards, cardRecords.length > limit, limit, existingPromotedCardIds);
   }
+
+  private async handleAdminGetCards(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetCardsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("FeedManager.admin-get-cards", requestBody.detailsObject);
+      const cardRecords = await db.findCardsByTime(requestBody.detailsObject.limit);
+      const infos: AdminCardInfo[] = [];
+      for (const record of cardRecords) {
+        const descriptor = await this.populateCard(record, false, null, true);
+        infos.push({
+          descriptor: descriptor
+        });
+      }
+      const reply: AdminGetCardsResponse = {
+        serverVersion: SERVER_VERSION,
+        cards: infos
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleAdminGetCards: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
 }
 
 const feedManager = new FeedManager();

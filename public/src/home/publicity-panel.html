@@ -79,8 +79,8 @@
       }
 
       refresh() {
-        this.bonus = "$" + $core.publishSubsidiesPerPaidOpen;
-        this.remaining = "$" + $core.publishSubsidiesRemainingToday;
+        this.bonus = "$" + $core.publishSubsidiesPerPaidOpen.toFixed(2);
+        this.remaining = "$" + $core.publishSubsidiesRemainingToday.toFixed(2);
       }
 
       _createCard() {

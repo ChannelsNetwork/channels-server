@@ -715,11 +715,26 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getCards(limit) {
+    let details = RestUtils.admin_getCards(this._keys.address, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-cards";
+    return this.rest.post(url, request);
+  }
+
   admin_setUserMailingList(userId, includeInMailingList) {
     let details = RestUtils.admin_setUserMailingList(this._keys.address, userId, includeInMailingList);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-set-user-mailing-list";
     return this.rest.post(url, request);
   }
+
+  admin_updateCard(cardId, keywords, blocked) {
+    let details = RestUtils.admin_updateCard(this._keys.address, cardId, keywords, blocked);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-update-card";
+    return this.rest.post(url, request);
+  }
+
 }
 window.customElements.define(CoreService.is, CoreService);
