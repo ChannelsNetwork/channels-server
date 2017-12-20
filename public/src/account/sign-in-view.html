@@ -242,7 +242,7 @@
         let handle = this.$.handle.value.trim();
         this._setMessage("Signing in");
         $core.signIn(handle, this.$.password.value.trim(), this.$.trust.checked).then(() => {
-          $router.goto("");
+          window.location.assign("/");
         }).catch((err) => {
           console.error(err);
           this._setError(err || "Oops. Something went wrong.");
