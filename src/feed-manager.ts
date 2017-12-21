@@ -574,17 +574,22 @@ export class FeedManager implements Initializable, RestServer {
     // This will find all of the cards that have were posted within the last postInterval specified
     // but have not been rescored within last scoreInterval
     const cards = await db.findCardsForScoring(Date.now() - postInterval, Date.now() - scoreInterval);
+    const currentStats = await db.ensureNetworkCardStats();
     for (const card of cards) {
       await this.rescoreCard(card, addHistory);
     }
   }
 
-  async rescoreCard(card: CardRecord, addHistory: boolean): Promise<void> {
+  async rescoreCard(card: CardRecord, addHistory: boolean, currentStats?: NetworkCardStats): Promise<void> {
     const lockedCard = await cardManager.lockCard(card.id);
     try {
       if (lockedCard.lastScored === card.lastScored) {
         // After locking, it's clear that another processor has not already scored this one
-        const score = await this.scoreCard(card);
+        if (!currentStats) {
+          const current = await db.ensureNetworkCardStats();
+          currentStats = current.stats;
+        }
+        const score = await this.scoreCard(card, currentStats);
         if (card.score !== score) {
           console.log("Feed.rescoreCard: Updating card score", card.id, score, addHistory);
           await cardManager.updateCardScore(card, score);
@@ -595,21 +600,21 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  private async scoreCard(card: CardRecord): Promise<number> {
+  private async scoreCard(card: CardRecord, currentStats: NetworkCardStats): Promise<number> {
     const networkStats = await db.getNetworkCardStatsAt(card.postedAt);
-    return this.getTotalCardScore(card, networkStats.stats);
+    return this.getTotalCardScore(card, currentStats, networkStats.stats);
   }
 
-  private getTotalCardScore(card: CardRecord, networkStats: NetworkCardStats): number {
+  private getTotalCardScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats): number {
     let score = 0;
-    score += this.getCardAgeScore(card, networkStats);
-    score += this.getCardOpensScore(card, networkStats);
-    score += this.getCardLikesScore(card, networkStats);
-    score += this.getCardCurationScore(card, networkStats);
+    score += this.getCardAgeScore(card);
+    score += this.getCardOpensScore(card, currentStats, networkStats);
+    score += this.getCardLikesScore(card, currentStats, networkStats);
+    score += this.getCardCurationScore(card);
     return +(score.toFixed(5));
   }
 
-  private getCardAgeScore(card: CardRecord, networkStats: NetworkCardStats): number {
+  private getCardAgeScore(card: CardRecord): number {
     return this.getInverseScore(SCORE_CARD_WEIGHT_AGE, Date.now() - card.postedAt, SCORE_CARD_AGE_HALF_LIFE);
   }
 
@@ -645,12 +650,19 @@ export class FeedManager implements Initializable, RestServer {
     }
     return priorValue;
   }
-  private getCardOpensScore(card: CardRecord, networkStats: NetworkCardStats): number {
+  private getCardOpensScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats): number {
     // This returns a score based on what fraction of the unique opens network-wide during the period
     // since this card was posted were for this card.
     let ratio = 0;
+    let delta = 1;
+    if (currentStats.uniqueOpens) {
+      delta = currentStats.uniqueOpens;
+    }
+    if (networkStats.uniqueOpens) {
+      delta = Math.max(0, delta - networkStats.uniqueOpens);
+    }
     if (card.stats && card.stats.uniqueOpens) {
-      ratio = Math.min(card.stats.uniqueOpens.value / (networkStats.uniqueOpens || 1), 1);
+      ratio = Math.min(card.stats.uniqueOpens.value / (delta || 1), 1);
     }
     return SCORE_CARD_WEIGHT_OPENS * ratio;
   }
@@ -660,7 +672,7 @@ export class FeedManager implements Initializable, RestServer {
   //   const value = opens - priorOpens;
   //   return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
   // }
-  private getCardLikesScore(card: CardRecord, networkStats: NetworkCardStats): number {
+  private getCardLikesScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats): number {
     // This returns a score based on what fraction of the net-likes network-wide during the period
     // since this card was posted were for this card.
     let netLikes = 0;
@@ -673,7 +685,15 @@ export class FeedManager implements Initializable, RestServer {
     if (netLikes === 0 || networkStats.likes === 0) {
       return 0;
     }
-    const ratio = Math.min(1, netLikes / networkStats.likes);
+    let delta = 1;
+    if (currentStats.likes) {
+      delta = currentStats.likes;
+    }
+    if (networkStats.likes) {
+      delta = Math.max(0, delta - networkStats.likes);
+    }
+
+    const ratio = Math.min(1, netLikes / (networkStats.likes || 1));
     return SCORE_CARD_WEIGHT_LIKES * ratio;
   }
 
@@ -688,7 +708,7 @@ export class FeedManager implements Initializable, RestServer {
   //   }
   // }
 
-  private getCardCurationScore(card: CardRecord, networkStats: NetworkCardStats): number {
+  private getCardCurationScore(card: CardRecord): number {
     // Curation allows admins to directly affect the scoring by boosting or bombing the score
     // for a card.  Boosts have a half-life, while bombs are permanent.
     if (!card.curation || !card.curation.boost) {
@@ -1094,17 +1114,18 @@ export class FeedManager implements Initializable, RestServer {
       console.log("FeedManager.admin-get-cards", requestBody.detailsObject);
       const cardRecords = await db.findCardsByTime(requestBody.detailsObject.limit);
       const infos: AdminCardInfo[] = [];
+      const currentStats = await db.ensureNetworkCardStats();
       for (const record of cardRecords) {
         const descriptor = await this.populateCard(record, false, null, true);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
         infos.push({
           descriptor: descriptor,
           scoring: {
-            age: this.getCardAgeScore(record, networkStats.stats),
-            opens: this.getCardOpensScore(record, networkStats.stats),
-            likes: this.getCardLikesScore(record, networkStats.stats),
-            boost: this.getCardCurationScore(record, networkStats.stats),
-            total: this.getTotalCardScore(record, networkStats.stats)
+            age: this.getCardAgeScore(record),
+            opens: this.getCardOpensScore(record, currentStats.stats, networkStats.stats),
+            likes: this.getCardLikesScore(record, currentStats.stats, networkStats.stats),
+            boost: this.getCardCurationScore(record),
+            total: this.getTotalCardScore(record, currentStats.stats, networkStats.stats)
           }
         });
       }
