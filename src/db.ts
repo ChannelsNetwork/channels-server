@@ -360,9 +360,20 @@ export class Database {
     await this.cardTopics.createIndex({ id: 1 }, { unique: true });
     await this.cardTopics.createIndex({ status: 1, topicWithCase: 1 });
 
-    const count = await this.cardTopics.count({});
-    if (count === 0) {
-      for (const item of DEFAULT_CARD_TOPICS) {
+    for (const item of DEFAULT_CARD_TOPICS) {
+      const existing = await this.findCardTopicByName(item.topic);
+      let add = false;
+      if (existing) {
+        for (const keyword of item.keywords) {
+          if (existing.keywords.indexOf(keyword) < 0) {
+            add = true;
+            break;
+          }
+        }
+      } else {
+        add = true;
+      }
+      if (add) {
         const record: CardTopicRecord = {
           id: uuid.v4(),
           status: "active",
@@ -371,7 +382,7 @@ export class Database {
           keywords: item.keywords,
           added: Date.now()
         };
-        await this.cardTopics.insert(record);
+        await this.cardTopics.update({ status: "active", topic: item.topic.toLowerCase() }, record, { upsert: true });
       }
     }
   }
@@ -1892,6 +1903,7 @@ const DEFAULT_CARD_TOPICS = [
   { topic: "Film", keywords: ["film", "video", "time-lapsed", "animation"] },
   { topic: "Opinion", keywords: ["opinion"] },
   { topic: "Food", keywords: ["food", "cook", "cooking", "recipe", "kitchen"] },
+  { topic: "Fashion", keywords: ["fashion", "makeup", "clothes", "clothing", "beauty"] },
   { topic: "Travel", keywords: ["travel"] },
   { topic: "Music", keywords: ["music", "song", "band"] },
   { topic: "Politics", keywords: ["politics"] },
