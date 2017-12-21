@@ -145,8 +145,10 @@ export interface CardRecord {
     server: string;
     at: number;
   };
-  curation: {
-    block: boolean;
+  curation?: {
+    block?: boolean;
+    boost?: number;
+    boostAt?: number;
   };
   searchText: string;
   type: CardType;
@@ -483,3 +485,18 @@ export interface CardTopicRecord {
 }
 
 export type CardTopicStatus = "active" | "hidden";
+
+export interface NetworkCardStatsHistoryRecord {
+  periodStarting: number;
+  isCurrent: boolean;
+  stats: NetworkCardStats;
+}
+
+export interface NetworkCardStats {
+  opens: number;
+  uniqueOpens: number;
+  paidOpens: number;
+  likes: number;
+  dislikes: number;
+  cardRevenue: number;
+}

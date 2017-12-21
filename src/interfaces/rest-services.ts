@@ -629,6 +629,13 @@ export interface AdminGetCardsResponse extends RestResponse {
 
 export interface AdminCardInfo {
   descriptor: CardDescriptor;
+  scoring: {
+    age: number;
+    opens: number;
+    likes: number;
+    boost: number;
+    total: number;
+  };
 }
 
 export interface AdminUserInfo {

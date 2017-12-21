@@ -2,12 +2,13 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 
+const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
 export class Database {
   private db: Db;
   private oldUsers: Collection;
@@ -35,6 +36,7 @@ export class Database {
   private bowerPackages: Collection;
   private publisherSubsidyDays: Collection;
   private cardTopics: Collection;
+  private networkCardStats: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -65,6 +67,7 @@ export class Database {
     await this.initializeBowerPackages();
     await this.initializePublisherSubsidyDays();
     await this.initializeCardTopics();
+    await this.initializeNetworkCardStats();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -371,6 +374,11 @@ export class Database {
         await this.cardTopics.insert(record);
       }
     }
+  }
+
+  private async initializeNetworkCardStats(): Promise<void> {
+    this.networkCardStats = this.db.collection('networkCardStats');
+    await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1766,6 +1774,107 @@ export class Database {
     return await this.cardTopics.findOne<CardTopicRecord>({ topicNoCase: name.toLowerCase() });
   }
 
+  async insertOriginalNetworkCardStats(stats: NetworkCardStats): Promise<void> {
+    const record: NetworkCardStatsHistoryRecord = {
+      periodStarting: 0,
+      isCurrent: false,
+      stats: stats
+    };
+    await this.networkCardStats.insert(record);
+  }
+
+  async findLatestNetworkCardStats(): Promise<NetworkCardStatsHistoryRecord> {
+    const records = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
+    if (records.length > 0) {
+      return records[0];
+    } else {
+      return null;
+    }
+  }
+
+  async ensureNetworkCardStats(): Promise<NetworkCardStatsHistoryRecord> {
+    let result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
+    const now = Date.now();
+    if (result && result.length > 0 && now - result[0].periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
+      return result[0];
+    }
+    const record = result[0];
+    // We want to avoid multiple processes inserting duplicates, so we round the periodStarting to the nearest
+    // 1 minute boundary.  Then if a second process tries to insert, it will get a duplicate error.
+    const newPeriodStart = Math.round(now / (1000 * 60)) * (1000 * 60);
+    const stats: NetworkCardStats = record && record.stats ? record.stats : this.createEmptyNetworkCardStats();
+    const newRecord: NetworkCardStatsHistoryRecord = {
+      periodStarting: newPeriodStart,
+      isCurrent: true,
+      stats: stats
+    };
+    const writeResult = await this.networkCardStats.insert(newRecord);
+    if (writeResult.insertedCount === 1) {
+      if (record) {
+        await this.networkCardStats.updateOne({ periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
+      }
+      return newRecord;
+    }
+    result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
+    return result[0];
+  }
+
+  createEmptyNetworkCardStats(): NetworkCardStats {
+    const stats: NetworkCardStats = {
+      opens: 0,
+      uniqueOpens: 0,
+      paidOpens: 0,
+      likes: 0,
+      dislikes: 0,
+      cardRevenue: 0
+    };
+    return stats;
+  }
+
+  async getNetworkCardStatsAt(timestamp: number): Promise<NetworkCardStatsHistoryRecord> {
+    const result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({ periodStarting: { $lt: timestamp } }).sort({ periodStarting: -1 }).limit(1).toArray();
+    if (result && result.length > 0) {
+      return result[0];
+    } else {
+      return {
+        periodStarting: 0,
+        isCurrent: true,
+        stats: this.createEmptyNetworkCardStats()
+      };
+    }
+  }
+
+  async incrementNetworkCardStats(stats: NetworkCardStats): Promise<void> {
+    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes);
+  }
+
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number): Promise<void> {
+    const update: any = {};
+    if (opens) {
+      update["stats.opens"] = opens;
+    }
+    if (uniqueOpens) {
+      update["stats.uniqueOpens"] = uniqueOpens;
+    }
+    if (paidOpens) {
+      update["stats.paidOpens"] = paidOpens;
+    }
+    if (likes) {
+      update["stats.likes"] = likes;
+    }
+    if (dislikes) {
+      update["stats.dislikes"] = dislikes;
+    }
+    let retries = 0;
+    while (retries++ < 5) {
+      const statsRecord = await this.ensureNetworkCardStats();
+      const updateResult = await this.networkCardStats.updateOne({ periodStarting: statsRecord.periodStarting, isCurrent: true }, { $inc: update });
+      if (updateResult.modifiedCount === 1) {
+        return;
+      }
+    }
+    console.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions");
+  }
 }
 
 const db = new Database();
