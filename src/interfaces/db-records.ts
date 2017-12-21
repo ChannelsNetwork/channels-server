@@ -145,8 +145,10 @@ export interface CardRecord {
     server: string;
     at: number;
   };
-  curation: {
-    block: boolean;
+  curation?: {
+    block?: boolean;
+    boost?: number;
+    boostAt?: number;
   };
   searchText: string;
   type: CardType;
@@ -471,4 +473,30 @@ export interface PublisherSubsidyDayRecord {
   coinsPerPaidOpen: number;
   coinsPaid: number;
   returnUserBonus: number;
+}
+
+export interface CardTopicRecord {
+  id: string;
+  status: CardTopicStatus;
+  topicNoCase: string;
+  topicWithCase: string;
+  keywords: string[];
+  added: number;
+}
+
+export type CardTopicStatus = "active" | "hidden";
+
+export interface NetworkCardStatsHistoryRecord {
+  periodStarting: number;
+  isCurrent: boolean;
+  stats: NetworkCardStats;
+}
+
+export interface NetworkCardStats {
+  opens: number;
+  uniqueOpens: number;
+  paidOpens: number;
+  likes: number;
+  dislikes: number;
+  cardRevenue: number;
 }

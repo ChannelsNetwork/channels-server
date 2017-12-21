@@ -5,10 +5,10 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin, NetworkCardStatsHistoryRecord, NetworkCardStats } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -28,7 +28,7 @@ import { Utils } from "./utils";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 10;
+const SCORE_CARD_WEIGHT_AGE = 5;
 const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
 const SCORE_CARD_WEIGHT_REVENUE = 1;
 const SCORE_CARD_REVENUE_DOUBLING = 100;
@@ -40,10 +40,12 @@ const SCORE_CARD_OPENS_DOUBLING = 250;
 const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_OPENS = 1;
 const SCORE_CARD_RECENT_OPENS_DOUBLING = 25;
-const SCORE_CARD_WEIGHT_LIKES = 1;
+const SCORE_CARD_WEIGHT_LIKES = 3;
 const SCORE_CARD_LIKES_DOUBLING = 0.1;
 const SCORE_CARD_WEIGHT_CONTROVERSY = 1;
 const SCORE_CARD_CONTROVERSY_DOUBLING = 10;
+const SCORE_CARD_DISLIKE_MULTIPLER = 2;
+const SCORE_CARD_BOOST_HALF_LIFE = 1000 * 60 * 60 * 24 * 3;
 
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
@@ -72,6 +74,12 @@ export class FeedManager implements Initializable, RestServer {
   private registerHandlers(): void {
     this.app.post(this.urlManager.getDynamicUrl('get-feeds'), (request: Request, response: Response) => {
       void this.handleGetFeeds(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('search-topic'), (request: Request, response: Response) => {
+      void this.handleSearchTopic(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('list-topics'), (request: Request, response: Response) => {
+      void this.handleListTopics(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-get-cards'), (request: Request, response: Response) => {
       void this.handleAdminGetCards(request, response);
@@ -149,6 +157,51 @@ export class FeedManager implements Initializable, RestServer {
     result.cards = batch.cards;
     result.moreAvailable = batch.moreAvailable;
     return result;
+  }
+
+  private async handleSearchTopic(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<SearchTopicDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("FeedManager.search-topic", requestBody.detailsObject);
+      const batch = await this.performSearchTopic(user, requestBody.detailsObject.topic, requestBody.detailsObject.maxCount, requestBody.detailsObject.afterCardId, requestBody.detailsObject.promotedCardIds);
+      const reply: SearchTopicResponse = {
+        serverVersion: SERVER_VERSION,
+        cards: batch.cards,
+        moreAvailable: batch.moreAvailable
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleSearchTopic: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleListTopics(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<ListTopicsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("FeedManager.list-topics", requestBody.detailsObject);
+      const topicRecords = await db.listCardTopics();
+      const topics: string[] = [];
+      for (const record of topicRecords) {
+        topics.push(record.topicWithCase);
+      }
+      const reply: ListTopicsResponse = {
+        serverVersion: SERVER_VERSION,
+        topics: topics
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleListTopics: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
   }
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
@@ -451,6 +504,27 @@ export class FeedManager implements Initializable, RestServer {
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
+  private async performSearchTopic(user: UserRecord, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+    let score = 0;
+    if (afterCardId) {
+      const afterCard = await db.findCardById(afterCardId, true);
+      if (afterCard) {
+        score = afterCard.score;
+      }
+    }
+    const topicRecord = await db.findCardTopicByName(topic);
+    if (!topicRecord) {
+      const emptyResult: CardBatch = {
+        cards: [],
+        moreAvailable: false
+      };
+      return emptyResult;
+    }
+    const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1);
+    const result = await this.populateCards(cards, false, user);
+    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+  }
+
   private async populateCards(cards: CardRecord[], promoted: boolean, user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
     const promises: Array<Promise<CardDescriptor>> = [];
     const orderedCards: CardRecord[] = [];
@@ -505,7 +579,7 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  private async rescoreCard(card: CardRecord, addHistory: boolean): Promise<void> {
+  async rescoreCard(card: CardRecord, addHistory: boolean): Promise<void> {
     const lockedCard = await cardManager.lockCard(card.id);
     try {
       if (lockedCard.lastScored === card.lastScored) {
@@ -522,18 +596,20 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async scoreCard(card: CardRecord): Promise<number> {
+    const networkStats = await db.getNetworkCardStatsAt(card.postedAt);
+    return this.getTotalCardScore(card, networkStats.stats);
+  }
+
+  private getTotalCardScore(card: CardRecord, networkStats: NetworkCardStats): number {
     let score = 0;
-    score += this.getCardAgeScore(card);
-    score += this.getCardRevenueScore(card);
-    score += await this.getCardRecentRevenueScore(card);
-    score += this.getCardOpensScore(card);
-    score += await this.getCardRecentOpensScore(card);
-    score += this.getCardLikesScore(card);
-    score += this.getCardControversyScore(card);
+    score += this.getCardAgeScore(card, networkStats);
+    score += this.getCardOpensScore(card, networkStats);
+    score += this.getCardLikesScore(card, networkStats);
+    score += this.getCardCurationScore(card, networkStats);
     return +(score.toFixed(5));
   }
 
-  private getCardAgeScore(card: CardRecord): number {
+  private getCardAgeScore(card: CardRecord, networkStats: NetworkCardStats): number {
     return this.getInverseScore(SCORE_CARD_WEIGHT_AGE, Date.now() - card.postedAt, SCORE_CARD_AGE_HALF_LIFE);
   }
 
@@ -541,19 +617,19 @@ export class FeedManager implements Initializable, RestServer {
     return weight * Math.pow(2, - value / halfLife);
   }
 
-  private getCardRevenueScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_REVENUE, card.stats.revenue.value, SCORE_CARD_REVENUE_DOUBLING);
-  }
+  // private getCardRevenueScore(card: CardRecord): number {
+  //   return this.getLogScore(SCORE_CARD_WEIGHT_REVENUE, card.stats.revenue.value, SCORE_CARD_REVENUE_DOUBLING);
+  // }
 
   private getLogScore(weight: number, value: number, doubling: number): number {
     return weight * Math.log10(1 + 100 * value / doubling);
   }
-  private async getCardRecentRevenueScore(card: CardRecord): Promise<number> {
-    const revenue = card.stats.revenue.value;
-    const priorRevenue = await this.getPriorStatValue(card, "revenue", SCORE_CARD_REVENUE_RECENT_INTERVAL);
-    const value = revenue - priorRevenue;
-    return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_REVENUE, value, SCORE_CARD_RECENT_REVENUE_DOUBLING);
-  }
+  // private async getCardRecentRevenueScore(card: CardRecord): Promise<number> {
+  //   const revenue = card.stats.revenue.value;
+  //   const priorRevenue = await this.getPriorStatValue(card, "revenue", SCORE_CARD_REVENUE_RECENT_INTERVAL);
+  //   const value = revenue - priorRevenue;
+  //   return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_REVENUE, value, SCORE_CARD_RECENT_REVENUE_DOUBLING);
+  // }
 
   private async getPriorStatValue(card: CardRecord, statName: string, minInterval: number): Promise<number> {
     let priorValue = 0;
@@ -569,33 +645,62 @@ export class FeedManager implements Initializable, RestServer {
     }
     return priorValue;
   }
-  private getCardOpensScore(card: CardRecord): number {
-    return this.getLogScore(SCORE_CARD_WEIGHT_OPENS, card.stats.opens.value, SCORE_CARD_OPENS_DOUBLING);
+  private getCardOpensScore(card: CardRecord, networkStats: NetworkCardStats): number {
+    // This returns a score based on what fraction of the unique opens network-wide during the period
+    // since this card was posted were for this card.
+    let ratio = 0;
+    if (card.stats && card.stats.uniqueOpens) {
+      ratio = Math.min(card.stats.uniqueOpens.value / (networkStats.uniqueOpens || 1), 1);
+    }
+    return SCORE_CARD_WEIGHT_OPENS * ratio;
   }
-  private async getCardRecentOpensScore(card: CardRecord): Promise<number> {
-    const opens = card.stats.opens.value;
-    const priorOpens = await this.getPriorStatValue(card, "opens", SCORE_CARD_OPENS_RECENT_INTERVAL);
-    const value = opens - priorOpens;
-    return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
-  }
-  private getCardLikesScore(card: CardRecord): number {
-    if (card.stats.uniqueOpens.value > 0) {
-      return this.getLogScore(SCORE_CARD_WEIGHT_LIKES, card.stats.likes.value / card.stats.uniqueOpens.value, SCORE_CARD_LIKES_DOUBLING);
-    } else {
+  // private async getCardRecentOpensScore(card: CardRecord): Promise<number> {
+  //   const opens = card.stats.opens.value;
+  //   const priorOpens = await this.getPriorStatValue(card, "opens", SCORE_CARD_OPENS_RECENT_INTERVAL);
+  //   const value = opens - priorOpens;
+  //   return this.getLogScore(SCORE_CARD_WEIGHT_RECENT_OPENS, value, SCORE_CARD_RECENT_OPENS_DOUBLING);
+  // }
+  private getCardLikesScore(card: CardRecord, networkStats: NetworkCardStats): number {
+    // This returns a score based on what fraction of the net-likes network-wide during the period
+    // since this card was posted were for this card.
+    let netLikes = 0;
+    if (card.stats && card.stats.likes) {
+      netLikes += card.stats.likes.value;
+    }
+    if (card.stats && card.stats.dislikes) {
+      netLikes -= SCORE_CARD_DISLIKE_MULTIPLER * card.stats.dislikes.value;
+    }
+    if (netLikes === 0 || networkStats.likes === 0) {
       return 0;
     }
-  }
-  private getCardControversyScore(card: CardRecord): number {
-    if (card.stats.uniqueOpens.value > 0) {
-      const likes = card.stats.likes.value / card.stats.uniqueOpens.value;
-      const dislikes = card.stats.dislikes.value / card.stats.uniqueOpens.value;
-      const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
-      return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
-    } else {
-      return 0;
-    }
+    const ratio = Math.min(1, netLikes / networkStats.likes);
+    return SCORE_CARD_WEIGHT_LIKES * ratio;
   }
 
+  // private getCardControversyScore(card: CardRecord): number {
+  //   if (card.stats.uniqueOpens.value > 0) {
+  //     const likes = card.stats.likes.value / card.stats.uniqueOpens.value;
+  //     const dislikes = card.stats.dislikes.value / card.stats.uniqueOpens.value;
+  //     const controversy = (likes + dislikes) / (Math.abs(likes - dislikes) + 1);
+  //     return this.getLogScore(SCORE_CARD_WEIGHT_CONTROVERSY, controversy, SCORE_CARD_CONTROVERSY_DOUBLING);
+  //   } else {
+  //     return 0;
+  //   }
+  // }
+
+  private getCardCurationScore(card: CardRecord, networkStats: NetworkCardStats): number {
+    // Curation allows admins to directly affect the scoring by boosting or bombing the score
+    // for a card.  Boosts have a half-life, while bombs are permanent.
+    if (!card.curation || !card.curation.boost) {
+      return 0;
+    }
+    if (card.curation.boost < 0) {
+      return card.curation.boost;
+    }
+    const now = Date.now();
+    const age = now - (card.curation.boostAt || now);
+    return this.getInverseScore(card.curation.boost, age, SCORE_CARD_BOOST_HALF_LIFE);
+  }
   private async addSampleEntries(): Promise<void> {
     console.log("FeedManager.addSampleEntries");
     if (configuration.get("debug.useSamples")) {
@@ -647,7 +752,7 @@ export class FeedManager implements Initializable, RestServer {
         './icon.png',
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, sample.text, [], null,
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, ["sample"], sample.text, [], null,
         cardId);
       await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
@@ -991,8 +1096,16 @@ export class FeedManager implements Initializable, RestServer {
       const infos: AdminCardInfo[] = [];
       for (const record of cardRecords) {
         const descriptor = await this.populateCard(record, false, null, true);
+        const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
         infos.push({
-          descriptor: descriptor
+          descriptor: descriptor,
+          scoring: {
+            age: this.getCardAgeScore(record, networkStats.stats),
+            opens: this.getCardOpensScore(record, networkStats.stats),
+            likes: this.getCardLikesScore(record, networkStats.stats),
+            boost: this.getCardCurationScore(record, networkStats.stats),
+            total: this.getTotalCardScore(record, networkStats.stats)
+          }
         });
       }
       const reply: AdminGetCardsResponse = {

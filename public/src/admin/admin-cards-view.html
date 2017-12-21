@@ -71,6 +71,11 @@
         font-size: 12px;
         font-family: monospace;
       }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
     </style>
     <div id="container">
       <h1>Active Cards</h1>
@@ -78,11 +83,16 @@
         <div class="headerRow">
           <div class="headerCell">Title</div>
           <div class="headerCell">Keywords</div>
-          <div class="headerCell">Posted</div>
+          <div class="headerCell clickable" on-click="_onPostedClick">Posted</div>
           <div class="headerCell">Author</div>
           <div class="headerCell">Private</div>
           <div class="headerCell">Package</div>
-          <div class="headerCell right">Score</div>
+          <div class="headerCell right clickable" on-click="_onScoreClick">Score</div>
+          <div class="headerCell right">Score (age)</div>
+          <div class="headerCell right">Score (opens)</div>
+          <div class="headerCell right">Score (likes)</div>
+          <div class="headerCell right">Score (boost)</div>
+          <div class="headerCell right">Score (total)</div>
           <div class="headerCell right">Revenue</div>
           <div class="headerCell right">Promotion Fee</div>
           <div class="headerCell right">Open Fee</div>
@@ -104,6 +114,11 @@
             <div class="cell center">[[item.private]]</div>
             <div class="cell">[[item.package]]</div>
             <div class="cell right">[[item.score]]</div>
+            <div class="cell right">[[item.scoreAge]]</div>
+            <div class="cell right">[[item.scoreOpens]]</div>
+            <div class="cell right">[[item.scoreLikes]]</div>
+            <div class="cell right">[[item.scoreBoost]]</div>
+            <div class="cell right">[[item.scoreTotal]]</div>
             <div class="cell right">[[item.revenue]]</div>
             <div class="cell right">[[item.promotionFee]]</div>
             <div class="cell right">[[item.openFee]]</div>
@@ -168,6 +183,11 @@
               private: card.private ? "yes" : "",
               package: pkg,
               score: card.score.toFixed(3),
+              scoreAge: cardInfo.scoring.age.toFixed(3),
+              scoreOpens: cardInfo.scoring.opens.toFixed(3),
+              scoreLikes: cardInfo.scoring.likes.toFixed(3),
+              scoreBoost: cardInfo.scoring.boost.toFixed(3),
+              scoreTotal: cardInfo.scoring.total.toFixed(3),
               revenue: card.stats.revenue ? card.stats.revenue.toFixed(2) : "",
               promotionFee: card.pricing.promotionFee ? card.pricing.promotionFee.toFixed(2) : "",
               openFee: card.pricing.openFee ? card.pricing.openFee.toFixed(2) : "",
@@ -207,6 +227,24 @@
             this._refresh();
           }
         });
+      }
+
+      _onScoreClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        newItems.sort((a, b) => {
+          return b.score - a.score;
+        });
+        this.set('cards', newItems);
+      }
+
+      _onPostedClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        newItems.sort((a, b) => {
+          return b.postedAt - a.postedAt;
+        });
+        this.set('cards', newItems);
       }
     }
     window.customElements.define(AdminCardsView.is, AdminCardsView);

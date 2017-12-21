@@ -358,7 +358,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, searchText, fileIds, initialState) {
+  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -368,15 +368,15 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
   }
 
-  updateCardSummary(cardId, title, text, linkUrl, imageUrl, imageWidth, imageHeight) {
+  updateCardSummary(cardId, title, text, linkUrl, imageUrl, imageWidth, imageHeight, keywords) {
     const cardSummary = RestUtils.cardStateSummary(title, text, linkUrl, imageUrl, imageWidth, imageHeight);
-    const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, cardSummary);
+    const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, cardSummary, null, keywords);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
     return this.rest.post(url, request).then(() => {
@@ -557,6 +557,20 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.queryPage(this._keys.address, queryUrl);
     let request = this._createRequest(details);
     const url = this.restBase + "/query-page";
+    return this.rest.post(url, request);
+  }
+
+  listTopics() {
+    let details = RestUtils.listTopicsDetails(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/list-topics";
+    return this.rest.post(url, request);
+  }
+
+  searchTopic(topic, maxCount, afterCardId, promotedCardIds) {
+    let details = RestUtils.searchTopicDetails(this._keys.address, topic, maxCount, afterCardId, promotedCardIds);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/search-topic";
     return this.rest.post(url, request);
   }
 

@@ -345,6 +345,7 @@ export interface PostCardDetails extends Signable {
   linkUrl?: string;
   title?: string;
   text: string;
+  keywords: string[];
   searchText: string;
   private: boolean;
   cardType?: string;
@@ -369,6 +370,7 @@ export interface UpdateCardStateDetails extends Signable {
     text: string;
   };
   state?: CardState;
+  keywords?: string[];
 }
 
 export interface UpdateCardStateResponse extends RestResponse { }
@@ -627,6 +629,13 @@ export interface AdminGetCardsResponse extends RestResponse {
 
 export interface AdminCardInfo {
   descriptor: CardDescriptor;
+  scoring: {
+    age: number;
+    opens: number;
+    likes: number;
+    boost: number;
+    total: number;
+  };
 }
 
 export interface AdminUserInfo {
@@ -660,4 +669,22 @@ export interface QueryPageDetails extends Signable {
 export interface QueryPageResponse extends RestResponse {
   embeddable: boolean;
   notEmbeddableReason?: string;
+}
+
+export interface SearchTopicDetails extends Signable {
+  topic: string;
+  maxCount: number;
+  afterCardId?: string;
+  promotedCardIds: string[];
+}
+
+export interface SearchTopicResponse extends RestResponse {
+  cards: CardDescriptor[];
+  moreAvailable: boolean;
+}
+
+export interface ListTopicsDetails extends Signable { }
+
+export interface ListTopicsResponse extends RestResponse {
+  topics: string[];
 }

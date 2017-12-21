@@ -208,7 +208,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, searchText, fileIds, initialState) {
+  static postCardDetails(address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
@@ -226,6 +226,7 @@ class RestUtils {
         openFeeUnits: openFeeUnits,       // 1..10
         coupon: coupon,                   // signed BankCouponDetails  
       },
+      keywords: keywords,
       searchText: searchText,
       sharedState: initialState,         // {properties: {...}, collections: {...}}
       fileIds: fileIds
@@ -239,7 +240,7 @@ class RestUtils {
     return result;
   }
 
-  static updateCardStateDetails(address, cardId, summary, state) {
+  static updateCardStateDetails(address, cardId, summary, state, keywords) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
@@ -250,6 +251,9 @@ class RestUtils {
     }
     if (state) {
       result.state = state;
+    }
+    if (keywords) {
+      result.keywords = keywords;
     }
     return result;
   }
@@ -521,6 +525,24 @@ class RestUtils {
       address: address,
       timestamp: RestUtils.now(),
       url: url
+    };
+  }
+
+  static listTopicsDetails(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static searchTopicDetails(address, topic, maxCount, afterCardId, promotedCardIds) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      topic: topic,
+      maxCount: maxCount,
+      afterCardId: afterCardId,
+      promotedCardIds: promotedCardIds
     };
   }
 }
