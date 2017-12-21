@@ -82,7 +82,6 @@
     "@types/mkdirp": "^0.5.1",
     "@types/moment": "^2.13.0",
     "@types/moment-timezone": "^0.2.34",
-    "@types/mongodb": "^2.2.2",
     "@types/mustache": "^0.8.30",
     "@types/node": "^7.0.22",
     "@types/node-fetch": "^1.6.7",

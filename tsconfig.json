@@ -10,9 +10,14 @@
     "paths": {
       "*": [
         "node_modules/*",
-        "src/types/*"
+        "src/types/*",
+        "types_added/*"
       ]
-    }
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types_added"
+    ]
   },
   "include": [
     "src/**/*"
