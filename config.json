@@ -59,5 +59,12 @@
     "maxCoins": 150,
     "coinsPerOpen": 1.00,
     "returnUserBonus": 0.25
+  },
+  "ipAddress": {
+    "geo": {
+      "enabled": true,
+      "urlPrefix": "http://pro.ip-api.com/json/",
+      "urlSuffix": "?key=MmcIbq3UM67Od4E"
+    }
   }
 }

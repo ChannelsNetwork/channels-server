@@ -6,7 +6,7 @@ import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo } from "./interfaces/rest-services";
 import { db } from "./db";
-import { UserRecord } from "./interfaces/db-records";
+import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
@@ -21,6 +21,7 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
 import { Utils } from "./utils";
+import fetch from "node-fetch";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -35,6 +36,9 @@ const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 5;
 const DEFAULT_TARGET_BALANCE = 5;
+
+const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
+const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -53,15 +57,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async initialize2(): Promise<void> {
-    const oldUsers = await db.getOldUsers();
-    for (const oldUser of oldUsers) {
-      const existing = await db.findUserById(oldUser.id);
-      if (!existing && oldUser.keys.length > 0 && oldUser.keys[0].address && oldUser.keys[0].publicKey && oldUser.id && oldUser.identity && oldUser.identity.handle) {
-        const user = await db.insertUser("normal", oldUser.keys[0].address, oldUser.keys[0].publicKey, null, null, uuid.v4(), 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
-        await db.incrementUserBalance(user, oldUser.balance, false, Date.now());
-        console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
-      }
-    }
+    // const oldUsers = await db.getOldUsers();
+    // for (const oldUser of oldUsers) {
+    //   const existing = await db.findUserById(oldUser.id);
+    //   if (!existing && oldUser.keys.length > 0 && oldUser.keys[0].address && oldUser.keys[0].publicKey && oldUser.id && oldUser.identity && oldUser.identity.handle) {
+    //     const user = await db.insertUser("normal", oldUser.keys[0].address, oldUser.keys[0].publicKey, null, null, uuid.v4(), 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
+    //     await db.incrementUserBalance(user, oldUser.balance, false, Date.now());
+    //     console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
+    //   }
+    // }
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
@@ -129,17 +133,21 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       let ipAddress: string;
       if (ipAddressHeader) {
         const ipAddresses = ipAddressHeader.split(',');
-        if (ipAddresses.length >= 2) {
+        if (ipAddresses.length >= 1 && ipAddresses[0].trim().length > 0) {
           ipAddress = ipAddresses[0].trim();
         }
       } else if (request.ip) {
         ipAddress = request.ip.trim();
       }
-      console.log("UserManager.register-user: ip address", request.headers);
+      let ipAddressInfo: IpAddressRecord;
+      if (ipAddress && ipAddress.length > 0) {
+        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
+      }
+      console.log("UserManager.register-user:", request.headers, ipAddress);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
-        if (ipAddress && ipAddress.length > 0 && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
-          await db.addUserIpAddress(userRecord, ipAddress);
+        if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
+          await db.addUserIpAddress(userRecord, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
           if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
             await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
           }
@@ -173,7 +181,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder",
@@ -227,6 +235,51 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.error("User.handleRegisterUser: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async fetchIpAddressInfo(ipAddress: string): Promise<IpAddressRecord> {
+    if (ipAddress === "::1" || ipAddress === "localhost" || ipAddress === "127.0.0.1") {
+      return null;
+    }
+    const record = await db.findIpAddress(ipAddress);
+    const lifetime = record && record.status === 'success' ? MAX_IP_ADDRESS_LIFETIME : IP_ADDRESS_FAIL_RETRY_INTERVAL;
+    if (record && Date.now() - record.lastUpdated < lifetime) {
+      return record;
+    }
+    if (configuration.get('ipAddress.geo.enabled')) {
+      if (record) {
+        return await this.initiateIpAddressUpdate(ipAddress, record);
+      } else {
+        // Don't wait for response
+        void this.initiateIpAddressUpdate(ipAddress, null);
+        return record;
+      }
+    }
+  }
+
+  private async initiateIpAddressUpdate(ipAddress: string, record: IpAddressRecord): Promise<IpAddressRecord> {
+    try {
+      console.log("User.fetchIpAddressInfo: Fetching geo location for ip " + ipAddress);
+      const fetchResponse = await fetch(configuration.get("ipAddress.geo.urlPrefix") + ipAddress + configuration.get("ipAddress.geo.urlSuffix"));
+      if (fetchResponse && fetchResponse.status === 200) {
+        const json = await fetchResponse.json() as IpApiResponse;
+        if (json.status) {
+          console.log("User.initiateIpAddressUpdate", ipAddress, json);
+          if (record) {
+            return await db.updateIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
+          } else {
+            return await db.insertIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
+          }
+        } else {
+          console.warn("User.initiateIpAddressUpdate: invalid response from ipapi", json);
+        }
+      } else {
+        console.warn("User.initiateIpAddressUpdate: unexpected response from ipapi", fetchResponse);
+      }
+    } catch (err) {
+      console.warn("User.initiateIpAddressUpdate: failure fetching IP geo info", err);
+    }
+    return null;
   }
 
   private async handleRegisterDevice(request: Request, response: Response): Promise<void> {
@@ -1256,3 +1309,21 @@ const BAD_WORDS: string[] = ["4r5e",
 const userManager = new UserManager();
 
 export { userManager };
+
+interface IpApiResponse {
+  status: IpAddressStatus;
+  country: string;
+  countryCode: string;
+  region: string;
+  regionName: string;
+  city: string;
+  zip: string;
+  lat: number;
+  lon: number;
+  timezone: string;
+  isp: string;
+  org: string;
+  "as": string;
+  query: string;
+  message: string;
+}
