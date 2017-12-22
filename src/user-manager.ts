@@ -146,7 +146,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.register-user:", request.headers, ipAddress);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
-        if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
+        if (ipAddress && (userRecord.ipAddresses.indexOf(ipAddress) < 0) || (ipAddressInfo && ipAddressInfo.country && !userRecord.country)) {
           await db.addUserIpAddress(userRecord, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
           if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
             await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
