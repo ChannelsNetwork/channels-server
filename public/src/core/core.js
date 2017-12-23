@@ -762,8 +762,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  admin_updateCard(cardId, keywords, blocked) {
-    let details = RestUtils.admin_updateCard(this._keys.address, cardId, keywords, blocked);
+  admin_updateCard(cardId, keywords, blocked, boost) {
+    let details = RestUtils.admin_updateCard(this._keys.address, cardId, keywords, blocked, boost);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-update-card";
     return this.rest.post(url, request);

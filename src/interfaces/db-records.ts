@@ -28,6 +28,10 @@ export interface UserRecord {
   recoveryCodeExpires?: number;
   ipAddresses: string[];
   marketing: UserMarketingInfo;
+  country?: string;
+  region?: string;
+  city?: string;
+  zip?: string;
 }
 
 export type UserStatus = "active" | "deleted";
@@ -500,3 +504,27 @@ export interface NetworkCardStats {
   dislikes: number;
   cardRevenue: number;
 }
+
+export interface IpAddressRecord {
+  ipAddress: string;
+  created: number;
+  lastUpdated: number;
+
+  status: IpAddressStatus;
+  country: string;
+  countryCode: string;
+  region: string;
+  regionName: string;
+  city: string;
+  zip: string;
+  lat: number;
+  lon: number;
+  timezone: string;
+  isp: string;
+  org: string;
+  "as": string;
+  query: string;
+  message: string;
+}
+
+export type IpAddressStatus = "success" | "fail";

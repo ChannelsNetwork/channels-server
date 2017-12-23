@@ -714,11 +714,8 @@ export class FeedManager implements Initializable, RestServer {
     if (!card.curation || !card.curation.boost) {
       return 0;
     }
-    if (card.curation.boost < 0) {
-      return card.curation.boost;
-    }
     const now = Date.now();
-    const age = now - (card.curation.boostAt || now);
+    const age = now - (card.curation.boostAt || card.postedAt);
     return this.getInverseScore(card.curation.boost, age, SCORE_CARD_BOOST_HALF_LIFE);
   }
   private async addSampleEntries(): Promise<void> {
@@ -1066,7 +1063,7 @@ export class FeedManager implements Initializable, RestServer {
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, null, null, null, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       timestamp: null,

@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -37,6 +37,7 @@ export class Database {
   private publisherSubsidyDays: Collection;
   private cardTopics: Collection;
   private networkCardStats: Collection;
+  private ipAddresses: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -68,6 +69,7 @@ export class Database {
     await this.initializePublisherSubsidyDays();
     await this.initializeCardTopics();
     await this.initializeNetworkCardStats();
+    await this.initializeIpAddresses();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -392,6 +394,11 @@ export class Database {
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
   }
 
+  private async initializeIpAddresses(): Promise<void> {
+    this.ipAddresses = this.db.collection('ipAddresses');
+    await this.ipAddresses.createIndex({ ipAddress: 1 }, { unique: true });
+  }
+
   async getNetwork(): Promise<NetworkRecord> {
     return await this.networks.findOne({ id: '1' });
   }
@@ -420,7 +427,7 @@ export class Database {
     return await this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -462,6 +469,12 @@ export class Database {
     if (ipAddress) {
       record.ipAddresses.push(ipAddress);
     }
+    if (country || region || city || zip) {
+      record.country = country;
+      record.region = region;
+      record.city = city;
+      record.zip = zip;
+    }
     await this.users.insert(record);
     return record;
   }
@@ -478,6 +491,17 @@ export class Database {
     await this.users.updateOne({ id: user.id }, { $set: { recoveryCode: code, recoveryCodeExpires: expires } });
     user.recoveryCode = code;
     user.recoveryCodeExpires = expires;
+  }
+
+  async updateUserGeo(userId: string, country: string, region: string, city: string, zip: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, {
+      $set: {
+        country: country,
+        region: region,
+        city: city,
+        zip: zip
+      }
+    });
   }
 
   async clearRecoveryCode(user: UserRecord): Promise<void> {
@@ -531,6 +555,10 @@ export class Database {
 
   async findUsersByIpAddress(ipAddress: string, limit = 25): Promise<UserRecord[]> {
     return await this.users.find<UserRecord>({ ipAddresses: ipAddress }).sort({ added: -1 }).limit(limit).toArray();
+  }
+
+  async findUsersWithoutCountry(): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ country: { $exists: false } }).toArray();
   }
 
   async findUsersWithIdentity(limit = 500): Promise<UserRecord[]> {
@@ -670,8 +698,17 @@ export class Database {
     }
   }
 
-  async addUserIpAddress(userRecord: UserRecord, ipAddress: string): Promise<void> {
-    await this.users.updateOne({ id: userRecord.id }, { $push: { ipAddresses: ipAddress } });
+  async addUserIpAddress(userRecord: UserRecord, ipAddress: string, country: string, region: string, city: string, zip: string): Promise<void> {
+    const update: any = { $push: { ipAddresses: ipAddress } };
+    if (country || region || city || zip) {
+      const setPart: any = {};
+      setPart.country = country;
+      setPart.region = region;
+      setPart.city = city;
+      setPart.zip = zip;
+      update.$set = setPart;
+    }
+    await this.users.updateOne({ id: userRecord.id }, update);
     userRecord.ipAddresses.push(ipAddress);
   }
 
@@ -913,10 +950,11 @@ export class Database {
     (card.stats as any)[statName] = { value: value, lastSnapshot: 0 };
   }
 
-  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean): Promise<void> {
+  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean, boost: number): Promise<void> {
     const update: any = {
       keywords: keywords,
-      "curation.block": blocked
+      "curation.block": blocked,
+      "curation.boost": boost ? boost : 0
     };
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
@@ -1886,6 +1924,93 @@ export class Database {
     }
     console.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions");
   }
+
+  async insertIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
+    const now = Date.now();
+    const record: IpAddressRecord = {
+      ipAddress: ipAddress.toLowerCase(),
+      created: now,
+      lastUpdated: now,
+      status: status,
+      country: country,
+      countryCode: countryCode,
+      region: region,
+      regionName: regionName,
+      city: city,
+      zip: zip,
+      lat: lat,
+      lon: lon,
+      timezone: timezone,
+      isp: isp,
+      org: org,
+      as: as,
+      query: query,
+      message: message
+    };
+    try {
+      await this.ipAddresses.insertOne(record);
+    } catch (err) {
+      await this.ipAddresses.findOne<IpAddressRecord>({ ipAddress: ipAddress.toLowerCase() });
+    }
+    return record;
+  }
+
+  async findIpAddress(ipAddress: string): Promise<IpAddressRecord> {
+    return await this.ipAddresses.findOne<IpAddressRecord>({ ipAddress: ipAddress.toLowerCase() });
+  }
+
+  async updateIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
+    const now = Date.now();
+    const update: any = {
+      ipAddress: ipAddress.toLowerCase(),
+      lastUpdated: now,
+      status: status
+    };
+    if (country) {
+      update.country = country;
+    }
+    if (countryCode) {
+      update.countryCode = countryCode;
+    }
+    if (region) {
+      update.region = region;
+    }
+    if (regionName) {
+      update.regionName = regionName;
+    }
+    if (city) {
+      update.city = city;
+    }
+    if (zip) {
+      update.zip = zip;
+    }
+    if (lat) {
+      update.lat = lat;
+    }
+    if (lon) {
+      update.lon = lon;
+    }
+    if (timezone) {
+      update.timezone = timezone;
+    }
+    if (isp) {
+      update.isp = isp;
+    }
+    if (org) {
+      update.org = org;
+    }
+    if (as) {
+      update.as = as;
+    }
+    if (query) {
+      update.query = query;
+    }
+    if (message) {
+      update.message = message;
+    }
+    await this.ipAddresses.update({ ipAddress: ipAddress.toLowerCase() }, { $set: update });
+    return await this.findIpAddress(ipAddress);
+  }
 }
 
 const db = new Database();
@@ -1903,7 +2028,7 @@ const DEFAULT_CARD_TOPICS = [
   { topic: "Film", keywords: ["film", "video", "time-lapsed", "animation"] },
   { topic: "Opinion", keywords: ["opinion"] },
   { topic: "Food", keywords: ["food", "cook", "cooking", "recipe", "kitchen"] },
-  { topic: "Fashion", keywords: ["fashion", "makeup", "clothes", "clothing", "beauty"] },
+  { topic: "Fashion", keywords: ["fashion", "makeup", "clothes", "clothing", "beauty", "hair"] },
   { topic: "Travel", keywords: ["travel"] },
   { topic: "Music", keywords: ["music", "song", "band"] },
   { topic: "Politics", keywords: ["politics"] },

@@ -175,6 +175,7 @@
               pkg = parts[parts.length - 1];
             }
             cards.push({
+              card: card,
               id: card.id,
               title: card.summary.title,
               keywords: card.keywords.join(', '),
@@ -233,7 +234,7 @@
         const newItems = this.cards;
         this.set('cards', []);
         newItems.sort((a, b) => {
-          return b.score - a.score;
+          return b.card.score - a.card.score;
         });
         this.set('cards', newItems);
       }
@@ -242,7 +243,7 @@
         const newItems = this.cards;
         this.set('cards', []);
         newItems.sort((a, b) => {
-          return b.postedAt - a.postedAt;
+          return b.card.postedAt - a.card.postedAt;
         });
         this.set('cards', newItems);
       }

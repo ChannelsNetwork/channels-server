@@ -15,8 +15,8 @@ export class RootPageHandler implements RestServer {
     app.get('/*', this.handleAppPage.bind(this));
   }
 
-  private handleAppPage(request: Request, response: Response) {
-    rootPageManager.handlePage("app", request, response);
+  private async handleAppPage(request: Request, response: Response): Promise<void> {
+    await rootPageManager.handlePage("app", request, response);
   }
 }
 
