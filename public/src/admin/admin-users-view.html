@@ -70,6 +70,12 @@
         font-size: 12px;
         font-family: monospace;
       }
+
+      .ipAddress {
+        max-width: 75px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     </style>
     <div id="container">
       <h1>Channels Users With Identities</h1>
@@ -90,6 +96,9 @@
           <div class="headerCell right">Revenue</div>
           <div class="headerCell right">Storage (MB)</div>
           <div class="headerCell center">IP Address</div>
+          <div class="headerCell">Country</div>
+          <div class="headerCell">Region</div>
+          <div class="headerCell">City</div>
           <div class="headerCell center">Mailing List</div>
         </div>
         <template is="dom-repeat" items="[[users]]">
@@ -108,7 +117,10 @@
             <div class="cell right">[[item.privateCards]]</div>
             <div class="cell right">[[item.cardRevenue]]</div>
             <div class="cell right">[[item.storage]]</div>
-            <div class="cell center">[[item.ipAddress]]</div>
+            <div class="cell center ipAddress">[[item.ipAddress]]</div>
+            <div class="cell">[[item.country]]</div>
+            <div class="cell">[[item.region]]</div>
+            <div class="cell">[[item.city]]</div>
             <div class="cell center toggle" on-click="_onMailingListToggle">[[item.mailingList]]</div>
           </div>
         </template>
@@ -132,6 +144,9 @@
             <div class="csvCell">[[item.balance]]</div>,
             <div class="csvCell">[[item.storage]]</div>,
             <div class="csvCell">[[item.ipAddress]]</div>,
+            <div class="csvCell">[[item.country]]</div>
+            <div class="csvCell">[[item.region]]</div>
+            <div class="csvCell">[[item.city]]</div>
             <div class="csvCell">[[item.mailingList]]</div>
           </div>
         </template>
@@ -183,6 +198,9 @@
               lastPosted: this._displayTimestamp(user.lastPosted),
               storage: (user.storage / 1000000).toFixed(1),
               ipAddress: user.ipAddresses.length > 0 ? user.ipAddresses[user.ipAddresses.length - 1] : "",
+              country: user.country || "",
+              region: user.region || "",
+              city: user.city || "",
               mailingList: user.marketing && user.marketing.includeInMailingList ? "yes" : "no",
               includeInMailingList: user.marketing.includeInMailingList,
               cardsPosted: userInfo.cardsPosted,

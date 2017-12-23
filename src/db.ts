@@ -493,6 +493,17 @@ export class Database {
     user.recoveryCodeExpires = expires;
   }
 
+  async updateUserGeo(userId: string, country: string, region: string, city: string, zip: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, {
+      $set: {
+        country: country,
+        region: region,
+        city: city,
+        zip: zip
+      }
+    });
+  }
+
   async clearRecoveryCode(user: UserRecord): Promise<void> {
     await this.users.updateOne({ id: user.id }, { $unset: { recoveryCode: 1, recoveryCodeExpires: 1 } });
     delete user.recoveryCode;
@@ -544,6 +555,10 @@ export class Database {
 
   async findUsersByIpAddress(ipAddress: string, limit = 25): Promise<UserRecord[]> {
     return await this.users.find<UserRecord>({ ipAddresses: ipAddress }).sort({ added: -1 }).limit(limit).toArray();
+  }
+
+  async findUsersWithoutCountry(): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ country: { $exists: false } }).toArray();
   }
 
   async findUsersWithIdentity(limit = 500): Promise<UserRecord[]> {

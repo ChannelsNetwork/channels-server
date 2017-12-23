@@ -66,6 +66,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     //     console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
     //   }
     // }
+    const users = await db.findUsersWithoutCountry();
+    for (const user of users) {
+      if (user.ipAddresses.length > 0) {
+        const result = await this.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1]);
+        if (result) {
+          await db.updateUserGeo(user.id, result.countryCode, result.region, result.city, result.zip);
+        } else {
+          await db.updateUserGeo(user.id, null, null, null, null);
+        }
+      } else {
+        await db.updateUserGeo(user.id, null, null, null, null);
+      }
+    }
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
@@ -146,7 +159,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.register-user:", request.headers, ipAddress);
       let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
-        if (ipAddress && (userRecord.ipAddresses.indexOf(ipAddress) < 0) || (ipAddressInfo && ipAddressInfo.country && !userRecord.country)) {
+        if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
           await db.addUserIpAddress(userRecord, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
           if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
             await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
