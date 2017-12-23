@@ -132,8 +132,8 @@
       </div>
       <h2>CSV</h2>
       <div class="csv">
-        <div class="csvRow">First, Last, Handle, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage, IP Address, Mailing
-          List
+        <div class="csvRow">First, Last, Handle, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage, IP Address, Country,
+          Region, City, Mailing List
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="csvRow">
@@ -149,9 +149,9 @@
             <div class="csvCell">[[item.balance]]</div>,
             <div class="csvCell">[[item.storage]]</div>,
             <div class="csvCell">[[item.ipAddress]]</div>,
-            <div class="csvCell">[[item.country]]</div>
-            <div class="csvCell">[[item.region]]</div>
-            <div class="csvCell">[[item.city]]</div>
+            <div class="csvCell">[[item.country]]</div>,
+            <div class="csvCell">[[item.region]]</div>,
+            <div class="csvCell">[[item.city]]</div>,
             <div class="csvCell">[[item.mailingList]]</div>
           </div>
         </template>
