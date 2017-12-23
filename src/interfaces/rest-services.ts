@@ -232,6 +232,7 @@ export interface CardDescriptor {
   };
 
   blocked: boolean;
+  boost?: number;
 }
 
 export interface CardDescriptorStatistics {
@@ -658,6 +659,7 @@ export interface AdminUpdateCardDetails extends Signable {
   cardId: string;
   keywords: string[];
   blocked: boolean;
+  boost: number;
 }
 
 export interface AdminUpdateCardResponse extends RestResponse { }

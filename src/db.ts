@@ -950,10 +950,11 @@ export class Database {
     (card.stats as any)[statName] = { value: value, lastSnapshot: 0 };
   }
 
-  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean): Promise<void> {
+  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean, boost: number): Promise<void> {
     const update: any = {
       keywords: keywords,
-      "curation.block": blocked
+      "curation.block": blocked,
+      "curation.boost": boost ? boost : 0
     };
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }

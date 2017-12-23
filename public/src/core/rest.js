@@ -510,13 +510,14 @@ class RestUtils {
     };
   }
 
-  static admin_updateCard(address, cardId, keywords, blocked) {
+  static admin_updateCard(address, cardId, keywords, blocked, boost) {
     return {
       address: address,
       timestamp: RestUtils.now(),
       cardId: cardId,
       keywords: keywords,
-      blocked: blocked
+      blocked: blocked,
+      boost: boost
     };
   }
 

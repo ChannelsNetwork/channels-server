@@ -76,6 +76,11 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
     </style>
     <div id="container">
       <h1>Channels Users With Identities</h1>
@@ -85,10 +90,10 @@
           <div class="headerCell">Last</div>
           <div class="headerCell">Handle</div>
           <div class="headerCell">Email</div>
-          <div class="headerCell">Registered</div>
+          <div class="headerCell clickable" on-click="_onRegisteredClick">Registered</div>
           <div class="headerCell right">Balance</div>
-          <div class="headerCell">Last Contact</div>
-          <div class="headerCell">Last Posted</div>
+          <div class="headerCell clickable" on-click="_onContactClick">Last Contact</div>
+          <div class="headerCell clickable" on-click="_onPostedClick">Last Posted</div>
           <div class="headerCell right">Total Posts</div>
           <div class="headerCell right">Cards Opened</div>
           <div class="headerCell right">Cards Bought</div>
@@ -187,6 +192,7 @@
           for (const userInfo of response.users) {
             const user = userInfo.user;
             users.push({
+              user: user,
               id: user.id,
               firstName: user.identity ? user.identity.firstName : "",
               lastName: user.identity ? user.identity.lastName : "",
@@ -231,6 +237,33 @@
         $core.admin_setUserMailingList(event.model.item.id, !event.model.item.includeInMailingList).then(() => {
           this._refresh();
         });
+      }
+
+      _onRegisteredClick(event) {
+        const newItems = this.users;
+        this.set('users', []);
+        newItems.sort((a, b) => {
+          return b.user.added - a.user.added;
+        });
+        this.set('users', newItems);
+      }
+
+      _onContactClick(event) {
+        const newItems = this.users;
+        this.set('users', []);
+        newItems.sort((a, b) => {
+          return b.user.lastContact - a.user.lastContact;
+        });
+        this.set('users', newItems);
+      }
+
+      _onPostedClick(event) {
+        const newItems = this.users;
+        this.set('users', []);
+        newItems.sort((a, b) => {
+          return b.user.lastPosted - a.user.lastPosted;
+        });
+        this.set('users', newItems);
       }
     }
     window.customElements.define(AdminUsersView.is, AdminUsersView);

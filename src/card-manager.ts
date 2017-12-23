@@ -974,7 +974,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.admin-update-card", requestBody.detailsObject);
-      await db.updateCardAdmin(card, requestBody.detailsObject.keywords, requestBody.detailsObject.blocked);
+      await db.updateCardAdmin(card, requestBody.detailsObject.keywords, requestBody.detailsObject.blocked, requestBody.detailsObject.boost);
       const reply: AdminUpdateCardResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -1382,6 +1382,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false
       };
+      if (record.curation && record.curation.boost) {
+        card.boost = record.curation.boost;
+      }
       if (includeState) {
         card.state = {
           user: {

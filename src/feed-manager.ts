@@ -714,11 +714,8 @@ export class FeedManager implements Initializable, RestServer {
     if (!card.curation || !card.curation.boost) {
       return 0;
     }
-    if (card.curation.boost < 0) {
-      return card.curation.boost;
-    }
     const now = Date.now();
-    const age = now - (card.curation.boostAt || now);
+    const age = now - (card.curation.boostAt || card.postedAt);
     return this.getInverseScore(card.curation.boost, age, SCORE_CARD_BOOST_HALF_LIFE);
   }
   private async addSampleEntries(): Promise<void> {
