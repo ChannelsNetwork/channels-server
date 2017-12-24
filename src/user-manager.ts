@@ -628,12 +628,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(403).send("You are not an admin");
         return;
       }
-      let users: UserRecord[];
-      if (requestBody.detailsObject.withIdentityOnly) {
-        users = await db.findUsersWithIdentity(requestBody.detailsObject.limit);
-      } else {
-        users = await db.findUsersByLastContact(requestBody.detailsObject.limit);
-      }
+      const users = requestBody.detailsObject.withIdentityOnly ? await db.findUsersWithIdentity(requestBody.detailsObject.limit) : await db.findUsersByLastContact(requestBody.detailsObject.limit);
       console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
       const usersWithData: AdminUserInfo[] = [];
       for (const userInfo of users) {
