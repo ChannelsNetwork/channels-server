@@ -361,6 +361,7 @@ export class Database {
     this.cardTopics = this.db.collection('cardTopics');
     await this.cardTopics.createIndex({ id: 1 }, { unique: true });
     await this.cardTopics.createIndex({ status: 1, topicWithCase: 1 });
+    await this.cardTopics.createIndex({ topicNoCase: 1 });
 
     for (const item of DEFAULT_CARD_TOPICS) {
       const existing = await this.findCardTopicByName(item.topic);
@@ -371,6 +372,9 @@ export class Database {
             add = true;
             break;
           }
+        }
+        if (add) {
+          await this.cardTopics.remove({ id: existing.id });
         }
       } else {
         add = true;
@@ -384,7 +388,7 @@ export class Database {
           keywords: item.keywords,
           added: Date.now()
         };
-        await this.cardTopics.update({ status: "active", topic: item.topic.toLowerCase() }, record, { upsert: true });
+        await this.cardTopics.insert(record);
       }
     }
   }
