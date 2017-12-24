@@ -485,10 +485,11 @@ class RestUtils {
     };
   }
 
-  static admin_getUsers(address, limit) {
+  static admin_getUsers(address, withIdentityOnly, limit) {
     return {
       address: address,
       timestamp: RestUtils.now(),
+      withIdentityOnly: withIdentityOnly,
       limit: limit
     };
   }

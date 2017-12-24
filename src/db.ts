@@ -565,6 +565,10 @@ export class Database {
     return await this.users.find<UserRecord>({ identity: { $exists: true } }).sort({ lastContact: -1 }).limit(limit).toArray();
   }
 
+  async findUsersByLastContact(limit = 500): Promise<UserRecord[]> {
+    return await this.users.find<UserRecord>({ type: "normal" }).sort({ lastContact: -1 }).limit(limit).toArray();
+  }
+
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
     await this.users.updateOne({ id: userRecord.id }, { $set: { lastContact: lastContact } });
     userRecord.lastContact = lastContact;
@@ -954,7 +958,8 @@ export class Database {
     const update: any = {
       keywords: keywords,
       "curation.block": blocked,
-      "curation.boost": boost ? boost : 0
+      "curation.boost": boost ? boost : 0,
+      lastScored: 0  // to force immediately rescoring
     };
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }

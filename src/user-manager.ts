@@ -164,6 +164,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           if (userRecord.ipAddresses.length > MAX_USER_IP_ADDRESSES) {
             await db.discardUserIpAddress(userRecord, userRecord.ipAddresses[0]);
           }
+        } else if (ipAddressInfo && ipAddressInfo.city && ipAddressInfo.city !== userRecord.city) {
+          await db.updateUserGeo(userRecord.id, ipAddressInfo.country, ipAddressInfo.region, ipAddressInfo.city, ipAddressInfo.zip);
         }
       } else {
         const historicalUser = await db.findUserByHistoricalAddress(requestBody.detailsObject.address);
@@ -261,11 +263,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     if (configuration.get('ipAddress.geo.enabled')) {
       if (record) {
-        return await this.initiateIpAddressUpdate(ipAddress, record);
-      } else {
         // Don't wait for response
         void this.initiateIpAddressUpdate(ipAddress, null);
         return record;
+      } else {
+        return await this.initiateIpAddressUpdate(ipAddress, record);
       }
     }
   }
@@ -626,7 +628,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(403).send("You are not an admin");
         return;
       }
-      const users = await db.findUsersWithIdentity(requestBody.detailsObject.limit);
+      let users: UserRecord[];
+      if (requestBody.detailsObject.withIdentityOnly) {
+        users = await db.findUsersWithIdentity(requestBody.detailsObject.limit);
+      } else {
+        users = await db.findUsersByLastContact(requestBody.detailsObject.limit);
+      }
       console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
       const usersWithData: AdminUserInfo[] = [];
       for (const userInfo of users) {

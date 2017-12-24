@@ -741,8 +741,8 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  admin_getUsers(limit) {
-    let details = RestUtils.admin_getUsers(this._keys.address, limit);
+  admin_getUsers(withIdentityOnly, limit) {
+    let details = RestUtils.admin_getUsers(this._keys.address, withIdentityOnly, limit);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-get-users";
     return this.rest.post(url, request);

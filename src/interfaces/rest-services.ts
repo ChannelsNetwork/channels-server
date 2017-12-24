@@ -614,6 +614,7 @@ export interface DiscardFilesResponse extends RestResponse { }
 
 export interface AdminGetUsersDetails extends Signable {
   limit: number;
+  withIdentityOnly: boolean;
 }
 
 export interface AdminGetUsersResponse extends RestResponse {
