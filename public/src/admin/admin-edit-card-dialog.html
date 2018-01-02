@@ -96,8 +96,12 @@
         }
         const userKeys = this.$.keywords.value.split(delimiter);
         for (const k of userKeys) {
-          if (k.trim().length > 0) {
-            keywords.push(k.trim());
+          const kw = k.trim().replace(/[^a-zA-Z]/g, '')
+          if (kw.length > 0) {
+            keywords.push(kw);
+          }
+          if (keywords.length >= 5) {
+            break;
           }
         }
         return keywords;

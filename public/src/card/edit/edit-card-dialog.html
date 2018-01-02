@@ -47,7 +47,7 @@
       </div>
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
-      <soso-text-input id="keywords" label="Keywords" placeholder="Keywords"></soso-text-input>
+      <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
       <soso-checkbox id="private" label="Keep this card private"></soso-checkbox>
     </dialog-view>
   </template>
@@ -195,8 +195,12 @@
         }
         const userKeys = this.$.keywords.value.split(delimiter);
         for (const k of userKeys) {
-          if (k.trim().length > 0) {
-            keywords.push(k.trim());
+          const kw = k.trim().replace(/[^a-zA-Z]/g, '')
+          if (kw.length > 0) {
+            keywords.push(kw);
+          }
+          if (keywords.length >= 5) {
+            break;
           }
         }
         return keywords;

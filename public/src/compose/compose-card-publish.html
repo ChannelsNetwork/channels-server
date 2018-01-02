@@ -111,7 +111,7 @@
           <h2>Review and Publish</h2>
           <p>This is how your card will look to others when you post it.</p>
           <div>
-            <soso-text-input id="keywords" label="Keywords" placeholder="Enter keywords that best describe this card"></soso-text-input>
+            <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
             <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
           </div>
           <div id="cardDeveloper" style="display:none;">
@@ -269,7 +269,7 @@
             if (result) {
               this.$.cardView.updateSummary(result.summary);
               this.cardData.summary = result.summary;
-              this.$.keywords = result.keywords.join(', ');
+              this.$.keywords.value = result.keywords.join(', ');
               this.cardData.keywords = result.keywords;
             }
           }).catch((err) => {
@@ -294,8 +294,12 @@
         }
         const userKeys = this.$.keywords.value.split(delimiter);
         for (const k of userKeys) {
-          if (k.trim().length > 0) {
-            keywords.push(k.trim());
+          const kw = k.trim().replace(/[^a-zA-Z]/g, '')
+          if (kw.length > 0) {
+            keywords.push(kw);
+          }
+          if (keywords.length >= 5) {
+            break;
           }
         }
         return keywords;
