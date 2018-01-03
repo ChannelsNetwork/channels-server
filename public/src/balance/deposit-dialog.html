@@ -1,0 +1,80 @@
+<link rel="import" href="../controls/dialog-view.html">
+
+<dom-module id="deposit-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .paypalLink {
+        margin: 25px 0;
+        text-align: center;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Buy Coins</h3>
+      <div class="explain">If you want to avoid promoted content or you want to promote your own content, you may want to increase your balance.
+        You can do this by buying coins.
+      </div>
+      <div>To buys coins, use our Paypal.me link:</div>
+      <div class="paypalLink">
+        <a target="_blank" href="https://paypal.me/channelscc">paypal.me/channelscc</a>
+      </div>
+      <div class="explain">
+        The current exchange rate is ℂ1.00 = US$1.00. It may take up to one business day before your Channels balance is credited.
+        If you have any problems,
+        <a target="_blank" href="mailto:support@channels.cc">contact us</a>.
+      </div>
+      <div class="explain">
+        <b>Important: </b>Include your handle (
+        <span>[[handle]]</span>) in the Notes section when you make your payment. Otherwise, we will not know which account to
+        credit.
+      </div>
+    </dialog-view>
+  </template>
+  <script>
+    class DepositDialog extends Polymer.Element {
+      static get is() { return "deposit-dialog"; }
+      static get properties() {
+        return {
+          _buttons: Array,
+          handle: String
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.set('handle', $core.handle);
+      }
+
+      show() {
+        this._buttons = [
+          { id: 'close', label: "Close" }
+        ];
+        this.set('handle', $core.profile.handle);
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "close":
+          default:
+            this.hide();
+            this._resolve(false);
+            break;
+        }
+      }
+    }
+    window.customElements.define(DepositDialog.is, DepositDialog);
+  </script>
+</dom-module>
