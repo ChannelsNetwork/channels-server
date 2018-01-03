@@ -84,13 +84,14 @@ class RestUtils {
     return (new Date()).getTime();
   }
 
-  static registerUserDetails(address, publicKey, inviteCode, appVersion) {
+  static registerUserDetails(address, publicKey, inviteCode, referrer, landingPageUrl) {
     return {
       publicKey: publicKey,
       inviteCode: inviteCode,
-      appVersion: appVersion,
       address: address,
-      timestamp: RestUtils.now()
+      timestamp: RestUtils.now(),
+      referrer: referrer,
+      landingUrl: landingPageUrl
     };
   }
 

@@ -415,7 +415,7 @@ export class Database {
     return await this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -443,7 +443,9 @@ export class Database {
       lastPosted: 0,
       marketing: {
         includeInMailingList: includeInMailingList
-      }
+      },
+      originalReferrer: referrer,
+      originalLandingPage: landingPage
     };
     if (identity) {
       if (!identity.emailAddress) {

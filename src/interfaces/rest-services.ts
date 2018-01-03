@@ -16,7 +16,8 @@ export interface RestResponse {
 export interface RegisterUserDetails extends Signable {
   publicKey: string;
   inviteCode?: string;
-  appVersion: string;
+  referrer: string;
+  landingUrl: string;
 }
 
 export interface Signable {

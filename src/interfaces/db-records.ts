@@ -33,6 +33,8 @@ export interface UserRecord {
   city?: string;
   zip?: string;
   curation?: UserCurationType;
+  originalReferrer: string;
+  originalLandingPage: string;
 }
 
 export type UserCurationType = "blocked" | "discounted";
