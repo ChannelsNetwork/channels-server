@@ -1,6 +1,5 @@
 <link rel="import" href="../card-header.html">
 <link rel="import" href="../../../bower_components/soso-tooltip/soso-tooltip.html">
-<link rel="import" href="../../../bower_components/soso-truncated-text/soso-truncated-text.html">
 
 <dom-module id="amazon-ad-card">
   <template>
@@ -29,6 +28,7 @@
       }
 
       #frameShell {
+        background: #f0f0f0;
         position: relative;
       }
 
@@ -37,6 +37,7 @@
         display: block;
         outline: none;
         margin: 0 auto;
+        box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14), 0 1px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 3px -2px rgba(0, 0, 0, 0.4);
         opacity: 0;
         transition: opacity 0.2s ease;
       }
@@ -58,65 +59,11 @@
         border-radius: 50%;
         display: block;
       }
-
-      .textPanel {
-        padding: 10px 14px;
-      }
-
-      #headline {
-        font-size: 18px;
-        margin-bottom: 6px;
-      }
-
-      #headline img {
-        float: left;
-        margin: 0 8px 1px 0;
-        height: 1.4em;
-        opacity: 0.6;
-        width: auto;
-      }
-
-      #description {
-        font-size: 14px;
-        color: #424242;
-      }
-
-      a,
-      a:visited,
-      a:hover {
-        color: inherit;
-        outline: none;
-        letter-spacing: initial;
-        text-decoration: none;
-      }
-
-      a:hover {
-        box-shadow: none;
-      }
-
-      #overlayLink {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: block;
-      }
     </style>
     <div id="cardShell">
       <div id="container" class="vertical layout">
-        <div class="vertical layout flex" style="position: relative;">
-          <div id="frameShell">
-            <iframe on-load="_frameLoad" id="frame" width="300" height="250" scrolling="no" marginwidth="0" style="border:none;" frameborder="0"></iframe>
-            <a id="overlayLink" target="_blank" href$="[[data.summary.linkUrl]]" on-click="_onContentClick"></a>
-          </div>
-          <a target="_blank" href$="[[data.summary.linkUrl]]" class="flex vertical layout textPanel" on-click="_onContentClick">
-            <div id="headline">
-              <img src$="[[data.cardType.iconUrl]]">
-              <span>[[data.summary.title]]</span>
-            </div>
-            <soso-truncated-text id="description" class="flex" text="[[data.summary.text]]"></soso-truncated-text>
-          </a>
+        <div id="frameShell" class="horizontal layout center flex">
+          <iframe on-load="_frameLoad" id="frame" width="300" height="250" scrolling="no" marginwidth="0" style="border:none;" frameborder="0"></iframe>
           <div id="promoted" class="hidden">
             <soso-icon icon="navigation" icon-map="[[iconMap]]"></soso-icon>
           </div>
@@ -193,7 +140,6 @@
 
       _onData() {
         if (this.data && this._attached) {
-          console.log(this.data);
           requestAnimationFrame(() => {
             if (this._attached) {
               this._attachIntersectionObservers();
@@ -215,7 +161,7 @@
       _loadFrame() {
         if (!this._frameLoaded) {
           this._frameLoaded = true;
-          let url = this.data.summary.imageUrl;
+          let url = this.data.summary.linkUrl;
           if (url.indexOf('?') > 0) {
             if (url.indexOf('lt1=_new') < 0) {
               url += "&lt1=_new";
