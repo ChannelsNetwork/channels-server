@@ -71,10 +71,13 @@
 
           // parse route and fetch only if route is different
           let parsedRoute = this._parseRoute(route);
-          if (this._parsedRoute) {
+          if (this._parsedRoute && this._parsedRouteTimestamp) {
             if (parsedRoute.path === this._parsedRoute.path) {
-              $app.scrollTo(route.context.scrollTop);
-              return;
+              let timeDiff = (new Date()).getTime() - this._parsedRouteTimestamp;
+              if (timeDiff < (5 * 60 * 1000)) {
+                $app.scrollTo(route.context.scrollTop);
+                return;
+              }
             }
           }
 
@@ -82,6 +85,7 @@
           this._setItems([]);
 
           this._parsedRoute = parsedRoute;
+          this._parsedRouteTimestamp = (new Date()).getTime();
           this._moreAvailable = false;
           this._promotedCardIds = [];
           if (parsedRoute) {
