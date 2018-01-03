@@ -208,14 +208,14 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
       imageUrl: imageUrl,
       imageWidth: imageWidth,
       imageHeight: imageHeight,
-      linkUrl: linkUrl,
+      linkUrl: linkURL,
       title: title,
       text: text,
       private: isPrivate,
@@ -258,11 +258,11 @@ class RestUtils {
     return result;
   }
 
-  static cardStateSummary(title, text, linkUrl, imageUrl, imageWidth, imageHeight) {
+  static cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight) {
     return {
       title: title,
       text: text,
-      linkUrl: linkUrl,
+      linkUrl: linkURL,
       imageUrl: imageUrl,
       imageWidth: imageWidth,
       imageHeight: imageHeight

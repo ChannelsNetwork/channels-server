@@ -121,7 +121,7 @@
           </div>
           <div class="buttons">
             <button on-click="_onEdit">Edit Card</button>
-            <button on-click="_onPreview">Preview</button>
+            <button id="preview" on-click="_onPreview">Preview</button>
             <div>
               <button on-click="_onCancel">Cancel</button>
               <button id="publish" on-click="_onPublish">Publish</button>
@@ -165,6 +165,7 @@
         this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
         this.wizard.data.summary.title = this.cardData.summary.title;
         this.wizard.data.summary.text = this.cardData.summary.text;
+        this.wizard.data.summary.linkURL = this.cardData.summary.linkURL;
         this.wizard.data.keywords = this._getKeywords();
         this._setImageSize().then(() => {
           this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
@@ -209,7 +210,8 @@
             imageWidth: data.summary.imageWidth,
             imageHeight: data.summary.imageHeight,
             title: data.summary.title,
-            text: data.summary.text
+            text: data.summary.text,
+            linkURL: data.summary.linkURL
           },
           stats: {
             likes: 0,
@@ -245,6 +247,7 @@
           }
           cardData.promoted = true;
         }
+        this.$.preview.disabled = cardData.summary.linkURL ? "true" : "false";
         this.set('cardData', cardData);
         if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
           this.$.cardDeveloper.style.display = "";
@@ -261,6 +264,7 @@
             imageUrl: this.cardData.summary.imageUrl,
             title: this.cardData.summary.title,
             text: this.cardData.summary.text,
+            linkURL: this.cardData.summary.linkURL,
             keywords: this._getKeywords()
           };
           this.wizard.headerVisible = false;

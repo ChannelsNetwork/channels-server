@@ -179,6 +179,11 @@
           this.$.next.disabled = true;
           this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
         }
+        if (this.wizard.data.summary.linkURL) {
+          this.$.group.selected = "pay";
+          this.$.group2.selected = "impressions";
+          this._onRadioSelect();
+        }
       }
 
       onTransitioningOut(forward) {

@@ -358,7 +358,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
+  postCard(imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -368,14 +368,14 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
   }
 
-  updateCardSummary(cardId, title, text, linkUrl, imageUrl, imageWidth, imageHeight, keywords) {
-    const cardSummary = RestUtils.cardStateSummary(title, text, linkUrl, imageUrl, imageWidth, imageHeight);
+  updateCardSummary(cardId, title, text, linkURL, imageUrl, imageWidth, imageHeight, keywords) {
+    const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight);
     const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, cardSummary, null, keywords);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
