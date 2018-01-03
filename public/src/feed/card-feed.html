@@ -1,6 +1,8 @@
 <link rel="import" href="../card/card-view.html">
+<link rel="import" href="../card/ad/amazon-ad-card.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-if.html">
 
 <dom-module id="card-feed">
   <template>
@@ -14,7 +16,8 @@
         box-sizing: border-box;
       }
 
-      card-view {
+      card-view,
+      amazon-ad-card {
         width: var(--grid-card-width);
         height: var(--grid-card-height, 500px);
         margin: var(--grid-card-margin, 8px);
@@ -24,7 +27,12 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-deleted="_onCardDeleted"></card-view>
+          <template is="dom-if" if="{{_isAd(item)}}">
+            <amazon-ad-card data="[[item]]" on-impression="_onImpression" on-card-deleted="_onCardDeleted"></amazon-ad-card>
+          </template>
+          <template is="dom-if" if="{{_isNotAd(item)}}">
+            <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-deleted="_onCardDeleted"></card-view>
+          </template>
         </template>
       </dom-repeat>
     </div>
@@ -50,6 +58,14 @@
           '--grid-card-height': ht + "px",
           '--card-img-height': imgHt
         });
+      }
+
+      _isAd(item) {
+        return (item && item.summary && item.summary.linkUrl);
+      }
+
+      _isNotAd(item) {
+        return !this._isAd(item);
       }
 
       _onImpression(event) {
