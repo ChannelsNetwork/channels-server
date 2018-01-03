@@ -48,7 +48,7 @@ const CARD_PAYMENT_DELAY_PER_LEVEL = 1000 * 5;
 const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
-const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24;
+const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 
@@ -515,12 +515,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
+    if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
+      return;
+    }
     const subsidyDay = await networkEntity.getPublisherSubsidies();
     if (!subsidyDay || subsidyDay.remainingToday <= 0) {
       return 0;
     }
-    const cardsBought = await db.countUserCardsPaid(user.id);
-    const amount = cardsBought <= 1 && Date.now() - card.postedAt < PUBLISHER_SUBSIDY_MAX_CARD_AGE ? subsidyDay.newUserBonus : subsidyDay.returnUserBonus;
+    const amount = subsidyDay.newUserBonus;
     await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
