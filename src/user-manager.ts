@@ -31,6 +31,7 @@ const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
 const ANNUAL_INTEREST_RATE = 0.03;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
+const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 60 * 3;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
@@ -834,24 +835,26 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
-    const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
-    if (interest > 0) {
-      const interestRecipient: BankTransactionRecipientDirective = {
-        address: user.address,
-        portion: "remainder",
-        reason: "interest-recipient"
-      };
-      const grant: BankTransactionDetails = {
-        timestamp: null,
-        address: null,
-        type: "transfer",
-        reason: "interest",
-        amount: interest,
-        relatedCardId: null,
-        relatedCouponId: null,
-        toRecipients: [interestRecipient]
-      };
-      await networkEntity.performBankTransaction(grant, null, true, false);
+    if (now - user.balanceLastUpdated > MIN_INTEREST_INTERVAL) {
+      const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
+      if (interest > 0) {
+        const interestRecipient: BankTransactionRecipientDirective = {
+          address: user.address,
+          portion: "remainder",
+          reason: "interest-recipient"
+        };
+        const grant: BankTransactionDetails = {
+          timestamp: null,
+          address: null,
+          type: "transfer",
+          reason: "interest",
+          amount: interest,
+          relatedCardId: null,
+          relatedCouponId: null,
+          toRecipients: [interestRecipient]
+        };
+        await networkEntity.performBankTransaction(grant, null, true, false);
+      }
     }
   }
 
