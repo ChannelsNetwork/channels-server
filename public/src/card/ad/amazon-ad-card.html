@@ -193,7 +193,6 @@
 
       _onData() {
         if (this.data && this._attached) {
-          console.log(this.data);
           requestAnimationFrame(() => {
             if (this._attached) {
               this._attachIntersectionObservers();
@@ -229,6 +228,12 @@
       _frameLoad() {
         if (this.$.frame.src && this.$.frame.src != "about:blank") {
           this.$.frame.style.opacity = 1;
+        }
+      }
+
+      _onContentClick() {
+        if (this.data) {
+          $core.cardOpened(this.data.id);
         }
       }
     }
