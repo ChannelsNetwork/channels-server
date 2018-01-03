@@ -650,6 +650,70 @@ export interface AdminUserInfo {
   cardsBought: number;
 }
 
+export interface AdminGetGoalsDetails extends Signable { }
+
+export interface AdminGetGoalsResponse extends RestResponse {
+  today: AdminGoalsInfo;
+  yesterday: AdminGoalsInfo;
+  twoDaysAgo: AdminGoalsInfo;
+  threeDaysAgo: AdminGoalsInfo;
+  past7Days: AdminGoalsInfo;
+  pastMonth: AdminGoalsInfo;
+  total: AdminGoalsInfo;
+}
+
+export interface AdminGoalsInfo {
+  users: AdminUserGoalsInfo;
+  cards: AdminCardGoalsInfo;
+}
+
+export interface AdminUserGoalsInfo {
+  newUsers: number;
+  active: number;
+  withIdentity: {
+    newUsers: number;
+    active: number;
+    nonViewers: number;
+    oneTimeViewers: number;
+    returnViewers: number;
+    posters: number;
+  };
+  anonymous: {
+    newUsers: number;
+    active: number;
+    bounces: number;
+    nonViewers: number;
+    oneTimeViewers: number;
+    returnViewers: number;
+  };
+}
+
+export interface AdminCardGoalsInfo {
+  payFor: {
+    firstTimePosts: number;
+    totalPosts: number;
+    purchases: number;
+  };
+  promoted: {
+    impressionBased: {
+      firstTimePosts: number;
+      totalPosts: number;
+      totalImpressions: number;
+      usersWithImpressions: number;
+      totalClicks: number;
+      usersWhoClicked: number;
+    };
+    openBased: {
+      firstTimePosts: number;
+      totalPosts: number;
+      totalImpressions: number;
+      usersWithImpressions: number;
+      totalPaymentCount: number;
+      usersWhoWerePaid: number;
+    };
+  };
+}
+
 export interface AdminSetUserMailingListDetails extends Signable {
   userId: string;
   mailingList: boolean;

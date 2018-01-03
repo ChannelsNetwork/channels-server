@@ -1,0 +1,495 @@
+<dom-module id="admin-goals-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 30px 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .rowHeader1 {
+        font-weight: bold;
+      }
+
+      .rowHeader2 {
+        font-weight: bold;
+        padding-left: 20px !important;
+      }
+
+      .rowHeader3 {
+        font-weight: bold;
+        padding-left: 40px !important;
+      }
+
+      .rowHeader4 {
+        font-weight: bold;
+        padding-left: 60px !important;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .fixed {
+        width: 60px;
+      }
+    </style>
+    <div id="container">
+      <h1>Channels Metrics</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell"></div>
+          <div class="headerCell right fixed">Today</div>
+          <div class="headerCell right fixed">Yesterday</div>
+          <div class="headerCell right fixed">2 days ago</div>
+          <div class="headerCell right fixed">3 days ago</div>
+          <div class="headerCell right fixed">Last 7 Days</div>
+          <div class="headerCell right fixed">Last 30 Days</div>
+          <div class="headerCell right fixed">Since Inception</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader1">users</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">new</div>
+          <div class="cell right">[[info.today.users.newUsers]]</div>
+          <div class="cell right">[[info.yesterday.users.newUsers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.newUsers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.newUsers]]</div>
+          <div class="cell right">[[info.past7Days.users.newUsers]]</div>
+          <div class="cell right">[[info.pastMonth.users.newUsers]]</div>
+          <div class="cell right">[[info.total.users.newUsers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">active</div>
+          <div class="cell right">[[info.today.users.active]]</div>
+          <div class="cell right">[[info.yesterday.users.active]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.active]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.active]]</div>
+          <div class="cell right">[[info.past7Days.users.active]]</div>
+          <div class="cell right">[[info.pastMonth.users.active]]</div>
+          <div class="cell right">[[info.total.users.active]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">registered</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">new</div>
+          <div class="cell right">[[info.today.users.withIdentity.newUsers]]</div>
+          <div class="cell right">[[info.yesterday.users.withIdentity.newUsers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.withIdentity.newUsers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.withIdentity.newUsers]]</div>
+          <div class="cell right">[[info.past7Days.users.withIdentity.newUsers]]</div>
+          <div class="cell right">[[info.pastMonth.users.withIdentity.newUsers]]</div>
+          <div class="cell right">[[info.total.users.withIdentity.newUsers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">active</div>
+          <div class="cell right">[[info.today.users.withIdentity.active]]</div>
+          <div class="cell right">[[info.yesterday.users.withIdentity.active]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.withIdentity.active]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.withIdentity.active]]</div>
+          <div class="cell right">[[info.past7Days.users.withIdentity.active]]</div>
+          <div class="cell right">[[info.pastMonth.users.withIdentity.active]]</div>
+          <div class="cell right">[[info.total.users.withIdentity.active]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">never viewed</div>
+          <div class="cell right">[[info.today.users.withIdentity.nonViewers]]</div>
+          <div class="cell right">[[info.yesterday.users.withIdentity.nonViewers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.withIdentity.nonViewers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.withIdentity.nonViewers]]</div>
+          <div class="cell right">[[info.past7Days.users.withIdentity.nonViewers]]</div>
+          <div class="cell right">[[info.pastMonth.users.withIdentity.nonViewers]]</div>
+          <div class="cell right">[[info.total.users.withIdentity.nonViewers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">one-time viewers</div>
+          <div class="cell right">[[info.today.users.withIdentity.oneTimeViewers]]</div>
+          <div class="cell right">[[info.yesterday.users.withIdentity.oneTimeViewers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.withIdentity.oneTimeViewers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.withIdentity.oneTimeViewers]]</div>
+          <div class="cell right">[[info.past7Days.users.withIdentity.oneTimeViewers]]</div>
+          <div class="cell right">[[info.pastMonth.users.withIdentity.oneTimeViewers]]</div>
+          <div class="cell right">[[info.total.users.withIdentity.oneTimeViewers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">return viewers</div>
+          <div class="cell right">[[info.today.users.withIdentity.returnViewers]]</div>
+          <div class="cell right">[[info.yesterday.users.withIdentity.returnViewers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.withIdentity.returnViewers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.withIdentity.returnViewers]]</div>
+          <div class="cell right">[[info.past7Days.users.withIdentity.returnViewers]]</div>
+          <div class="cell right">[[info.pastMonth.users.withIdentity.returnViewers]]</div>
+          <div class="cell right">[[info.total.users.withIdentity.returnViewers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">posters</div>
+          <div class="cell right">[[info.today.users.withIdentity.posters]]</div>
+          <div class="cell right">[[info.yesterday.users.withIdentity.posters]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.withIdentity.posters]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.withIdentity.posters]]</div>
+          <div class="cell right">[[info.past7Days.users.withIdentity.posters]]</div>
+          <div class="cell right">[[info.pastMonth.users.withIdentity.posters]]</div>
+          <div class="cell right">[[info.total.users.withIdentity.posters]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">anonymous</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">new</div>
+          <div class="cell right">[[info.today.users.anonymous.newUsers]]</div>
+          <div class="cell right">[[info.yesterday.users.anonymous.newUsers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.anonymous.newUsers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.anonymous.newUsers]]</div>
+          <div class="cell right">[[info.past7Days.users.anonymous.newUsers]]</div>
+          <div class="cell right">[[info.pastMonth.users.anonymous.newUsers]]</div>
+          <div class="cell right">[[info.total.users.anonymous.newUsers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">active</div>
+          <div class="cell right">[[info.today.users.anonymous.active]]</div>
+          <div class="cell right">[[info.yesterday.users.anonymous.active]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.anonymous.active]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.anonymous.active]]</div>
+          <div class="cell right">[[info.past7Days.users.anonymous.active]]</div>
+          <div class="cell right">[[info.pastMonth.users.anonymous.active]]</div>
+          <div class="cell right">[[info.total.users.anonymous.active]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">bounced</div>
+          <div class="cell right">[[info.today.users.anonymous.bounces]]</div>
+          <div class="cell right">[[info.yesterday.users.anonymous.bounces]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.anonymous.bounces]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.anonymous.bounces]]</div>
+          <div class="cell right">[[info.past7Days.users.anonymous.bounces]]</div>
+          <div class="cell right">[[info.pastMonth.users.anonymous.bounces]]</div>
+          <div class="cell right">[[info.total.users.anonymous.bounces]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">never viewed</div>
+          <div class="cell right">[[info.today.users.anonymous.nonViewers]]</div>
+          <div class="cell right">[[info.yesterday.users.anonymous.nonViewers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.anonymous.nonViewers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.anonymous.nonViewers]]</div>
+          <div class="cell right">[[info.past7Days.users.anonymous.nonViewers]]</div>
+          <div class="cell right">[[info.pastMonth.users.anonymous.nonViewers]]</div>
+          <div class="cell right">[[info.total.users.anonymous.nonViewers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">one-time viewers</div>
+          <div class="cell right">[[info.today.users.anonymous.oneTimeViewers]]</div>
+          <div class="cell right">[[info.yesterday.users.anonymous.oneTimeViewers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.anonymous.oneTimeViewers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.anonymous.oneTimeViewers]]</div>
+          <div class="cell right">[[info.past7Days.users.anonymous.oneTimeViewers]]</div>
+          <div class="cell right">[[info.pastMonth.users.anonymous.oneTimeViewers]]</div>
+          <div class="cell right">[[info.total.users.anonymous.oneTimeViewers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">return viewers</div>
+          <div class="cell right">[[info.today.users.anonymous.returnViewers]]</div>
+          <div class="cell right">[[info.yesterday.users.anonymous.returnViewers]]</div>
+          <div class="cell right">[[info.twoDaysAgo.users.anonymous.returnViewers]]</div>
+          <div class="cell right">[[info.threeDaysAgo.users.anonymous.returnViewers]]</div>
+          <div class="cell right">[[info.past7Days.users.anonymous.returnViewers]]</div>
+          <div class="cell right">[[info.pastMonth.users.anonymous.returnViewers]]</div>
+          <div class="cell right">[[info.total.users.anonymous.returnViewers]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader1">cards</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">pay-for</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">first-time posts</div>
+          <div class="cell right">[[info.today.cards.payFor.firstTimePosts]]</div>
+          <div class="cell right">[[info.yesterday.cards.payFor.firstTimePosts]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.payFor.firstTimePosts]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.payFor.firstTimePosts]]</div>
+          <div class="cell right">[[info.past7Days.cards.payFor.firstTimePosts]]</div>
+          <div class="cell right">[[info.pastMonth.cards.payFor.firstTimePosts]]</div>
+          <div class="cell right">[[info.total.cards.payFor.firstTimePosts]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">total posts</div>
+          <div class="cell right">[[info.today.cards.payFor.totalPosts]]</div>
+          <div class="cell right">[[info.yesterday.cards.payFor.totalPosts]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.payFor.totalPosts]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.payFor.totalPosts]]</div>
+          <div class="cell right">[[info.past7Days.cards.payFor.totalPosts]]</div>
+          <div class="cell right">[[info.pastMonth.cards.payFor.totalPosts]]</div>
+          <div class="cell right">[[info.total.cards.payFor.totalPosts]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">card purchases</div>
+          <div class="cell right">[[info.today.cards.payFor.purchases]]</div>
+          <div class="cell right">[[info.yesterday.cards.payFor.purchases]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.payFor.purchases]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.payFor.purchases]]</div>
+          <div class="cell right">[[info.past7Days.cards.payFor.purchases]]</div>
+          <div class="cell right">[[info.pastMonth.cards.payFor.purchases]]</div>
+          <div class="cell right">[[info.total.cards.payFor.purchases]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">promoted</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">impression-based</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">first-time posts</div>
+          <div class="cell right">[[info.today.cards.promoted.impressionBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.impressionBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.impressionBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.impressionBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.impressionBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.impressionBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.total.cards.promoted.impressionBased.firstTimePosts]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">total posts</div>
+          <div class="cell right">[[info.today.cards.promoted.impressionBased.totalPosts]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.impressionBased.totalPosts]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.impressionBased.totalPosts]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.impressionBased.totalPosts]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.impressionBased.totalPosts]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.impressionBased.totalPosts]]</div>
+          <div class="cell right">[[info.total.cards.promoted.impressionBased.totalPosts]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">total impressions</div>
+          <div class="cell right">[[info.today.cards.promoted.impressionBased.totalImpressions]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.impressionBased.totalImpressions]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.impressionBased.totalImpressions]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.impressionBased.totalImpressions]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.impressionBased.totalImpressions]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.impressionBased.totalImpressions]]</div>
+          <div class="cell right">[[info.total.cards.promoted.impressionBased.totalImpressions]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">users with impressions</div>
+          <div class="cell right">[[info.today.cards.promoted.impressionBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.impressionBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.impressionBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.impressionBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.impressionBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.impressionBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.total.cards.promoted.impressionBased.usersWithImpressions]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">total clicks</div>
+          <div class="cell right">[[info.today.cards.promoted.impressionBased.totalClicks]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.impressionBased.totalClicks]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.impressionBased.totalClicks]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.impressionBased.totalClicks]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.impressionBased.totalClicks]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.impressionBased.totalClicks]]</div>
+          <div class="cell right">[[info.total.cards.promoted.impressionBased.totalClicks]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">users who clicked</div>
+          <div class="cell right">[[info.today.cards.promoted.impressionBased.usersWhoClicked]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.impressionBased.usersWhoClicked]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.impressionBased.usersWhoClicked]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.impressionBased.usersWhoClicked]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.impressionBased.usersWhoClicked]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.impressionBased.usersWhoClicked]]</div>
+          <div class="cell right">[[info.total.cards.promoted.impressionBased.usersWhoClicked]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">open-based</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">first-time posts</div>
+          <div class="cell right">[[info.today.cards.promoted.openBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.openBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.openBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.openBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.openBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.openBased.firstTimePosts]]</div>
+          <div class="cell right">[[info.total.cards.promoted.openBased.firstTimePosts]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">total posts</div>
+          <div class="cell right">[[info.today.cards.promoted.openBased.totalPosts]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.openBased.totalPosts]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.openBased.totalPosts]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.openBased.totalPosts]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.openBased.totalPosts]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.openBased.totalPosts]]</div>
+          <div class="cell right">[[info.total.cards.promoted.openBased.totalPosts]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">total impressions</div>
+          <div class="cell right">[[info.today.cards.promoted.openBased.totalImpressions]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.openBased.totalImpressions]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.openBased.totalImpressions]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.openBased.totalImpressions]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.openBased.totalImpressions]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.openBased.totalImpressions]]</div>
+          <div class="cell right">[[info.total.cards.promoted.openBased.totalImpressions]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">users with impressions</div>
+          <div class="cell right">[[info.today.cards.promoted.openBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.openBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.openBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.openBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.openBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.openBased.usersWithImpressions]]</div>
+          <div class="cell right">[[info.total.cards.promoted.openBased.usersWithImpressions]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">total payments</div>
+          <div class="cell right">[[info.today.cards.promoted.openBased.totalPaymentCount]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.openBased.totalPaymentCount]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.openBased.totalPaymentCount]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.openBased.totalPaymentCount]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.openBased.totalPaymentCount]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.openBased.totalPaymentCount]]</div>
+          <div class="cell right">[[info.total.cards.promoted.openBased.totalPaymentCount]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader4">users paid</div>
+          <div class="cell right">[[info.today.cards.promoted.openBased.usersWhoWerePaid]]</div>
+          <div class="cell right">[[info.yesterday.cards.promoted.openBased.usersWhoWerePaid]]</div>
+          <div class="cell right">[[info.twoDaysAgo.cards.promoted.openBased.usersWhoWerePaid]]</div>
+          <div class="cell right">[[info.threeDaysAgo.cards.promoted.openBased.usersWhoWerePaid]]</div>
+          <div class="cell right">[[info.past7Days.cards.promoted.openBased.usersWhoWerePaid]]</div>
+          <div class="cell right">[[info.pastMonth.cards.promoted.openBased.usersWhoWerePaid]]</div>
+          <div class="cell right">[[info.total.cards.promoted.openBased.usersWhoWerePaid]]</div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminGoalsView extends Polymer.Element {
+      static get is() { return 'admin-goals-view'; }
+      static get properties() {
+        return {
+          info: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('info', {});
+        $core.admin_getGoals().then((response) => {
+          this.set('info', response);
+        });
+      }
+
+    }
+    window.customElements.define(AdminGoalsView.is, AdminGoalsView);
+  </script>
+</dom-module>

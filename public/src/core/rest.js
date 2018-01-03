@@ -523,6 +523,13 @@ class RestUtils {
     };
   }
 
+  static admin_getGoals(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static queryPage(address, url) {
     return {
       address: address,

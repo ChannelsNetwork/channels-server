@@ -392,7 +392,7 @@ export interface UserCardActionRecord {
   };
 }
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "make-private" | "make-public";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "make-private" | "make-public" | "click";
 
 export interface UserCardInfoRecord {
   userId: string;

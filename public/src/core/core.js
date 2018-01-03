@@ -771,5 +771,12 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getGoals() {
+    let details = RestUtils.admin_getGoals(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-goals";
+    return this.rest.post(url, request);
+  }
+
 }
 window.customElements.define(CoreService.is, CoreService);
