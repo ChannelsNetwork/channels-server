@@ -19,7 +19,7 @@
       card-view,
       amazon-ad-card {
         width: var(--grid-card-width);
-        height: var(--grid-card-height, 500px);
+        height: var(--grid-card-height, 400px);
         margin: var(--grid-card-margin, 8px);
         box-sizing: border-box;
       }
@@ -52,7 +52,7 @@
 
       constructor() {
         super();
-        let ht = Math.min(Math.max(400, 0.6 * window.innerHeight), 520);
+        let ht = Math.min(Math.max(400, 0.6 * window.innerHeight), 500);
         let imgHt = ht < 480 ? "170px" : "250px";
         this.updateStyles({
           '--grid-card-height': ht + "px",
