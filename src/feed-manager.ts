@@ -55,6 +55,7 @@ const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 1;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 2;
+const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 1.5;
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
@@ -602,19 +603,30 @@ export class FeedManager implements Initializable, RestServer {
 
   private async scoreCard(card: CardRecord, currentStats: NetworkCardStats): Promise<number> {
     const networkStats = await db.getNetworkCardStatsAt(card.postedAt);
-    return this.getTotalCardScore(card, currentStats, networkStats.stats);
+    const author = await userManager.getUserById(card.by.id);
+    if (!author) {
+      return 0;
+    }
+    return this.getTotalCardScore(card, currentStats, networkStats.stats, author);
   }
 
-  private getTotalCardScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats): number {
+  private getTotalCardScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats, author: UserRecord): number {
     let score = 0;
-    score += this.getCardAgeScore(card);
+    score += this.getCardAgeScore(card, author);
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);
     score += this.getCardCurationScore(card);
-    return +(score.toFixed(5));
+    score = +(score.toFixed(5));
+    if (author && author.curation) {
+      score = Math.min(MAX_DISCOUNTED_AUTHOR_CARD_SCORE, score);
+    }
+    return score;
   }
 
-  private getCardAgeScore(card: CardRecord): number {
+  private getCardAgeScore(card: CardRecord, author: UserRecord): number {
+    if (author && author.curation) {
+      return 0;
+    }
     return this.getInverseScore(SCORE_CARD_WEIGHT_AGE, Date.now() - card.postedAt, SCORE_CARD_AGE_HALF_LIFE);
   }
 
@@ -769,7 +781,7 @@ export class FeedManager implements Initializable, RestServer {
         './icon.png',
         null, 0,
         sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, ["sample"], sample.text, [], null,
+        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, ["sample"], sample.text, [], false, null,
         cardId);
       await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
       await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
@@ -1115,14 +1127,15 @@ export class FeedManager implements Initializable, RestServer {
       for (const record of cardRecords) {
         const descriptor = await this.populateCard(record, false, null, true);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
+        const author = await userManager.getUserById(record.by.id);
         infos.push({
           descriptor: descriptor,
           scoring: {
-            age: this.getCardAgeScore(record),
+            age: this.getCardAgeScore(record, author),
             opens: this.getCardOpensScore(record, currentStats.stats, networkStats.stats),
             likes: this.getCardLikesScore(record, currentStats.stats, networkStats.stats),
             boost: this.getCardCurationScore(record),
-            total: this.getTotalCardScore(record, currentStats.stats, networkStats.stats)
+            total: this.getTotalCardScore(record, currentStats.stats, networkStats.stats, author)
           }
         });
       }

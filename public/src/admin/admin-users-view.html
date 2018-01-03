@@ -109,6 +109,7 @@
           <div class="headerCell">Region</div>
           <div class="headerCell">City</div>
           <div class="headerCell center">Mailing List</div>
+          <div class="headerCell center">Curation</div>
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="row">
@@ -131,6 +132,7 @@
             <div class="cell">[[item.region]]</div>
             <div class="cell">[[item.city]]</div>
             <div class="cell center toggle" on-click="_onMailingListToggle">[[item.mailingList]]</div>
+            <div class="cell">[[item.curation]]</div>
           </div>
         </template>
       </div>
@@ -217,7 +219,8 @@
               privateCards: userInfo.privateCards,
               cardRevenue: userInfo.cardRevenue.toFixed(3),
               cardsOpened: userInfo.cardsOpened,
-              cardsBought: userInfo.cardsBought
+              cardsBought: userInfo.cardsBought,
+              curation: user.curation ? user.curation : ""
             });
           }
           this.set('users', users);

@@ -700,6 +700,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  async getUserById(id: string): Promise<UserRecord> {
+    return await db.findUserById(id);
+  }
+
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<CheckHandleDetails>;
