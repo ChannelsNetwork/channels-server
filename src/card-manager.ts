@@ -1502,7 +1502,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const revenuePotential = promotionFee + openPayment * openProbability * boost;
     const desireability = openProbability * 5;
-    return ((1 - ratio) * revenuePotential) + (ratio * desireability);
+    let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
+    // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
+    const randomFactor = result * 0.1 * (Math.random() - 0.5);
+    result += randomFactor;
+    return result;
   }
 
 }
