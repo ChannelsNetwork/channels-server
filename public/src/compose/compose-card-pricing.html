@@ -85,8 +85,11 @@
             <soso-slider label id="earnPrice" min="1" max="5" value="1" step="1" on-input="_onEarnPriceChange"></soso-slider>
           </div>
         </div>
-        <div class="caption">(Currently ℂ
-          <span>[[earnEstimate]]</span>)</div>
+        <div class="caption">Currently
+          <span>[[earnEstimate]]</span>
+        </div>
+        <div class="caption">Viewer must stay for at least
+          <span>[[payInterval]]</span> seconds before paying</div>
         <div class="row">
           <soso-checkbox id="chkPromote" label="I want to promote this card to people who don't follow me"></soso-checkbox>
         </div>
@@ -112,7 +115,8 @@
       static get properties() {
         return {
           wizard: Object,
-          earnEstimate: Number
+          earnEstimate: String,
+          payInterval: Number
         };
       }
 
@@ -160,7 +164,8 @@
 
       _onEarnPriceChange() {
         let value = this.$.earnPrice.immediateValue || 1;
-        this.earnEstimate = ($core.baseCardPrice * value).toFixed(3);
+        this.earnEstimate = "ℂ" + ($core.baseCardPrice * value).toFixed(2);
+        this.payInterval = 10 + (value - 1) * 5;
       }
 
       onTransitioningIn(forward) {
