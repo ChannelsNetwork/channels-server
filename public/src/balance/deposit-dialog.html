@@ -10,14 +10,17 @@
       .paypalLink {
         margin: 25px 0;
         text-align: center;
+        font-size: 32px;
+      }
+
+      .explain {
+        font-size: 14px;
+        margin: 15px 0;
       }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
-      <h3>Buy Coins</h3>
-      <div class="explain">If you want to avoid promoted content or you want to promote your own content, you may want to increase your balance.
-        You can do this by buying coins.
-      </div>
-      <div>To buys coins, use our Paypal.me link:</div>
+      <h2>Buy Coins</h2>
+      <div>To buys ChannelCoins and increase your balance, use our Paypal.me link and send money in any amount to:</div>
       <div class="paypalLink">
         <a target="_blank" href="https://paypal.me/channelscc">paypal.me/channelscc</a>
       </div>
@@ -28,8 +31,8 @@
       </div>
       <div class="explain">
         <b>Important: </b>Include your handle (
-        <span>[[handle]]</span>) in the Notes section when you make your payment. Otherwise, we will not know which account to
-        credit.
+        <span style="font-weight:bold">[[handle]]</span> ) in the Notes section of your Paypal when you make your payment. Otherwise, we will not know which
+        account to credit.
       </div>
     </dialog-view>
   </template>

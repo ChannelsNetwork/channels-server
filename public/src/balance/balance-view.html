@@ -1,5 +1,6 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="deposit-dialog.html">
 
 <dom-module id="balance-view">
   <template>
@@ -168,7 +169,11 @@
       }
 
       #btnDeposit {
-        vertical-align: top;
+        width: 150px;
+      }
+
+      #btnWithdraw {
+        width: 150px;
       }
 
       .row {
@@ -193,7 +198,7 @@
           </div>
           <div class="buttonPanel">
             <div class="row">
-              <button id="btnDeposit" on-click="_onDepositClick" disabled>Buy Coins</button>
+              <button id="btnDeposit" on-click="_onDepositClick">Buy Coins</button>
             </div>
             <div class="horizontal layout center row">
               <div>
@@ -249,6 +254,7 @@
         </div>
       </div>
     </div>
+    <deposit-dialog id="depositDialog"></deposit-dialog>
   </template>
   <script>
     class BalanceView extends Polymer.Element {
@@ -432,7 +438,7 @@
 
       _onDepositClick() {
         if ($core.profile && $core.profile.handle) {
-          window.location = $core.depositUrl;
+          this.$.depositDialog.show();
         } else {
           $router.goto("/register", { message: "Before you make a deposit, you must first register an identity.", returnRoute: { success: "balance", cancel: "balance" } });
         }
