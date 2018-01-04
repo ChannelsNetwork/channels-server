@@ -96,10 +96,10 @@
     </style>
     <div class="shell horizontal layout center">
       <div id="container">
-        <h2>Withdrawal</h2>
-        <div class="explain">You can sell coins and have proceeds deposited into your Paypal account by entering your email address, mobile number,
-          or Paypal.me link below. If you don't already have a Paypal account, you can set it up when you receive their payment
-          notification.
+        <h2>Sell Coins</h2>
+        <div class="explain">You can sell coins from your balance and have proceeds deposited into your Paypal account by entering your email
+          address, mobile number, or Paypal.me link below. If you don't already have a Paypal account, you can set it up
+          when you receive their payment notification.
         </div>
         <div class="form">
           <div>
@@ -109,7 +109,7 @@
             <paper-input id="emailConfirm" on-input="_onEmailChanged" placeholder="Repeat email, mobile, or link" label="Confirm recipient"></paper-input>
           </div>
           <div>
-            <div class="label">Amount to withdraw (ℂ)</div>
+            <div class="label">Amount to sell (ℂ)</div>
             <div>
               <input id="withdrawalAmount" type="number" min="1" max="[[maxWithdrawal]]" step="0.01" on-input="_onAmountChanged">
             </div>
@@ -134,7 +134,8 @@
               <div class="rightCell">[[proceeds]]</div>
             </div>
           </div>
-          <div class="explain">It may take up to one business day before you receive your payment.</div>
+          <div class="explain">It may take up to one business day before you receive your payment. You are responsible for reporting and paying
+            all relevant taxes.</div>
           <div class="buttons">
             <button on-click="_onCancel" style="margin-right: 10px;">Cancel</button>
             <button id="btnSave" on-click="_onSave" disabled>Save</button>

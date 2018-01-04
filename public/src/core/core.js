@@ -138,7 +138,9 @@ class CoreService extends Polymer.Element {
       if (!this._keys) {
         throw "No private key found";
       }
-      let details = RestUtils.registerUserDetails(this._keys.address, this._keys.publicKeyPem, inviteCode);
+      const referrer = document.referrer;
+      const landingPageUrl = window.location.href;
+      let details = RestUtils.registerUserDetails(this._keys.address, this._keys.publicKeyPem, inviteCode, referrer, landingPageUrl);
       let request = this._createRequest(details);
       const url = this.restBase + "/register-user";
       return this.rest.post(url, request).then((result) => {
@@ -259,7 +261,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then(() => {
       this._fire("profile-updated");
       return this.getUserProfile();
-    })
+    });
   }
 
   getUserProfile() {
@@ -773,6 +775,13 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.admin_updateCard(this._keys.address, cardId, keywords, blocked, boost);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-update-card";
+    return this.rest.post(url, request);
+  }
+
+  admin_getGoals() {
+    let details = RestUtils.admin_getGoals(this._keys.address);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-goals";
     return this.rest.post(url, request);
   }
 
