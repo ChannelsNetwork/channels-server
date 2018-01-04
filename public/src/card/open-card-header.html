@@ -414,13 +414,14 @@
       _deleteCard() {
         $app.confirm("This will delete this card permanently.  Are you sure?", null, "Delete").then((result) => {
           if (result) {
-            this._onCloseCard();
+            window.__dirtyFeed = true;
             requestAnimationFrame(() => {
               $core.deleteCard(this.data.id).then((response) => {
                 this.dispatchEvent(new CustomEvent('card-deleted', { bubbles: true, composed: true, detail: { card: this.data } }));
               }).catch((err) => {
                 console.error("Failed to delete card", err);
                 $app.showError("Oops. Something went wrong. Failed to delete card.");
+                this._onCloseCard();
               });
             });
           }

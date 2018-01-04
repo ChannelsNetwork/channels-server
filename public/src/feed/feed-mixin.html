@@ -70,19 +70,26 @@
           this._onResize();
 
           // parse route and fetch only if route is different
+          let fetchNewContent = true;
           let parsedRoute = this._parseRoute(route);
-          if (this._parsedRoute && this._parsedRouteTimestamp) {
-            if (parsedRoute.path === this._parsedRoute.path) {
-              let timeDiff = (new Date()).getTime() - this._parsedRouteTimestamp;
-              if (timeDiff < (5 * 60 * 1000)) {
-                $app.scrollTo(route.context.scrollTop);
-                return;
+          if (!window.__dirtyFeed) {
+            if (this._parsedRoute && this._parsedRouteTimestamp) {
+              if (parsedRoute.path === this._parsedRoute.path) {
+                let timeDiff = (new Date()).getTime() - this._parsedRouteTimestamp;
+                if (timeDiff < (5 * 60 * 1000)) {
+                  fetchNewContent = false;
+                }
               }
             }
+          }
+          if (!fetchNewContent) {
+            $app.scrollTo(route.context.scrollTop);
+            return;
           }
 
           // clear state
           this._setItems([]);
+          window.__dirtyFeed = false;
 
           this._parsedRoute = parsedRoute;
           this._parsedRouteTimestamp = (new Date()).getTime();
