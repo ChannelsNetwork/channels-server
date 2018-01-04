@@ -13,7 +13,13 @@ import Mustache = require('mustache');
 export class RootPageManager implements Initializable {
   private urlManager: UrlManager;
   private templates: { [key: string]: string } = {};
+  private landingTemplates: { [key: string]: string } = {};
   private templatesLoaded = false;
+
+  constructor() {
+    this.landingTemplates['default'] = '../templates/landing/default.html';
+    this.landingTemplates['video'] = '../templates/landing/video.html';
+  }
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -37,6 +43,21 @@ export class RootPageManager implements Initializable {
 
   async initialize2(): Promise<void> {
     return;
+  }
+
+  private async getLandingContent(request: Request): Promise<string> {
+    let landingTemplate = "default";
+    if (request && request.query && request.query['landing']) {
+      landingTemplate = request.query['landing'].trim();
+      if (!this.landingTemplates[landingTemplate]) {
+        landingTemplate = "default";
+      }
+    }
+    const key = "landing-" + landingTemplate;
+    if (!this.templates[key]) {
+      this.templates[key] = fs.readFileSync(path.join(__dirname, this.landingTemplates[landingTemplate]), 'utf8');
+    }
+    return this.templates[key];
   }
 
   async handlePage(type: string, request: Request, response: Response, card?: CardRecord): Promise<void> {
@@ -94,7 +115,8 @@ export class RootPageManager implements Initializable {
       analyticsId: configuration.get('google.analytics.id', "UA-52117709-8"),
       og_published_time: metadata.publishedTime,
       og_author: metadata.author,
-      seoContent: searchText
+      seoContent: searchText,
+      landingcontent: await this.getLandingContent(request)
     };
     const output = Mustache.render(this.templates[type], view);
     response.setHeader("Cache-Control", 'public, max-age=' + 15);
