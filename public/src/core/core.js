@@ -434,6 +434,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  cardClicked(cardId) {
+    let details = RestUtils.cardClickedDetails(this._keys.address, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/card-clicked";
+    return this.rest.post(url, request);
+  }
+
   cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, referrerAddress) {
     const recipients = [];
     recipients.push(RestUtils.bankTransactionRecipient(authorAddress, "remainder", "content-purchase"));
