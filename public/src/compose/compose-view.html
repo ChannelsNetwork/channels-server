@@ -136,6 +136,7 @@
       }
 
       _onPublish() {
+        window.__dirtyFeed = true;
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
         this._userClosed = true;
