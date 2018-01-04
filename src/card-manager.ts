@@ -1525,6 +1525,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): number {
+    if (promotionFee === 0 && openPayment === 0) {
+      return 0;
+    }
     if (!budgetAvailable) {
       return 0;
     }
