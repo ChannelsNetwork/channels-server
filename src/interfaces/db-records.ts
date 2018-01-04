@@ -183,7 +183,9 @@ export interface CardStatistics {
   impressions: CardStatistic;
   uniqueImpressions: CardStatistic;
   opens: CardStatistic;
+  clicks: CardStatistic;
   uniqueOpens: CardStatistic;
+  uniqueClicks: CardStatistic;
   likes: CardStatistic;
   dislikes: CardStatistic;
 }
@@ -400,6 +402,7 @@ export interface UserCardInfoRecord {
   created: number;
   lastImpression: number;
   lastOpened: number;
+  lastClicked: number;
   lastClosed: number;
   paidToAuthor: number;
   paidToReader: number;
@@ -504,6 +507,8 @@ export interface NetworkCardStatsHistoryRecord {
 export interface NetworkCardStats {
   opens: number;
   uniqueOpens: number;
+  clicks: number;
+  uniqueClicks: number;
   paidOpens: number;
   likes: number;
   dislikes: number;
