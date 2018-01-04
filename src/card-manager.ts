@@ -554,7 +554,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
     if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
-      return;
+      return 0;
     }
     const subsidyDay = await networkEntity.getPublisherSubsidies();
     if (!subsidyDay || subsidyDay.remainingToday <= 0) {
