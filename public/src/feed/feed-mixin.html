@@ -87,6 +87,7 @@
           this._parsedRoute = parsedRoute;
           this._parsedRouteTimestamp = (new Date()).getTime();
           this._moreAvailable = false;
+          this._onMoreUpdated(this._moreAvailable);
           this._promotedCardIds = [];
           if (parsedRoute) {
             this._onDataFetch(parsedRoute);

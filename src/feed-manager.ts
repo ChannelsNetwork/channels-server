@@ -670,16 +670,18 @@ export class FeedManager implements Initializable, RestServer {
     // This returns a score based on what fraction of the unique opens network-wide during the period
     // since this card was posted were for this card.
     let ratio = 0;
-    let delta = 1;
-    if (currentStats.uniqueOpens) {
-      delta = currentStats.uniqueOpens;
-    }
+    let delta = (currentStats.uniqueOpens || 0) + (currentStats.uniqueClicks || 0);
     if (networkStats.uniqueOpens) {
-      delta = Math.max(0, delta - networkStats.uniqueOpens);
+      delta = Math.max(0, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
     }
-    if (card.stats && card.stats.uniqueOpens) {
-      ratio = Math.min(card.stats.uniqueOpens.value / (delta || 1), 1);
+    let count = 0;
+    if (card.stats.uniqueOpens) {
+      count += card.stats.uniqueOpens.value;
     }
+    if (card.stats.uniqueClicks) {
+      count += card.stats.uniqueClicks.value;
+    }
+    ratio = Math.min(count / (delta || 1), 1);
     return SCORE_CARD_WEIGHT_OPENS * ratio;
   }
   // private async getCardRecentOpensScore(card: CardRecord): Promise<number> {

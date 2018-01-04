@@ -58,7 +58,6 @@
 
       _onActivate() {
         this._active = true;
-        this.$.buttons.style.display = "none";
         this._refreshHomePanelVisibility();
         this._detachListseners();
       }
@@ -103,7 +102,7 @@
           type: "feed",
           feedName: feedName,
           path: '/feed/' + feedName,
-          count: 24,
+          count: 10,
           cardId: cardId,
           channel: null
         };
