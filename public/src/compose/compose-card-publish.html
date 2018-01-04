@@ -254,7 +254,7 @@
           }
           cardData.promoted = true;
         }
-        this.$.preview.disabled = cardData.summary.linkURL ? "true" : "false";
+        this.$.preview.disabled = cardData.summary.linkURL ? true : false;
         this.set('cardData', cardData);
         if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
           this.$.cardDeveloper.style.display = "";
