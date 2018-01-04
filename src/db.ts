@@ -1946,13 +1946,13 @@ export class Database {
   }
 
   async getNetworkCardStatsAt(timestamp: number): Promise<NetworkCardStatsHistoryRecord> {
-    const result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({ periodStarting: { $lt: timestamp } }).sort({ periodStarting: -1 }).limit(1).toArray();
+    const result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({ periodStarting: { $lt: timestamp }, isCurrent: false }).sort({ periodStarting: -1 }).limit(1).toArray();
     if (result && result.length > 0) {
       return result[0];
     } else {
       return {
         periodStarting: 0,
-        isCurrent: true,
+        isCurrent: false,
         stats: this.createEmptyNetworkCardStats()
       };
     }
