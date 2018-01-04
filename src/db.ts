@@ -191,6 +191,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
+
+    await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -767,7 +769,9 @@ export class Database {
         impressions: { value: 0, lastSnapshot: 0 },
         uniqueImpressions: { value: 0, lastSnapshot: 0 },
         opens: { value: 0, lastSnapshot: 0 },
+        clicks: { value: 0, lastSnapshot: 0 },
         uniqueOpens: { value: 0, lastSnapshot: 0 },
+        uniqueClicks: { value: 0, lastSnapshot: 0 },
         likes: { value: 0, lastSnapshot: 0 },
         dislikes: { value: 0, lastSnapshot: 0 }
       },
@@ -1609,6 +1613,7 @@ export class Database {
           created: Date.now(),
           lastImpression: 0,
           lastOpened: 0,
+          lastClicked: 0,
           lastClosed: 0,
           paidToAuthor: 0,
           paidToReader: 0,
@@ -1647,6 +1652,11 @@ export class Database {
   async updateUserCardLastOpened(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value } });
+  }
+
+  async updateUserCardLastClicked(userId: string, cardId: string, value: number): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastClicked: value } });
   }
 
   async updateUserCardLastClosed(userId: string, cardId: string, value: number): Promise<void> {
@@ -1867,6 +1877,8 @@ export class Database {
     const stats: NetworkCardStats = {
       opens: 0,
       uniqueOpens: 0,
+      clicks: 0,
+      uniqueClicks: 0,
       paidOpens: 0,
       likes: 0,
       dislikes: 0,
@@ -1889,16 +1901,22 @@ export class Database {
   }
 
   async incrementNetworkCardStats(stats: NetworkCardStats): Promise<void> {
-    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes);
+    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks);
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
     }
     if (uniqueOpens) {
       update["stats.uniqueOpens"] = uniqueOpens;
+    }
+    if (clicks) {
+      update["stats.clicks"] = clicks;
+    }
+    if (uniqueClicks) {
+      update["stats.uniqueClicks"] = uniqueClicks;
     }
     if (paidOpens) {
       update["stats.paidOpens"] = paidOpens;

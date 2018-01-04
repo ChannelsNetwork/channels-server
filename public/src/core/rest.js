@@ -316,6 +316,14 @@ class RestUtils {
     };
   }
 
+  static cardClickedDetails(address, cardId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      cardId: cardId
+    };
+  }
+
   static cardPayDetails(address, cardId, transactionString, transactionSignature) {
     return {
       address: address,

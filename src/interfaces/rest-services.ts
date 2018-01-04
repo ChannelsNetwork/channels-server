@@ -424,6 +424,12 @@ export interface CardOpenedDetails extends Signable {
 
 export interface CardOpenedResponse extends RestResponse { }
 
+export interface CardClickedDetails extends Signable {
+  cardId: string;
+}
+
+export interface CardClickedResponse extends RestResponse { }
+
 export interface CardPayDetails extends Signable {
   transaction: SignedObject;
 }
