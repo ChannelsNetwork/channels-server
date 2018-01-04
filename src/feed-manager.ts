@@ -263,7 +263,7 @@ export class FeedManager implements Initializable, RestServer {
             nextAdIndex += adSlots.slotSeparation;
             adCount++;
             filled = true;
-            console.log("FeedManager.mergeWithAdCards: Populating ad: ", adDescriptor.summary.title);
+            console.log("FeedManager.mergeWithAdCards: Populating ad: ", adDescriptor.summary.title, adDescriptor.id, adCard.promotionScores);
           } else {
             adCount = adSlots.slotCount;
           }
@@ -298,6 +298,10 @@ export class FeedManager implements Initializable, RestServer {
   private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();
+      if (card.pricing.promotionFee === 0 && card.pricing.openPayment === 0) {
+        console.log("Feed.getNextAdCard:  No more promoted cards available to inject");
+        return null;  // no more promotional cards available
+      }
       if (alreadyPopulatedAdCardIds.indexOf(card.id) >= 0) {
         continue;
       }
