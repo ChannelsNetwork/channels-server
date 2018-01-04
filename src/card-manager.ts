@@ -50,7 +50,7 @@ const CARD_PAYMENT_DELAY_PER_LEVEL = 1000 * 5;
 const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
-const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24;
+const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 
@@ -553,12 +553,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
+    if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
+      return;
+    }
     const subsidyDay = await networkEntity.getPublisherSubsidies();
     if (!subsidyDay || subsidyDay.remainingToday <= 0) {
       return 0;
     }
-    const cardsBought = await db.countUserCardsPaid(user.id);
-    const amount = cardsBought <= 1 && Date.now() - card.postedAt < PUBLISHER_SUBSIDY_MAX_CARD_AGE ? subsidyDay.newUserBonus : subsidyDay.returnUserBonus;
+    const amount = subsidyDay.newUserBonus;
     await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
@@ -1060,7 +1062,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, promotionScores, cardId);
+    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
     await this.announceCard(card, user);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
@@ -1538,7 +1540,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const revenuePotential = promotionFee + openPayment * openProbability * boost;
     const desireability = openProbability * 5;
-    return ((1 - ratio) * revenuePotential) + (ratio * desireability);
+    let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
+    // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
+    const randomFactor = result * 0.1 * (Math.random() - 0.5);
+    result += randomFactor;
+    return result;
   }
 
 }

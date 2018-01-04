@@ -36,6 +36,7 @@ import { SERVER_VERSION } from "./server-version";
 import { depositPageHandler } from "./page-handlers/deposit-page-handler";
 import { searchManager } from "./search-manager";
 import { clientServices } from "./client-services";
+import { adminManager } from "./admin-manager";
 
 const xFrameOptions = require('x-frame-options');
 
@@ -46,7 +47,7 @@ class ChannelsNetworkWebClient {
   private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager];
 
   // DO NOT INCLUDE rootPageHandler in restServers. It is added after adding the static handler
-  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices];
+  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;

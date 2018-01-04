@@ -62,15 +62,16 @@ export class PriceRegulator implements Initializable {
   }
 
   async getUserSubsidyRate(): Promise<number> {
-    const now = Date.now();
-    if (now - this.lastSubsidyRateAt > SUBSIDY_CACHE_LIFETIME) {
-      const balance = await db.getSubsidyBalance();
-      const usersBelowTarget = await db.countUsersbalanceBelowTarget();
-      this.lastSubsidyRate = Math.min(MAXIMUM_SUBSIDY_RATE, balance.balance / (Math.max(usersBelowTarget, 1) * SUBSIDY_PERIOD));
-      console.log("PriceRegulator.getUserSubsidyRate: user subsidy rate updated", this.lastSubsidyRate * 1000 * 60);
-      this.lastSubsidyRateAt = now;
-    }
-    return this.lastSubsidyRate;
+    return 0;
+    // const now = Date.now();
+    // if (now - this.lastSubsidyRateAt > SUBSIDY_CACHE_LIFETIME) {
+    //   const balance = await db.getSubsidyBalance();
+    //   const usersBelowTarget = await db.countUsersbalanceBelowTarget();
+    //   this.lastSubsidyRate = Math.min(MAXIMUM_SUBSIDY_RATE, balance.balance / (Math.max(usersBelowTarget, 1) * SUBSIDY_PERIOD));
+    //   console.log("PriceRegulator.getUserSubsidyRate: user subsidy rate updated", this.lastSubsidyRate * 1000 * 60);
+    //   this.lastSubsidyRateAt = now;
+    // }
+    // return this.lastSubsidyRate;
   }
 
   async onUserSubsidyPaid(amount: number): Promise<void> {
