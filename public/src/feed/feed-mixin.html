@@ -71,8 +71,8 @@
 
           // parse route and fetch only if route is different
           let fetchNewContent = true;
+          let parsedRoute = this._parseRoute(route);
           if (!window.__dirtyFeed) {
-            let parsedRoute = this._parseRoute(route);
             if (this._parsedRoute && this._parsedRouteTimestamp) {
               if (parsedRoute.path === this._parsedRoute.path) {
                 let timeDiff = (new Date()).getTime() - this._parsedRouteTimestamp;
