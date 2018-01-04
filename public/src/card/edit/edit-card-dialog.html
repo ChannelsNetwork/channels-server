@@ -195,7 +195,7 @@
         }
         const userKeys = this.$.keywords.value.split(delimiter);
         for (const k of userKeys) {
-          const kw = k.trim().replace(/[^a-zA-Z]/g, '')
+          const kw = k.trim().replace(/[^a-zA-Z\s]/g, '')
           if (kw.length > 0) {
             keywords.push(kw);
           }
