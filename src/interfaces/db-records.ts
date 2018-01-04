@@ -32,7 +32,12 @@ export interface UserRecord {
   region?: string;
   city?: string;
   zip?: string;
+  curation?: UserCurationType;
+  originalReferrer: string;
+  originalLandingPage: string;
 }
+
+export type UserCurationType = "blocked" | "discounted";
 
 export type UserStatus = "active" | "deleted";
 

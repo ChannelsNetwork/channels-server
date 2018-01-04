@@ -105,7 +105,8 @@
             type: Object,
             observer: '_refresh'
           },
-          iconMap: Object
+          iconMap: Object,
+          noShare: Boolean
         };
       }
 
@@ -137,6 +138,11 @@
           this._refreshRevenue();
           this._refreshPrivate();
           this._refreshMore();
+          if (this.noShare) {
+            this.$.shareIcon.classList.add("hidden");
+          } else {
+            this.$.shareIcon.classList.remove("hidden");
+          }
         }
       }
 

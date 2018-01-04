@@ -286,7 +286,7 @@
       }
 
       _onInput() {
-        let valid = this.$.name.value.trim() ? true : false;
+        let valid = $core.isValidEmail(this.$.email.value.trim()) && this.$.email.value.trim().length > 0 && this.$.name.value.trim().length > 0 ? true : false;
         this.$.btnSave.disabled = !valid;
       }
 

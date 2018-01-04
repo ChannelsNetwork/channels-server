@@ -1,6 +1,8 @@
 <link rel="import" href="../card/card-view.html">
+<link rel="import" href="../card/ad/amazon-ad-card.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-if.html">
 
 <dom-module id="card-feed">
   <template>
@@ -14,17 +16,30 @@
         box-sizing: border-box;
       }
 
-      card-view {
-        width: var(--grid-card-width);
-        height: var(--grid-card-height, 500px);
-        margin: var(--grid-card-margin, 8px);
+      card-view,
+      amazon-ad-card {
+        height: var(--grid-card-height, 400px);
         box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        min-width: 300px;
+        width: 300px;
+        max-width: 300px;
+        margin: 8px;
       }
     </style>
-    <div id="container" class="horizontal layout wrap">
+    <div id="container" class="horizontal layout center-justified wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-deleted="_onCardDeleted"></card-view>
+          <template is="dom-if" if="{{_isAd(item)}}">
+            <amazon-ad-card data="[[item]]" on-impression="_onImpression" on-card-deleted="_onCardDeleted"></amazon-ad-card>
+          </template>
+          <template is="dom-if" if="{{_isNotAd(item)}}">
+            <card-view data="[[item]]" on-impression="_onImpression" on-card-open="_onCardOpenRequest" on-card-deleted="_onCardDeleted"></card-view>
+          </template>
         </template>
       </dom-repeat>
     </div>
@@ -44,12 +59,20 @@
 
       constructor() {
         super();
-        let ht = Math.min(Math.max(400, 0.6 * window.innerHeight), 520);
+        let ht = Math.min(Math.max(400, 0.6 * window.innerHeight), 500);
         let imgHt = ht < 480 ? "170px" : "250px";
         this.updateStyles({
           '--grid-card-height': ht + "px",
           '--card-img-height': imgHt
         });
+      }
+
+      _isAd(item) {
+        return (item && item.summary && item.summary.linkUrl);
+      }
+
+      _isNotAd(item) {
+        return !this._isAd(item);
       }
 
       _onImpression(event) {

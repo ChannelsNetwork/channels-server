@@ -84,13 +84,14 @@ class RestUtils {
     return (new Date()).getTime();
   }
 
-  static registerUserDetails(address, publicKey, inviteCode, appVersion) {
+  static registerUserDetails(address, publicKey, inviteCode, referrer, landingPageUrl) {
     return {
       publicKey: publicKey,
       inviteCode: inviteCode,
-      appVersion: appVersion,
       address: address,
-      timestamp: RestUtils.now()
+      timestamp: RestUtils.now(),
+      referrer: referrer,
+      landingUrl: landingPageUrl
     };
   }
 
@@ -527,6 +528,13 @@ class RestUtils {
       keywords: keywords,
       blocked: blocked,
       boost: boost
+    };
+  }
+
+  static admin_getGoals(address) {
+    return {
+      address: address,
+      timestamp: RestUtils.now()
     };
   }
 

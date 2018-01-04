@@ -191,6 +191,7 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
+    await this.cards.createIndex({ "by.id": 1, postedAt: -1 });
 
     await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
   }
@@ -417,7 +418,7 @@ export class Database {
     return await this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -445,7 +446,9 @@ export class Database {
       lastPosted: 0,
       marketing: {
         includeInMailingList: includeInMailingList
-      }
+      },
+      originalReferrer: referrer,
+      originalLandingPage: landingPage
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -557,6 +560,10 @@ export class Database {
 
   async findUsersByLastContact(limit = 500): Promise<UserRecord[]> {
     return await this.users.find<UserRecord>({ type: "normal" }).sort({ lastContact: -1 }).limit(limit).toArray();
+  }
+
+  getUserCursorByLastContact(from: number, to: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to } }).sort({ lastContact: -1 });
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
@@ -715,7 +722,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -783,7 +790,7 @@ export class Database {
         at: 0
       },
       curation: {
-        block: false
+        block: blocked
       },
       searchText: searchText,
       type: "normal",
@@ -1051,7 +1058,19 @@ export class Database {
 
   async findCardsByTime(limit: number): Promise<CardRecord[]> {
     limit = limit || 500;
-    return await this.cards.find<CardRecord>({ state: "active" }).sort({ postedAt: -1 }).limit(limit).toArray();
+    return await this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
+  }
+
+  getCardCursorByPostedAt(from: number, to: number): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: from, $lte: to } }, { searchText: 0 });
+  }
+
+  async findFirstCardByUser(userId: string): Promise<CardRecord> {
+    const result = await this.cards.find<CardRecord>({ state: "active", "by.id": userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    }
+    return null;
   }
 
   async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
@@ -1111,6 +1130,10 @@ export class Database {
     const sort: any = {};
     sort["promotionScores." + bin] = -1;
     return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false }, { searchText: 0 }).sort(sort);
+  }
+
+  async countCardPostsByUser(userId: string, from: number, to: number): Promise<number> {
+    return await this.cards.count({ "by.id": userId, postedAt: { $gt: from, $lte: to } });
   }
 
   async ensureMutationIndex(): Promise<void> {
@@ -1601,6 +1624,41 @@ export class Database {
 
   async countUserCardsPaid(userId: string): Promise<number> {
     return await this.userCardActions.count({ userId: userId, action: "pay" });
+  }
+
+  async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ userId: userId, action: "pay", at: { $gt: from, $lte: to } });
+  }
+
+  async countCardPayments(cardId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "pay", at: { $gt: from, $lte: to } });
+  }
+
+  async countCardImpressions(cardId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "impression", at: { $gt: from, $lte: to } });
+  }
+
+  async countDistinctUserImpressions(cardId: string, from: number, to: number): Promise<number> {
+    const userIds = await this.userCardActions.distinct("userId", { cardId: cardId, action: "impression", at: { $gt: from, $lte: to } });
+    return userIds.length;
+  }
+
+  async countCardClicks(cardId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "click", at: { $gt: from, $lte: to } });
+  }
+
+  async countDistinctUserClicks(cardId: string, from: number, to: number): Promise<number> {
+    const userIds = await this.userCardActions.distinct("userId", { cardId: cardId, action: "click", at: { $gt: from, $lte: to } });
+    return userIds.length;
+  }
+
+  async countCardPromotedPayments(cardId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "redeem-open-payment", at: { $gt: from, $lte: to } });
+  }
+
+  async countDistinctUserPromotedPayments(cardId: string, from: number, to: number): Promise<number> {
+    const userIds = await this.userCardActions.distinct("userId", { cardId: cardId, action: "redeem-open-payment", at: { $gt: from, $lte: to } });
+    return userIds.length;
   }
 
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {

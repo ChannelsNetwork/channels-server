@@ -31,6 +31,7 @@ const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
 const ANNUAL_INTEREST_RATE = 0.03;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
+const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 60 * 3;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
@@ -196,7 +197,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder",
@@ -699,6 +700,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  async getUserById(id: string): Promise<UserRecord> {
+    return await db.findUserById(id);
+  }
+
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<CheckHandleDetails>;
@@ -834,24 +839,26 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
-    const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
-    if (interest > 0) {
-      const interestRecipient: BankTransactionRecipientDirective = {
-        address: user.address,
-        portion: "remainder",
-        reason: "interest-recipient"
-      };
-      const grant: BankTransactionDetails = {
-        timestamp: null,
-        address: null,
-        type: "transfer",
-        reason: "interest",
-        amount: interest,
-        relatedCardId: null,
-        relatedCouponId: null,
-        toRecipients: [interestRecipient]
-      };
-      await networkEntity.performBankTransaction(grant, null, true, false);
+    if (now - user.balanceLastUpdated > MIN_INTEREST_INTERVAL) {
+      const interest = this.calculateInterestBetween(user.balanceLastUpdated, now, user.balance);
+      if (interest > 0) {
+        const interestRecipient: BankTransactionRecipientDirective = {
+          address: user.address,
+          portion: "remainder",
+          reason: "interest-recipient"
+        };
+        const grant: BankTransactionDetails = {
+          timestamp: null,
+          address: null,
+          type: "transfer",
+          reason: "interest",
+          amount: interest,
+          relatedCardId: null,
+          relatedCouponId: null,
+          toRecipients: [interestRecipient]
+        };
+        await networkEntity.performBankTransaction(grant, null, true, false);
+      }
     }
   }
 
