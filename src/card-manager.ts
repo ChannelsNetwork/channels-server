@@ -346,7 +346,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Invalid coupon: card mismatch");
           return;
         }
-        if (author.address !== coupon.byAddress) {
+        if (!userManager.isUserAddress(author, coupon.byAddress)) {
           response.status(400).send("Invalid coupon: author mismatch");
           return;
         }
@@ -658,7 +658,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid coupon: card mismatch");
         return;
       }
-      if (author.address !== coupon.byAddress) {
+      if (!userManager.isUserAddress(author, coupon.byAddress)) {
         response.status(400).send("Invalid coupon: author mismatch");
         return;
       }
