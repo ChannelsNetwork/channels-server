@@ -390,7 +390,7 @@ class RestUtils {
     const result = {
       address: address,
       timestamp: RestUtils.now(),
-      type: type,                 // "transfer"
+      type: type,                 // "transfer" | "coupon-redemption"
       reason: reason,             // "card-promotion" | "card-open"
       relatedCardId: cardId,
       amount: amount,             // ChannelCoins

@@ -309,7 +309,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           return;
         }
         transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
-        if (transaction.address !== card.by.address) {
+        if (!userManager.isUserAddress(author, transaction.address)) {
           response.status(400).send("The transaction doesn't list the card author as the source.");
           return;
         }
