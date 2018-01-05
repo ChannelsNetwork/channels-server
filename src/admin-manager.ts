@@ -48,9 +48,9 @@ export class AdminManager implements RestServer {
         yesterday: await this.computeGoals(yesterday, today),
         twoDaysAgo: await this.computeGoals(twoDaysAgo, yesterday),
         threeDaysAgo: await this.computeGoals(threeDaysAgo, twoDaysAgo),
-        past7Days: await this.computeGoals(now - 1000 * 60 * 60 * 24 * 7, now),
-        pastMonth: await this.computeGoals(now - 1000 * 60 * 60 * 24 * 30, now),
-        total: await this.computeGoals(0, now)
+        past7Days: null,
+        pastMonth: null,
+        total: null
       };
       response.json(reply);
     } catch (err) {
