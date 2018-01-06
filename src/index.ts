@@ -75,7 +75,6 @@ class ChannelsNetworkWebClient {
     for (const initializable of this.initializables) {
       await initializable.initialize2();
     }
-    await this.setupServerPing();
     this.started = Date.now();
 
     console.log("Channels Network Server is running");
@@ -145,6 +144,8 @@ class ChannelsNetworkWebClient {
     //   }
     // });
     this.app.use(cookieParser());
+
+    await this.setupServerPing();
 
     this.app.use('/d/terms.html', express.static(path.join(__dirname, "../public/terms.html"), { maxAge: 1000 * 60 }));
     this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, "../public/whitepaper.pdf"), { maxAge: 1000 * 60 * 15 }));
