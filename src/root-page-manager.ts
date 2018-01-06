@@ -64,7 +64,7 @@ export class RootPageManager implements Initializable {
     // this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
 
     // analyze user agent
-    const userAgent = request.headers['user-agent'].toString();
+    const userAgent = (request.headers['user-agent'] || "").toString();
     const agentInfo = useragent.is(userAgent);
     const useShadyDom = agentInfo.safari || agentInfo.mobile_safari || agentInfo.ie || (userAgent.indexOf("Edge") >= 0);
 
