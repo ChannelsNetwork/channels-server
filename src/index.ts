@@ -114,7 +114,7 @@ class ChannelsNetworkWebClient {
   private async setupExpress(): Promise<void> {
     this.app = express();
 
-    this.app.use(compression());
+    // this.app.use(compression());
     this.app.use(bodyParser.json({ strict: false })); // for parsing application/json
     this.app.use(bodyParser.urlencoded({
       extended: true
