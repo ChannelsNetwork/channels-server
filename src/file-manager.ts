@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, FileRecord } from "./interfaces/db-records";
+import { UserRecord, FileRecord, ImageDescription } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import * as Busboy from 'busboy';
 import * as s3Stream from "s3-upload-stream";
@@ -14,17 +14,21 @@ import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
 import { GetObjectRequest } from "aws-sdk/clients/s3";
-import { DiscardFilesDetails, DiscardFilesResponse, RestRequest } from "./interfaces/rest-services";
+import { DiscardFilesDetails, DiscardFilesResponse, RestRequest, FileInfo, FileUploadResponse } from "./interfaces/rest-services";
 import { SERVER_VERSION } from "./server-version";
 import { RestHelper } from "./rest-helper";
 import * as AWS from 'aws-sdk';
+import * as LRU from 'lru-cache';
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
+const FILE_URL_LIFETIME_SECONDS = 60 * 60 * 4;
+const FILE_URL_CACHE_LIFETIME_SECONDS = 60 * 60 * 3;
 export class FileManager implements RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
   private s3StreamUploader: s3Stream.S3StreamUploader;
   private s3: AWS.S3;
+  private fileUrlCache = LRU<string, FileUrlInfo>({ max: 100000, maxAge: 1000 * FILE_URL_CACHE_LIFETIME_SECONDS });
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     if (configuration.get('aws.s3.enabled')) {
@@ -39,29 +43,12 @@ export class FileManager implements RestServer {
     this.registerHandlers();
   }
 
-  async finalizeFiles(user: UserRecord, fileIds: string[]): Promise<void> {
-    for (const fileId of fileIds) {
-      const fileRecord = await db.findFileById(fileId);
-      if (fileRecord) {
-        if (fileRecord.ownerId !== user.id) {
-          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not owned by this user", user.id, fileRecord);
-        } else if (fileRecord.status === "complete") {
-          console.log("FileManager.finalizeFiles: setting state of file to 'final'", fileRecord);
-          await db.updateFileStatus(fileRecord, "final");
-        } else {
-          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not currently 'complete'", fileRecord);
-        }
-      } else {
-        console.error("FileManager.finalizeFiles: Ignoring request to finalize a missing file", fileId);
-      }
-    }
-  }
-
   private registerHandlers(): void {
     if (this.s3StreamUploader) {
       this.app.post(this.urlManager.getDynamicUrl('upload'), (request: Request, response: Response) => {
         void this.handleUpload(request, response);
       });
+      // Following is now only to support developer machines.  In deployed version, files are served directly from S3 by CloudFront
       this.app.get('/f/:fileId/:fileName', (request: Request, response: Response) => {
         void this.handleFetch(request, response);
       });
@@ -79,11 +66,13 @@ export class FileManager implements RestServer {
     let signatureTimestamp: string;
     let signature: string;
     let requestedFileName: string;
+    let imageInfo: ImageDescription;
+    let creatorKey: string;
     const busboy = new Busboy({ headers: request.headers });
     busboy.on('file', (fieldname: string, file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string) => {
       const fName = requestedFileName || filename || "unnamed";
       console.log("FileManager.handleUpload starting file", fName);
-      void this.handleUploadStart(file, fName, encoding, mimetype, fileRecord, ownerAddress, signatureTimestamp, signature, response);
+      void this.handleUploadStart(file, fName, encoding, mimetype, imageInfo, creatorKey, fileRecord, ownerAddress, signatureTimestamp, signature, response);
     });
     busboy.on('field', (fieldname: string, val: any, fieldnameTruncated: boolean, valTruncated: boolean, encoding: string, mimetype: string) => {
       switch (fieldname) {
@@ -99,6 +88,21 @@ export class FileManager implements RestServer {
         case 'fileName':
           requestedFileName = val.toString();
           break;
+        case 'creatorKey':
+          creatorKey = val.toString();
+          break;
+        case 'imageWidth':
+          if (!imageInfo) {
+            imageInfo = { width: 0, height: 0 };
+          }
+          imageInfo.width = Number(val);
+          break;
+        case 'imageHeight':
+          if (!imageInfo) {
+            imageInfo = { width: 0, height: 0 };
+          }
+          imageInfo.height = Number(val);
+          break;
         default:
           break;
       }
@@ -106,7 +110,7 @@ export class FileManager implements RestServer {
     request.pipe(busboy);
   }
 
-  private async handleUploadStart(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, fileRecord: FileRecord, ownerAddress: string, signatureTimestamp: string, signature: string, response: Response): Promise<void> {
+  private async handleUploadStart(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, imageInfo: ImageDescription, creatorKey: string, fileRecord: FileRecord, ownerAddress: string, signatureTimestamp: string, signature: string, response: Response): Promise<void> {
     try {
       if (!ownerAddress || !signatureTimestamp || !signature) {
         response.status(400).send("Missing address, timestamp, and/or signature form fields");
@@ -136,7 +140,7 @@ export class FileManager implements RestServer {
         return;
       }
       console.log("FileManager.handleUpload uploading to S3", filename);
-      await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
+      await this.uploadS3(file, filename, encoding, mimetype, imageInfo, creatorKey, fileRecord, user, response);
     } catch (err) {
       console.error("File.handleUploadStart: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
@@ -147,7 +151,7 @@ export class FileManager implements RestServer {
     await db.updateFileStatus(fileRecord, 'aborted');
   }
 
-  private async uploadS3(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, fileRecord: FileRecord, user: UserRecord, response: Response): Promise<void> {
+  private async uploadS3(file: NodeJS.ReadableStream, filename: string, encoding: string, mimetype: string, imageInfo: ImageDescription, creatorKey: string, fileRecord: FileRecord, user: UserRecord, response: Response): Promise<void> {
     const d = new Date();
     let key = fileRecord.id;
     const meter = streamMeter();
@@ -166,7 +170,7 @@ export class FileManager implements RestServer {
     }
     let finished = false;
     destination.Tagging = "owner=" + user.id;
-    await db.updateFileProgress(fileRecord, user.id, filename, encoding, mimetype, key, 'uploading');
+    await db.updateFileProgress(fileRecord, user.id, filename, encoding, mimetype, key, 'uploading', imageInfo, creatorKey);
     const upload = this.s3StreamUploader.upload(destination);
     upload.on('error', (err) => {
       console.warn("FileManager.uploadS3: upload failed", err);
@@ -194,9 +198,8 @@ export class FileManager implements RestServer {
     await db.updateFileCompletion(fileRecord, 'complete', meter.bytes, fileUrl);
     await db.incrementUserStorage(user, meter.bytes);
     console.log("FileManager.uploadS3: upload completed", fileRecord.id);
-    const reply = {
-      fileId: fileRecord.id,
-      url: fileUrl
+    const reply: FileUploadResponse = {
+      file: await this.getFileInfoForRecord(fileRecord)
     };
     console.log("FileManager.handleUpload sending response", reply);
     response.json(reply);
@@ -306,8 +309,86 @@ export class FileManager implements RestServer {
     });
   }
 
+  async finalizeFiles(user: UserRecord, fileIds: string[]): Promise<void> {
+    for (const fileId of fileIds) {
+      const fileRecord = await db.findFileById(fileId);
+      if (fileRecord) {
+        if (fileRecord.ownerId !== user.id) {
+          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not owned by this user", user.id, fileRecord);
+        } else if (fileRecord.status === "complete") {
+          console.log("FileManager.finalizeFiles: setting state of file to 'final'", fileRecord);
+          await db.updateFileStatus(fileRecord, "final");
+        } else {
+          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not currently 'complete'", fileRecord);
+        }
+      } else {
+        console.error("FileManager.finalizeFiles: Ignoring request to finalize a missing file", fileId);
+      }
+    }
+  }
+
+  async getFileInfo(fileId: string): Promise<FileInfo> {
+    if (!fileId) {
+      return null;
+    }
+    const fileRecord = await db.findFileById(fileId);
+    if (fileRecord) {
+      return await this.getFileInfoForRecord(fileRecord);
+    } else {
+      return null;
+    }
+  }
+
+  private async getFileInfoForRecord(record: FileRecord): Promise<FileInfo> {
+    const result: FileInfo = {
+      url: await this.getFileUrl(record),
+      fileId: record.id,
+      imageInfo: record.imageInfo
+    };
+    return result;
+  }
+
+  async getFileInfoForArray(fileIds: string[]): Promise<FileInfo[]> {
+    const promises: Array<Promise<FileInfo>> = [];
+    for (const fileId of fileIds) {
+      promises.push(this.getFileInfo(fileId));
+    }
+    return await Promise.all(promises);
+  }
+
+  private async getFileUrl(record: FileRecord): Promise<string> {
+    const urlInfo = this.fileUrlCache.get(record.id);
+    if (urlInfo) {
+      return urlInfo.url;
+    }
+    const result = await this.getS3FileUrl(record);
+    this.fileUrlCache.set(record.id, { url: result });
+    return result;
+  }
+
+  private getS3FileUrl(fileRecord: FileRecord): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const params: any = {
+        Bucket: fileRecord.s3.bucket,
+        Key: fileRecord.s3.key,
+        Expires: FILE_URL_LIFETIME_SECONDS
+      };
+      this.s3.getSignedUrl('getObject', params, (err: AWS.AWSError, signedUrl: string) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(signedUrl);
+        }
+      });
+    });
+  }
+
 }
 
 const fileManager = new FileManager();
 
 export { fileManager };
+
+export interface FileUrlInfo {
+  url: string;
+}

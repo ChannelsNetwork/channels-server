@@ -12,7 +12,7 @@ import { UrlManager } from "./url-manager";
 const remove = require('remove');
 import * as path from "path";
 import { RestServer } from "./interfaces/rest-server";
-import { ChannelComponentDescriptor, ChannelComponentResponse, EnsureChannelComponentDetails, RestRequest } from "./interfaces/rest-services";
+import { ChannelComponentDescriptor, ChannelComponentResponse, EnsureChannelComponentDetails, RestRequest, CardTypeInfo } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import * as mkdirp from 'mkdirp';
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
@@ -356,6 +356,10 @@ export class ChannelsComponentManager implements RestServer {
     }
     const pkg = JSON.parse(record.package) as BowerInstallResult;
     return this.shadowComponentsPath + '/' + pkg.endpoint.name + '/';
+  }
+
+  async getCardTypeInfo(packageName: string): Promise<CardTypeInfo> {
+
   }
 }
 

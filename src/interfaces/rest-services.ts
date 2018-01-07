@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord } from "./db-records";
+import { DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, ImageDescription } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -102,7 +102,8 @@ export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
   handle?: string;
   location?: string;
-  imageUrl?: string;
+  imageUrl?: string;  // deprecated
+  imageFileId?: string;
   emailAddress?: string;
   encryptedPrivateKey?: string;
 }
@@ -115,9 +116,15 @@ export interface GetUserIdentityResponse extends RestResponse {
   name: string;
   handle: string;
   location: string;
-  imageUrl: string;
+  image: FileInfo;
   emailAddress: string;
   encryptedPrivateKey: string;
+}
+
+export interface FileInfo {
+  url: string;
+  fileId: string;
+  imageInfo: ImageDescription;
 }
 
 export interface GetHandleDetails extends CheckHandleDetails { }
@@ -125,7 +132,7 @@ export interface GetHandleDetails extends CheckHandleDetails { }
 export interface GetHandleResponse extends RestResponse {
   name: string;
   handle: string;
-  imageUrl: string;
+  image: FileInfo;
 }
 
 export interface CheckHandleDetails extends Signable {
@@ -181,7 +188,7 @@ export interface CardDescriptor {
     address: string;
     handle: string;
     name: string;
-    imageUrl: string;
+    image: FileInfo;
     isFollowing: boolean;
     isBlocked: boolean;
   };
@@ -189,24 +196,18 @@ export interface CardDescriptor {
     address: string;
     handle: string;
     name: string;
-    imageUrl: string;
+    image: FileInfo;
   };
   private: boolean;
   summary: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
+    image: FileInfo;
+    iframeUrl: string;
     linkUrl: string;
     title: string;
     text: string;
   };
   keywords: string[];
-  cardType: {
-    package: string;
-    iconUrl: string;
-    royaltyFraction: number;
-    royaltyAddress: string;
-  };
+  cardType: CardTypeInfo;
   pricing: {
     promotionFee: number;
     openFee: number;  // in ChannelCoin, -ve for ads
@@ -230,10 +231,18 @@ export interface CardDescriptor {
   state?: {
     user: CardState;
     shared: CardState;
+    files: FileInfo[];
   };
 
   blocked: boolean;
   boost?: number;
+}
+
+export interface CardTypeInfo {
+  package: string;
+  icon: FileInfo;
+  royaltyFraction: number;
+  royaltyAddress: string;
 }
 
 export interface CardDescriptorStatistics {
@@ -341,9 +350,8 @@ export interface CardStatDatapoint {
 }
 
 export interface PostCardDetails extends Signable {
-  imageUrl?: string;
-  imageWidth?: number;
-  imageHeight?: number;
+  imageFileId?: string;
+  iframeUrl?: string;
   linkUrl?: string;
   title?: string;
   text: string;
@@ -364,9 +372,8 @@ export interface PostCardResponse extends RestResponse {
 export interface UpdateCardStateDetails extends Signable {
   cardId: string;
   summary?: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
+    imageFileId: string;
+    iframeUrl: string;
     linkUrl: string;
     title: string;
     text: string;
@@ -761,4 +768,8 @@ export interface ListTopicsDetails extends Signable { }
 
 export interface ListTopicsResponse extends RestResponse {
   topics: string[];
+}
+
+export interface FileUploadResponse {
+  file: FileInfo;
 }

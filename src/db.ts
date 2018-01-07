@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, ImageDescription } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -21,7 +21,6 @@ export class Database {
   private cardCollections: Collection;
   private cardCollectionItems: Collection;
   private files: Collection;
-  private newsItems: Collection;
   private deviceTokens: Collection;
   private cardOpens: Collection;
   private subsidyBalance: Collection;
@@ -53,7 +52,6 @@ export class Database {
     await this.initializeCardCollections();
     await this.initializeCardCollectionItems();
     await this.initializeFiles();
-    await this.initializeNewsItems();
     await this.initializeDeviceTokens();
     await this.initializeCardOpens();
     await this.initializeSubsidyBalance();
@@ -238,11 +236,6 @@ export class Database {
     await this.files.createIndex({ id: 1 }, { unique: true });
   }
 
-  private async initializeNewsItems(): Promise<void> {
-    this.newsItems = this.db.collection('newsItems');
-    await this.newsItems.createIndex({ id: 1 }, { unique: true });
-    await this.newsItems.createIndex({ timestamp: -1 });
-  }
   private async initializeDeviceTokens(): Promise<void> {
     this.deviceTokens = this.db.collection('deviceTokens');
     await this.deviceTokens.createIndex({ type: 1, token: 1 }, { unique: true });
@@ -575,13 +568,14 @@ export class Database {
     await this.users.deleteOne({ id: id });
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageUrl: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageFileId: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
     const update: any = {};
     if (!userRecord.identity) {
       userRecord.identity = {
         name: null,
         handle: null,
         imageUrl: null,
+        imageFileId: null,
         location: null,
         emailAddress: null,
         firstName: null,
@@ -604,9 +598,9 @@ export class Database {
       update["identity.handle"] = handle.toLowerCase();
       userRecord.identity.handle = handle.toLowerCase();
     }
-    if (imageUrl) {
-      update["identity.imageUrl"] = imageUrl;
-      userRecord.identity.imageUrl = imageUrl;
+    if (imageFileId) {
+      update["identity.imageFileId"] = imageFileId;
+      userRecord.identity.imageFileId = imageFileId;
     }
     if (location) {
       update["identity.location"] = location;
@@ -722,7 +716,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageFileId: string, cardImageFileId: string, iframeUrl: string, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -738,24 +732,18 @@ export class Database {
         address: byAddress,
         handle: byHandle,
         name: byName,
-        imageUrl: byImageUrl
+        imageFileId: byImageFileId
       },
       summary: {
-        imageUrl: cardImageUrl,
-        imageWidth: cardImageWidth,
-        imageHeight: cardImageHeight,
+        imageFileId: cardImageFileId,
+        iframeUrl: iframeUrl,
         linkUrl: linkUrl,
         title: title,
         text: text,
       },
       keywords: keywords || [],
       private: isPrivate,
-      cardType: {
-        package: cardType,
-        iconUrl: cardTypeIconUrl,
-        royaltyAddress: cardTypeRoyaltyAddress,
-        royaltyFraction: cardTypeRoyaltyFraction
-      },
+      cardPackage: cardType,
       pricing: {
         promotionFee: promotionFee,
         openPayment: openPayment,
@@ -929,15 +917,14 @@ export class Database {
     card.promotionScores = promotionScores;
   }
 
-  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageUrl: string, imageWidth: number, imageHeight: number, keywords: string[]): Promise<void> {
+  async updateCardSummary(card: CardRecord, title: string, text: string, iframeUrl: string, linkUrl: string, imageFileId: string, keywords: string[]): Promise<void> {
     const update: any = {
       summary: {
         title: title,
         text: text,
+        iframeUrl: iframeUrl,
         linkUrl: linkUrl,
-        imageUrl: imageUrl,
-        imageWidth: imageWidth,
-        imageHeight: imageHeight
+        imageFileId: imageFileId
       }
     };
     if (keywords) {
@@ -1354,7 +1341,8 @@ export class Database {
         bucket: s3Bucket,
         key: null
       },
-      url: null
+      imageInfo: null,
+      creatorKey: null
     };
     await this.files.insert(record);
     return record;
@@ -1365,7 +1353,7 @@ export class Database {
     fileRecord.status = status;
   }
 
-  async updateFileProgress(fileRecord: FileRecord, ownerId: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus): Promise<void> {
+  async updateFileProgress(fileRecord: FileRecord, ownerId: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus, imageInfo: ImageDescription, creatorKey: string): Promise<void> {
     await this.files.updateOne({ id: fileRecord.id }, {
       $set: {
         ownerId: ownerId,
@@ -1373,7 +1361,9 @@ export class Database {
         encoding: encoding,
         mimetype: mimetype,
         "s3.key": s3Key,
-        status: status
+        status: status,
+        creatorKey: creatorKey,
+        imageInfo: imageInfo
       }
     });
     fileRecord.ownerId = ownerId;
@@ -1382,6 +1372,8 @@ export class Database {
     fileRecord.mimetype = mimetype;
     fileRecord.s3.key = s3Key;
     fileRecord.status = status;
+    fileRecord.creatorKey = creatorKey;
+    fileRecord.imageInfo = imageInfo;
   }
 
   async updateFileCompletion(fileRecord: FileRecord, status: FileStatus, size: number, url: string): Promise<void> {
@@ -1401,27 +1393,6 @@ export class Database {
       return null;
     }
     return await this.files.findOne<FileRecord>({ id: id });
-  }
-
-  async insertNewsItem(record: NewsItemRecord): Promise<NewsItemRecord> {
-    try {
-      await this.newsItems.insertOne(record);
-    } catch (err) {
-      console.log("Initial news item is already present");
-      // noop:  record may already be there
-    }
-    return await this.newsItems.findOne<NewsItemRecord>({ id: record.id });
-  }
-
-  async findNewsItemById(id: string): Promise<NewsItemRecord> {
-    return await this.newsItems.findOne<NewsItemRecord>({ id: id });
-  }
-
-  async findNewsItems(maxCount: number): Promise<NewsItemRecord[]> {
-    if (!maxCount || maxCount < 0 || maxCount > 200) {
-      maxCount = 200;
-    }
-    return await this.newsItems.find<NewsItemRecord>().sort({ timestamp: -1 }).limit(maxCount).toArray();
   }
 
   async insertDeviceToken(type: DeviceType, token: string, userAddress: string): Promise<DeviceTokenRecord> {

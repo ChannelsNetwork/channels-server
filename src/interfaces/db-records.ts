@@ -86,7 +86,8 @@ export type DeviceType = "web" | "ios";
 export interface UserIdentity {
   name: string;
   handle: string;
-  imageUrl: string;
+  imageUrl: string;  // deprecated
+  imageFileId: string;
   location: string;
   emailAddress: string;
   firstName: string;
@@ -113,24 +114,28 @@ export interface CardRecord {
     address: string;
     handle: string;
     name: string;
-    imageUrl: string;
+    imageUrl?: string;  // deprecated
+    imageFileId: string;
   };
   summary: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
+    imageUrl?: string;  // deprecated
+    imageFileId: string;
+    imageWidth?: number;  // deprecated
+    imageHeight?: number;  // deprecated
+    iframeUrl: string;
     linkUrl: string;
     title: string;
     text: string;
   };
   keywords: string[];
   private: boolean;
-  cardType: {
+  cardType?: {  // deprecated
     package: string;
-    iconUrl: string;
+    iconUrl?: string;
     royaltyAddress: string;
     royaltyFraction: number;
   };
+  cardPackage: string;
   pricing: {
     promotionFee: number;
     openPayment: number; // in ChannelCoin
@@ -161,7 +166,7 @@ export interface CardRecord {
   };
   searchText: string;
   type: CardType;
-  fileIds: string[];
+  fileIds?: string[];
 }
 
 export type CardType = "normal" | "announcement";
@@ -312,21 +317,19 @@ export interface FileRecord {
     bucket: string;
     key: string;
   };
-  url: string;
+  url?: string;  // deprecated
+  imageInfo: ImageDescription;
+  creatorKey: string;
+}
+
+export interface ImageDescription {
+  width: number;
+  height: number;
 }
 
 export interface MutationIndexRecord {
   id: string;
   index: number;
-}
-
-export interface NewsItemRecord {
-  id: string;
-  timestamp: number;
-  title: string;
-  text: string;
-  imageUrl: string;
-  linkUrl: string;
 }
 
 export interface SubsidyBalanceRecord {

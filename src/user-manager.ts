@@ -22,6 +22,7 @@ import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
 import { Utils } from "./utils";
 import fetch from "node-fetch";
+import { fileManager } from "./file-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -441,7 +442,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageFileId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
       if (configuration.get("notifications.userIdentityChange")) {
         let html = "<div>";
         html += "<div>userId: " + user.id + "</div>";
@@ -551,7 +552,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         status: status,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? user.identity.imageUrl : null,
+        image: user.identity && user.identity.imageFileId ? await fileManager.getFileInfo(user.identity.imageFileId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         encryptedPrivateKey: user.encryptedPrivateKey
@@ -575,7 +576,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? user.identity.imageUrl : null,
+        image: user.identity && user.identity.imageFileId ? await fileManager.getFileInfo(user.identity.imageFileId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         encryptedPrivateKey: user.encryptedPrivateKey
@@ -609,7 +610,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         handle: found.identity ? found.identity.handle : null,
         name: found.identity ? found.identity.name : null,
-        imageUrl: found.identity ? found.identity.imageUrl : null
+        image: found.identity && found.identity.imageFileId ? await fileManager.getFileInfo(found.identity.imageFileId) : null
       };
       response.json(reply);
     } catch (err) {
