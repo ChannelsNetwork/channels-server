@@ -372,7 +372,7 @@ export class Database {
           status: "active",
           topicNoCase: item.topic.toLowerCase(),
           topicWithCase: item.topic,
-          keywords: item.keywords,
+          keywords: this.cleanKeywords(item.keywords),
           added: Date.now()
         };
         await this.cardTopics.insert(record);
@@ -748,7 +748,7 @@ export class Database {
         title: title,
         text: text,
       },
-      keywords: keywords || [],
+      keywords: this.cleanKeywords(keywords),
       private: isPrivate,
       cardType: {
         package: cardType,
@@ -805,6 +805,16 @@ export class Database {
     }
     await this.cards.insert(record);
     return record;
+  }
+
+  private cleanKeywords(keywords: string[]): string[] {
+    const fixedKeywords: string[] = [];
+    if (keywords) {
+      for (const keyword of keywords) {
+        fixedKeywords.push(keyword.trim().toLowerCase());
+      }
+    }
+    return fixedKeywords;
   }
 
   async countCards(): Promise<number> {
@@ -941,7 +951,7 @@ export class Database {
       }
     };
     if (keywords) {
-      update.keywords = keywords;
+      update.keywords = this.cleanKeywords(keywords);
     }
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
@@ -955,7 +965,7 @@ export class Database {
 
   async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean, boost: number): Promise<void> {
     const update: any = {
-      keywords: keywords,
+      keywords: this.cleanKeywords(keywords),
       "curation.block": blocked,
       "curation.boost": boost ? boost : 0,
       lastScored: 0  // to force immediately rescoring
@@ -1118,7 +1128,7 @@ export class Database {
       state: "active",
       "curation.block": false,
       private: false,
-      keywords: { $in: keywords }
+      keywords: { $in: this.cleanKeywords(keywords) }
     };
     if (scoreLessThan > 0) {
       query.score = { $lt: scoreLessThan };
