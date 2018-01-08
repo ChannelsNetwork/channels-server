@@ -553,8 +553,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
-    if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
-      return 0;
+    // if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
+    //   return 0;
+    // }
+    const alreadyBought = await db.countUserCardsPaid(user.id);
+    if (alreadyBought === 0) {
+      return;
     }
     const subsidyDay = await networkEntity.getPublisherSubsidies();
     if (!subsidyDay || subsidyDay.remainingToday <= 0) {
