@@ -126,11 +126,27 @@
       }
 
       _onRouteChange(event) {
-        const pageName = this._handleRouteChange(event.detail.route);
-        if ((pageName === 'card') && (!$core.isAgreedToTnCs())) {
-          return this._import("account/terms-panel.html").then(() => {
-            this.$.termsPanel.classList.remove("hidden");
-          });
+        let cb = (event) => {
+          const pageName = this._handleRouteChange(event.detail.route);
+          if ((pageName === 'card') && (!$core.isAgreedToTnCs())) {
+            return this._import("account/terms-panel.html").then(() => {
+              this.$.termsPanel.classList.remove("hidden");
+            });
+          }
+        };
+        if (this._lastPage && this._lastPath && this._lastPage.validatePageChange) {
+          this._lastPage.validatePageChange(event).then((proceed) => {
+            if (proceed) {
+              cb(event);
+            } else {
+              window.history.pushState(null, null, this._lastPath);
+            }
+          }).catch((err) => {
+            if (err) console.warn(err);
+            cb(event);
+          })
+        } else {
+          cb(event);
         }
       }
 
@@ -224,6 +240,7 @@
         this._setBarVisible(showToolbar);
 
         this._lastPage = activePage;
+        this._lastPath = route.path;
         const pageCallback = () => {
           this.$.pages.selectedIndex = activeIndex;
           setTimeout(() => {
