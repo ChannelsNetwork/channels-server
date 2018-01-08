@@ -22,6 +22,7 @@ import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
 import { Utils } from "./utils";
 import fetch from "node-fetch";
+import { fileManager } from "./file-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -575,7 +576,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? user.identity.imageUrl : null,
+        imageUrl: user.identity ? fileManager.rewriteFileUrls(user.identity.imageUrl) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         encryptedPrivateKey: user.encryptedPrivateKey
@@ -609,7 +610,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         handle: found.identity ? found.identity.handle : null,
         name: found.identity ? found.identity.name : null,
-        imageUrl: found.identity ? found.identity.imageUrl : null
+        imageUrl: found.identity ? fileManager.rewriteFileUrls(found.identity.imageUrl) : null
       };
       response.json(reply);
     } catch (err) {
