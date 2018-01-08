@@ -1,6 +1,6 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
@@ -25,6 +25,8 @@ export class FileManager implements RestServer {
   private urlManager: UrlManager;
   private s3StreamUploader: s3Stream.S3StreamUploader;
   private s3: AWS.S3;
+  private fileUrlPrefix: string;
+  private bypassUrlPrefix: string;
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     if (configuration.get('aws.s3.enabled')) {
@@ -35,6 +37,11 @@ export class FileManager implements RestServer {
       this.s3StreamUploader = s3Stream(this.s3);
     }
     this.urlManager = urlManager;
+    const baseUrl = configuration.get('baseClientUri');
+    if (baseUrl.indexOf('https://') >= 0) {
+      this.fileUrlPrefix = baseUrl + "/f/";
+      this.bypassUrlPrefix = baseUrl + "/";
+    }
     this.app = app;
     this.registerHandlers();
   }
@@ -64,6 +71,9 @@ export class FileManager implements RestServer {
       });
       this.app.get('/f/:fileId/:fileName', (request: Request, response: Response) => {
         void this.handleFetch(request, response);
+      });
+      this.app.get('/:fileId/:fileName', (request: Request, response: Response, next: NextFunction) => {
+        void this.handleBypassFetch(request, response, next);
       });
       this.app.post(this.urlManager.getDynamicUrl('discard-files'), (request: Request, response: Response) => {
         void this.handleDiscardFiles(request, response);
@@ -204,6 +214,10 @@ export class FileManager implements RestServer {
 
   private async handleFetch(request: Request, response: Response): Promise<void> {
     console.log("FileManager.handleFetch", request.params.fileId, request.params.fileName);
+    await this.handleFetch2(request, response);
+  }
+
+  private async handleFetch2(request: Request, response: Response): Promise<void> {
     const s3Request: GetObjectRequest = {
       Bucket: configuration.get('aws.s3.bucket'),
       Key: request.params.fileId + "/" + request.params.fileName
@@ -236,6 +250,15 @@ export class FileManager implements RestServer {
         console.log("FileManager.handleFetch completed");
       })
       .pipe(response);
+  }
+  private async handleBypassFetch(request: Request, response: Response, next: NextFunction): Promise<void> {
+    // This is to handle development machine cases where we are using bypass fileURLs (instead of /f/...)
+    console.log("FileManager.handleBypassFetch", request.params.fileId, request.params.fileName);
+    if (!/^[a-z0-9]{8}\-[a-z0-9]{4}\-[a-z0-9]{4}\-[a-z0-9]{4}\-[a-z0-9]{12}$/i.test(request.params.fileId)) {
+      next();
+      return;
+    }
+    await this.handleFetch2(request, response);
   }
 
   private transferHeader(response: Response, headers: { [key: string]: string }, headerName: string): void {
@@ -306,6 +329,41 @@ export class FileManager implements RestServer {
     });
   }
 
+  rewriteFileUrls(value: string): string {
+    if (!value || !this.fileUrlPrefix) {
+      return value;
+    }
+    value = value.split(this.fileUrlPrefix).join(this.bypassUrlPrefix);
+    return value;
+  }
+
+  rewriteObjectFileUrls(value: any): any {
+    if (!value) {
+      return value;
+    }
+    if (typeof value !== 'object') {
+      throw new Error("fileManager.rewriteObjectFileUrls: Invalid type");
+    }
+    const result = JSON.parse(JSON.stringify(value));
+    if (Array.isArray(result)) {
+      for (let i = 0; i < result.length; i++) {
+        if (typeof result[i] === 'string') {
+          result[i] = this.rewriteFileUrls(result[i]);
+        } else if (typeof result[i] === 'object') {
+          result[i] = this.rewriteObjectFileUrls(result[i]);
+        }
+      }
+    } else {
+      for (const key of Object.keys(result)) {
+        if (typeof result[key] === 'string') {
+          result[key] = this.rewriteFileUrls(result[key]);
+        } else if (typeof result[key] === 'object') {
+          result[key] = this.rewriteObjectFileUrls(result[key]);
+        }
+      }
+    }
+    return result;
+  }
 }
 
 const fileManager = new FileManager();

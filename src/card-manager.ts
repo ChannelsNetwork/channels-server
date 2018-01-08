@@ -1371,12 +1371,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           address: author ? author.address : record.by.address,
           handle: author ? author.identity.handle : record.by.handle,
           name: author ? author.identity.name : record.by.name,
-          imageUrl: author ? author.identity.imageUrl : record.by.imageUrl,
+          imageUrl: author ? fileManager.rewriteFileUrls(author.identity.imageUrl) : fileManager.rewriteFileUrls(record.by.imageUrl),
           isFollowing: false,
           isBlocked: false
         },
         summary: {
-          imageUrl: record.summary.imageUrl,
+          imageUrl: fileManager.rewriteFileUrls(record.summary.imageUrl),
           imageWidth: record.summary.imageWidth,
           imageHeight: record.summary.imageHeight,
           linkUrl: record.summary.linkUrl,
@@ -1387,7 +1387,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         private: record.private,
         cardType: {
           package: record.cardType.package,
-          iconUrl: iconUrl,
+          iconUrl: fileManager.rewriteFileUrls(iconUrl),
           royaltyAddress: record.cardType.royaltyAddress,
           royaltyFraction: record.cardType.royaltyFraction
         },
@@ -1447,7 +1447,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         const userProperties = await db.findCardProperties(card.id, "user", user.id);
         for (const property of userProperties) {
-          card.state.user.properties[property.name] = property.value;
+          let value = property.value;
+          if (typeof value === 'string') {
+            value = fileManager.rewriteFileUrls(value as string);
+          }
+          card.state.user.properties[property.name] = value;
         }
         const userCollections = await db.findCardCollections(card.id, "user", user.id);
         for (const collection of userCollections) {
@@ -1459,7 +1463,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           const userCollectionRecords = await db.findCardCollectionItems(card.id, "user", user.id, collection.collectionName);
           for (const item of userCollectionRecords) {
-            card.state.user.collections[collection.collectionName].records.push(item.value);
+            card.state.user.collections[collection.collectionName].records.push(fileManager.rewriteObjectFileUrls(item.value));
           }
         }
       }
@@ -1470,7 +1474,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (includeState) {
         const sharedProperties = await db.findCardProperties(card.id, "shared", '');
         for (const property of sharedProperties) {
-          card.state.shared.properties[property.name] = property.value;
+          let value = property.value;
+          if (typeof value === 'string') {
+            value = fileManager.rewriteFileUrls(value as string);
+          }
+          card.state.shared.properties[property.name] = value;
         }
         const sharedCollections = await db.findCardCollections(card.id, "shared", '');
         for (const collection of sharedCollections) {
@@ -1482,7 +1490,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           const sharedCollectionRecords = await db.findCardCollectionItems(card.id, "shared", '', collection.collectionName);
           for (const item of sharedCollectionRecords) {
-            card.state.shared.collections[collection.collectionName].records.push(item.value);
+            card.state.shared.collections[collection.collectionName].records.push(fileManager.rewriteObjectFileUrls(item.value));
           }
         }
       }
