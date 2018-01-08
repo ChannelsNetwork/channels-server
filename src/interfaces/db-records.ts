@@ -377,6 +377,7 @@ export interface BankTransactionRecord {
 export interface UserCardActionRecord {
   id: string;
   userId: string;
+  fromIpAddress: string;
   cardId: string;
   at: number;
   action: CardActionType;

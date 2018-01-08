@@ -366,7 +366,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
       }
       await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
-      await db.insertUserCardAction(user.id, card.id, now, "impression", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "impression", 0, null, 0, null, 0, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
       if (transaction && author) {
@@ -378,7 +378,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         card.budget.available = budgetAvailable;
         await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
       const userStatus = await userManager.getUserStatus(user, false);
@@ -392,6 +392,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.error("User.handleCardImpression: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private getFromIpAddress(request: Request): string {
+    const ipAddressHeader = request.headers['x-forwarded-for'] as string;
+    let ipAddress: string;
+    if (ipAddressHeader) {
+      const ipAddresses = ipAddressHeader.split(',');
+      if (ipAddresses.length >= 1 && ipAddresses[0].trim().length > 0) {
+        ipAddress = ipAddresses[0].trim();
+      }
+    } else if (request.ip) {
+      ipAddress = request.ip.trim();
+    }
+    return ipAddress;
   }
 
   async getUser(userId: string, force: boolean): Promise<UserRecord> {
@@ -427,7 +441,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, card.id, now, "open", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       const reply: CardOpenedResponse = {
         serverVersion: SERVER_VERSION
@@ -460,7 +474,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 1, uniques);
-      await db.insertUserCardAction(user.id, card.id, now, "click", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "click", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
       const reply: CardClickedResponse = {
         serverVersion: SERVER_VERSION
@@ -521,21 +535,30 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
+      const ipAddress = this.getFromIpAddress(request);
+      let skipMoneyTransfer = false;
+      if (ipAddress) {
+        const alreadyFromThisIp = await db.countUserCardsPaidFromIpAddress(card.id, ipAddress);
+        if (alreadyFromThisIp > 1) {
+          console.warn("Card.payPublisherSubsidy: Silently skipping payment because already purchased from this address");
+          skipMoneyTransfer = true;
+        }
+      }
+      const amount = skipMoneyTransfer ? 0 : transaction.amount;
       await userManager.updateUserBalance(user);
-      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true);
-      await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, transaction.amount, transactionResult.record.id);
-      await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, transaction.amount, transactionResult.record.id);
+      const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
+      await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
+      await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, amount, transactionResult.record.id);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "pay", 0, null, 0, null, 0, null);
-      await this.incrementStat(card, "revenue", transaction.amount, now, REVENUE_SNAPSHOT_INTERVAL);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "pay", 0, null, 0, null, 0, null);
+      await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 1, 0, 0, 0, 0);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
         await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
       }
-
-      const publisherSubsidy = await this.payPublisherSubsidy(user, author, card, transaction.amount, now);
+      const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const userStatus = await userManager.getUserStatus(user, false);
       await feedManager.rescoreCard(card, false);
@@ -552,12 +575,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number): Promise<number> {
+  private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number, request: Request): Promise<number> {
     // if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
     //   return 0;
     // }
-    const alreadyBought = await db.countUserCardsPaid(user.id);
-    if (alreadyBought === 0) {
+    const existingPurchases = await db.countUserCardsPaid(user.id);
+    if (existingPurchases <= 1) {
       return;
     }
     const subsidyDay = await networkEntity.getPublisherSubsidies();
@@ -688,7 +711,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       card.budget.available = budgetAvailable;
       await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardRedeemOpenResponse = {
@@ -717,7 +740,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
-      await db.insertUserCardAction(user.id, card.id, now, "close", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "close", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {
         serverVersion: SERVER_VERSION
@@ -765,7 +788,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
           cardInfo.like = requestBody.detailsObject.selection;
-          await db.insertUserCardAction(user.id, card.id, now, action, 0, null, 0, null, 0, null);
+          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, action, 0, null, 0, null, 0, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -823,7 +846,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (card.private !== requestBody.detailsObject.private) {
         await db.updateCardPrivate(card, requestBody.detailsObject.private);
-        await db.insertUserCardAction(user.id, card.id, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", 0, null, 0, null, 0, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", 0, null, 0, null, 0, null);
       }
       const reply: UpdateCardPrivateResponse = {
         serverVersion: SERVER_VERSION,

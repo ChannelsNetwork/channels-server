@@ -303,6 +303,7 @@ export class Database {
     this.userCardActions = this.db.collection('userCardActions');
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
+    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1 });
   }
 
   private async initializeUserCardInfo(): Promise<void> {
@@ -396,22 +397,30 @@ export class Database {
 
   async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrPublisherSubsidies: number): Promise<void> {
     const update: any = {};
+    let count = 0;
     if (incrPublisherRev) {
       update.totalPublisherRevenue = incrPublisherRev;
+      count++;
     }
     if (incrCardDeveloperRev) {
       update.totalCardDeveloperRevenue = incrCardDeveloperRev;
+      count++;
     }
     if (incrDeposits) {
       update.totalDeposits = incrDeposits;
+      count++;
     }
     if (incrWithdrawals) {
       update.totalWithdrawals = incrWithdrawals;
+      count++;
     }
     if (incrPublisherSubsidies) {
       update.totalPublisherSubsidies = incrPublisherSubsidies;
+      count++;
     }
-    await this.networks.updateOne({ id: "1" }, { $inc: update });
+    if (count > 0) {
+      await this.networks.updateOne({ id: "1" }, { $inc: update });
+    }
   }
 
   async getOldUsers(): Promise<OldUserRecord[]> {
@@ -1601,13 +1610,14 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, fromIpAddress: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
+      fromIpAddress: fromIpAddress,
       cardId: cardId,
       at: at,
-      action: action
+      action: action,
     };
     if (payment || paymentTransactionId) {
       record.payment = {
@@ -1637,6 +1647,10 @@ export class Database {
 
   async countUserCardsPaid(userId: string): Promise<number> {
     return await this.userCardActions.count({ userId: userId, action: "pay" });
+  }
+
+  async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress });
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
