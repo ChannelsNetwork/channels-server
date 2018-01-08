@@ -811,7 +811,10 @@ export class Database {
     const fixedKeywords: string[] = [];
     if (keywords) {
       for (const keyword of keywords) {
-        fixedKeywords.push(keyword.trim().toLowerCase());
+        const kw = keyword.trim().replace(/[^a-zA-Z\s]/g, '');
+        if (kw) {
+          fixedKeywords.push(kw.toLowerCase());
+        }
       }
     }
     return fixedKeywords;
