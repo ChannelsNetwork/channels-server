@@ -402,7 +402,11 @@ export class Bank implements RestServer, Initializable {
     if (!networkInitiated && !user.admin && user.balance < details.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
+    if (forceAmountToZero) {
+      details.amount = 0.000001;
+    }
     const totalAmount = forceAmountToZero ? 0.000001 : details.amount;
+
     let percent = 0;
     let amount = 0;
     let totalNonRemainder = 0;
