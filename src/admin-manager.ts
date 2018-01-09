@@ -201,7 +201,7 @@ export class AdminManager implements RestServer {
               }
             } else {
               result.promoted.openBased.totalPosts++;
-              if (firstCardByAuthor.id === card.id) {
+              if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
                 result.promoted.openBased.firstTimePosts++;
               }
             }
