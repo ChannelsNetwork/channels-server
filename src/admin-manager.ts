@@ -9,6 +9,7 @@ import { SERVER_VERSION } from "./server-version";
 import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
+import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
 
 export class AdminManager implements RestServer {
   private app: express.Application;
@@ -73,63 +74,71 @@ export class AdminManager implements RestServer {
       active: 0,
       withIdentity: {
         newUsers: 0,
+        returningUsers: 0,
         active: 0,
         nonViewers: 0,
         oneTimeViewers: 0,
-        returnViewers: 0,
+        multipleViewers: 0,
         posters: 0
       },
       anonymous: {
         newUsers: 0,
+        returningUsers: 0,
         active: 0,
-        bounces: 0,
         nonViewers: 0,
         oneTimeViewers: 0,
-        returnViewers: 0
+        multipleViewers: 0
       }
     };
-    const cursor = db.getUserCursorByLastContact(from, to);
+    const cursor = db.getUserCursorByLastContact(from, Date.now());
     while (await cursor.hasNext()) {
       const user = await cursor.next();
-      if (user.added > from) {
+      console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
+      if (user.added > from && user.added <= to) {
         result.newUsers++;
       }
-      result.active++;
+      if (user.added < to) {
+        result.active++;
+      }
       if (user.identity && user.identity.handle) {
-        if (user.added > from) {
+        if (user.added < to) {
+          result.withIdentity.active++;
+        }
+        if (user.added > from && user.added <= to) {
           result.withIdentity.newUsers++;
         }
-        result.withIdentity.active++;
+        if (user.lastContact - user.added > 1000 * 60 * 60 * 3) {
+          result.withIdentity.returningUsers++;
+        }
         const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
-        if (user.lastContact - user.added > 1000 * 60 * 60 * 3 && views > 1) {
-          result.withIdentity.returnViewers++;
-        } else if (views > 0) {
+        if (views === 0) {
+          result.withIdentity.nonViewers++;
+        } else if (views === 1) {
           result.withIdentity.oneTimeViewers++;
         } else {
-          result.withIdentity.nonViewers++;
+          result.withIdentity.multipleViewers++;
         }
         const posts = await db.countCardPostsByUser(user.id, from, to);
         if (posts > 0) {
           result.withIdentity.posters++;
         }
       } else {
-        if (user.added > from) {
+        if (user.added < to) {
+          result.anonymous.active++;
+        }
+        if (user.added > from && user.added <= to) {
           result.anonymous.newUsers++;
         }
-        result.anonymous.active++;
-        const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
         if (user.lastContact - user.added > 1000 * 60 * 60 * 3) {
-          if (views > 1) {
-            result.anonymous.returnViewers++;
-          } else if (views > 0) {
-            result.anonymous.oneTimeViewers++;
-          } else {
-            result.anonymous.nonViewers++;
-          }
-        } else if (views > 0) {
+          result.anonymous.returningUsers++;
+        }
+        const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
+        if (views === 0) {
+          result.anonymous.nonViewers++;
+        } else if (views === 1) {
           result.anonymous.oneTimeViewers++;
         } else {
-          result.anonymous.bounces++;
+          result.anonymous.multipleViewers++;
         }
       }
     }
@@ -141,7 +150,8 @@ export class AdminManager implements RestServer {
       payFor: {
         firstTimePosts: 0,
         totalPosts: 0,
-        purchases: 0
+        purchases: 0,
+        firstTimePurchases: 0
       },
       promoted: {
         impressionBased: {
@@ -162,34 +172,91 @@ export class AdminManager implements RestServer {
         }
       }
     };
-    const cursor = db.getCardCursorByPostedAt(from, to);
+    const cursor = db.getUserCardActionsFromTo(from, to);
+    const cardsById: { [id: string]: CardRecord } = {};
+    const usersById: { [id: string]: UserRecord } = {};
+    const firstPurchasesByUser: { [userId: string]: UserCardActionRecord } = {};
+    const userImpressionsImpressionBased: string[] = [];
+    const userImpressionsOpenBased: string[] = [];
+    const userClicksImpressionBased: string[] = [];
+    const userPaidOpenBased: string[] = [];
     while (await cursor.hasNext()) {
-      const card = await cursor.next();
-      const firstCardByAuthor = await db.findFirstCardByUser(card.by.id);
-      if (card.pricing.openFeeUnits) {
-        if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
-          result.payFor.firstTimePosts++;
+      const action = await cursor.next();
+      let card = cardsById[action.cardId];
+      if (!card) {
+        card = await db.findCardById(action.cardId, true, false);
+        if (card) {
+          cardsById[card.id] = card;
+          if (card.postedAt > from && card.postedAt <= to) {
+            const firstCardByAuthor = await db.findFirstCardByUser(card.by.id);
+            if (card.pricing.openFeeUnits) {
+              result.payFor.totalPosts++;
+              if (firstCardByAuthor.id === card.id) {
+                result.payFor.firstTimePosts++;
+              }
+            } else if (card.pricing.promotionFee > 0) {
+              result.promoted.impressionBased.totalPosts++;
+              if (firstCardByAuthor.id === card.id) {
+                result.promoted.impressionBased.firstTimePosts++;
+              }
+            } else {
+              result.promoted.openBased.totalPosts++;
+              if (firstCardByAuthor.id === card.id) {
+                result.promoted.openBased.firstTimePosts++;
+              }
+            }
+          }
         }
-        result.payFor.totalPosts++;
-        result.payFor.purchases += await db.countCardPayments(card.id, from, to);
-      } else if (card.pricing.promotionFee > 0) {
-        if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
-          result.promoted.impressionBased.firstTimePosts++;
+      }
+      if (card) {
+        if (card.pricing.openFeeUnits) {
+          if (action.action === 'pay') {
+            result.payFor.purchases++;
+            let firstPay = firstPurchasesByUser[action.userId];
+            if (!firstPay) {
+              firstPay = await db.findFirstUserCardActionByUser(action.userId, "pay");
+              firstPurchasesByUser[action.userId] = firstPay;
+            }
+            if (firstPay && firstPay.at === action.at) {
+              result.payFor.firstTimePurchases++;
+            }
+          }
+        } else if (card.pricing.promotionFee > 0) {
+          switch (action.action) {
+            case "impression":
+              result.promoted.impressionBased.totalImpressions++;
+              if (userImpressionsImpressionBased.indexOf(action.userId) < 0) {
+                result.promoted.impressionBased.usersWithImpressions++;
+                userImpressionsImpressionBased.push(action.userId);
+              }
+              break;
+            case "click":
+            case "open":
+              result.promoted.impressionBased.totalClicks++;
+              if (userClicksImpressionBased.indexOf(action.userId) < 0) {
+                result.promoted.impressionBased.usersWhoClicked++;
+                userClicksImpressionBased.push(action.userId);
+              }
+              break;
+          }
+        } else {
+          switch (action.action) {
+            case "impression":
+              result.promoted.openBased.totalImpressions++;
+              if (userImpressionsOpenBased.indexOf(action.userId) < 0) {
+                result.promoted.openBased.usersWithImpressions++;
+                userImpressionsOpenBased.push(action.userId);
+              }
+              break;
+            case "redeem-open-payment":
+              result.promoted.openBased.totalPaymentCount++;
+              if (userPaidOpenBased.indexOf(action.userId) < 0) {
+                result.promoted.openBased.usersWhoWerePaid++;
+                userPaidOpenBased.push(action.userId);
+              }
+              break;
+          }
         }
-        result.promoted.impressionBased.totalPosts++;
-        result.promoted.impressionBased.totalImpressions += await db.countCardImpressions(card.id, from, to);
-        result.promoted.impressionBased.usersWithImpressions += await db.countDistinctUserImpressions(card.id, from, to);
-        result.promoted.impressionBased.totalClicks += await db.countCardClicks(card.id, from, to);
-        result.promoted.impressionBased.usersWhoClicked += await db.countDistinctUserClicks(card.id, from, to);
-      } else {
-        if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
-          result.promoted.openBased.firstTimePosts++;
-        }
-        result.promoted.openBased.totalPosts++;
-        result.promoted.openBased.totalImpressions += await db.countCardImpressions(card.id, from, to);
-        result.promoted.openBased.usersWithImpressions += await db.countDistinctUserImpressions(card.id, from, to);
-        result.promoted.openBased.totalPaymentCount += await db.countCardPromotedPayments(card.id, from, to);
-        result.promoted.openBased.usersWhoWerePaid += await db.countDistinctUserPromotedPayments(card.id, from, to);
       }
     }
     return result;

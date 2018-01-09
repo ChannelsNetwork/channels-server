@@ -28,7 +28,7 @@ import { Utils } from "./utils";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 5;
+const SCORE_CARD_WEIGHT_AGE = 3;
 const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
 const SCORE_CARD_WEIGHT_REVENUE = 1;
 const SCORE_CARD_REVENUE_DOUBLING = 100;
@@ -40,18 +40,18 @@ const SCORE_CARD_OPENS_DOUBLING = 250;
 const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_OPENS = 1;
 const SCORE_CARD_RECENT_OPENS_DOUBLING = 25;
-const SCORE_CARD_WEIGHT_LIKES = 3;
+const SCORE_CARD_WEIGHT_LIKES = 5;
 const SCORE_CARD_LIKES_DOUBLING = 0.1;
 const SCORE_CARD_WEIGHT_CONTROVERSY = 1;
 const SCORE_CARD_CONTROVERSY_DOUBLING = 10;
-const SCORE_CARD_DISLIKE_MULTIPLER = 2;
+const SCORE_CARD_DISLIKE_MULTIPLER = 5;
 const SCORE_CARD_BOOST_HALF_LIFE = 1000 * 60 * 60 * 24 * 3;
 
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
 const CARD_SCORE_RANDOM_WEIGHT = 0.5;
 const MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.05;
-const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 1;
+const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 2;
@@ -672,7 +672,7 @@ export class FeedManager implements Initializable, RestServer {
     let ratio = 0;
     let delta = (currentStats.uniqueOpens || 0) + (currentStats.uniqueClicks || 0);
     if (networkStats.uniqueOpens) {
-      delta = Math.max(0, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
+      delta = Math.max(25, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
     }
     let count = 0;
     if (card.stats.uniqueOpens) {
@@ -1114,8 +1114,21 @@ export class FeedManager implements Initializable, RestServer {
     if (!limit || limit < 1 || limit > 999) {
       limit = 50;
     }
+    const culledRecords: CardRecord[] = [];
     const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
-    const cards = await this.populateCards(cardRecords, false, user);
+    if (cardRecords.length > 0) {
+      const max = (cardRecords[0] as any).searchScore as number;
+      for (const cardRecord of cardRecords) {
+        console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
+        const score = (cardRecord as any).searchScore as number;
+        if (score > max / 2) {
+          culledRecords.push(cardRecord);
+        } else {
+          break;
+        }
+      }
+    }
+    const cards = await this.populateCards(culledRecords, false, user);
     return await this.mergeWithAdCards(user, cards, cardRecords.length > limit, limit, existingPromotedCardIds);
   }
 

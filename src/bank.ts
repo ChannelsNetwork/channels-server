@@ -361,7 +361,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false): Promise<BankTransactionResult> {
+  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -402,6 +402,11 @@ export class Bank implements RestServer, Initializable {
     if (!networkInitiated && !user.admin && user.balance < details.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
+    if (forceAmountToZero) {
+      details.amount = 0.000001;
+    }
+    const totalAmount = details.amount;
+
     let percent = 0;
     let amount = 0;
     let totalNonRemainder = 0;
@@ -435,32 +440,32 @@ export class Bank implements RestServer, Initializable {
             throw new ErrorWithStatusCode(400, "Invalid recipient: missing amount");
           }
           percent += recipient.amount;
-          totalNonRemainder += details.amount * recipient.amount;
+          totalNonRemainder += totalAmount * recipient.amount;
           break;
         case "absolute":
           if (!recipient.amount) {
             throw new ErrorWithStatusCode(400, "Invalid recipient: missing amount");
           }
-          amount += recipient.amount;
-          totalNonRemainder += recipient.amount;
+          amount += forceAmountToZero ? 0 : recipient.amount;
+          totalNonRemainder += forceAmountToZero ? 0 : recipient.amount;
           break;
         default:
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    if (details.amount < totalNonRemainder) {
+    if (totalAmount < totalNonRemainder) {
       throw new ErrorWithStatusCode(400, "Recipient amounts add up to more than total");
     }
-    if (remainders === 0 && details.amount !== totalNonRemainder) {
+    if (!forceAmountToZero && remainders === 0 && details.amount !== totalNonRemainder) {
       throw new ErrorWithStatusCode(400, "Recipient amounts do not add up to total");
     }
     if (user.type === 'normal') {
-      console.log("Bank.performTransfer: Debiting user account", details.reason, details.amount, user.id);
+      console.log("Bank.performTransfer: Debiting user account", details.reason, totalAmount, user.id);
     }
-    const balanceBelowTarget = user.balance < 0 ? false : user.balance - details.amount < user.targetBalance;
+    const balanceBelowTarget = user.balance < 0 ? false : user.balance - totalAmount < user.targetBalance;
 
     // We may need to decrement withdrawable balance to make sure it is never more than your balance
-    await db.incrementUserBalance(user, -details.amount, balanceBelowTarget, now);
+    await db.incrementUserBalance(user, -totalAmount, balanceBelowTarget, now);
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
@@ -476,10 +481,10 @@ export class Bank implements RestServer, Initializable {
           remainderShares++;
           break;
         case "fraction":
-          deductions += details.amount * recipient.amount;
+          deductions += totalAmount * recipient.amount;
           break;
         case "absolute":
-          deductions += recipient.amount;
+          deductions += forceAmountToZero ? 0 : recipient.amount;
           break;
         default:
           throw new Error("Unhandled recipient portion " + recipient.portion);
@@ -493,13 +498,13 @@ export class Bank implements RestServer, Initializable {
       let creditAmount = 0;
       switch (recipient.portion) {
         case "remainder":
-          creditAmount = (details.amount - deductions) / remainders;
+          creditAmount = (totalAmount - deductions) / remainders;
           break;
         case "fraction":
-          creditAmount = details.amount * recipient.amount;
+          creditAmount = totalAmount * recipient.amount;
           break;
         case "absolute":
-          creditAmount = recipient.amount;
+          creditAmount = forceAmountToZero ? 0 : recipient.amount;
           break;
         default:
           throw new Error("Unhandled recipient portion " + recipient.portion);

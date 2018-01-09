@@ -93,29 +93,35 @@
           <div class="headerCell">First</div>
           <div class="headerCell">Last</div>
           <div class="headerCell">Handle</div>
+          <div class="headerCell">Address</div>
           <div class="headerCell">Email</div>
           <div class="headerCell clickable" on-click="_onRegisteredClick">Registered</div>
-          <div class="headerCell right">Balance</div>
+          <div class="headerCell right clickable" on-click="_onBalanceClick">Balance</div>
           <div class="headerCell clickable" on-click="_onContactClick">Last Contact</div>
           <div class="headerCell clickable" on-click="_onPostedClick">Last Posted</div>
           <div class="headerCell right">Total Posts</div>
           <div class="headerCell right">Cards Opened</div>
           <div class="headerCell right">Cards Bought</div>
           <div class="headerCell right">Private</div>
-          <div class="headerCell right">Revenue</div>
+          <div class="headerCell right clickable" on-click="_onRevenueClick">Revenue</div>
           <div class="headerCell right">Storage (MB)</div>
           <div class="headerCell center">IP Address</div>
           <div class="headerCell">Country</div>
           <div class="headerCell">Region</div>
           <div class="headerCell">City</div>
           <div class="headerCell center">Mailing List</div>
+          <div class="headerCell">Original Referrer</div>
+          <div class="headerCell">Original Landing</div>
           <div class="headerCell center">Curation</div>
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="row">
             <div class="cell">[[item.firstName]]</div>
             <div class="cell">[[item.lastName]]</div>
-            <div class="cell">[[item.handle]]</div>
+            <div class="cell clickable">
+              <a href="[[item.channelUrl]]">[[item.handle]]</a>
+            </div>
+            <div class="cell">[[item.address]]</div>
             <div class="cell">[[item.email]]</div>
             <div class="cell">[[item.registered]]</div>
             <div class="cell right">[[item.balance]]</div>
@@ -132,20 +138,23 @@
             <div class="cell">[[item.region]]</div>
             <div class="cell">[[item.city]]</div>
             <div class="cell center toggle" on-click="_onMailingListToggle">[[item.mailingList]]</div>
+            <div class="cell">[[item.referer]]</div>
+            <div class="cell">[[item.landingPage]]</div>
             <div class="cell">[[item.curation]]</div>
           </div>
         </template>
       </div>
       <h2>CSV</h2>
       <div class="csv">
-        <div class="csvRow">First, Last, Handle, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage, IP Address, Country,
-          Region, City, Mailing List
+        <div class="csvRow">First, Last, Handle, Address, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage, IP Address,
+          Country, Region, City, Mailing List, Original Referer, Original Landing Page
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="csvRow">
             <div class="csvCell">[[item.firstName]]</div>,
             <div class="csvCell">[[item.lastName]]</div>,
             <div class="csvCell">[[item.handle]]</div>,
+            <div class="csvCell">[[item.address]]</div>,
             <div class="csvCell">[[item.email]]</div>,
             <div class="csvCell">[[item.cardsPosted]]</div>,
             <div class="csvCell">[[item.cardsOpened]]</div>,
@@ -159,6 +168,8 @@
             <div class="csvCell">[[item.region]]</div>,
             <div class="csvCell">[[item.city]]</div>,
             <div class="csvCell">[[item.mailingList]]</div>
+            <div class="csvCell">[[item.referer]]</div>
+            <div class="csvCell">[[item.landingPage]]</div>
           </div>
         </template>
       </div>
@@ -204,6 +215,8 @@
               lastName: user.identity ? user.identity.lastName : "",
               email: user.identity ? user.identity.emailAddress : "",
               handle: user.identity ? user.identity.handle : "",
+              address: user.address,
+              channelUrl: user.identity ? '/channel/' + user.identity.handle : "",
               registered: this._displayTimestamp(user.added),
               balance: user.balance.toFixed(3),
               lastContact: this._displayTimestamp(user.lastContact),
@@ -220,6 +233,8 @@
               cardRevenue: userInfo.cardRevenue.toFixed(3),
               cardsOpened: userInfo.cardsOpened,
               cardsBought: userInfo.cardsBought,
+              referer: userInfo.originalReferrer,
+              landingPage: userInfo.originalLandingPage,
               curation: user.curation ? user.curation : ""
             });
           }
@@ -251,6 +266,24 @@
         this.set('users', []);
         newItems.sort((a, b) => {
           return b.user.added - a.user.added;
+        });
+        this.set('users', newItems);
+      }
+
+      _onBalanceClick(event) {
+        const newItems = this.users;
+        this.set('users', []);
+        newItems.sort((a, b) => {
+          return b.user.balance - a.user.balance;
+        });
+        this.set('users', newItems);
+      }
+
+      _onRevenueClick(event) {
+        const newItems = this.users;
+        this.set('users', []);
+        newItems.sort((a, b) => {
+          return b.cardRevenue - a.cardRevenue;
         });
         this.set('users', newItems);
       }

@@ -303,6 +303,9 @@ export class Database {
     this.userCardActions = this.db.collection('userCardActions');
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
+    await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
+    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1 });
+    await this.userCardActions.createIndex({ at: -1 });
   }
 
   private async initializeUserCardInfo(): Promise<void> {
@@ -372,7 +375,7 @@ export class Database {
           status: "active",
           topicNoCase: item.topic.toLowerCase(),
           topicWithCase: item.topic,
-          keywords: item.keywords,
+          keywords: this.cleanKeywords(item.keywords),
           added: Date.now()
         };
         await this.cardTopics.insert(record);
@@ -396,22 +399,30 @@ export class Database {
 
   async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrPublisherSubsidies: number): Promise<void> {
     const update: any = {};
+    let count = 0;
     if (incrPublisherRev) {
       update.totalPublisherRevenue = incrPublisherRev;
+      count++;
     }
     if (incrCardDeveloperRev) {
       update.totalCardDeveloperRevenue = incrCardDeveloperRev;
+      count++;
     }
     if (incrDeposits) {
       update.totalDeposits = incrDeposits;
+      count++;
     }
     if (incrWithdrawals) {
       update.totalWithdrawals = incrWithdrawals;
+      count++;
     }
     if (incrPublisherSubsidies) {
       update.totalPublisherSubsidies = incrPublisherSubsidies;
+      count++;
     }
-    await this.networks.updateOne({ id: "1" }, { $inc: update });
+    if (count > 0) {
+      await this.networks.updateOne({ id: "1" }, { $inc: update });
+    }
   }
 
   async getOldUsers(): Promise<OldUserRecord[]> {
@@ -748,7 +759,7 @@ export class Database {
         title: title,
         text: text,
       },
-      keywords: keywords || [],
+      keywords: this.cleanKeywords(keywords),
       private: isPrivate,
       cardType: {
         package: cardType,
@@ -805,6 +816,19 @@ export class Database {
     }
     await this.cards.insert(record);
     return record;
+  }
+
+  private cleanKeywords(keywords: string[]): string[] {
+    const fixedKeywords: string[] = [];
+    if (keywords) {
+      for (const keyword of keywords) {
+        const kw = keyword.trim().replace(/[^a-zA-Z\s]/g, '');
+        if (kw) {
+          fixedKeywords.push(kw.toLowerCase());
+        }
+      }
+    }
+    return fixedKeywords;
   }
 
   async countCards(): Promise<number> {
@@ -941,7 +965,7 @@ export class Database {
       }
     };
     if (keywords) {
-      update.keywords = keywords;
+      update.keywords = this.cleanKeywords(keywords);
     }
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
@@ -955,7 +979,7 @@ export class Database {
 
   async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean, boost: number): Promise<void> {
     const update: any = {
-      keywords: keywords,
+      keywords: this.cleanKeywords(keywords),
       "curation.block": blocked,
       "curation.boost": boost ? boost : 0,
       lastScored: 0  // to force immediately rescoring
@@ -1036,7 +1060,7 @@ export class Database {
   async findCardsBySearch(searchText: string, skip: number, limit = 50): Promise<CardRecord[]> {
     return await this.cards.find<CardRecord>({
       state: "active", "curation.block": false, private: false, $text: { $search: searchText }
-    }, { score: { $meta: "textScore" }, searchText: 0 }).sort({ score: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+    }, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
@@ -1118,7 +1142,7 @@ export class Database {
       state: "active",
       "curation.block": false,
       private: false,
-      keywords: { $in: keywords }
+      keywords: { $in: this.cleanKeywords(keywords) }
     };
     if (scoreLessThan > 0) {
       query.score = { $lt: scoreLessThan };
@@ -1588,13 +1612,14 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, fromIpAddress: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
+      fromIpAddress: fromIpAddress,
       cardId: cardId,
       at: at,
-      action: action
+      action: action,
     };
     if (payment || paymentTransactionId) {
       record.payment = {
@@ -1622,8 +1647,24 @@ export class Database {
     return await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: -1 }).limit(limit).toArray();
   }
 
+  getUserCardActionsFromTo(from: number, to: number): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: from, $lte: to } });
+  }
+
+  async findFirstUserCardActionByUser(userId: string, action: CardActionType): Promise<UserCardActionRecord> {
+    const result = await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: 1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    }
+    return null;
+  }
+
   async countUserCardsPaid(userId: string): Promise<number> {
     return await this.userCardActions.count({ userId: userId, action: "pay" });
+  }
+
+  async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress });
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
@@ -1874,8 +1915,8 @@ export class Database {
     }
   }
 
-  async incrementLatestPublisherSubsidyPaid(starting: number, incrementBy: number): Promise<void> {
-    await this.publisherSubsidyDays.updateOne({ starting: starting }, { $inc: { coinsPaid: incrementBy } });
+  async incrementLatestPublisherSubsidyPaid(starting: number, coinsPaid: number): Promise<void> {
+    await this.publisherSubsidyDays.updateOne({ starting: starting }, { $inc: { coinsPaid: coinsPaid }, $set: { coinsPerPaidOpen: coinsPaid } });
   }
 
   async listCardTopics(): Promise<CardTopicRecord[]> {

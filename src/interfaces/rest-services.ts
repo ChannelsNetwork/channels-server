@@ -677,20 +677,21 @@ export interface AdminUserGoalsInfo {
   newUsers: number;
   active: number;
   withIdentity: {
-    newUsers: number;
     active: number;
+    newUsers: number;
+    returningUsers: number;
     nonViewers: number;
     oneTimeViewers: number;
-    returnViewers: number;
+    multipleViewers: number;
     posters: number;
   };
   anonymous: {
-    newUsers: number;
     active: number;
-    bounces: number;
+    newUsers: number;
+    returningUsers: number;
     nonViewers: number;
     oneTimeViewers: number;
-    returnViewers: number;
+    multipleViewers: number;
   };
 }
 
@@ -699,6 +700,7 @@ export interface AdminCardGoalsInfo {
     firstTimePosts: number;
     totalPosts: number;
     purchases: number;
+    firstTimePurchases: number;
   };
   promoted: {
     impressionBased: {
