@@ -133,7 +133,7 @@ export class NetworkEntity implements Initializable {
     if (!subsidyDay || midnightToday > subsidyDay.starting) {
       console.log("Network.poll: Adding new publisher subsidy day", totalCoins, this.publisherSubsidyCoinsPerOpen);
       const amount = await cardManager.calculateCurrentPublisherSubsidiesPerPaidOpen(subsidyDay ? subsidyDay.coinsPerPaidOpen : 0.50);
-      await db.insertPublisherSubsidyDays(midnightToday, totalCoins, this.publisherSubsidyCoinsPerOpen, this.publisherSubsidyReturnUserBonus);
+      await db.insertPublisherSubsidyDays(midnightToday, totalCoins, amount, this.publisherSubsidyReturnUserBonus);
     }
   }
 
