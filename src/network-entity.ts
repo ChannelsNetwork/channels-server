@@ -9,6 +9,7 @@ import { bank } from "./bank";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { SignedObject } from "./interfaces/signed-object";
 import * as moment from "moment-timezone";
+import { cardManager } from "./card-manager";
 
 const PUBLISHER_SUBSIDY_MINIMUM_COINS = 101;
 const PUBLISHER_SUBSIDY_MAXIMUM_COINS = 150;
@@ -131,6 +132,7 @@ export class NetworkEntity implements Initializable {
     const totalCoins = this.publisherSubsidyMinCoins + Math.round(Math.random() * (this.publisherSubsidyMaxCoins - this.publisherSubsidyMinCoins));
     if (!subsidyDay || midnightToday > subsidyDay.starting) {
       console.log("Network.poll: Adding new publisher subsidy day", totalCoins, this.publisherSubsidyCoinsPerOpen);
+      const amount = await cardManager.calculateCurrentPublisherSubsidiesPerPaidOpen(subsidyDay ? subsidyDay.coinsPerPaidOpen : 0.50);
       await db.insertPublisherSubsidyDays(midnightToday, totalCoins, this.publisherSubsidyCoinsPerOpen, this.publisherSubsidyReturnUserBonus);
     }
   }

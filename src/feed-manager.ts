@@ -28,7 +28,7 @@ import { Utils } from "./utils";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 5;
+const SCORE_CARD_WEIGHT_AGE = 3;
 const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
 const SCORE_CARD_WEIGHT_REVENUE = 1;
 const SCORE_CARD_REVENUE_DOUBLING = 100;
@@ -40,11 +40,11 @@ const SCORE_CARD_OPENS_DOUBLING = 250;
 const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_OPENS = 1;
 const SCORE_CARD_RECENT_OPENS_DOUBLING = 25;
-const SCORE_CARD_WEIGHT_LIKES = 3;
+const SCORE_CARD_WEIGHT_LIKES = 5;
 const SCORE_CARD_LIKES_DOUBLING = 0.1;
 const SCORE_CARD_WEIGHT_CONTROVERSY = 1;
 const SCORE_CARD_CONTROVERSY_DOUBLING = 10;
-const SCORE_CARD_DISLIKE_MULTIPLER = 2;
+const SCORE_CARD_DISLIKE_MULTIPLER = 5;
 const SCORE_CARD_BOOST_HALF_LIFE = 1000 * 60 * 60 * 24 * 3;
 
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
@@ -672,7 +672,7 @@ export class FeedManager implements Initializable, RestServer {
     let ratio = 0;
     let delta = (currentStats.uniqueOpens || 0) + (currentStats.uniqueClicks || 0);
     if (networkStats.uniqueOpens) {
-      delta = Math.max(0, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
+      delta = Math.max(25, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
     }
     let count = 0;
     if (card.stats.uniqueOpens) {

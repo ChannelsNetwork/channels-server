@@ -1915,8 +1915,8 @@ export class Database {
     }
   }
 
-  async incrementLatestPublisherSubsidyPaid(starting: number, incrementBy: number): Promise<void> {
-    await this.publisherSubsidyDays.updateOne({ starting: starting }, { $inc: { coinsPaid: incrementBy } });
+  async incrementLatestPublisherSubsidyPaid(starting: number, coinsPaid: number): Promise<void> {
+    await this.publisherSubsidyDays.updateOne({ starting: starting }, { $inc: { coinsPaid: coinsPaid }, $set: { coinsPerPaidOpen: coinsPaid } });
   }
 
   async listCardTopics(): Promise<CardTopicRecord[]> {

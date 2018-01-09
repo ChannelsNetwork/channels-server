@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -538,10 +538,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const ipAddress = this.getFromIpAddress(request);
       let skipMoneyTransfer = false;
       if (ipAddress) {
-        const alreadyFromThisIp = await db.countUserCardsPaidFromIpAddress(card.id, ipAddress);
-        if (alreadyFromThisIp > 1) {
-          console.warn("Card.payPublisherSubsidy: Silently skipping payment because already purchased from this address");
+        if (author.ipAddresses && author.ipAddresses.indexOf(ipAddress) >= 0) {
+          console.warn("Card.payPay: Silently skipping payment because viewer IP address is same as author's IP address");
           skipMoneyTransfer = true;
+        } else {
+          const alreadyFromThisIp = await db.countUserCardsPaidFromIpAddress(card.id, ipAddress);
+          if (alreadyFromThisIp > 1) {
+            console.warn("Card.payPay: Silently skipping payment because already purchased from this address");
+            skipMoneyTransfer = true;
+          }
         }
       }
       const amount = skipMoneyTransfer ? 0 : transaction.amount;
@@ -579,15 +584,18 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     // if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
     //   return 0;
     // }
-    const existingPurchases = await db.countUserCardsPaid(user.id);
-    if (existingPurchases <= 1) {
-      return;
-    }
+    // const existingPurchases = await db.countUserCardsPaid(user.id);
+    // if (existingPurchases <= 1) {
+    //   return;
+    // }
     const subsidyDay = await networkEntity.getPublisherSubsidies();
-    if (!subsidyDay || subsidyDay.remainingToday <= 0) {
-      return 0;
-    }
-    const amount = subsidyDay.newUserBonus;
+    // if (!subsidyDay || subsidyDay.remainingToday <= 0) {
+    //   return 0;
+    // }
+    const statsNow = await db.ensureNetworkCardStats();
+    const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
+    const totalCardPurchases = statsNow.stats.paidOpens - yesterdaysStats.stats.paidOpens;
+    const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen(subsidyDay.newUserBonus);
     await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
@@ -611,6 +619,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       card.budget.available = newBudgetAvailable;
       await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
     }
+    console.log("Card.payPublisherSubsidy: Paying " + amount.toFixed(3) + " based on " + totalCardPurchases + " in last 24 hours");
+    return amount;
+  }
+
+  async calculateCurrentPublisherSubsidiesPerPaidOpen(maxBonus: number): Promise<number> {
+    const statsNow = await db.ensureNetworkCardStats();
+    const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
+    const totalCardPurchases = statsNow.stats.paidOpens - yesterdaysStats.stats.paidOpens;
+    const amount = Math.min(maxBonus, configuration.get('subsidies.maxCoins', 150) / (totalCardPurchases || 1));
     return amount;
   }
 
