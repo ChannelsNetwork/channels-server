@@ -255,7 +255,7 @@
           this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
         }
         this._refreshPrice();
-        this._refreshRating();
+        this.refreshRating();
         this._refreshMore();
       }
 
@@ -281,7 +281,7 @@
         }
       }
 
-      _refreshRating() {
+      refreshRating() {
         let uc = this.data.stats.likes;
         let dc = this.data.stats.dislikes;
         let tc = uc + dc;
@@ -451,47 +451,11 @@
       }
 
       _onDownVote() {
-        let likeState = this.data.userSpecific.likeState || "none";
-        let newState = "dislike"
-        if (likeState === "dislike") {
-          newState == "none";
-          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) - 1);
-          this.data.userSpecific.likeState = "none";
-        } else if (likeState === "like") {
-          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) + 1);
-          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) - 1);
-          this.data.userSpecific.likeState = "dislike";
-        } else {
-          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) + 1);
-          this.data.userSpecific.likeState = "dislike";
-        }
-        $core.updateCardLike(this.data.id, newState).catch((err) => {
-          console.error("Failed to update like state", err);
-        });
-        this._refreshRating();
-        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        this.dispatchEvent(new CustomEvent('card-down-vote', { bubbles: true, composed: true }));
       }
 
       _onUpVote() {
-        let likeState = this.data.userSpecific.likeState || "none";
-        let newState = "like"
-        if (likeState === "like") {
-          newState == "none";
-          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) - 1);
-          this.data.userSpecific.likeState = "none";
-        } else if (likeState === "dislike") {
-          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) + 1);
-          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) - 1);
-          this.data.userSpecific.likeState = "like";
-        } else {
-          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) + 1);
-          this.data.userSpecific.likeState = "like";
-        }
-        $core.updateCardLike(this.data.id, newState).catch((err) => {
-          console.error("Failed to update like state", err);
-        });
-        this._refreshRating();
-        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        this.dispatchEvent(new CustomEvent('card-up-vote', { bubbles: true, composed: true }));
       }
 
       get _shareUrl() {
