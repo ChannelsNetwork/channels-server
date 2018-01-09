@@ -549,7 +549,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
         }
       }
-      const amount = skipMoneyTransfer ? 0 : transaction.amount;
+      const amount = skipMoneyTransfer ? 0.000001 : transaction.amount;
       await userManager.updateUserBalance(user);
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);

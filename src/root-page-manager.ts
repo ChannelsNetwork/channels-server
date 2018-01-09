@@ -119,7 +119,7 @@ export class RootPageManager implements Initializable {
       landingcontent: await this.getLandingContent(request)
     };
     const output = Mustache.render(this.templates[type], view);
-    response.setHeader("Cache-Control", 'public, max-age=' + 15);
+    response.setHeader("Cache-Control", 'public, max-age=' + 5);
     response.contentType('text/html');
     response.status(200);
     response.send(output);
