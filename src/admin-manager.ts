@@ -93,7 +93,7 @@ export class AdminManager implements RestServer {
     const cursor = db.getUserCursorByLastContact(from, Date.now());
     while (await cursor.hasNext()) {
       const user = await cursor.next();
-      console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
+      // console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
       if (user.added > from && user.added <= to) {
         result.newUsers++;
       }
