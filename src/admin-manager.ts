@@ -90,21 +90,17 @@ export class AdminManager implements RestServer {
         multipleViewers: 0
       }
     };
-    const cursor = db.getUserCursorByLastContact(from, Date.now());
+    const cursor = db.getUserCursorByLastContact(from, Date.now(), to);
     while (await cursor.hasNext()) {
       const user = await cursor.next();
       // console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
-      if (user.added > from && user.added <= to) {
+      if (user.added > from) {
         result.newUsers++;
       }
-      if (user.added < to) {
-        result.active++;
-      }
+      result.active++;
       if (user.identity && user.identity.handle) {
-        if (user.added < to) {
-          result.withIdentity.active++;
-        }
-        if (user.added > from && user.added <= to) {
+        result.withIdentity.active++;
+        if (user.added > from) {
           result.withIdentity.newUsers++;
         }
         if (user.lastContact - user.added > 1000 * 60 * 60 * 3) {

@@ -573,8 +573,8 @@ export class Database {
     return await this.users.find<UserRecord>({ type: "normal" }).sort({ lastContact: -1 }).limit(limit).toArray();
   }
 
-  getUserCursorByLastContact(from: number, to: number): Cursor<UserRecord> {
-    return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to } }).sort({ lastContact: -1 });
+  getUserCursorByLastContact(from: number, to: number, addedBefore: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to }, added: { $lte: addedBefore }}).sort({ lastContact: -1 });
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
