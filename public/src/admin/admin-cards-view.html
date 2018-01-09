@@ -84,7 +84,7 @@
           <div class="headerCell">Title</div>
           <div class="headerCell">Keywords</div>
           <div class="headerCell clickable" on-click="_onPostedClick">Posted</div>
-          <div class="headerCell">Author</div>
+          <div class="headerCell clickable" on-click="_onAuthorClick">Author</div>
           <div class="headerCell">Private</div>
           <div class="headerCell">Package</div>
           <div class="headerCell right clickable" on-click="_onScoreClick">Score</div>
@@ -219,7 +219,7 @@
       }
 
       _onClick(event) {
-        $router.goto(["card", event.model.item.id]);
+        $router.goto('/c/' + event.model.item.id);
       }
 
       _onEdit(event) {
@@ -244,6 +244,19 @@
         this.set('cards', []);
         newItems.sort((a, b) => {
           return b.card.postedAt - a.card.postedAt;
+        });
+        this.set('cards', newItems);
+      }
+
+      _onAuthorClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        newItems.sort((a, b) => {
+          if (a.card.by.handle === b.card.by.handle) {
+            return b.card.postedAt - a.card.postedAt;
+          } else {
+            return a.card.by.name.localeCompare(b.card.by.name);
+          }
         });
         this.set('cards', newItems);
       }

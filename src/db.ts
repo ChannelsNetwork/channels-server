@@ -304,6 +304,7 @@ export class Database {
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1 });
+    await this.userCardActions.createIndex({ at: -1 });
   }
 
   private async initializeUserCardInfo(): Promise<void> {
@@ -1643,6 +1644,10 @@ export class Database {
 
   async findRecentCardActions(userId: string, action: CardActionType, limit = 25): Promise<UserCardActionRecord[]> {
     return await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: -1 }).limit(limit).toArray();
+  }
+
+  getUserCardActionsFromTo(from: number, to: number): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: from, $lte: to } });
   }
 
   async countUserCardsPaid(userId: string): Promise<number> {
