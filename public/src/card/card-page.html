@@ -48,13 +48,14 @@
         padding: 30px 16px;
         border-top: 1px solid #e5e5e5;
         margin-top: 20px;
+        box-sizing: border-box;
         text-align: center;
       }
 
       #morePanelContent {
-        max-width: 700px;
         box-sizing: border-box;
         margin: 0 auto;
+        display: inline-block;
       }
 
       a,
@@ -62,6 +63,29 @@
       a:hover {
         color: var(--dark-green);
         letter-spacing: initial;
+      }
+
+      .myvote {
+        color: var(--highlight-green);
+      }
+
+      soso-icon {
+        color: #808080;
+        width: 28px;
+        height: 28px;
+        padding: 0 8px;
+        cursor: pointer;
+      }
+
+      #ratingTip {
+        padding-left: 10px;
+        font-size: 13px;
+      }
+
+      @media (max-width: 600px) {
+        #morePanelContent {
+          font-size: 14px;
+        }
       }
     </style>
     <div id="nocard" class="horizontal layout center hidden">
@@ -82,10 +106,26 @@
       <div id="cardView" class="hidden"></div>
       <div id="morePanel" class="hidden">
         <div id="morePanelContent">
-          <a href="/feed">View your feed</a> to see more cards.
+          <div class="horizontal layout center" style="margin-bottom: 15px;">
+            <div class="flex"></div>
+            <div>
+              <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+            </div>
+            <div>
+              <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+            </div>
+            <div id="ratingTip">[[ratingTip]]</div>
+            <div class="flex"></div>
+          </div>
+          <div style="margin-bottom: 5px;">
+            <a href$="[[channelUrl]]">View [[data.by.name]]'s channel.</a>
+          </div>
+          <div>
+            <a href="/feed">View your feed</a> to see recommended cards.</div>
         </div>
       </div>
-      <open-card-header id="header" data="[[data]]" on-card-close="_closeCard" on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+      <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
+        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -94,8 +134,15 @@
       static get is() { return 'card-page'; }
       static get properties() {
         return {
-          data: Object
+          data: Object,
+          ratingTip: String,
+          channelUrl: String
         };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.iconMap = window._channelIcons;
       }
 
       onActivate(route) {
@@ -175,6 +222,8 @@
             }
           }
           this.data = cardData.card;
+          this.channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
+          this._refreshRating();
           this.paymentInterval = cardData.paymentDelayMsecs || 10000;
 
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
@@ -213,6 +262,50 @@
           console.error(err);
           this._onNoCard();
         });
+      }
+
+      _refreshRating() {
+        let uc = this.data.stats.likes;
+        let dc = this.data.stats.dislikes;
+        let tc = uc + dc;
+        let rating = tc ? (uc / tc) * 100 : 0;
+        this.$.downIcon.classList.remove("myvote");
+        this.$.upIcon.classList.remove("myvote");
+        const likeState = this.data.userSpecific.likeState || "none";
+        if (likeState === "like") {
+          this.$.upIcon.classList.add("myvote");
+        } else if (likeState === "dislike") {
+          this.$.downIcon.classList.add("myvote");
+        }
+
+        if (!tc) {
+          this.ratingTip = "No votes";
+        } else if (uc && (!dc)) {
+          if (uc === 1) {
+            this.ratingTip = "1 like";
+          } else {
+            this.ratingTip = uc + " likes";
+          }
+        } else if (dc && (!uc)) {
+          if (dc === 1) {
+            this.ratingTip = "1 dislike";
+          } else {
+            this.ratingTip = dc = " dislikes";
+          }
+        } else {
+          let tip = "";
+          if (uc === 1) {
+            tip = "1 like and ";
+          } else {
+            tip = uc + " likes and ";
+          }
+          if (dc === 1) {
+            tip += "1 dislike";
+          } else {
+            tip += dc + " dislikes";
+          }
+          this.ratingTip = tip;
+        }
       }
 
       _import(url) {
@@ -348,6 +441,55 @@
           }
         }
         $router.goto("");
+      }
+
+      _onUpVote() {
+        if (!this.data) {
+          return;
+        }
+        let likeState = this.data.userSpecific.likeState || "none";
+        let newState = "like"
+        if (likeState === "like") {
+          newState = "none";
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) - 1);
+          this.data.userSpecific.likeState = "none";
+        } else if (likeState === "dislike") {
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) + 1);
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) - 1);
+          this.data.userSpecific.likeState = "like";
+        } else {
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) + 1);
+          this.data.userSpecific.likeState = "like";
+        }
+        $core.updateCardLike(this.data.id, newState).catch((err) => {
+          console.error("Failed to update like state", err);
+        });
+        this._refreshRating();
+        this.$.header.refreshRating();
+        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+      }
+
+      _onDownVote() {
+        let likeState = this.data.userSpecific.likeState || "none";
+        let newState = "dislike"
+        if (likeState === "dislike") {
+          newState = "none";
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) - 1);
+          this.data.userSpecific.likeState = "none";
+        } else if (likeState === "like") {
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) + 1);
+          this.data.stats.likes = Math.max(0, (this.data.stats.likes || 0) - 1);
+          this.data.userSpecific.likeState = "dislike";
+        } else {
+          this.data.stats.dislikes = Math.max(0, (this.data.stats.dislikes || 0) + 1);
+          this.data.userSpecific.likeState = "dislike";
+        }
+        $core.updateCardLike(this.data.id, newState).catch((err) => {
+          console.error("Failed to update like state", err);
+        });
+        this._refreshRating();
+        this.$.header.refreshRating();
+        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
       }
     }
     window.customElements.define(CardPage.is, CardPage);

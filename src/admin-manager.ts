@@ -9,8 +9,7 @@ import { SERVER_VERSION } from "./server-version";
 import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
-import { CardRecord } from "./interfaces/db-records";
-import { UserRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
 
 export class AdminManager implements RestServer {
   private app: express.Application;
@@ -151,7 +150,8 @@ export class AdminManager implements RestServer {
       payFor: {
         firstTimePosts: 0,
         totalPosts: 0,
-        purchases: 0
+        purchases: 0,
+        firstTimePurchases: 0
       },
       promoted: {
         impressionBased: {
@@ -175,6 +175,7 @@ export class AdminManager implements RestServer {
     const cursor = db.getUserCardActionsFromTo(from, to);
     const cardsById: { [id: string]: CardRecord } = {};
     const usersById: { [id: string]: UserRecord } = {};
+    const firstPurchasesByUser: { [userId: string]: UserCardActionRecord } = {};
     const userImpressionsImpressionBased: string[] = [];
     const userImpressionsOpenBased: string[] = [];
     const userClicksImpressionBased: string[] = [];
@@ -211,6 +212,14 @@ export class AdminManager implements RestServer {
         if (card.pricing.openFeeUnits) {
           if (action.action === 'pay') {
             result.payFor.purchases++;
+            let firstPay = firstPurchasesByUser[action.userId];
+            if (!firstPay) {
+              firstPay = await db.findFirstUserCardActionByUser(action.userId, "pay");
+              firstPurchasesByUser[action.userId] = firstPay;
+            }
+            if (firstPay && firstPay.at === action.at) {
+              result.payFor.firstTimePurchases++;
+            }
           }
         } else if (card.pricing.promotionFee > 0) {
           switch (action.action) {
@@ -222,6 +231,7 @@ export class AdminManager implements RestServer {
               }
               break;
             case "click":
+            case "open":
               result.promoted.impressionBased.totalClicks++;
               if (userClicksImpressionBased.indexOf(action.userId) < 0) {
                 result.promoted.impressionBased.usersWhoClicked++;

@@ -700,6 +700,7 @@ export interface AdminCardGoalsInfo {
     firstTimePosts: number;
     totalPosts: number;
     purchases: number;
+    firstTimePurchases: number;
   };
   promoted: {
     impressionBased: {

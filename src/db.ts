@@ -303,6 +303,7 @@ export class Database {
     this.userCardActions = this.db.collection('userCardActions');
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
+    await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1 });
     await this.userCardActions.createIndex({ at: -1 });
   }
@@ -1648,6 +1649,14 @@ export class Database {
 
   getUserCardActionsFromTo(from: number, to: number): Cursor<UserCardActionRecord> {
     return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: from, $lte: to } });
+  }
+
+  async findFirstUserCardActionByUser(userId: string, action: CardActionType): Promise<UserCardActionRecord> {
+    const result = await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: 1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    }
+    return null;
   }
 
   async countUserCardsPaid(userId: string): Promise<number> {
