@@ -118,7 +118,7 @@
             <div class="flex"></div>
           </div>
           <div style="margin-bottom: 5px;">
-            <a href="/feed">View [[data.by.name]]'s channel.</a>
+            <a href$="[[channelUrl]]">View [[data.by.name]]'s channel.</a>
           </div>
           <div>
             <a href="/feed">View your feed</a> to see recommended cards.</div>
@@ -135,7 +135,8 @@
       static get properties() {
         return {
           data: Object,
-          ratingTip: String
+          ratingTip: String,
+          channelUrl: String
         };
       }
 
@@ -221,6 +222,7 @@
             }
           }
           this.data = cardData.card;
+          this.channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
           this._refreshRating();
           this.paymentInterval = cardData.paymentDelayMsecs || 10000;
 
