@@ -1060,7 +1060,7 @@ export class Database {
   async findCardsBySearch(searchText: string, skip: number, limit = 50): Promise<CardRecord[]> {
     return await this.cards.find<CardRecord>({
       state: "active", "curation.block": false, private: false, $text: { $search: searchText }
-    }, { score: { $meta: "textScore" }, searchText: 0 }).sort({ score: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+    }, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {

@@ -1114,8 +1114,21 @@ export class FeedManager implements Initializable, RestServer {
     if (!limit || limit < 1 || limit > 999) {
       limit = 50;
     }
+    const culledRecords: CardRecord[] = [];
     const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
-    const cards = await this.populateCards(cardRecords, false, user);
+    if (cardRecords.length > 0) {
+      const max = (cardRecords[0] as any).searchScore as number;
+      for (const cardRecord of cardRecords) {
+        console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
+        const score = (cardRecord as any).searchScore as number;
+        if (score > max / 2) {
+          culledRecords.push(cardRecord);
+        } else {
+          break;
+        }
+      }
+    }
+    const cards = await this.populateCards(culledRecords, false, user);
     return await this.mergeWithAdCards(user, cards, cardRecords.length > limit, limit, existingPromotedCardIds);
   }
 
