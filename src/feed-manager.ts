@@ -410,9 +410,9 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const result = await this.getCardsWithHighestScores(user, false, limit + 1, startWithCardId, scoreLessThan);
-    for (const r of result) {
-      console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
-    }
+    // for (const r of result) {
+    //   console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
+    // }
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 

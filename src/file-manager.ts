@@ -253,11 +253,11 @@ export class FileManager implements RestServer {
   }
   private async handleBypassFetch(request: Request, response: Response, next: NextFunction): Promise<void> {
     // This is to handle development machine cases where we are using bypass fileURLs (instead of /f/...)
-    console.log("FileManager.handleBypassFetch", request.params.fileId, request.params.fileName);
     if (!/^[a-z0-9]{8}\-[a-z0-9]{4}\-[a-z0-9]{4}\-[a-z0-9]{4}\-[a-z0-9]{12}$/i.test(request.params.fileId)) {
       next();
       return;
     }
+    console.log("FileManager.handleBypassFetch", request.params.fileId, request.params.fileName);
     await this.handleFetch2(request, response);
   }
 

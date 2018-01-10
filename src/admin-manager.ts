@@ -90,55 +90,54 @@ export class AdminManager implements RestServer {
         multipleViewers: 0
       }
     };
-    const cursor = db.getUserCursorByLastContact(from, Date.now());
+    const cursor = db.getUserCursorByLastContact(from, Date.now(), to);
     while (await cursor.hasNext()) {
       const user = await cursor.next();
-      console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
-      if (user.added > from && user.added <= to) {
+      // console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
+      const actions = await db.countUserCardActionsInTimeframe(user.id, from, to);
+      if (user.added > from) {
         result.newUsers++;
       }
-      if (user.added < to) {
+      if (actions > 0) {
         result.active++;
-      }
-      if (user.identity && user.identity.handle) {
-        if (user.added < to) {
-          result.withIdentity.active++;
-        }
-        if (user.added > from && user.added <= to) {
-          result.withIdentity.newUsers++;
-        }
-        if (user.lastContact - user.added > 1000 * 60 * 60 * 3) {
-          result.withIdentity.returningUsers++;
-        }
-        const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
-        if (views === 0) {
-          result.withIdentity.nonViewers++;
-        } else if (views === 1) {
-          result.withIdentity.oneTimeViewers++;
+        if (user.identity && user.identity.handle) {
+          if (actions > 0) {
+            result.withIdentity.active++;
+          }
+          if (user.added > from) {
+            result.withIdentity.newUsers++;
+          }
+          if (user.lastContact - user.added > 1000 * 60 * 60 * 12) {
+            result.withIdentity.returningUsers++;
+          }
+          const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
+          if (views === 0) {
+            result.withIdentity.nonViewers++;
+          } else if (views === 1) {
+            result.withIdentity.oneTimeViewers++;
+          } else {
+            result.withIdentity.multipleViewers++;
+          }
+          const posts = await db.countCardPostsByUser(user.id, from, to);
+          if (posts > 0) {
+            result.withIdentity.posters++;
+          }
         } else {
-          result.withIdentity.multipleViewers++;
-        }
-        const posts = await db.countCardPostsByUser(user.id, from, to);
-        if (posts > 0) {
-          result.withIdentity.posters++;
-        }
-      } else {
-        if (user.added < to) {
           result.anonymous.active++;
-        }
-        if (user.added > from && user.added <= to) {
-          result.anonymous.newUsers++;
-        }
-        if (user.lastContact - user.added > 1000 * 60 * 60 * 3) {
-          result.anonymous.returningUsers++;
-        }
-        const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
-        if (views === 0) {
-          result.anonymous.nonViewers++;
-        } else if (views === 1) {
-          result.anonymous.oneTimeViewers++;
-        } else {
-          result.anonymous.multipleViewers++;
+          if (user.added > from) {
+            result.anonymous.newUsers++;
+          }
+          if (user.lastContact - user.added > 1000 * 60 * 60 * 12) {
+            result.anonymous.returningUsers++;
+          }
+          const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
+          if (views === 0) {
+            result.anonymous.nonViewers++;
+          } else if (views === 1) {
+            result.anonymous.oneTimeViewers++;
+          } else {
+            result.anonymous.multipleViewers++;
+          }
         }
       }
     }
