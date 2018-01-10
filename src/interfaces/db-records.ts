@@ -539,3 +539,39 @@ export interface IpAddressRecord {
 }
 
 export type IpAddressStatus = "success" | "fail";
+
+export interface ChannelRecord {
+  id: string;
+  name: string;
+  handle: string;
+  ownerId: string;
+  created: number;
+  bannerImageFileId: string;
+  about: string;
+  location: string;
+  linkUrl: string;
+  socialLinks: SocialLink[];
+}
+
+export interface SocialLink {
+  network: SocialNetwork;
+  link: string;
+}
+
+export type SocialNetwork = "Facebook" | "Twitter" | "Instagram" | "Snapchat" | "YouTube" | "Twitch" | "WeChat" | "Pinterest" | "LinkedIn";
+
+export interface ChannelUserRecord {
+  channelId: string;
+  userId: string;
+  added: number;
+  subscriptionState: ChannelSubscriptionState;
+  lastNotification: number;
+}
+
+export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked";
+
+export interface ChannelCardRecord {
+  channelId: string;
+  cardId: string;
+  added: number;
+}
