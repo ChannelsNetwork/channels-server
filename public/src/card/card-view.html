@@ -484,6 +484,7 @@
         let summary = event.detail.summary;
         if (summary) {
           this.set('data.private', summary.private);
+          this.set("data.keywords", summary.keywords || []);
           this.updateSummary(summary);
           this.onPrivateUpdated();
         }
