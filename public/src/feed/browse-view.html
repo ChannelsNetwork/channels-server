@@ -101,6 +101,7 @@
 
       onActivate(route) {
         $core.register().then(() => {
+          this._attachResizeListener();
           this._onResize();
           const newTopic = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null;
           if (!window.__dirtyFeed) {
@@ -145,6 +146,7 @@
         if (!newTopic) {
           this.$.titleArea.style.display = "none";
           this.set('items', []);
+          this._topic = "none";
         } else if (this._topic === newTopic) {
           this.$.titleArea.style.display = "";
         } else {
