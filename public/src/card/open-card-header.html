@@ -435,6 +435,7 @@
             event.stopPropagation();
             this.data.summary = event.detail.summary;
             this.data.private = event.detail.summary.private;
+            this.data.keywords = event.detail.summary.keywords || [];
             window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
           });
           dlg.addEventListener('edit-content', () => {
