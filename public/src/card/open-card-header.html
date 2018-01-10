@@ -79,6 +79,7 @@
         width: 40px;
         height: 40px;
         margin: 0 10px;
+        cursor: pointer;
       }
 
       #payTimerProgress {
@@ -182,6 +183,7 @@
       <soso-icon id="actionsIcon" icon="expand-more" icon-map="[[iconMap]]"></soso-icon>
       <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
 
+      <!-- Drop downs -->
       <soso-dropdown for="shareIcon" alignment="right" offset="0">
         <li on-click="_tweet">Share on Twitter</li>
         <li on-click="_facebook">Share on Facebook</li>
@@ -220,7 +222,11 @@
           </div>
         </li>
       </soso-dropdown>
+      <soso-dropdown for="authorImage" alignment="left" offset="5">
+        <li on-click="_openUserChannel">More by [[data.by.name]]</li>
+      </soso-dropdown>
 
+      <!-- Tooltips -->
       <soso-tooltip for="likeRating" position="left" offset="10">[[ratingTip]]</soso-tooltip>
     </div>
     <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
@@ -435,6 +441,7 @@
             event.stopPropagation();
             this.data.summary = event.detail.summary;
             this.data.private = event.detail.summary.private;
+            this.data.keywords = event.detail.summary.keywords || [];
             window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
           });
           dlg.addEventListener('edit-content', () => {
@@ -500,6 +507,10 @@
             reject(err);
           });
         });
+      }
+
+      _openUserChannel() {
+        $router.goto("/channel/" + encodeURIComponent(this.data.by.handle));
       }
     }
     window.customElements.define(OpenCardHeader.is, OpenCardHeader);

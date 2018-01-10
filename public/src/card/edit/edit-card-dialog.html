@@ -179,8 +179,10 @@
           imgW = 0;
           imgH = 0;
         }
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, img, imgW, imgH, this._getKeywords()).then((summary) => {
+        let keywords = this._getKeywords();
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, img, imgW, imgH, keywords).then((summary) => {
           this._summary = summary;
+          this._summary.keywords = keywords;
         });
       }
 
