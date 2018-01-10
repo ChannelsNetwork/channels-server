@@ -574,7 +574,7 @@ export class Database {
   }
 
   getUserCursorByLastContact(from: number, to: number, addedBefore: number): Cursor<UserRecord> {
-    return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to }, added: { $lte: addedBefore }}).sort({ lastContact: -1 });
+    return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to }, added: { $lte: addedBefore } }).sort({ lastContact: -1 });
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
@@ -1669,6 +1669,10 @@ export class Database {
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
     return await this.userCardActions.count({ userId: userId, action: "pay", at: { $gt: from, $lte: to } });
+  }
+
+  async countUserCardActionsInTimeframe(userId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ userId: userId, at: { $gt: from, $lte: to } });
   }
 
   async countCardPayments(cardId: string, from: number, to: number): Promise<number> {
