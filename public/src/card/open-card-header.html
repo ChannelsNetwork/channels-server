@@ -466,13 +466,11 @@
       }
 
       get _shareUrl() {
-        if (!this._cardUrl) {
-          let root = window.location.origin;
-          if (!root) {
-            root = window.location.protocol + "://" + window.location.host;
-          }
-          this._cardUrl = root + "/c/" + this.data.id;
+        let root = window.location.origin;
+        if (!root) {
+          root = window.location.protocol + "://" + window.location.host;
         }
+        this._cardUrl = root + "/c/" + this.data.id;
         return this._cardUrl;
       }
 
