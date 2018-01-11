@@ -2144,7 +2144,7 @@ export class Database {
     return await this.findIpAddress(ipAddress);
   }
 
-  async insertChannel(handle: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<ChannelRecord> {
+  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<ChannelRecord> {
     if (!socialLinks) {
       socialLinks = [];
     }
@@ -2152,6 +2152,8 @@ export class Database {
     const record: ChannelRecord = {
       id: uuid.v4(),
       handle: handle.toLowerCase(),
+      name: name,
+      location: location,
       ownerId: ownerId,
       created: now,
       bannerImageFileId: bannerImageFileId,

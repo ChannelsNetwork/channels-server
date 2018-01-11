@@ -1415,9 +1415,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           address: author ? author.address : record.by.address,
           handle: author ? author.identity.handle : record.by.handle,
           name: author ? author.identity.name : record.by.name,
-          imageUrl: author ? fileManager.rewriteFileUrls(author.identity.imageUrl) : fileManager.rewriteFileUrls(record.by.imageUrl),
-          isFollowing: false,
-          isBlocked: false
+          imageUrl: author ? fileManager.rewriteFileUrls(author.identity.imageUrl) : fileManager.rewriteFileUrls(record.by.imageUrl)
         },
         summary: {
           imageUrl: fileManager.rewriteFileUrls(record.summary.imageUrl),

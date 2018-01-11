@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -155,6 +155,7 @@ export interface GetFeedsDetails extends Signable {
 }
 
 export interface RequestedFeedDescriptor {
+  channelId?: string;  // if within a specific channel
   type: CardFeedType;
   channelHandle?: string;
   maxCount: number;
@@ -182,8 +183,6 @@ export interface CardDescriptor {
     handle: string;
     name: string;
     imageUrl: string;
-    isFollowing: boolean;
-    isBlocked: boolean;
   };
   referredBy?: {
     address: string;
@@ -602,6 +601,7 @@ export interface BraintreeTransactionError {
 }
 
 export interface SearchDetails extends Signable {
+  channelId?: string;  // if within a channel
   searchString: string;
   skip: number;
   limit: number;
@@ -764,3 +764,85 @@ export interface ListTopicsDetails extends Signable { }
 export interface ListTopicsResponse extends RestResponse {
   topics: string[];
 }
+
+export interface GetChannelDetails extends Signable {
+  ownerId: string;  // you must provide either ownerId or handle
+  handle: string;
+}
+
+export interface GetChannelResponse extends RestResponse {
+  channel: ChannelDescriptor;
+}
+
+export interface ChannelDescriptor {
+  id: string;
+  name: string;
+  handle: string;
+  bannerImage: FileInfo;
+  owner: UserDescriptor;
+  created: number;
+  about: string;
+  location: string;
+  linkUrl: string;
+  socialLinks: SocialLink[];
+  stats: ChannelStats;
+  subscriptionState: ChannelSubscriptionState;
+}
+
+export interface ChannelStats {
+  subscribers: number;
+  cards: number;
+  revenue: number;
+}
+
+export interface UserDescriptor {
+  id: string;
+  handle: string;
+  publicKey: string;
+  name: string;
+  image: FileInfo;
+}
+
+export interface FileInfo {
+  id: string;
+  url: string;
+  imageDescription: ImageDescription;
+}
+
+export interface ImageDescription {
+  width: number;
+  height: number;
+}
+
+export interface GetChannelsDetails extends Signable {
+  type: ChannelFeedType;
+  maxCount: number;
+  afterChannelId?: string;
+}
+
+export type ChannelFeedType = "recommended" | "new" | "subscribed";
+
+export interface GetChannelsResponse extends RestResponse {
+  channels: ChannelDescriptor[];
+  moreAvailable: boolean;
+}
+
+export interface UpdateChannelDetails extends Signable {
+  channelId: string;
+  bannerImageFileId: string;
+  about: string;
+  location: string;
+  link: string;
+  socialLinks: SocialLink[];
+}
+
+export interface UpdateChannelResponse extends RestResponse { }
+
+export interface UpdateChannelSubscriptionDetails extends Signable {
+  channelId: string;
+  subscriptionState: ChannelSubscriptionState;
+  report?: boolean;  // only if setting state to "blocked" and user believes inappropriate for others
+  reportReason?: string;
+}
+
+export interface UpdateChannelSubscriptionResponse extends RestResponse { }
