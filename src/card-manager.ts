@@ -537,7 +537,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-pay", requestBody.detailsObject, user.balance, transaction.amount);
       const ipAddress = this.getFromIpAddress(request);
       let skipMoneyTransfer = false;
-      if (ipAddress) {
+      if (card.curation && card.curation.block) {
+        skipMoneyTransfer = true;
+      } else if (ipAddress) {
         if (author.ipAddresses && author.ipAddresses.indexOf(ipAddress) >= 0) {
           console.warn("Card.payPay: Silently skipping payment because viewer IP address is same as author's IP address");
           skipMoneyTransfer = true;
