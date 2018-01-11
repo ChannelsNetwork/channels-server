@@ -142,6 +142,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (lastMutation) {
       this.lastMutationIndexSent = lastMutation.index;
     }
+
+    const cursor = db.getCardsMissingSearchText();
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      console.log("Card.initialize2: Adding missing searchText field in card", card.id);
+      const state = await this.populateCardState(card.id, true, false);
+      let searchText;
+      if (state && state.state.shared) {
+        searchText = this.searchTextFromSharedState(state.state.shared);
+      } else {
+        console.warn("Card.initialize2: No shared state to use for search text");
+      }
+      await db.updateCardSearchText(card.id, searchText);
+    }
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
@@ -243,6 +257,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private getObjectStringRecursive(object: any): string {
     let result = "";
+    if (!object) {
+      return result;
+    }
     if (typeof object === 'string') {
       result = object;
     } else if (Array.isArray(object)) {

@@ -904,6 +904,14 @@ export class Database {
     }
   }
 
+  getCardsMissingSearchText(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ searchText: { $exists: false } });
+  }
+
+  async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $set: { searchText: searchText } });
+  }
+
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
     const now = Date.now();
     await this.cards.updateOne({ id: card.id }, { $set: { score: score, lastScored: now } });
