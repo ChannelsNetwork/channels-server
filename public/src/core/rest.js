@@ -538,6 +538,24 @@ class RestUtils {
     };
   }
 
+  static admin_getWithdrawals(address, limit) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      limit: limit
+    };
+  }
+
+  static admin_updateWithdrawal(address, id, state, paymentReferenceId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      id: id,
+      state: state,
+      paymentReferenceId: paymentReferenceId
+    };
+  }
+
   static queryPage(address, url) {
     return {
       address: address,

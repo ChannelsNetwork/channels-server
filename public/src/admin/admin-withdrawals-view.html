@@ -1,0 +1,204 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+<link rel="import" href="admin-withdrawal-dialog.html">
+
+<dom-module id="admin-withdrawals-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 0 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <h1>Withdrawals</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">Withdrawal Id</div>
+          <div class="headerCell">Transaction Id</div>
+          <div class="headerCell">At</div>
+          <div class="headerCell">Handle</div>
+          <div class="headerCell">Name</div>
+          <div class="headerCell">Email</div>
+          <div class="headerCell right">Balance</div>
+          <div class="headerCell">State</div>
+          <div class="headerCell right">Withdrawal Amount</div>
+          <div class="headerCell">Paypal Contact</div>
+          <div class="headerCell">Last Updated</div>
+          <div class="headerCell">By</div>
+          <div class="headerCell">Paypal Transaction</div>
+          <div class="headerCell"></div>
+        </div>
+        <template is="dom-repeat" items="[[items]]">
+          <div class="row">
+            <div class="cell">[[item.id]]</div>
+            <div class="cell">[[item.transaction]]</div>
+            <div class="cell">[[item.at]]</div>
+            <div class="cell">[[item.handle]]</div>
+            <div class="cell">[[item.name]]</div>
+            <div class="cell">[[item.email]]</div>
+            <div class="cell right">[[item.balance]]</div>
+            <div class="cell">[[item.state]]</div>
+            <div class="cell right">[[item.amount]]</div>
+            <div class="cell">[[item.contact]]</div>
+            <div class="cell">[[item.lastUpdated]]</div>
+            <div class="cell">[[item.lastUpdatedBy]]</div>
+            <div class="cell">[[item.paypalTransaction]]</div>
+            <div class="cell center toggle" on-click="_onUpdate">update</div>
+          </div>
+        </template>
+      </div>
+      <admin-withdrawal-dialog id="updateDialog"></admin-withdrawal-dialog>
+    </div>
+  </template>
+  <script>
+    class AdminWithdrawalsView extends Polymer.Element {
+      static get is() { return 'admin-withdrawals-view'; }
+      static get properties() {
+        return {
+          cards: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('items', []);
+        $core.admin_getWithdrawals(200).then((response) => {
+          const items = [];
+          for (const withdrawal of response.withdrawals) {
+            items.push({
+              id: withdrawal.record.id,
+              at: this._displayTimestamp(withdrawal.record.created),
+              handle: withdrawal.user.handle,
+              email: withdrawal.user.email,
+              balance: withdrawal.user.balance.toFixed(2),
+              transaction: withdrawal.record.transactionId,
+              state: withdrawal.record.state,
+              amount: withdrawal.record.amount.toFixed(2),
+              contact: withdrawal.record.recipientContact,
+              lastUpdated: withdrawal.record.created === withdrawal.record.lastUpdated ? "" : this._displayTimestamp(withdrawal.record.lastUpdated),
+              lastUpdatedBy: withdrawal.lastUpdatedByName ? withdrawal.lastUpdatedByName : withdrawal.record.lastUpdatedBy,
+              paypalTransaction: withdrawal.record.paymentReferenceId
+            });
+          }
+          this.set('items', items);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onUpdate(event) {
+        this.$.updateDialog.show(event.model.item).then((result) => {
+          if (result) {
+            this._refresh();
+          }
+        });
+      }
+
+      // _onScoreClick() {
+      //   const newItems = this.cards;
+      //   this.set('cards', []);
+      //   newItems.sort((a, b) => {
+      //     return b.card.score - a.card.score;
+      //   });
+      //   this.set('cards', newItems);
+      // }
+    }
+    window.customElements.define(AdminWithdrawalsView.is, AdminWithdrawalsView);
+  </script>
+</dom-module>

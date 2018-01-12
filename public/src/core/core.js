@@ -785,5 +785,19 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getWithdrawals(limit) {
+    let details = RestUtils.admin_getWithdrawals(this._keys.address, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-withdrawals";
+    return this.rest.post(url, request);
+  }
+
+  admin_updateWithdrawal(id, state, paymentReferenceId) {
+    let details = RestUtils.admin_updateWithdrawal(this._keys.address, id, state, paymentReferenceId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-update-withdrawal";
+    return this.rest.post(url, request);
+  }
+
 }
 window.customElements.define(CoreService.is, CoreService);

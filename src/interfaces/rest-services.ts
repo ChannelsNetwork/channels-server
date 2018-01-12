@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, ManualWithdrawalRecord, ManualWithdrawalState } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -737,6 +737,34 @@ export interface AdminUpdateCardDetails extends Signable {
 }
 
 export interface AdminUpdateCardResponse extends RestResponse { }
+
+export interface AdminGetWithdrawalsDetails extends Signable {
+  limit: number;
+}
+
+export interface AdminGetWithdrawalsResponse extends RestResponse {
+  withdrawals: ManualWithdrawalInfo[];
+}
+
+export interface ManualWithdrawalInfo {
+  record: ManualWithdrawalRecord;
+  user: {
+    id: string;
+    handle: string;
+    email: string;
+    name: string;
+    balance: number;
+  };
+  lastUpdatedByName: string;
+}
+
+export interface AdminUpdateWithdrawalDetails extends Signable {
+  id: string;
+  state: ManualWithdrawalState;
+  paymentReferenceId: string;
+}
+
+export interface AdminUpdateWithdrawalResponse extends RestResponse { }
 
 export interface QueryPageDetails extends Signable {
   url: string;

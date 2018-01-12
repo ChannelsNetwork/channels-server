@@ -455,7 +455,7 @@ export interface ManualWithdrawalRecord {
   paymentReferenceId: string;
 }
 
-export type ManualWithdrawalState = "pending" | "canceled" | "paid";
+export type ManualWithdrawalState = "pending" | "canceled" | "paid" | "denied";
 
 export interface BankDepositRecord {
   id: string;
