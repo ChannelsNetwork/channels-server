@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -125,6 +125,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-set-user-mailing-list'), (request: Request, response: Response) => {
       void this.handleAdminSetUserMailingList(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-set-user-curation'), (request: Request, response: Response) => {
+      void this.handleAdminSetUserCuration(request, response);
     });
   }
 
@@ -634,7 +637,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
       const usersWithData: AdminUserInfo[] = [];
       for (const userInfo of users) {
-        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false);
+        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false, false);
         let privateCards = 0;
         let cardRevenue = 0;
         for (const card of cards) {
@@ -652,13 +655,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             cardsBought++;
           }
         }
+        const cardsSold = await this.countUserPaidOpens(userInfo, 0, Date.now());
         const item: AdminUserInfo = {
           user: userInfo,
           cardsPosted: cards.length,
           privateCards: privateCards,
           cardRevenue: cardRevenue,
           cardsBought: cardsBought,
-          cardsOpened: cardsOpened
+          cardsOpened: cardsOpened,
+          cardsSold: cardsSold
         };
         usersWithData.push(item);
       }
@@ -701,6 +706,63 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleAdminSetUserCuration(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminSetUserCurationDetails>;
+      const admin = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!admin) {
+        return;
+      }
+      if (!admin.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      const user = await db.findUserById(requestBody.detailsObject.userId);
+      if (!user) {
+        response.status(404).send("No such user");
+        return;
+      }
+      console.log("UserManager.admin-set-user-mailing-list", user.id, requestBody.detailsObject);
+      if (requestBody.detailsObject.curation !== user.curation && requestBody.detailsObject.curation === "blocked") {
+        const yesterday = Date.now() - 1000 * 60 * 60 * 24;
+        const oldPaidOpens = await this.countUserPaidOpens(user, 0, yesterday);
+        if (oldPaidOpens > 0) {
+          const oldRecord = await db.getNetworkCardStatsAt(yesterday);
+          if (oldRecord) {
+            await db.incrementNetworkCardStatBlockedOpens(oldRecord.periodStarting, oldPaidOpens);
+          }
+        }
+        const todayPaidOpens = await this.countUserPaidOpens(user, yesterday, Date.now());
+        if (todayPaidOpens) {
+          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, todayPaidOpens);
+        }
+      }
+      if (requestBody.detailsObject.curation === 'blocked') {
+        await db.updateCardsBlockedByAuthor(user.id, true);
+      } else if (requestBody.detailsObject.curation === 'discounted') {
+        await db.updateCardsLastScoredByAuthor(user.id, true);
+      }
+      await db.updateUserCuration(user.id, requestBody.detailsObject.curation);
+      const reply: AdminSetUserCurationResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleAdminSetUserCuration: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async countUserPaidOpens(user: UserRecord, from: number, to: number): Promise<number> {
+    const cursor = db.findCardsByAuthor(user.id);
+    let result = 0;
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      result += await db.countCardPayments(card.id, from, to);
+    }
+    return result;
+  }
+
   async getUserById(id: string): Promise<UserRecord> {
     return await db.findUserById(id);
   }
@@ -726,7 +788,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         valid: false,
         inUse: false
       };
-      if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
+      if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
         response.json(reply);
         return;
       }

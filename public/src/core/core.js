@@ -785,5 +785,12 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_setUserCuration(userId, curation) {
+    let details = RestUtils.admin_setUserCuration(this._keys.address, userId, curation);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-set-user-curation";
+    return this.rest.post(url, request);
+  }
+
 }
 window.customElements.define(CoreService.is, CoreService);

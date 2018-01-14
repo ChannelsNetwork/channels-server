@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -386,6 +386,7 @@ export class Database {
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
+    await this.networkCardStats.updateMany({ "stats.blockedPaidOpens": { $exists: false } }, { $set: { "stats.blockedPaidOpens": 0 } });
   }
 
   private async initializeIpAddresses(): Promise<void> {
@@ -506,6 +507,10 @@ export class Database {
         zip: zip
       }
     });
+  }
+
+  async updateUserCuration(userId: string, curation: UserCurationType): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { curation: curation } });
   }
 
   async clearRecoveryCode(user: UserRecord): Promise<void> {
@@ -1057,6 +1062,14 @@ export class Database {
     card.state = state;
   }
 
+  async updateCardsBlockedByAuthor(userId: string, blocked: boolean): Promise<void> {
+    await this.cards.updateMany({ "by.id": userId }, { $set: { "curation.block": blocked } });
+  }
+
+  async updateCardsLastScoredByAuthor(userId: string, blocked: boolean): Promise<void> {
+    await this.cards.updateMany({ "by.id": userId }, { $set: { lastScored: 0 } });
+  }
+
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
     return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }, { searchText: 0 }).toArray();
   }
@@ -1065,15 +1078,25 @@ export class Database {
     return await this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findCardsBySearch(searchText: string, skip: number, limit = 50): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({
-      state: "active", "curation.block": false, private: false, $text: { $search: searchText }
-    }, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+  async findCardsBySearch(searchText: string, skip: number, limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = {
+      state: "active",
+      "curation.block": false,
+      private: false,
+      $text: { $search: searchText }
+    };
+    return await this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
+  findCardsByAuthor(userId: string): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ "by.id": userId });
+  }
+
+  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
+    if (excludeBlocked) {
+      query["curation.block"] = false;
+    }
     query["by.id"] = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
@@ -1107,7 +1130,6 @@ export class Database {
 
   async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
     this.addAuthorClause(query, userId);
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
@@ -1121,7 +1143,6 @@ export class Database {
 
   async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
     this.addAuthorClause(query, userId);
     query["stats.revenue.value"] = lessThan > 0 ? { $lt: lessThan, $gt: 0 } : { $gt: 0 };
     return this.cards.find(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
@@ -1130,13 +1151,12 @@ export class Database {
   private addAuthorClause(query: any, userId: string): void {
     query.$or = [
       { "by.id": userId },
-      { private: false }
+      { private: false, "curation.block": false }
     ];
   }
 
   async findCardsByScore(limit: number, userId: string, ads: boolean, scoreLessThan = 0): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
     this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     if (scoreLessThan) {
@@ -1145,13 +1165,10 @@ export class Database {
     return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
   }
 
-  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit = 24): Promise<CardRecord[]> {
-    const query: any = {
-      state: "active",
-      "curation.block": false,
-      private: false,
-      keywords: { $in: this.cleanKeywords(keywords) }
-    };
+  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    this.addAuthorClause(query, userId);
+    query.keywords = { $in: this.cleanKeywords(keywords) };
     if (scoreLessThan > 0) {
       query.score = { $lt: scoreLessThan };
     }
@@ -1993,7 +2010,8 @@ export class Database {
       paidOpens: 0,
       likes: 0,
       dislikes: 0,
-      cardRevenue: 0
+      cardRevenue: 0,
+      blockedPaidOpens: 0
     };
     return stats;
   }
@@ -2012,10 +2030,10 @@ export class Database {
   }
 
   async incrementNetworkCardStats(stats: NetworkCardStats): Promise<void> {
-    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks);
+    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks, stats.blockedPaidOpens);
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
@@ -2038,6 +2056,9 @@ export class Database {
     if (dislikes) {
       update["stats.dislikes"] = dislikes;
     }
+    if (blockedPaidOpens) {
+      update["stats.blockedPaidOpens"] = blockedPaidOpens;
+    }
     let retries = 0;
     while (retries++ < 5) {
       const statsRecord = await this.ensureNetworkCardStats();
@@ -2047,6 +2068,10 @@ export class Database {
       }
     }
     console.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions");
+  }
+
+  async incrementNetworkCardStatBlockedOpens(periodStarting: number, blockedPaidOpens: number): Promise<void> {
+    await this.networkCardStats.updateMany({ periodStarting: { $gte: periodStarting } }, { $inc: { "stats.blockedPaidOpens": blockedPaidOpens } });
   }
 
   async insertIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
