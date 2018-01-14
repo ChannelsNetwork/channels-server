@@ -1079,9 +1079,12 @@ export class Database {
   }
 
   async findCardsBySearch(searchText: string, skip: number, limit: number, userId: string): Promise<CardRecord[]> {
-    const query: any = { state: "active" };
-    this.addAuthorClause(query, userId);
-    query["$text"] = { $search: searchText };
+    const query: any = {
+      state: "active",
+      "curation.block": false,
+      private: false,
+      $text: { $search: searchText }
+    };
     return await this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
@@ -1765,10 +1768,6 @@ export class Database {
 
   async findRecentCardOpens(userId: string, limit = 25, before = 0): Promise<UserCardInfoRecord[]> {
     const query: any = { userId: userId };
-    query.$or = [
-      { "by.id": userId },
-      { "curation.block": false }
-    ];
     query.lastOpened = before > 0 ? { $lt: before, $gt: 0 } : { $gt: 0 };
     return await this.userCardInfo.find<UserCardInfoRecord>(query).sort({ lastOpened: -1 }).limit(limit).toArray();
   }

@@ -502,7 +502,9 @@ export class FeedManager implements Initializable, RestServer {
     for (const info of infos) {
       const card = await db.findCardById(info.cardId, false);
       if (card) {
-        cards.push(card);
+        if (card.by.id === user.id || !card.curation || !card.curation.block) {
+          cards.push(card);
+        }
       }
     }
     const result = await this.populateCards(cards, false, user, startWithCardId);
