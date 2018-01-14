@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, UserCurationType } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -654,6 +654,7 @@ export interface AdminUserInfo {
   cardRevenue: number;
   cardsOpened: number;
   cardsBought: number;
+  cardsSold: number;
 }
 
 export interface AdminGetGoalsDetails extends Signable { }
@@ -737,6 +738,13 @@ export interface AdminUpdateCardDetails extends Signable {
 }
 
 export interface AdminUpdateCardResponse extends RestResponse { }
+
+export interface AdminSetUserCurationDetails extends Signable {
+  userId: string;
+  curation: UserCurationType;
+}
+
+export interface AdminSetUserCurationResponse extends RestResponse { }
 
 export interface QueryPageDetails extends Signable {
   url: string;

@@ -538,6 +538,15 @@ class RestUtils {
     };
   }
 
+  static admin_setUserCuration(address, userId, curation) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      userId: userId,
+      curation: curation
+    };
+  }
+
   static queryPage(address, url) {
     return {
       address: address,

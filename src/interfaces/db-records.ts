@@ -514,6 +514,7 @@ export interface NetworkCardStats {
   likes: number;
   dislikes: number;
   cardRevenue: number;
+  blockedPaidOpens: number;
 }
 
 export interface IpAddressRecord {
