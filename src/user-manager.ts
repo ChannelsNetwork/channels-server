@@ -788,7 +788,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         valid: false,
         inUse: false
       };
-      if (!/^[a-z][a-z0-9\_]{2,14}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
+      if (!/^[a-z][a-z0-9\_]{2,22}[a-z0-9]$/i.test(requestBody.detailsObject.handle)) {
         response.json(reply);
         return;
       }
