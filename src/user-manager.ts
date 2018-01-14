@@ -637,7 +637,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
       const usersWithData: AdminUserInfo[] = [];
       for (const userInfo of users) {
-        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false);
+        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false, false);
         let privateCards = 0;
         let cardRevenue = 0;
         for (const card of cards) {

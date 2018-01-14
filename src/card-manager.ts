@@ -624,7 +624,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const statsNow = await db.ensureNetworkCardStats();
     const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
     const totalCardPurchases = (statsNow.stats.paidOpens - (statsNow.stats.blockedPaidOpens || 0)) - (yesterdaysStats.stats.paidOpens - (yesterdaysStats.stats.blockedPaidOpens || 0));
-    const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen(subsidyDay.newUserBonus);
+    const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen();
     await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
@@ -652,11 +652,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return amount;
   }
 
-  async calculateCurrentPublisherSubsidiesPerPaidOpen(maxBonus: number): Promise<number> {
+  async calculateCurrentPublisherSubsidiesPerPaidOpen(): Promise<number> {
     const statsNow = await db.ensureNetworkCardStats();
     const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
     const totalCardPurchases = (statsNow.stats.paidOpens - (statsNow.stats.blockedPaidOpens || 0)) - (yesterdaysStats.stats.paidOpens - (yesterdaysStats.stats.blockedPaidOpens || 0));
-    const amount = Math.min(maxBonus, configuration.get('subsidies.maxCoins', 150) / (totalCardPurchases || 1));
+    const amount = Math.min(configuration.get('subsidies.coinsPerOpen', 0.50), configuration.get('subsidies.maxCoins', 150) / (totalCardPurchases || 1));
     return amount;
   }
 

@@ -1078,19 +1078,22 @@ export class Database {
     return await this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findCardsBySearch(searchText: string, skip: number, limit = 50): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({
-      state: "active", "curation.block": false, private: false, $text: { $search: searchText }
-    }, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+  async findCardsBySearch(searchText: string, skip: number, limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    this.addAuthorClause(query, userId);
+    query["$text"] = { $search: searchText };
+    return await this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
   findCardsByAuthor(userId: string): Cursor<CardRecord> {
     return this.cards.find<CardRecord>({ "by.id": userId });
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
+  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
+    if (excludeBlocked) {
+      query["curation.block"] = false;
+    }
     query["by.id"] = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
@@ -1159,13 +1162,10 @@ export class Database {
     return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
   }
 
-  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit = 24): Promise<CardRecord[]> {
-    const query: any = {
-      state: "active",
-      "curation.block": false,
-      private: false,
-      keywords: { $in: this.cleanKeywords(keywords) }
-    };
+  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    this.addAuthorClause(query, userId);
+    query.keywords = { $in: this.cleanKeywords(keywords) };
     if (scoreLessThan > 0) {
       query.score = { $lt: scoreLessThan };
     }
@@ -1765,6 +1765,10 @@ export class Database {
 
   async findRecentCardOpens(userId: string, limit = 25, before = 0): Promise<UserCardInfoRecord[]> {
     const query: any = { userId: userId };
+    query.$or = [
+      { "by.id": userId },
+      { "curation.block": false }
+    ];
     query.lastOpened = before > 0 ? { $lt: before, $gt: 0 } : { $gt: 0 };
     return await this.userCardInfo.find<UserCardInfoRecord>(query).sort({ lastOpened: -1 }).limit(limit).toArray();
   }

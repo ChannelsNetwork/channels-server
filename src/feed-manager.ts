@@ -467,7 +467,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false);
+    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false);
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
@@ -483,7 +483,7 @@ export class FeedManager implements Initializable, RestServer {
     const author = channelHandle ? await db.findUserByHandle(channelHandle) : null;
     let cards: CardRecord[] = [];
     if (author) {
-      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true);
+      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true, user.id !== author.id);
     }
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
@@ -525,7 +525,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       return emptyResult;
     }
-    const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1);
+    const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1, user.id);
     const result = await this.populateCards(cards, false, user);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
@@ -1115,7 +1115,7 @@ export class FeedManager implements Initializable, RestServer {
       limit = 50;
     }
     const culledRecords: CardRecord[] = [];
-    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
+    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1, user.id);
     if (cardRecords.length > 0) {
       const max = (cardRecords[0] as any).searchScore as number;
       for (const cardRecord of cardRecords) {
