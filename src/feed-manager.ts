@@ -1050,6 +1050,7 @@ export class FeedManager implements Initializable, RestServer {
   private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
     const details: BankCouponDetails = {
       address: user.user.address,
+      fingerprint: null,
       timestamp: Date.now(),
       reason: reason,
       amount: amount,
@@ -1086,6 +1087,7 @@ export class FeedManager implements Initializable, RestServer {
     const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, null, null, null, null, null, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
+      fingerprint: null,
       timestamp: null,
       type: "transfer",
       reason: "grant",

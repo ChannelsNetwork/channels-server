@@ -83,6 +83,7 @@ export class NetworkEntity implements Initializable {
         const grant: BankTransactionDetails = {
           timestamp: null,
           address: null,
+          fingerprint: null,
           type: "transfer",
           reason: "grant",
           amount: Math.max(5, user.balance),
@@ -97,6 +98,7 @@ export class NetworkEntity implements Initializable {
           const interestPayment: BankTransactionDetails = {
             timestamp: null,
             address: null,
+            fingerprint: null,
             type: "transfer",
             reason: "interest",
             amount: interest,

@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -89,9 +89,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private registerHandlers(): void {
     this.app.post(this.urlManager.getDynamicUrl('register-user'), (request: Request, response: Response) => {
       void this.handleRegisterUser(request, response);
-    });
-    this.app.post(this.urlManager.getDynamicUrl('register-device'), (request: Request, response: Response) => {
-      void this.handleRegisterDevice(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('sign-in'), (request: Request, response: Response) => {
       void this.handleSignIn(request, response);
@@ -190,6 +187,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           const reward: BankTransactionDetails = {
             timestamp: null,
             address: null,
+            fingerprint: null,
             type: "transfer",
             reason: "inviter-reward",
             amount: INVITER_REWARD,
@@ -210,6 +208,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         const grant: BankTransactionDetails = {
           timestamp: null,
           address: null,
+          fingerprint: null,
           type: "transfer",
           reason: "grant",
           amount: INITIAL_BALANCE,
@@ -223,6 +222,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           const inviteeRewardDetails: BankTransactionDetails = {
             timestamp: null,
             address: null,
+            fingerprint: null,
             type: "transfer",
             reason: "invitee-reward",
             amount: inviteeReward,
@@ -234,6 +234,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           userRecord.balance += inviteeReward;
         }
       }
+      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
 
       const userStatus = await this.getUserStatus(userRecord, true);
       const registerResponse: RegisterUserResponse = {
@@ -300,37 +301,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.warn("User.initiateIpAddressUpdate: failure fetching IP geo info", err);
     }
     return null;
-  }
-
-  private async handleRegisterDevice(request: Request, response: Response): Promise<void> {
-    try {
-      const requestBody = request.body as RestRequest<RegisterDeviceDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-      if (!user) {
-        return;
-      }
-      if (!requestBody.detailsObject.token || !requestBody.detailsObject.type) {
-        response.status(400).send("Device token is missing or invalid");
-        return;
-      }
-      console.log("UserManager.register-device", requestBody.detailsObject.address, requestBody.detailsObject);
-      const existing = await db.findDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token);
-      if (existing) {
-        if (user.address !== existing.userAddress) {
-          response.status(409).send("This device token is already associated with a different user");
-          return;
-        }
-      } else {
-        await db.insertDeviceToken(requestBody.detailsObject.type, requestBody.detailsObject.token, requestBody.detailsObject.address);
-      }
-      const reply: RegisterDeviceResponse = {
-        serverVersion: SERVER_VERSION
-      };
-      response.json(reply);
-    } catch (err) {
-      console.error("User.handleRegisterDevice: Failure", err);
-      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
-    }
   }
 
   private async handleSignIn(request: Request, response: Response): Promise<void> {
@@ -891,6 +861,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         const subsidyDetails: BankTransactionDetails = {
           timestamp: null,
           address: null,
+          fingerprint: null,
           type: "transfer",
           reason: "subsidy",
           amount: subsidy,
@@ -913,6 +884,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         const grant: BankTransactionDetails = {
           timestamp: null,
           address: null,
+          fingerprint: null,
           type: "transfer",
           reason: "interest",
           amount: interest,

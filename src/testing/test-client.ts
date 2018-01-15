@@ -6,7 +6,7 @@ import { TextDecoder, TextEncoder } from 'text-encoding';
 import * as url from "url";
 import { RestServer } from "../interfaces/rest-server";
 import { UrlManager } from "../url-manager";
-import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, GetNewsDetails, GetNewsResponse, EnsureChannelComponentDetails, ChannelComponentResponse, GetFeedsDetails, PostCardDetails, CardImpressionDetails, GetFeedsResponse, PostCardResponse, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardDescriptor, GetCardDetails, GetCardResponse } from "../interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, Signable, RegisterUserResponse, UserStatusDetails, UserStatusResponse, UpdateUserIdentityDetails, UpdateUserIdentityResponse, GetUserIdentityDetails, GetUserIdentityResponse, EnsureChannelComponentDetails, ChannelComponentResponse, GetFeedsDetails, PostCardDetails, CardImpressionDetails, GetFeedsResponse, PostCardResponse, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardDescriptor, GetCardDetails, GetCardResponse } from "../interfaces/rest-services";
 import * as NodeRSA from "node-rsa";
 import { KeyUtils } from "../key-utils";
 import * as rq from 'request';
@@ -152,6 +152,7 @@ class TestClient implements RestServer {
   private async installCard(): Promise<void> {
     const details: EnsureChannelComponentDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       package: "ChannelElementsTeam/card-sample-hello-world"
     };
@@ -204,6 +205,7 @@ class TestClient implements RestServer {
   private async registerUser(): Promise<void> {
     const details: RegisterUserDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       publicKey: this.keyInfo.publicKeyPem,
       timestamp: Date.now(),
       referrer: null,
@@ -238,6 +240,7 @@ class TestClient implements RestServer {
   private async getIdentity(): Promise<void> {
     const details: GetUserIdentityDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now()
     };
     const detailsString = JSON.stringify(details);
@@ -299,6 +302,7 @@ class TestClient implements RestServer {
   private async getStatus(): Promise<void> {
     const details: UserStatusDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       appVersion: APP_VERSION
     };
@@ -363,6 +367,7 @@ class TestClient implements RestServer {
     const details: UpdateUserIdentityDetails = {
       imageUrl: null,
       address: this.keyInfo.address,
+      fingerprint: null,
       name: name,
       location: location,
       handle: handle,
@@ -396,6 +401,7 @@ class TestClient implements RestServer {
   private async getFeed(): Promise<void> {
     const details: GetFeedsDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       feeds: [{ type: 'recommended', maxCount: 5 },
       { type: 'top', maxCount: 5 },
@@ -456,6 +462,7 @@ class TestClient implements RestServer {
   private async postCard(): Promise<void> {
     const details: PostCardDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       text: "hello world",
       keywords: ["test"],
@@ -499,6 +506,7 @@ class TestClient implements RestServer {
   private async getCard(cardId: string): Promise<void> {
     const details: GetCardDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       cardId: cardId
     };
@@ -562,6 +570,7 @@ class TestClient implements RestServer {
   private async cardOpened(cardId: string): Promise<void> {
     const details: CardOpenedDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       cardId: cardId
     };
@@ -593,6 +602,7 @@ class TestClient implements RestServer {
   private async cardPay(card: CardDescriptor): Promise<void> {
     const transaction: BankTransactionDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       type: "transfer",
       reason: "card-open-fee",
@@ -609,6 +619,7 @@ class TestClient implements RestServer {
     const transactionSignature = KeyUtils.signString(transactionString, this.keyInfo);
     const details: CardPayDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       transaction: {
         objectString: transactionString,
@@ -643,6 +654,7 @@ class TestClient implements RestServer {
   private async cardClosed(cardId: string): Promise<void> {
     const details: CardClosedDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       cardId: cardId
     };
@@ -674,6 +686,7 @@ class TestClient implements RestServer {
   private async cardLike(cardId: string): Promise<void> {
     const details: UpdateCardLikeDetails = {
       address: this.keyInfo.address,
+      fingerprint: null,
       timestamp: Date.now(),
       cardId: cardId,
       selection: "like"

@@ -378,6 +378,7 @@ export interface UserCardActionRecord {
   id: string;
   userId: string;
   fromIpAddress: string;
+  fromFingerprint: string;
   cardId: string;
   at: number;
   action: CardActionType;
@@ -540,3 +541,13 @@ export interface IpAddressRecord {
 }
 
 export type IpAddressStatus = "success" | "fail";
+
+export interface UserRegistrationRecord {
+  userId: string;
+  at: number;
+  ipAddress: string;
+  fingerprint: string;
+  address: string;
+  referrer: string;
+  landingPage: string;
+}
