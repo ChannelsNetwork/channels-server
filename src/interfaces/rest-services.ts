@@ -40,7 +40,7 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
 }
 
 export interface SignInDetails extends Signable {
-  handle: string;
+  handleOrEmailAddress: string;
 }
 
 export interface SignInResponse {
