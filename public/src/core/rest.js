@@ -577,6 +577,25 @@ class RestUtils {
     };
   }
 
+  static admin_getWithdrawals(address, fingerprint, limit) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      limit: limit
+    };
+  }
+
+  static admin_updateWithdrawal(address, fingerprint, id, state, paymentReferenceId) {
+    return {
+      address: address,
+      timestamp: RestUtils.now(),
+      id: id,
+      state: state,
+      paymentReferenceId: paymentReferenceId
+    };
+  }
+
   static admin_setUserCuration(address, fingerprint, userId, curation) {
     return {
       address: address,

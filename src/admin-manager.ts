@@ -6,7 +6,7 @@ import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { SERVER_VERSION } from "./server-version";
-import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo } from "./interfaces/rest-services";
+import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
@@ -24,6 +24,12 @@ export class AdminManager implements RestServer {
   private registerHandlers(): void {
     this.app.post(this.urlManager.getDynamicUrl('admin-goals'), (request: Request, response: Response) => {
       void this.handleGetAdminGoals(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-withdrawals'), (request: Request, response: Response) => {
+      void this.handleGetWithdrawals(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-update-withdrawal'), (request: Request, response: Response) => {
+      void this.handleUpdateWithdrawal(request, response);
     });
   }
   private async handleGetAdminGoals(request: Request, response: Response): Promise<void> {
@@ -55,7 +61,7 @@ export class AdminManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("ClientServices.handleQueryPage: Failure", err);
+      console.error("AdminManager.handleGetAdminGoals: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -263,6 +269,88 @@ export class AdminManager implements RestServer {
       }
     }
     return result;
+  }
+
+  private async handleGetWithdrawals(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetWithdrawalsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      console.log("AdminManager.admin-get-withdrawals", user.id, requestBody.detailsObject);
+      const withdrawals: ManualWithdrawalInfo[] = [];
+      const records = await db.listManualWithdrawals(requestBody.detailsObject.limit);
+      for (const record of records) {
+        let lastUpdatedByName: string;
+        if (record.lastUpdatedBy) {
+          const lastUpdateByUser = await db.findUserById(record.lastUpdatedBy);
+          if (lastUpdateByUser) {
+            lastUpdatedByName = lastUpdateByUser.identity.name;
+          }
+        }
+        const withdrawal: ManualWithdrawalInfo = {
+          record: record,
+          user: {
+            id: null,
+            handle: null,
+            email: null,
+            name: null,
+            balance: null
+          },
+          lastUpdatedByName: lastUpdatedByName
+        };
+        const withdrawalUser = await db.findUserById(record.userId);
+        if (withdrawalUser) {
+          withdrawal.user.id = withdrawalUser.id;
+          withdrawal.user.handle = withdrawalUser.identity.handle;
+          withdrawal.user.email = withdrawalUser.identity.emailAddress;
+          withdrawal.user.name = withdrawalUser.identity.name;
+          withdrawal.user.balance = withdrawalUser.balance;
+        }
+        withdrawals.push(withdrawal);
+      }
+      const reply: AdminGetWithdrawalsResponse = {
+        serverVersion: SERVER_VERSION,
+        withdrawals: withdrawals
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("AdminManager.handleGetWithdrawals: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleUpdateWithdrawal(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminUpdateWithdrawalDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      console.log("AdminManager.admin-update-withdrawal", user.id, requestBody.detailsObject);
+      const record = await db.findManualWithdrawalById(requestBody.detailsObject.id);
+      if (!record) {
+        response.status(404).send("No such record");
+        return;
+      }
+      await db.updateManualWithdrawal(record.id, requestBody.detailsObject.state, requestBody.detailsObject.state === "paid" ? requestBody.detailsObject.paymentReferenceId : null, user.id);
+      const reply: AdminUpdateWithdrawalResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("AdminManager.handleUpdateWithdrawal: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
   }
 }
 

@@ -1873,6 +1873,26 @@ export class Database {
     return record;
   }
 
+  async listManualWithdrawals(limit: number): Promise<ManualWithdrawalRecord[]> {
+    return await this.manualWithdrawals.find<ManualWithdrawalRecord>({}).sort({ created: -1 }).limit(limit ? limit : 100).toArray();
+  }
+
+  async findManualWithdrawalById(id: string): Promise<ManualWithdrawalRecord> {
+    return await this.manualWithdrawals.findOne<ManualWithdrawalRecord>({ id: id });
+  }
+
+  async updateManualWithdrawal(id: string, state: ManualWithdrawalState, paymentReferenceId: string, byUserId: string): Promise<void> {
+    const update: any = {
+      state: state,
+      lastUpdated: Date.now(),
+      lastUpdatedBy: byUserId
+    };
+    if (paymentReferenceId) {
+      update.paymentReferenceId = paymentReferenceId;
+    }
+    await this.manualWithdrawals.updateOne({ id: id }, { $set: update });
+  }
+
   async insertCardStatsHistory(cardId: string, statName: string, value: number, at: number): Promise<CardStatisticHistoryRecord> {
     const record: CardStatisticHistoryRecord = {
       cardId: cardId,
