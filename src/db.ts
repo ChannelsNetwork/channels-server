@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, UserRegistrationRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -38,6 +38,7 @@ export class Database {
   private cardTopics: Collection;
   private networkCardStats: Collection;
   private ipAddresses: Collection;
+  private userRegistrations: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -70,6 +71,7 @@ export class Database {
     await this.initializeCardTopics();
     await this.initializeNetworkCardStats();
     await this.initializeIpAddresses();
+    await this.initializeUserRegistrations();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -304,7 +306,7 @@ export class Database {
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
-    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1 });
+    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
     await this.userCardActions.createIndex({ at: -1 });
   }
 
@@ -392,6 +394,12 @@ export class Database {
   private async initializeIpAddresses(): Promise<void> {
     this.ipAddresses = this.db.collection('ipAddresses');
     await this.ipAddresses.createIndex({ ipAddress: 1 }, { unique: true });
+  }
+
+  private async initializeUserRegistrations(): Promise<void> {
+    this.userRegistrations = this.db.collection('userRegistrations');
+    await this.userRegistrations.createIndex({ userId: 1, at: -1 });
+    await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1637,11 +1645,12 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, fromIpAddress: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
       fromIpAddress: fromIpAddress,
+      fromFingerprint: fromFingerprint,
       cardId: cardId,
       at: at,
       action: action,
@@ -1688,8 +1697,8 @@ export class Database {
     return await this.userCardActions.count({ userId: userId, action: "pay" });
   }
 
-  async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress });
+  async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string, fromFingerprint: string): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
@@ -2159,6 +2168,25 @@ export class Database {
     }
     await this.ipAddresses.update({ ipAddress: ipAddress.toLowerCase() }, { $set: update });
     return await this.findIpAddress(ipAddress);
+  }
+
+  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
+    const record: UserRegistrationRecord = {
+      userId: userId,
+      at: Date.now(),
+      ipAddress: ipAddress ? ipAddress.toLowerCase() : null,
+      fingerprint: fingerprint,
+      address: address,
+      referrer: referrer,
+      landingPage: landingPage
+    };
+    await this.userRegistrations.insertOne(record);
+    return record;
+  }
+
+  async existsUserRegistration(userId: string, ipAddress: string, fingerprint: string): Promise<boolean> {
+    const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, ipAddress: ipAddress.toLowerCase(), fingerprint: fingerprint }).limit(1).toArray();
+    return record.length > 0 ? true : false;
   }
 }
 

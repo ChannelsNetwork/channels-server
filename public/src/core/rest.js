@@ -84,26 +84,31 @@ class RestUtils {
     return (new Date()).getTime();
   }
 
-  static registerUserDetails(address, publicKey, inviteCode, referrer, landingPageUrl) {
+  static registerUserDetails(address, fingerprint, publicKey, inviteCode, referrer, landingPageUrl) {
     return {
       publicKey: publicKey,
       inviteCode: inviteCode,
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       referrer: referrer,
       landingUrl: landingPageUrl
     };
   }
 
-  static signInDetails(handle) {
+  static signInDetails(address, fingerprint, handle) {
     return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
       handle: handle
     };
   }
 
-  static accountStatusDetails(address) {
+  static accountStatusDetails(address, fingerprint) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
@@ -115,17 +120,18 @@ class RestUtils {
     };
   }
 
-  static recoverUserDetails(address, code, handle, encryptedPrivateKey) {
+  static recoverUserDetails(address, fingerprint, code, handle, encryptedPrivateKey) {
     return {
       code: code,
       handle: handle,
       encryptedPrivateKey: encryptedPrivateKey,
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static updateIdentityDetails(address, name, handle, location, imageUrl, emailAddress, encryptedPrivateKey) {
+  static updateIdentityDetails(address, fingerprint, name, handle, location, imageUrl, emailAddress, encryptedPrivateKey) {
     return {
       name: name,
       handle: handle,
@@ -134,42 +140,47 @@ class RestUtils {
       emailAddress: emailAddress,
       encryptedPrivateKey: encryptedPrivateKey,
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static getUserIdentityDetails(address) {
+  static getUserIdentityDetails(address, fingerprint) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static getHandleDetails(address, handle) {
-    return {
-      handle: handle,
-      address: address,
-      timestamp: RestUtils.now()
-    };
-  }
-
-  static checkHandleDetails(address, handle) {
+  static getHandleDetails(address, fingerprint, handle) {
     return {
       handle: handle,
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static ensureComponentDetails(address, packageName) {
+  static checkHandleDetails(address, fingerprint, handle) {
+    return {
+      handle: handle,
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static ensureComponentDetails(address, fingerprint, packageName) {
     return {
       package: packageName,
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static getFeedsDetails(address, maxCount, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
+  static getFeedsDetails(address, fingerprint, maxCount, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
       const feed = { type: type, maxCount: maxCount };
@@ -194,6 +205,7 @@ class RestUtils {
     }
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       feeds: feeds,
       startWithCardId: startWithCardId,
@@ -201,17 +213,19 @@ class RestUtils {
     };
   }
 
-  static getCardDetails(address, cardId) {
+  static getCardDetails(address, fingerprint, cardId) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
   }
 
-  static postCardDetails(address, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, fingerprint, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       imageUrl: imageUrl,
       imageWidth: imageWidth,
@@ -241,9 +255,10 @@ class RestUtils {
     return result;
   }
 
-  static updateCardStateDetails(address, cardId, summary, state, keywords) {
+  static updateCardStateDetails(address, fingerprint, cardId, summary, state, keywords) {
     const result = {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
@@ -270,9 +285,10 @@ class RestUtils {
     };
   }
 
-  static updateCardPricing(address, cardId, pricing) {
+  static updateCardPricing(address, fingerprint, cardId, pricing) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       pricing: pricing
     };
@@ -294,9 +310,10 @@ class RestUtils {
     return result;
   }
 
-  static cardImpressionDetails(address, cardId, transactionString, transactionSignature) {
+  static cardImpressionDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
     const result = {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
     };
@@ -309,25 +326,28 @@ class RestUtils {
     return result;
   }
 
-  static cardOpenedDetails(address, cardId) {
+  static cardOpenedDetails(address, fingerprint, cardId) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
   }
 
-  static cardClickedDetails(address, cardId) {
+  static cardClickedDetails(address, fingerprint, cardId) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
   }
 
-  static cardPayDetails(address, cardId, transactionString, transactionSignature) {
+  static cardPayDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       transaction: {
         objectString: transactionString,  // serialized bankTransaction
@@ -336,9 +356,10 @@ class RestUtils {
     };
   }
 
-  static cardRedeemOpenDetails(address, cardId, transactionString, transactionSignature) {
+  static cardRedeemOpenDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       transaction: {
@@ -348,26 +369,29 @@ class RestUtils {
     };
   }
 
-  static updateCardPrivateDetails(address, cardId, isPrivate) {
+  static updateCardPrivateDetails(address, fingerprint, cardId, isPrivate) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       private: isPrivate
     };
   }
 
-  static deleteCardDetails(address, cardId) {
+  static deleteCardDetails(address, fingerprint, cardId) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
   }
 
-  static getCouponDetails(address, reason, amount, budgetAmount, budgetPlusPercent) {
+  static getCouponDetails(address, fingerprint, reason, amount, budgetAmount, budgetPlusPercent) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       reason: reason,
       amount: amount,
@@ -386,9 +410,10 @@ class RestUtils {
     };
   }
 
-  static bankTransaction(address, type, reason, cardId, couponId, amount, recipients, withdrawalRecipient) {
+  static bankTransaction(address, fingerprint, type, reason, cardId, couponId, amount, recipients, withdrawalRecipient) {
     const result = {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       type: type,                 // "transfer" | "coupon-redemption"
       reason: reason,             // "card-promotion" | "card-open"
@@ -414,17 +439,19 @@ class RestUtils {
     };
   }
 
-  static bankStatementDetails(address, maxCount) {
+  static bankStatementDetails(address, fingerprint, maxCount) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       maxCount: maxCount
     };
   }
 
-  static bankWithdraw(address, transactionString, transactionSignature) {
+  static bankWithdraw(address, fingerprint, transactionString, transactionSignature) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       transaction: {
         objectString: transactionString,  // serialized bankTransaction
@@ -433,51 +460,57 @@ class RestUtils {
     }
   }
 
-  static cardClosedDetails(address, cardId) {
+  static cardClosedDetails(address, fingerprint, cardId) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId
     };
   }
 
-  static updateCardLikeDetails(address, cardId, selection) {
+  static updateCardLikeDetails(address, fingerprint, cardId, selection) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       selection: selection    // "like" | "none" | "dislike"
     };
   }
 
-  static cardStatsHistoryDetails(address, cardId, historyLimit) {
+  static cardStatsHistoryDetails(address, fingerprint, cardId, historyLimit) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       historyLimit: historyLimit
     };
   }
 
-  static generateClientToken(address) {
+  static generateClientToken(address, fingerprint) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static clientCheckout(address, amount, nonce) {
+  static clientCheckout(address, fingerprint, amount, nonce) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       amount: amount,
       paymentMethodNonce: nonce
     };
   }
 
-  static search(address, searchString, skip, limit, existingPromotedCardIds) {
+  static search(address, fingerprint, searchString, skip, limit, existingPromotedCardIds) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       searchString: searchString,
       skip: skip,
@@ -486,43 +519,48 @@ class RestUtils {
     };
   }
 
-  static discardFiles(address, fileIds) {
+  static discardFiles(address, fingerprint, fileIds) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       fileIds: fileIds
     };
   }
 
-  static admin_getUsers(address, withIdentityOnly, limit) {
+  static admin_getUsers(address, fingerprint, withIdentityOnly, limit) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       withIdentityOnly: withIdentityOnly,
       limit: limit
     };
   }
 
-  static admin_getCards(address, limit) {
+  static admin_getCards(address, fingerprint, limit) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       limit: limit
     };
   }
 
-  static admin_setUserMailingList(address, userId, includeInMailingList) {
+  static admin_setUserMailingList(address, fingerprint, userId, includeInMailingList) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       userId: userId,
       mailingList: includeInMailingList
     };
   }
 
-  static admin_updateCard(address, cardId, keywords, blocked, boost) {
+  static admin_updateCard(address, fingerprint, cardId, keywords, blocked, boost) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       keywords: keywords,
@@ -531,40 +569,45 @@ class RestUtils {
     };
   }
 
-  static admin_getGoals(address) {
+  static admin_getGoals(address, fingerprint) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static admin_setUserCuration(address, userId, curation) {
+  static admin_setUserCuration(address, fingerprint, userId, curation) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       userId: userId,
       curation: curation
     };
   }
 
-  static queryPage(address, url) {
+  static queryPage(address, fingerprint, url) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       url: url
     };
   }
 
-  static listTopicsDetails(address) {
+  static listTopicsDetails(address, fingerprint) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now()
     };
   }
 
-  static searchTopicDetails(address, topic, maxCount, afterCardId, promotedCardIds) {
+  static searchTopicDetails(address, fingerprint, topic, maxCount, afterCardId, promotedCardIds) {
     return {
       address: address,
+      fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       topic: topic,
       maxCount: maxCount,
