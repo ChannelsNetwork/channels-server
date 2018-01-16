@@ -705,15 +705,15 @@ export class FeedManager implements Initializable, RestServer {
     if (netLikes === 0 || networkStats.likes === 0) {
       return 0;
     }
-    let delta = 1;
+    let delta = 3;
     if (currentStats.likes) {
       delta = currentStats.likes;
     }
     if (networkStats.likes) {
-      delta = Math.max(0, delta - networkStats.likes);
+      delta = Math.max(3, delta - networkStats.likes);
     }
 
-    const ratio = Math.min(1, netLikes / (networkStats.likes || 1));
+    const ratio = Math.min(1, netLikes / (delta || 3));
     return SCORE_CARD_WEIGHT_LIKES * ratio;
   }
 
