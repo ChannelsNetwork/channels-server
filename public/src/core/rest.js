@@ -96,12 +96,12 @@ class RestUtils {
     };
   }
 
-  static signInDetails(address, fingerprint, handle) {
+  static signInDetails(address, fingerprint, handleOrEmail) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
-      handle: handle
+      handleOrEmailAddress: handleOrEmail
     };
   }
 

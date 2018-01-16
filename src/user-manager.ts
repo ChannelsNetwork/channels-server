@@ -306,14 +306,17 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleSignIn(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as SignInDetails;
-      if (!requestBody || !requestBody.handle) {
-        response.status(400).send("Missing handle");
+      if (!requestBody || !requestBody.handleOrEmailAddress) {
+        response.status(400).send("Missing handle/email");
         return;
       }
       console.log("UserManager.register-user", requestBody);
-      const user = await db.findUserByHandle(requestBody.handle);
+      let user = await db.findUserByHandle(requestBody.handleOrEmailAddress);
       if (!user) {
-        response.status(404).send("No user with this handle");
+        user = await db.findUserByEmail(requestBody.handleOrEmailAddress);
+      }
+      if (!user) {
+        response.status(404).send("No user with this handle/email");
         return;
       }
       if (!user.encryptedPrivateKey) {

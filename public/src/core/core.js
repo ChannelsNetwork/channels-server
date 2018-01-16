@@ -195,8 +195,8 @@ class CoreService extends Polymer.Element {
     }
   }
 
-  signIn(handle, password, trust) {
-    let details = RestUtils.signInDetails(this._keys.address, this._fingerprint, handle);
+  signIn(handleOrEmail, password, trust) {
+    let details = RestUtils.signInDetails(this._keys.address, this._fingerprint, handleOrEmail);
     const url = this.restBase + "/sign-in";
     return this.rest.post(url, details).then((result) => {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
