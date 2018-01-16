@@ -378,6 +378,7 @@ export interface UserCardActionRecord {
   id: string;
   userId: string;
   fromIpAddress: string;
+  fromFingerprint: string;
   cardId: string;
   at: number;
   action: CardActionType;
@@ -455,7 +456,7 @@ export interface ManualWithdrawalRecord {
   paymentReferenceId: string;
 }
 
-export type ManualWithdrawalState = "pending" | "canceled" | "paid";
+export type ManualWithdrawalState = "pending" | "canceled" | "paid" | "denied";
 
 export interface BankDepositRecord {
   id: string;
@@ -514,6 +515,7 @@ export interface NetworkCardStats {
   likes: number;
   dislikes: number;
   cardRevenue: number;
+  blockedPaidOpens: number;
 }
 
 export interface IpAddressRecord {
@@ -574,4 +576,13 @@ export interface ChannelCardRecord {
   channelId: string;
   cardId: string;
   added: number;
+}
+export interface UserRegistrationRecord {
+  userId: string;
+  at: number;
+  ipAddress: string;
+  fingerprint: string;
+  address: string;
+  referrer: string;
+  landingPage: string;
 }

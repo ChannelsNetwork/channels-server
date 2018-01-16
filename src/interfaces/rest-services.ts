@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -22,6 +22,7 @@ export interface RegisterUserDetails extends Signable {
 
 export interface Signable {
   address: string;
+  fingerprint: string;
   timestamp: number;
 }
 
@@ -38,15 +39,8 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   admin: boolean;
 }
 
-export interface RegisterDeviceDetails extends Signable {
-  type: DeviceType;
-  token: string;
-}
-
-export interface RegisterDeviceResponse extends RestResponse { }
-
-export interface SignInDetails {
-  handle: string;
+export interface SignInDetails extends Signable {
+  handleOrEmailAddress: string;
 }
 
 export interface SignInResponse {
@@ -245,23 +239,6 @@ export interface CardDescriptorStatistics {
   uniqueOpens: number;
   likes: number;
   dislikes: number;
-}
-
-export interface GetNewsDetails extends Signable {
-  maxCount: number;
-}
-
-export interface GetNewsResponse extends RestResponse {
-  items: NewsItem[];
-}
-
-export interface NewsItem {
-  id: string;
-  timestamp: number;
-  title: string;
-  text: string;
-  imageUrl: string;
-  linkUrl: string;
 }
 
 export interface EnsureChannelComponentDetails extends Signable {
@@ -654,6 +631,7 @@ export interface AdminUserInfo {
   cardRevenue: number;
   cardsOpened: number;
   cardsBought: number;
+  cardsSold: number;
 }
 
 export interface AdminGetGoalsDetails extends Signable { }
@@ -737,6 +715,40 @@ export interface AdminUpdateCardDetails extends Signable {
 }
 
 export interface AdminUpdateCardResponse extends RestResponse { }
+
+export interface AdminGetWithdrawalsDetails extends Signable {
+  limit: number;
+}
+
+export interface AdminGetWithdrawalsResponse extends RestResponse {
+  withdrawals: ManualWithdrawalInfo[];
+}
+
+export interface ManualWithdrawalInfo {
+  record: ManualWithdrawalRecord;
+  user: {
+    id: string;
+    handle: string;
+    email: string;
+    name: string;
+    balance: number;
+  };
+  lastUpdatedByName: string;
+}
+
+export interface AdminUpdateWithdrawalDetails extends Signable {
+  id: string;
+  state: ManualWithdrawalState;
+  paymentReferenceId: string;
+}
+
+export interface AdminUpdateWithdrawalResponse extends RestResponse { }
+export interface AdminSetUserCurationDetails extends Signable {
+  userId: string;
+  curation: UserCurationType;
+}
+
+export interface AdminSetUserCurationResponse extends RestResponse { }
 
 export interface QueryPageDetails extends Signable {
   url: string;

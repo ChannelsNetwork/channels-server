@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, RegisterDeviceDetails, RegisterDeviceResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -24,7 +24,7 @@ export class ChannelManager implements RestServer, Initializable {
   }
 
   async initialize2(): Promise<void> {
-
+    // noop
   }
 
   private registerHandlers(): void {

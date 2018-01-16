@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, ChannelRecord, SocialLink, ChannelUserRecord, ChannelSubscriptionState } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -40,6 +40,7 @@ export class Database {
   private ipAddresses: Collection;
   private channels: Collection;
   private channelUsers: Collection;
+  private userRegistrations: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -74,6 +75,7 @@ export class Database {
     await this.initializeIpAddresses();
     await this.initializeChannels();
     await this.initializeChannelUsers();
+    await this.initializeUserRegistrations();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -308,7 +310,7 @@ export class Database {
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
-    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1 });
+    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
     await this.userCardActions.createIndex({ at: -1 });
   }
 
@@ -390,6 +392,7 @@ export class Database {
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
+    await this.networkCardStats.updateMany({ "stats.blockedPaidOpens": { $exists: false } }, { $set: { "stats.blockedPaidOpens": 0 } });
   }
 
   private async initializeIpAddresses(): Promise<void> {
@@ -407,6 +410,12 @@ export class Database {
   private async initializeChannelUsers(): Promise<void> {
     this.channelUsers = this.db.collection('channelUsers');
     await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
+  }
+
+  private async initializeUserRegistrations(): Promise<void> {
+    this.userRegistrations = this.db.collection('userRegistrations');
+    await this.userRegistrations.createIndex({ userId: 1, at: -1 });
+    await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -522,6 +531,10 @@ export class Database {
         zip: zip
       }
     });
+  }
+
+  async updateUserCuration(userId: string, curation: UserCurationType): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { curation: curation } });
   }
 
   async clearRecoveryCode(user: UserRecord): Promise<void> {
@@ -920,6 +933,14 @@ export class Database {
     }
   }
 
+  getCardsMissingSearchText(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ searchText: { $exists: false } });
+  }
+
+  async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $set: { searchText: searchText } });
+  }
+
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
     const now = Date.now();
     await this.cards.updateOne({ id: card.id }, { $set: { score: score, lastScored: now } });
@@ -1065,6 +1086,14 @@ export class Database {
     card.state = state;
   }
 
+  async updateCardsBlockedByAuthor(userId: string, blocked: boolean): Promise<void> {
+    await this.cards.updateMany({ "by.id": userId }, { $set: { "curation.block": blocked } });
+  }
+
+  async updateCardsLastScoredByAuthor(userId: string, blocked: boolean): Promise<void> {
+    await this.cards.updateMany({ "by.id": userId }, { $set: { lastScored: 0 } });
+  }
+
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
     return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }, { searchText: 0 }).toArray();
   }
@@ -1073,15 +1102,25 @@ export class Database {
     return await this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findCardsBySearch(searchText: string, skip: number, limit = 50): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({
-      state: "active", "curation.block": false, private: false, $text: { $search: searchText }
-    }, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+  async findCardsBySearch(searchText: string, skip: number, limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = {
+      state: "active",
+      "curation.block": false,
+      private: false,
+      $text: { $search: searchText }
+    };
+    return await this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean): Promise<CardRecord[]> {
+  findCardsByAuthor(userId: string): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ "by.id": userId });
+  }
+
+  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
+    if (excludeBlocked) {
+      query["curation.block"] = false;
+    }
     query["by.id"] = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
@@ -1115,7 +1154,6 @@ export class Database {
 
   async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
     this.addAuthorClause(query, userId);
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
@@ -1129,7 +1167,6 @@ export class Database {
 
   async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
     this.addAuthorClause(query, userId);
     query["stats.revenue.value"] = lessThan > 0 ? { $lt: lessThan, $gt: 0 } : { $gt: 0 };
     return this.cards.find(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
@@ -1138,13 +1175,12 @@ export class Database {
   private addAuthorClause(query: any, userId: string): void {
     query.$or = [
       { "by.id": userId },
-      { private: false }
+      { private: false, "curation.block": false }
     ];
   }
 
   async findCardsByScore(limit: number, userId: string, ads: boolean, scoreLessThan = 0): Promise<CardRecord[]> {
     const query: any = { state: "active" };
-    query["curation.block"] = false;
     this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     if (scoreLessThan) {
@@ -1153,13 +1189,10 @@ export class Database {
     return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
   }
 
-  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit = 24): Promise<CardRecord[]> {
-    const query: any = {
-      state: "active",
-      "curation.block": false,
-      private: false,
-      keywords: { $in: this.cleanKeywords(keywords) }
-    };
+  async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit: number, userId: string): Promise<CardRecord[]> {
+    const query: any = { state: "active" };
+    this.addAuthorClause(query, userId);
+    query.keywords = { $in: this.cleanKeywords(keywords) };
     if (scoreLessThan > 0) {
       query.score = { $lt: scoreLessThan };
     }
@@ -1628,11 +1661,12 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, fromIpAddress: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, at: number, action: CardActionType, payment: number, paymentTransactionId: string, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
       fromIpAddress: fromIpAddress,
+      fromFingerprint: fromFingerprint,
       cardId: cardId,
       at: at,
       action: action,
@@ -1679,8 +1713,8 @@ export class Database {
     return await this.userCardActions.count({ userId: userId, action: "pay" });
   }
 
-  async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress });
+  async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string, fromFingerprint: string): Promise<number> {
+    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
@@ -1855,6 +1889,26 @@ export class Database {
     return record;
   }
 
+  async listManualWithdrawals(limit: number): Promise<ManualWithdrawalRecord[]> {
+    return await this.manualWithdrawals.find<ManualWithdrawalRecord>({}).sort({ created: -1 }).limit(limit ? limit : 100).toArray();
+  }
+
+  async findManualWithdrawalById(id: string): Promise<ManualWithdrawalRecord> {
+    return await this.manualWithdrawals.findOne<ManualWithdrawalRecord>({ id: id });
+  }
+
+  async updateManualWithdrawal(id: string, state: ManualWithdrawalState, paymentReferenceId: string, byUserId: string): Promise<void> {
+    const update: any = {
+      state: state,
+      lastUpdated: Date.now(),
+      lastUpdatedBy: byUserId
+    };
+    if (paymentReferenceId) {
+      update.paymentReferenceId = paymentReferenceId;
+    }
+    await this.manualWithdrawals.updateOne({ id: id }, { $set: update });
+  }
+
   async insertCardStatsHistory(cardId: string, statName: string, value: number, at: number): Promise<CardStatisticHistoryRecord> {
     const record: CardStatisticHistoryRecord = {
       cardId: cardId,
@@ -2001,7 +2055,8 @@ export class Database {
       paidOpens: 0,
       likes: 0,
       dislikes: 0,
-      cardRevenue: 0
+      cardRevenue: 0,
+      blockedPaidOpens: 0
     };
     return stats;
   }
@@ -2020,10 +2075,10 @@ export class Database {
   }
 
   async incrementNetworkCardStats(stats: NetworkCardStats): Promise<void> {
-    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks);
+    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks, stats.blockedPaidOpens);
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
@@ -2046,6 +2101,9 @@ export class Database {
     if (dislikes) {
       update["stats.dislikes"] = dislikes;
     }
+    if (blockedPaidOpens) {
+      update["stats.blockedPaidOpens"] = blockedPaidOpens;
+    }
     let retries = 0;
     while (retries++ < 5) {
       const statsRecord = await this.ensureNetworkCardStats();
@@ -2055,6 +2113,10 @@ export class Database {
       }
     }
     console.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions");
+  }
+
+  async incrementNetworkCardStatBlockedOpens(periodStarting: number, blockedPaidOpens: number): Promise<void> {
+    await this.networkCardStats.updateMany({ periodStarting: { $gte: periodStarting } }, { $inc: { "stats.blockedPaidOpens": blockedPaidOpens } });
   }
 
   async insertIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
@@ -2188,6 +2250,25 @@ export class Database {
 
   async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
     return await this.channels.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+  }
+
+  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
+    const record: UserRegistrationRecord = {
+      userId: userId,
+      at: Date.now(),
+      ipAddress: ipAddress ? ipAddress.toLowerCase() : null,
+      fingerprint: fingerprint,
+      address: address,
+      referrer: referrer,
+      landingPage: landingPage
+    };
+    await this.userRegistrations.insertOne(record);
+    return record;
+  }
+
+  async existsUserRegistration(userId: string, ipAddress: string, fingerprint: string): Promise<boolean> {
+    const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, ipAddress: ipAddress.toLowerCase(), fingerprint: fingerprint }).limit(1).toArray();
+    return record.length > 0 ? true : false;
   }
 }
 

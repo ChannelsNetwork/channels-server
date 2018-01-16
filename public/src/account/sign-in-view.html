@@ -125,7 +125,8 @@
           <div class="content">
             <h1>Sign In</h1>
             <div>
-              <soso-text-input id="handle" label="Handle" placeholder="Your Channels handle" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
+              <soso-text-input id="handleOrEmail" label="Handle or Email Address" placeholder="Your Channels handle or email address" on-input="_onInput"
+                on-keydown="_onKeyDown"></soso-text-input>
               <soso-text-input id="password" type="password" label="Password" placeholder="Your password" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
               <soso-checkbox id="trust" checked label="Remember my password"></soso-checkbox>
             </div>
@@ -174,7 +175,7 @@
       }
 
       onActivate() {
-        this.$.handle.value = "";
+        this.$.handleOrEmail.value = "";
         this.$.password.value = "";
         this._hideMessage();
         this._hideError();
@@ -187,7 +188,7 @@
           } else {
             this.$.container.classList.add("containerShowing");
             requestAnimationFrame(() => {
-              this.$.handle.input.focus();
+              this.$.handleOrEmail.input.focus();
             });
           }
         });
@@ -239,9 +240,9 @@
         if (this.$.btnSave.disabled) {
           return;
         }
-        let handle = this.$.handle.value.trim();
+        let handleOrEmail = this.$.handleOrEmail.value.trim();
         this._setMessage("Signing in");
-        $core.signIn(handle, this.$.password.value.trim(), this.$.trust.checked).then(() => {
+        $core.signIn(handleOrEmail, this.$.password.value.trim(), this.$.trust.checked).then(() => {
           window.location.assign("/");
         }).catch((err) => {
           console.error(err);
@@ -250,7 +251,7 @@
       }
 
       _onInput() {
-        let valid = this.$.handle.value && this.$.handle.value.trim().length > 0 && this.$.password.value && this.$.password.value.trim().length > 0 ? true : false;
+        let valid = this.$.handleOrEmail.value && this.$.handleOrEmail.value.trim().length > 0 && this.$.password.value && this.$.password.value.trim().length > 0 ? true : false;
         this.$.btnSave.disabled = !valid;
       }
 

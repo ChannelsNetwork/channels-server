@@ -20,7 +20,6 @@ import { feedManager } from "./feed-manager";
 import { cardManager } from "./card-manager";
 import { fileManager } from "./file-manager";
 import { rootPageManager } from "./root-page-manager";
-import { newsManager } from "./news-manager";
 import { testClient } from "./testing/test-client";
 import { awsManager } from "./aws-manager";
 import { Initializable } from "./interfaces/initializable";
@@ -48,7 +47,7 @@ class ChannelsNetworkWebClient {
   private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager, channelManager];
 
   // DO NOT INCLUDE rootPageHandler in restServers. It is added after adding the static handler
-  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, newsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager, channelManager];
+  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager, channelManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
