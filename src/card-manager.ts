@@ -569,12 +569,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       } else if (ipAddress) {
         const authorRegistrationFound = await db.existsUserRegistration(author.id, ipAddress, requestBody.detailsObject.fingerprint);
         if (authorRegistrationFound) {
-          console.warn("Card.payPay: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint");
+          console.warn("Card.payPay: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint", ipAddress, requestBody.detailsObject.fingerprint);
           skipMoneyTransfer = true;
         } else {
           const alreadyFromThisIp = await db.countUserCardsPaidFromIpAddress(card.id, ipAddress, requestBody.detailsObject.fingerprint);
           if (alreadyFromThisIp > 1) {
-            console.warn("Card.payPay: Silently skipping payment because already purchased from this address and fingerprint");
+            console.warn("Card.payPay: Silently skipping payment because already purchased from this address and fingerprint", ipAddress, requestBody.detailsObject.fingerprint);
             skipMoneyTransfer = true;
           }
         }

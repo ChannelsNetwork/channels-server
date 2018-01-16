@@ -2186,7 +2186,7 @@ export class Database {
 
   async existsUserRegistration(userId: string, ipAddress: string, fingerprint: string): Promise<boolean> {
     const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, ipAddress: ipAddress.toLowerCase(), fingerprint: fingerprint }).limit(1).toArray();
-    return record ? true : false;
+    return record.length > 0 ? true : false;
   }
 }
 
