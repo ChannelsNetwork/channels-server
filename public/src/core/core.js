@@ -418,7 +418,7 @@ class CoreService extends Polymer.Element {
     let details;
     if (couponId) {
       const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
-      const transaction = RestUtils.bankTransaction(authorAddress, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
+      const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
       details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
@@ -479,7 +479,7 @@ class CoreService extends Polymer.Element {
 
   cardOpenPaymentRedeem(cardId, couponId, amount, authorAddress) {
     const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
-    const transaction = RestUtils.bankTransaction(authorAddress, "coupon-redemption", "card-open-payment", cardId, couponId, amount, [recipient]);
+    const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-open-payment", cardId, couponId, amount, [recipient]);
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
     const details = RestUtils.cardRedeemOpenDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
