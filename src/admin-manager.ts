@@ -243,6 +243,8 @@ export class AdminManager implements RestServer {
                 userClicksImpressionBased.push(action.userId);
               }
               break;
+            default:
+              break;
           }
         } else {
           switch (action.action) {
@@ -259,6 +261,8 @@ export class AdminManager implements RestServer {
                 result.promoted.openBased.usersWhoWerePaid++;
                 userPaidOpenBased.push(action.userId);
               }
+              break;
+            default:
               break;
           }
         }

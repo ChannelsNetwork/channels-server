@@ -120,6 +120,17 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  _generateFingerprint() {
+    return new Promise((resolve, reject) => {
+      new Fingerprint2().get((result, components) => {
+        console.log("Fingerprint ", result);
+        console.log("Fingerprint components: ", components);
+        this._fingerprint = result;
+        resolve();
+      });
+    });
+  }
+
   register(inviteCode, retrying) {
     // We want to avoid race conditions where multiple entities all ask to register
     // at the same time.  We only want to register once, so we return a promise for
@@ -138,22 +149,24 @@ class CoreService extends Polymer.Element {
       if (!this._keys) {
         throw "No private key found";
       }
-      const referrer = document.referrer;
-      const landingPageUrl = window.location.href;
-      let details = RestUtils.registerUserDetails(this._keys.address, this._keys.publicKeyPem, inviteCode, referrer, landingPageUrl);
-      let request = this._createRequest(details);
-      const url = this.restBase + "/register-user";
-      return this.rest.post(url, request).then((result) => {
-        this._registration = result;
-        this._userStatus = result.status;
-        this._fire("channels-user-status", this._userStatus);
-        this._fire("channels-registration", this._registration);
-        this.analytics.setUser(this._keys.address);
-        return this.getUserProfile().then((profile) => {
-          setInterval(() => {
-            this.updateBalance();
-          }, 1000 * 60);
-          return result;
+      return this._generateFingerprint().then(() => {
+        const referrer = document.referrer;
+        const landingPageUrl = window.location.href;
+        let details = RestUtils.registerUserDetails(this._keys.address, this._fingerprint, this._keys.publicKeyPem, inviteCode, referrer, landingPageUrl);
+        let request = this._createRequest(details);
+        const url = this.restBase + "/register-user";
+        return this.rest.post(url, request).then((result) => {
+          this._registration = result;
+          this._userStatus = result.status;
+          this._fire("channels-user-status", this._userStatus);
+          this._fire("channels-registration", this._registration);
+          this.analytics.setUser(this._keys.address);
+          return this.getUserProfile().then((profile) => {
+            setInterval(() => {
+              this.updateBalance();
+            }, 1000 * 60);
+            return result;
+          });
         });
       });
     }).then((info) => {
@@ -183,7 +196,7 @@ class CoreService extends Polymer.Element {
   }
 
   signIn(handle, password, trust) {
-    let details = RestUtils.signInDetails(handle);
+    let details = RestUtils.signInDetails(this._keys.address, this._fingerprint, handle);
     const url = this.restBase + "/sign-in";
     return this.rest.post(url, details).then((result) => {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
@@ -226,20 +239,13 @@ class CoreService extends Polymer.Element {
   }
 
   getAccountStatus() {
-    let details = RestUtils.accountStatusDetails(this._keys.address);
+    let details = RestUtils.accountStatusDetails(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/account-status";
     return this.rest.post(url, request).then((result) => {
       this._accountStatus = result;
       return result;
     });
-  }
-
-  registerDevice(deviceCode) {
-    let details = RestUtils.registerDeviceDetails(this._keys.address, deviceCode);
-    let request = this._createRequest(details);
-    const url = this.restBase + "/register-device";
-    return this.rest.post(url, request);
   }
 
   updateUserProfile(name, handle, location, imageUrl, email, password, trust) {
@@ -255,7 +261,7 @@ class CoreService extends Polymer.Element {
   }
 
   _completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey) {
-    let details = RestUtils.updateIdentityDetails(this._keys.address, name, handle, location, imageUrl, email, encryptedPrivateKey);
+    let details = RestUtils.updateIdentityDetails(this._keys.address, this._fingerprint, name, handle, location, imageUrl, email, encryptedPrivateKey);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-identity";
     return this.rest.post(url, request).then(() => {
@@ -265,7 +271,7 @@ class CoreService extends Polymer.Element {
   }
 
   getUserProfile() {
-    let details = RestUtils.getUserIdentityDetails(this._keys.address);
+    let details = RestUtils.getUserIdentityDetails(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-identity";
     return this.rest.post(url, request).then((profile) => {
@@ -276,7 +282,7 @@ class CoreService extends Polymer.Element {
   }
 
   getHandleInfo(handle) {
-    const details = RestUtils.getHandleDetails(this._keys.address, handle);
+    const details = RestUtils.getHandleDetails(this._keys.address, this._fingerprint, handle);
     const request = this._createRequest(details);
     const url = this.restBase + "/get-handle";
     return this.rest.post(url, request);
@@ -286,10 +292,10 @@ class CoreService extends Polymer.Element {
     return this._loadKeyLib().then(() => {
       let request;
       if (this.hasKey) {
-        let details = RestUtils.checkHandleDetails(this._keys.address, handle);
+        let details = RestUtils.checkHandleDetails(this._keys.address, this._fingerprint, handle);
         request = this._createRequest(details);
       } else {
-        let details = RestUtils.checkHandleDetails(null, handle);
+        let details = RestUtils.checkHandleDetails(null, this._fingerprint, handle);
         request = {
           version: 1,
           details: JSON.stringify(details)
@@ -308,7 +314,7 @@ class CoreService extends Polymer.Element {
 
   recoverUser(code, handle, password, trust) {
     return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
-      let details = RestUtils.recoverUserDetails(this._keys.address, code, handle, encryptedPrivateKey);
+      let details = RestUtils.recoverUserDetails(this._keys.address, this._fingerprint, code, handle, encryptedPrivateKey);
       let request = this._createRequest(details);
       const url = this.restBase + "/recover-user";
       return this.rest.post(url, request).then(() => {
@@ -322,14 +328,14 @@ class CoreService extends Polymer.Element {
   }
 
   getFeeds(maxCardsPerFeed) {
-    let details = RestUtils.getFeedsDetails(this._keys.address, maxCardsPerFeed);
+    let details = RestUtils.getFeedsDetails(this._keys.address, this._fingerprint, maxCardsPerFeed);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-feeds";
     return this.rest.post(url, request);
   }
 
   getFeed(type, maxCards, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
-    let details = RestUtils.getFeedsDetails(this._keys.address, maxCards, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds);
+    let details = RestUtils.getFeedsDetails(this._keys.address, this._fingerprint, maxCards, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-feeds";
     return this.rest.post(url, request).then((response) => {
@@ -338,7 +344,7 @@ class CoreService extends Polymer.Element {
   }
 
   search(searchString, skip, limit, existingPromotedCardIds) {
-    let details = RestUtils.search(this._keys.address, searchString, skip, limit, existingPromotedCardIds);
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit, existingPromotedCardIds);
     let request = this._createRequest(details);
     const url = this.restBase + "/search";
     return this.rest.post(url, request).then((response) => {
@@ -347,14 +353,14 @@ class CoreService extends Polymer.Element {
   }
 
   ensureComponent(packageName) {
-    let details = RestUtils.ensureComponentDetails(this._keys.address, packageName);
+    let details = RestUtils.ensureComponentDetails(this._keys.address, this._fingerprint, packageName);
     let request = this._createRequest(details);
     const url = this.restBase + "/ensure-component";
     return this.rest.post(url, request);
   }
 
   getCard(cardId) {
-    let details = RestUtils.getCardDetails(this._keys.address, cardId);
+    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card";
     return this.rest.post(url, request);
@@ -363,14 +369,14 @@ class CoreService extends Polymer.Element {
   postCard(imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
       coupon = {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
@@ -378,7 +384,7 @@ class CoreService extends Polymer.Element {
 
   updateCardSummary(cardId, title, text, linkURL, imageUrl, imageWidth, imageHeight, keywords) {
     const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight);
-    const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, cardSummary, null, keywords);
+    const details = RestUtils.updateCardStateDetails(this._keys.address, this._fingerprint, cardId, cardSummary, null, keywords);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
     return this.rest.post(url, request).then(() => {
@@ -387,7 +393,7 @@ class CoreService extends Polymer.Element {
   }
 
   updateCardState(cardId, state) {
-    const details = RestUtils.updateCardStateDetails(this._keys.address, cardId, null, state);
+    const details = RestUtils.updateCardStateDetails(this._keys.address, this._fingerprint, cardId, null, state);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
     return this.rest.post(url, request);
@@ -396,14 +402,14 @@ class CoreService extends Polymer.Element {
   updateCardPricing(cardId, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent) {
     let coupon;
     if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
       coupon = {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
     }
-    const details = RestUtils.updateCardState(this._keys.address, cardId, RestUtils.cardPricing(promotionFee, openPayment, openFeeUntis, budgetAmount, budgetPlusPercent, coupon));
+    const details = RestUtils.updateCardState(this._keys.address, this._fingerprint, cardId, RestUtils.cardPricing(promotionFee, openPayment, openFeeUntis, budgetAmount, budgetPlusPercent, coupon));
     const url = this.restBase + "/card-pricing-update";
     return this.rest.post(url, request);
   }
@@ -415,9 +421,9 @@ class CoreService extends Polymer.Element {
       const transaction = RestUtils.bankTransaction(authorAddress, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
-      details = RestUtils.cardImpressionDetails(this._keys.address, cardId, transactionString, transactionSignature);
+      details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
     } else {
-      details = RestUtils.cardImpressionDetails(this._keys.address, cardId);
+      details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId);
     }
     let request = this._createRequest(details);
     const url = this.restBase + "/card-impression";
@@ -430,14 +436,14 @@ class CoreService extends Polymer.Element {
   }
 
   cardOpened(cardId) {
-    let details = RestUtils.cardOpenedDetails(this._keys.address, cardId);
+    let details = RestUtils.cardOpenedDetails(this._keys.address, this._fingerprint, cardId);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-opened";
     return this.rest.post(url, request);
   }
 
   cardClicked(cardId) {
-    let details = RestUtils.cardClickedDetails(this._keys.address, cardId);
+    let details = RestUtils.cardClickedDetails(this._keys.address, this._fingerprint, cardId);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-clicked";
     return this.rest.post(url, request);
@@ -458,10 +464,10 @@ class CoreService extends Polymer.Element {
     if (referrerAddress) {
       recipients.push(RestUtils.bankTransactionRecipient(referrerAddress, "fraction", "referral-fee", this._registration.referralFraction));
     }
-    const transaction = RestUtils.bankTransaction(this._keys.address, "transfer", "card-open-fee", cardId, null, amount, recipients);
+    const transaction = RestUtils.bankTransaction(this._keys.address, this._fingerprint, "transfer", "card-open-fee", cardId, null, amount, recipients);
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
-    let details = RestUtils.cardPayDetails(this._keys.address, cardId, transactionString, transactionSignature);
+    let details = RestUtils.cardPayDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-pay";
     return this.rest.post(url, request).then((response) => {
@@ -476,7 +482,7 @@ class CoreService extends Polymer.Element {
     const transaction = RestUtils.bankTransaction(authorAddress, "coupon-redemption", "card-open-payment", cardId, couponId, amount, [recipient]);
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
-    const details = RestUtils.cardRedeemOpenDetails(this._keys.address, cardId, transactionString, transactionSignature);
+    const details = RestUtils.cardRedeemOpenDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
     const request = this._createRequest(details);
     const url = this.restBase + "/card-redeem-open";
     return this.rest.post(url, request).then((response) => {
@@ -486,45 +492,45 @@ class CoreService extends Polymer.Element {
   }
 
   cardClosed(cardId) {
-    let details = RestUtils.cardClosedDetails(this._keys.address, cardId);
+    let details = RestUtils.cardClosedDetails(this._keys.address, this._fingerprint, cardId);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-closed";
     return this.rest.post(url, request);
   }
 
   updateCardLike(cardId, selection) {  // "like" | "none" | "dislike"
-    let details = RestUtils.updateCardLikeDetails(this._keys.address, cardId, selection);
+    let details = RestUtils.updateCardLikeDetails(this._keys.address, this._fingerprint, cardId, selection);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-card-like";
     return this.rest.post(url, request);
   }
 
   updateCardPrivate(cardId, isPrivate) {
-    let details = RestUtils.updateCardPrivateDetails(this._keys.address, cardId, isPrivate);
+    let details = RestUtils.updateCardPrivateDetails(this._keys.address, this._fingerprint, cardId, isPrivate);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-card-private";
     return this.rest.post(url, request);
   }
 
   deleteCard(cardId) {
-    let details = RestUtils.deleteCardDetails(this._keys.address, cardId);
+    let details = RestUtils.deleteCardDetails(this._keys.address, this._fingerprint, cardId);
     let request = this._createRequest(details);
     const url = this.restBase + "/delete-card";
     return this.rest.post(url, request);
   }
 
   bankStatement(maxCount) {
-    let details = RestUtils.bankStatementDetails(this._keys.address, maxCount);
+    let details = RestUtils.bankStatementDetails(this._keys.address, this._fingerprint, maxCount);
     let request = this._createRequest(details);
     const url = this.restBase + "/bank-statement";
     return this.rest.post(url, request);
   }
 
   withdraw(amount, emailAddress) {
-    const transaction = RestUtils.bankTransaction(this._keys.address, "withdrawal", "withdrawal", null, null, amount, [], RestUtils.bankTransactionWithdrawalRecipient(emailAddress));
+    const transaction = RestUtils.bankTransaction(this._keys.address, this._fingerprint, "withdrawal", "withdrawal", null, null, amount, [], RestUtils.bankTransactionWithdrawalRecipient(emailAddress));
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
-    let details = RestUtils.bankWithdraw(this._keys.address, transactionString, transactionSignature);
+    let details = RestUtils.bankWithdraw(this._keys.address, this._fingerprint, transactionString, transactionSignature);
     let request = this._createRequest(details);
     const url = this.restBase + "/bank-withdraw";
     return this.rest.post(url, request).then((response) => {
@@ -535,49 +541,49 @@ class CoreService extends Polymer.Element {
   }
 
   cardStatsHistory(cardId, historyLimit) {
-    let details = RestUtils.cardStatsHistoryDetails(this._keys.address, cardId, historyLimit);
+    let details = RestUtils.cardStatsHistoryDetails(this._keys.address, this._fingerprint, cardId, historyLimit);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-stat-history";
     return this.rest.post(url, request);
   }
 
   generateDepositClientToken() {
-    let details = RestUtils.generateClientToken(this._keys.address);
+    let details = RestUtils.generateClientToken(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/bank-client-token";
     return this.rest.post(url, request);
   }
 
   depositCheckout(amount, nonce) {
-    let details = RestUtils.clientCheckout(this._keys.address, amount, nonce);
+    let details = RestUtils.clientCheckout(this._keys.address, this._fingerprint, amount, nonce);
     let request = this._createRequest(details);
     const url = this.restBase + "/bank-client-checkout";
     return this.rest.post(url, request);
   }
 
   discardFiles(fileIds) {
-    let details = RestUtils.discardFiles(this._keys.address, fileIds);
+    let details = RestUtils.discardFiles(this._keys.address, this._fingerprint, fileIds);
     let request = this._createRequest(details);
     const url = this.restBase + "/discard-files";
     return this.rest.post(url, request);
   }
 
   queryPage(queryUrl) {
-    let details = RestUtils.queryPage(this._keys.address, queryUrl);
+    let details = RestUtils.queryPage(this._keys.address, this._fingerprint, queryUrl);
     let request = this._createRequest(details);
     const url = this.restBase + "/query-page";
     return this.rest.post(url, request);
   }
 
   listTopics() {
-    let details = RestUtils.listTopicsDetails(this._keys.address);
+    let details = RestUtils.listTopicsDetails(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/list-topics";
     return this.rest.post(url, request);
   }
 
   searchTopic(topic, maxCount, afterCardId, promotedCardIds) {
-    let details = RestUtils.searchTopicDetails(this._keys.address, topic, maxCount, afterCardId, promotedCardIds);
+    let details = RestUtils.searchTopicDetails(this._keys.address, this._fingerprint, topic, maxCount, afterCardId, promotedCardIds);
     let request = this._createRequest(details);
     const url = this.restBase + "/search-topic";
     return this.rest.post(url, request);
@@ -751,51 +757,58 @@ class CoreService extends Polymer.Element {
   }
 
   admin_getUsers(withIdentityOnly, limit) {
-    let details = RestUtils.admin_getUsers(this._keys.address, withIdentityOnly, limit);
+    let details = RestUtils.admin_getUsers(this._keys.address, this._fingerprint, withIdentityOnly, limit);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-get-users";
     return this.rest.post(url, request);
   }
 
   admin_getCards(limit) {
-    let details = RestUtils.admin_getCards(this._keys.address, limit);
+    let details = RestUtils.admin_getCards(this._keys.address, this._fingerprint, limit);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-get-cards";
     return this.rest.post(url, request);
   }
 
   admin_setUserMailingList(userId, includeInMailingList) {
-    let details = RestUtils.admin_setUserMailingList(this._keys.address, userId, includeInMailingList);
+    let details = RestUtils.admin_setUserMailingList(this._keys.address, this._fingerprint, userId, includeInMailingList);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-set-user-mailing-list";
     return this.rest.post(url, request);
   }
 
   admin_updateCard(cardId, keywords, blocked, boost) {
-    let details = RestUtils.admin_updateCard(this._keys.address, cardId, keywords, blocked, boost);
+    let details = RestUtils.admin_updateCard(this._keys.address, this._fingerprint, cardId, keywords, blocked, boost);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-update-card";
     return this.rest.post(url, request);
   }
 
   admin_getGoals() {
-    let details = RestUtils.admin_getGoals(this._keys.address);
+    let details = RestUtils.admin_getGoals(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-goals";
     return this.rest.post(url, request);
   }
 
   admin_getWithdrawals(limit) {
-    let details = RestUtils.admin_getWithdrawals(this._keys.address, limit);
+    let details = RestUtils.admin_getWithdrawals(this._keys.address, this._fingerprint, limit);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-get-withdrawals";
     return this.rest.post(url, request);
   }
 
   admin_updateWithdrawal(id, state, paymentReferenceId) {
-    let details = RestUtils.admin_updateWithdrawal(this._keys.address, id, state, paymentReferenceId);
+    let details = RestUtils.admin_updateWithdrawal(this._keys.address, this._fingerprint, id, state, paymentReferenceId);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-update-withdrawal";
+    return this.rest.post(url, request);
+  }
+
+  admin_setUserCuration(userId, curation) {
+    let details = RestUtils.admin_setUserCuration(this._keys.address, this._fingerprint, userId, curation);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-set-user-curation";
     return this.rest.post(url, request);
   }
 

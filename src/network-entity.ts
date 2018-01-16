@@ -83,6 +83,7 @@ export class NetworkEntity implements Initializable {
         const grant: BankTransactionDetails = {
           timestamp: null,
           address: null,
+          fingerprint: null,
           type: "transfer",
           reason: "grant",
           amount: Math.max(5, user.balance),
@@ -97,6 +98,7 @@ export class NetworkEntity implements Initializable {
           const interestPayment: BankTransactionDetails = {
             timestamp: null,
             address: null,
+            fingerprint: null,
             type: "transfer",
             reason: "interest",
             amount: interest,
@@ -132,7 +134,7 @@ export class NetworkEntity implements Initializable {
     const totalCoins = this.publisherSubsidyMinCoins + Math.round(Math.random() * (this.publisherSubsidyMaxCoins - this.publisherSubsidyMinCoins));
     if (!subsidyDay || midnightToday > subsidyDay.starting) {
       console.log("Network.poll: Adding new publisher subsidy day", totalCoins, this.publisherSubsidyCoinsPerOpen);
-      const amount = await cardManager.calculateCurrentPublisherSubsidiesPerPaidOpen(subsidyDay ? subsidyDay.coinsPerPaidOpen : 0.50);
+      const amount = await cardManager.calculateCurrentPublisherSubsidiesPerPaidOpen();
       await db.insertPublisherSubsidyDays(midnightToday, totalCoins, amount, this.publisherSubsidyReturnUserBonus);
     }
   }

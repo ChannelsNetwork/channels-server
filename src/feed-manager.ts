@@ -55,7 +55,7 @@ const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
-const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 1.5;
+const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
@@ -467,7 +467,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false);
+    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false);
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
@@ -483,7 +483,7 @@ export class FeedManager implements Initializable, RestServer {
     const author = channelHandle ? await db.findUserByHandle(channelHandle) : null;
     let cards: CardRecord[] = [];
     if (author) {
-      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true);
+      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true, user.id !== author.id);
     }
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
@@ -502,7 +502,9 @@ export class FeedManager implements Initializable, RestServer {
     for (const info of infos) {
       const card = await db.findCardById(info.cardId, false);
       if (card) {
-        cards.push(card);
+        if (card.by.id === user.id || !card.curation || !card.curation.block) {
+          cards.push(card);
+        }
       }
     }
     const result = await this.populateCards(cards, false, user, startWithCardId);
@@ -525,7 +527,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       return emptyResult;
     }
-    const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1);
+    const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1, user.id);
     const result = await this.populateCards(cards, false, user);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
@@ -1048,6 +1050,7 @@ export class FeedManager implements Initializable, RestServer {
   private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
     const details: BankCouponDetails = {
       address: user.user.address,
+      fingerprint: null,
       timestamp: Date.now(),
       reason: reason,
       amount: amount,
@@ -1084,6 +1087,7 @@ export class FeedManager implements Initializable, RestServer {
     const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, null, null, null, null, null, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
+      fingerprint: null,
       timestamp: null,
       type: "transfer",
       reason: "grant",
@@ -1115,7 +1119,7 @@ export class FeedManager implements Initializable, RestServer {
       limit = 50;
     }
     const culledRecords: CardRecord[] = [];
-    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
+    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1, user.id);
     if (cardRecords.length > 0) {
       const max = (cardRecords[0] as any).searchScore as number;
       for (const cardRecord of cardRecords) {

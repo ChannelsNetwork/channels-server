@@ -301,6 +301,7 @@ export class Bank implements RestServer, Initializable {
       if (transactionResponse.success) {
         const transaction: BankTransactionDetails = {
           address: null,
+          fingerprint: null,
           timestamp: null,
           type: "deposit",
           reason: "deposit",

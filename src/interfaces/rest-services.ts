@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, ManualWithdrawalRecord, ManualWithdrawalState } from "./db-records";
+import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -22,6 +22,7 @@ export interface RegisterUserDetails extends Signable {
 
 export interface Signable {
   address: string;
+  fingerprint: string;
   timestamp: number;
 }
 
@@ -38,14 +39,7 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   admin: boolean;
 }
 
-export interface RegisterDeviceDetails extends Signable {
-  type: DeviceType;
-  token: string;
-}
-
-export interface RegisterDeviceResponse extends RestResponse { }
-
-export interface SignInDetails {
+export interface SignInDetails extends Signable {
   handle: string;
 }
 
@@ -246,23 +240,6 @@ export interface CardDescriptorStatistics {
   uniqueOpens: number;
   likes: number;
   dislikes: number;
-}
-
-export interface GetNewsDetails extends Signable {
-  maxCount: number;
-}
-
-export interface GetNewsResponse extends RestResponse {
-  items: NewsItem[];
-}
-
-export interface NewsItem {
-  id: string;
-  timestamp: number;
-  title: string;
-  text: string;
-  imageUrl: string;
-  linkUrl: string;
 }
 
 export interface EnsureChannelComponentDetails extends Signable {
@@ -654,6 +631,7 @@ export interface AdminUserInfo {
   cardRevenue: number;
   cardsOpened: number;
   cardsBought: number;
+  cardsSold: number;
 }
 
 export interface AdminGetGoalsDetails extends Signable { }
@@ -765,6 +743,12 @@ export interface AdminUpdateWithdrawalDetails extends Signable {
 }
 
 export interface AdminUpdateWithdrawalResponse extends RestResponse { }
+export interface AdminSetUserCurationDetails extends Signable {
+  userId: string;
+  curation: UserCurationType;
+}
+
+export interface AdminSetUserCurationResponse extends RestResponse { }
 
 export interface QueryPageDetails extends Signable {
   url: string;

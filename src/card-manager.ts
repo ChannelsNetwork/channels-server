@@ -179,6 +179,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
+      const author = await db.findUserById(card.by.id);
+      if (!author) {
+        response.status(404).send("No matching author for this card");
+        return;
+      }
+      if (author.curation && author.curation === "blocked" && user.id !== author.id) {
+        console.log("Card.handleGetCard: returning 404 for card by blocked author being requested by someone else", card.id, user.id, author.id);
+        response.status(404).send("No card found");
+        return;
+      }
       console.log("CardManager.get-card", requestBody.detailsObject);
       const cardState = await this.populateCardState(card.id, true, false, user);
       if (!cardState) {
@@ -383,7 +393,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
       }
       await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "impression", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "impression", 0, null, 0, null, 0, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
       if (transaction && author) {
@@ -395,7 +405,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         card.budget.available = budgetAvailable;
         await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
       const userStatus = await userManager.getUserStatus(user, false);
@@ -457,8 +467,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "open", 0, null, 0, null, 0, null);
+      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       const reply: CardOpenedResponse = {
         serverVersion: SERVER_VERSION
@@ -490,8 +500,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 1, uniques);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "click", 0, null, 0, null, 0, null);
+      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 1, uniques, 0);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "click", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
       const reply: CardClickedResponse = {
         serverVersion: SERVER_VERSION
@@ -557,13 +567,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (card.curation && card.curation.block) {
         skipMoneyTransfer = true;
       } else if (ipAddress) {
-        if (author.ipAddresses && author.ipAddresses.indexOf(ipAddress) >= 0) {
-          console.warn("Card.payPay: Silently skipping payment because viewer IP address is same as author's IP address");
+        const authorRegistrationFound = await db.existsUserRegistration(author.id, ipAddress, requestBody.detailsObject.fingerprint);
+        if (authorRegistrationFound) {
+          console.warn("Card.payPay: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint", ipAddress, requestBody.detailsObject.fingerprint);
           skipMoneyTransfer = true;
         } else {
-          const alreadyFromThisIp = await db.countUserCardsPaidFromIpAddress(card.id, ipAddress);
+          const alreadyFromThisIp = await db.countUserCardsPaidFromIpAddress(card.id, ipAddress, requestBody.detailsObject.fingerprint);
           if (alreadyFromThisIp > 1) {
-            console.warn("Card.payPay: Silently skipping payment because already purchased from this address");
+            console.warn("Card.payPay: Silently skipping payment because already purchased from this address and fingerprint", ipAddress, requestBody.detailsObject.fingerprint);
             skipMoneyTransfer = true;
           }
         }
@@ -574,9 +585,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, amount, transactionResult.record.id);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "pay", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 1, 0, 0, 0, 0);
+      await db.incrementNetworkCardStatItems(0, 0, 1, 0, 0, 0, 0, 0);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
@@ -613,8 +624,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     // }
     const statsNow = await db.ensureNetworkCardStats();
     const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
-    const totalCardPurchases = statsNow.stats.paidOpens - yesterdaysStats.stats.paidOpens;
-    const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen(subsidyDay.newUserBonus);
+    const totalCardPurchases = (statsNow.stats.paidOpens - (statsNow.stats.blockedPaidOpens || 0)) - (yesterdaysStats.stats.paidOpens - (yesterdaysStats.stats.blockedPaidOpens || 0));
+    const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen();
     await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
     const recipient: BankTransactionRecipientDirective = {
       address: author.address,
@@ -623,6 +634,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     };
     const details: BankTransactionDetails = {
       address: null,
+      fingerprint: null,
       timestamp: null,
       type: "transfer",
       reason: "publisher-subsidy",
@@ -642,11 +654,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return amount;
   }
 
-  async calculateCurrentPublisherSubsidiesPerPaidOpen(maxBonus: number): Promise<number> {
+  async calculateCurrentPublisherSubsidiesPerPaidOpen(): Promise<number> {
     const statsNow = await db.ensureNetworkCardStats();
     const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
-    const totalCardPurchases = statsNow.stats.paidOpens - yesterdaysStats.stats.paidOpens;
-    const amount = Math.min(maxBonus, configuration.get('subsidies.maxCoins', 150) / (totalCardPurchases || 1));
+    const totalCardPurchases = (statsNow.stats.paidOpens - (statsNow.stats.blockedPaidOpens || 0)) - (yesterdaysStats.stats.paidOpens - (yesterdaysStats.stats.blockedPaidOpens || 0));
+    const amount = Math.min(configuration.get('subsidies.coinsPerOpen', 0.50), configuration.get('subsidies.maxCoins', 150) / (totalCardPurchases || 1));
     return amount;
   }
 
@@ -747,7 +759,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       card.budget.available = budgetAvailable;
       await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: CardRedeemOpenResponse = {
@@ -776,7 +788,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, "close", 0, null, 0, null, 0, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "close", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {
         serverVersion: SERVER_VERSION
@@ -824,7 +836,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
           cardInfo.like = requestBody.detailsObject.selection;
-          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, now, action, 0, null, 0, null, 0, null);
+          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, action, 0, null, 0, null, 0, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -843,11 +855,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           const deltaDislikes = newDislikes - existingDislikes;
           if (deltaLikes !== 0) {
             await this.incrementStat(card, "likes", deltaLikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, deltaLikes, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, deltaLikes, 0, 0, 0, 0);
           }
           if (deltaDislikes !== 0) {
             await this.incrementStat(card, "dislikes", deltaDislikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaDislikes, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaDislikes, 0, 0, 0);
           }
           await feedManager.rescoreCard(card, false);
         }
@@ -882,7 +894,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (card.private !== requestBody.detailsObject.private) {
         await db.updateCardPrivate(card, requestBody.detailsObject.private);
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), card.id, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", 0, null, 0, null, 0, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", 0, null, 0, null, 0, null);
       }
       const reply: UpdateCardPrivateResponse = {
         serverVersion: SERVER_VERSION,
