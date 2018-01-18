@@ -134,24 +134,13 @@ export interface CheckHandleResponse extends RestResponse {
 export interface CardState {
   properties: { [name: string]: any };
   collections: { [name: string]: CardCollection };
-  files: CardFileDescriptor[];
+  files: { [fileId: string]: FileMetadata };
 }
 
-export interface CardFileDescriptor {
-  fileId: string;
-  key: string;
-}
-
-export interface CardStateInfo {
-  mutationId?: string;
-  properties: { [name: string]: any };
-  collections: { [name: string]: CardCollection };
-  files: CardFileInfo[];
-}
-
-export interface CardFileInfo {
-  file: FileInfo;
-  key: string;
+export interface FileMetadata {
+  key?: string;  // optional when posting
+  url?: string;  // only when CardState is returned
+  image?: ImageInfo;  // only when CardState is returned and file is an image
 }
 
 export interface CardCollection {
@@ -226,8 +215,8 @@ export interface CardDescriptor {
     earnedFromReader: number;
   };
   state?: {
-    user: CardStateInfo;
-    shared: CardStateInfo;
+    user: CardState;
+    shared: CardState;
   };
 
   blocked: boolean;

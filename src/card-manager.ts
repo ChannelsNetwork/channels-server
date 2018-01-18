@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardFileDescriptor, CardState, CardStateInfo, CardFileInfo } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, FileMetadata } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -292,7 +292,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return result;
   }
 
-  searchTextFromSharedStateInfo(sharedState: CardStateInfo): string {
+  searchTextFromSharedStateInfo(sharedState: CardState): string {
     let result = this.getObjectStringRecursive(sharedState);
     if (result.length > MAX_SEARCH_STRING_LENGTH) {
       result = result.substr(0, MAX_SEARCH_STRING_LENGTH);
@@ -337,9 +337,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     if (state.files) {
-      for (const f of state.files) {
-        const fileInfo = await fileManager.getFileInfo(f.fileId);
-        await db.upsertCardFile(card.id, "shared", '', f.fileId, f.key);
+      for (const fileId of Object.keys(state.files)) {
+        const postedInfo = state.files[fileId];
+        const fileInfo = await fileManager.getFileInfo(fileId);
+        if (fileInfo) {
+          await db.upsertCardFile(card.id, "shared", '', fileInfo.id, postedInfo ? postedInfo.key : null);
+        }
       }
     }
   }
@@ -1521,24 +1524,18 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (includeState) {
         card.state = {
           user: {
-            mutationId: null,
             properties: {},
             collections: {},
-            files: []
+            files: {}
           },
           shared: {
-            mutationId: null,
             properties: {},
             collections: {},
-            files: []
-          }
+            files: {}
+          },
         };
       }
       if (user) {
-        const lastUserMutation = await db.findLastMutation(card.id, "user");
-        if (lastUserMutation) {
-          card.state.user.mutationId = lastUserMutation.mutationId;
-        }
         const userProperties = await db.findCardProperties(card.id, "user", user.id);
         for (const property of userProperties) {
           let value = property.value;
@@ -1562,16 +1559,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         const userFiles = await db.findCardFiles(card.id, "user", user.id);
         for (const userFile of userFiles) {
-          const item: CardFileInfo = {
-            file: await fileManager.getFileInfo(userFile.fileId),
-            key: userFile.key
-          };
-          card.state.user.files.push(item);
+          const fileInfo = await fileManager.getFileInfo(userFile.fileId);
+          if (fileInfo) {
+            const item: FileMetadata = {
+              url: fileInfo.url
+            };
+            if (userFile.key) {
+              item.key = userFile.key;
+            }
+            if (fileInfo.imageInfo) {
+              item.image = fileInfo.imageInfo;
+            }
+            card.state.user.files[fileInfo.id] = item;
+          }
         }
-      }
-      const lastSharedMutation = await db.findLastMutation(card.id, "shared");
-      if (lastSharedMutation) {
-        card.state.shared.mutationId = lastSharedMutation.mutationId;
       }
       if (includeState) {
         const sharedProperties = await db.findCardProperties(card.id, "shared", '');
@@ -1597,11 +1598,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         const sharedFiles = await db.findCardFiles(card.id, "shared", '');
         for (const sharedFile of sharedFiles) {
-          const item: CardFileInfo = {
-            file: await fileManager.getFileInfo(sharedFile.fileId),
-            key: sharedFile.key
-          };
-          card.state.shared.files.push(item);
+          const fileInfo = await fileManager.getFileInfo(sharedFile.fileId);
+          if (fileInfo) {
+            const item: FileMetadata = {
+              url: fileInfo.url
+            };
+            if (sharedFile.key) {
+              item.key = sharedFile.key;
+            }
+            if (fileInfo.imageInfo) {
+              item.image = fileInfo.imageInfo;
+            }
+            card.state.shared.files[fileInfo.id] = item;
+          }
         }
       }
       return card;
