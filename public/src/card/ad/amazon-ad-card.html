@@ -214,8 +214,8 @@
       _loadFrame() {
         if (!this._frameLoaded) {
           this._frameLoaded = true;
-          let url = this.data.summary.imageUrl;
-          if (url.indexOf('?') > 0) {
+          let url = this.data.summary.image ? this.data.summary.image.url : null;
+          if (url && url.indexOf('?') > 0) {
             if (url.indexOf('lt1=_new') < 0) {
               url += "&lt1=_new";
             }

@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, FileRecord } from "./interfaces/db-records";
+import { UserRecord, FileRecord, ImageInfo } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import * as Busboy from 'busboy';
 import * as s3Stream from "s3-upload-stream";
@@ -14,10 +14,13 @@ import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
 import { GetObjectRequest } from "aws-sdk/clients/s3";
-import { DiscardFilesDetails, DiscardFilesResponse, RestRequest } from "./interfaces/rest-services";
+import { DiscardFilesDetails, DiscardFilesResponse, RestRequest, FileInfo } from "./interfaces/rest-services";
 import { SERVER_VERSION } from "./server-version";
 import { RestHelper } from "./rest-helper";
 import * as AWS from 'aws-sdk';
+import { userManager } from "./user-manager";
+import * as LRU from 'lru-cache';
+const imageProbe = require('probe-image-size');
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -25,8 +28,9 @@ export class FileManager implements RestServer {
   private urlManager: UrlManager;
   private s3StreamUploader: s3Stream.S3StreamUploader;
   private s3: AWS.S3;
-  private fileUrlPrefix: string;
+  private oldFileUrlPrefix: string;
   private bypassUrlPrefix: string;
+  private fileCache = LRU<string, FileRecord>({ max: 10000, maxAge: 1000 * 60 * 15 });
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
     if (configuration.get('aws.s3.enabled')) {
@@ -39,16 +43,28 @@ export class FileManager implements RestServer {
     this.urlManager = urlManager;
     const baseUrl = configuration.get('baseClientUri');
     if (baseUrl.indexOf('https://') >= 0) {
-      this.fileUrlPrefix = baseUrl + "/f/";
+      this.oldFileUrlPrefix = baseUrl + "/f/";
       this.bypassUrlPrefix = baseUrl + "/";
     }
     this.app = app;
     this.registerHandlers();
   }
 
+  async getFile(fileId: string, force: boolean): Promise<FileRecord> {
+    let result = this.fileCache.get(fileId);
+    if (result && !force) {
+      return result;
+    }
+    result = await db.findFileById(fileId);
+    if (result) {
+      this.fileCache.set(fileId, result);
+    }
+    return result;
+  }
+
   async finalizeFiles(user: UserRecord, fileIds: string[]): Promise<void> {
     for (const fileId of fileIds) {
-      const fileRecord = await db.findFileById(fileId);
+      const fileRecord = await this.getFile(fileId, true);
       if (fileRecord) {
         if (fileRecord.ownerId !== user.id) {
           console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not owned by this user", user.id, fileRecord);
@@ -123,7 +139,7 @@ export class FileManager implements RestServer {
         await this.abortFile(fileRecord);
         return;
       }
-      const user = await db.findUserByAddress(ownerAddress);
+      const user = await userManager.getUserByAddress(ownerAddress);
       if (!user) {
         response.status(401).send("No such user");
         await this.abortFile(fileRecord);
@@ -200,8 +216,12 @@ export class FileManager implements RestServer {
 
   private async handleUploadCompleted(fileRecord: FileRecord, user: UserRecord, meter: streamMeter.StreamMeter, key: string, response: Response): Promise<void> {
     // const fileUrl = url.resolve(configuration.get('aws.s3.baseUrl'), key);
-    const fileUrl = this.urlManager.getAbsoluteUrl('/f/' + key);
-    await db.updateFileCompletion(fileRecord, 'complete', meter.bytes, fileUrl);
+    const fileUrl = this.urlManager.getAbsoluteUrl('/' + key);
+    let imageInfo: ImageInfo;
+    if (fileRecord.mimetype && fileRecord.mimetype.split('/')[0] === 'image') {
+      imageInfo = await this.fetchImageInfo(fileUrl);
+    }
+    await db.updateFileCompletion(fileRecord, 'complete', meter.bytes, fileUrl, imageInfo);
     await db.incrementUserStorage(user, meter.bytes);
     console.log("FileManager.uploadS3: upload completed", fileRecord.id);
     const reply = {
@@ -210,6 +230,21 @@ export class FileManager implements RestServer {
     };
     console.log("FileManager.handleUpload sending response", reply);
     response.json(reply);
+  }
+
+  private async fetchImageInfo(imageUrl: string): Promise<ImageInfo> {
+    try {
+      const probeResult = await imageProbe(imageUrl);
+      console.log("File.fetchImageInfo", imageUrl, probeResult);
+      const imageInfo: ImageInfo = {
+        width: probeResult.width,
+        height: probeResult.height
+      };
+      return imageInfo.width && imageInfo.height ? imageInfo : null;
+    } catch (err) {
+      console.warn("File.fetchImageInfo: failure fetching image info", err);
+      return null;
+    }
   }
 
   private async handleFetch(request: Request, response: Response): Promise<void> {
@@ -278,7 +313,7 @@ export class FileManager implements RestServer {
       const fileRecords: FileRecord[] = [];
       if (requestBody.detailsObject.fileIds && requestBody.detailsObject.fileIds.length > 0) {
         for (const fileId of requestBody.detailsObject.fileIds) {
-          const fileRecord = await db.findFileById(fileId);
+          const fileRecord = await this.getFile(fileId, true);
           if (fileRecord) {
             if (fileRecord.ownerId !== user.id) {
               response.status(401).send("You can only discard files you uploaded");
@@ -330,10 +365,10 @@ export class FileManager implements RestServer {
   }
 
   rewriteFileUrls(value: string): string {
-    if (!value || !this.fileUrlPrefix) {
+    if (!value || !this.oldFileUrlPrefix) {
       return value;
     }
-    value = value.split(this.fileUrlPrefix).join(this.bypassUrlPrefix);
+    value = value.split(this.oldFileUrlPrefix).join(this.bypassUrlPrefix);
     return value;
   }
 
@@ -363,6 +398,34 @@ export class FileManager implements RestServer {
       }
     }
     return result;
+  }
+
+  async getFileInfo(fileId: string): Promise<FileInfo> {
+    if (!fileId) {
+      return null;
+    }
+    const record = await this.getFile(fileId, false);
+    if (!record || record.status !== 'complete') {
+      return null;
+    }
+    const result: FileInfo = {
+      id: record.id,
+      url: this.getFileUrl(record),
+      imageInfo: record.imageInfo
+    };
+    return result;
+  }
+
+  getFileUrl(record: FileRecord): string {
+    return this.urlManager.getAbsoluteUrl('/' + record.id + '/' + record.filename);
+  }
+
+  async getFileUrlFromFileId(fileId: string): Promise<string> {
+    const info = await this.getFileInfo(fileId);
+    if (!info) {
+      return null;
+    }
+    return info.url;
   }
 }
 

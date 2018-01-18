@@ -51,6 +51,7 @@
     "nodemailer": "^4.2.0",
     "parse-full-name": "^1.2.3",
     "paypal-rest-sdk": "^1.7.1",
+    "probe-image-size": "^3.2.0",
     "promise-limit": "^2.5.0",
     "remove": "^0.1.5",
     "request": "^2.81.0",

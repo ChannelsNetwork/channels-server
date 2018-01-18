@@ -131,12 +131,12 @@ class RestUtils {
     };
   }
 
-  static updateIdentityDetails(address, fingerprint, name, handle, location, imageUrl, emailAddress, encryptedPrivateKey) {
+  static updateIdentityDetails(address, fingerprint, name, handle, location, imageId, emailAddress, encryptedPrivateKey) {
     return {
       name: name,
       handle: handle,
       location: location,
-      imageUrl: imageUrl,
+      imageId: imageId,
       emailAddress: emailAddress,
       encryptedPrivateKey: encryptedPrivateKey,
       address: address,
@@ -274,14 +274,12 @@ class RestUtils {
     return result;
   }
 
-  static cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight) {
+  static cardStateSummary(title, text, linkURL, imageId) {
     return {
       title: title,
       text: text,
       linkUrl: linkURL,
-      imageUrl: imageUrl,
-      imageWidth: imageWidth,
-      imageHeight: imageHeight
+      imageId: imageId
     };
   }
 

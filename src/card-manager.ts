@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -24,7 +24,6 @@ import { channelsComponentManager } from "./channels-component-manager";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
-import * as LRU from 'lru-cache';
 import * as url from 'url';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
@@ -59,7 +58,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private urlManager: UrlManager;
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
-  private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
@@ -143,7 +141,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       this.lastMutationIndexSent = lastMutation.index;
     }
 
-    const cursor = db.getCardsMissingSearchText();
+    let cursor = db.getCardsMissingSearchText();
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       console.log("Card.initialize2: Adding missing searchText field in card", card.id);
@@ -156,6 +154,34 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await db.updateCardSearchText(card.id, searchText);
     }
+
+    cursor = db.getCardsWithBy();
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      console.log("Card.initialize2: Replacing by.id with createdById", card.id);
+      await db.replaceCardBy(card.id, card.by.id);
+    }
+
+    cursor = db.getCardsWithSummaryImageUrl();
+    const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      const imageUrl = card.summary.imageUrl;
+      if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
+        console.log("Card.initialize2: Replacing summary.imageUrl with imageId", card.id);
+        const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
+        if (card.summary.imageWidth && card.summary.imageHeight) {
+          const imageInfo: ImageInfo = {
+            width: card.summary.imageWidth,
+            height: card.summary.imageHeight
+          };
+          await db.updateFileImageInfo(fileId, imageInfo);
+        }
+        await db.replaceCardSummaryImageUrl(card.id, fileId);
+      } else {
+        console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
+      }
+    }
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
@@ -165,7 +191,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.redirect('/');
       return;
     }
-    await rootPageManager.handlePage("card", request, response, card);
+    const author = await userManager.getUser(card.createdById, false);
+    await rootPageManager.handlePage("card", request, response, card, author);
   }
 
   private async handleGetCard(request: Request, response: Response): Promise<void> {
@@ -179,7 +206,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      const author = await db.findUserById(card.by.id);
+      const author = await userManager.getUser(card.createdById, false);
       if (!author) {
         response.status(404).send("No matching author for this card");
         return;
@@ -242,7 +269,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       //   return;
       // }
       const details = requestBody.detailsObject;
-      const card = await this.postCard(user, requestBody.detailsObject, requestBody.detailsObject.address);
+      const card = await this.postCard(user, requestBody.detailsObject);
       const reply: PostCardResponse = {
         serverVersion: SERVER_VERSION,
         cardId: card.id
@@ -326,7 +353,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("You have already been paid a promotion on this card");
           return;
         }
-        author = await this.getUser(card.by.id, true);
+        author = await userManager.getUser(card.createdById, true);
         if (!author) {
           response.status(404).send("The author no longer has an account.");
           return;
@@ -435,18 +462,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return ipAddress;
   }
 
-  async getUser(userId: string, force: boolean): Promise<UserRecord> {
-    let result = this.userCache.get(userId);
-    if (result && !force) {
-      return result;
-    }
-    result = await db.findUserById(userId);
-    if (result) {
-      this.userCache.set(userId, result);
-    }
-    return result;
-  }
-
   private async handleCardOpened(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<CardOpenedDetails>;
@@ -537,19 +552,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("No coupon is allowed on the transaction");
         return;
       }
-      const author = await db.findUserById(card.by.id);
+      const author = await userManager.getUser(card.createdById, true);
       if (!author) {
         response.status(404).send("The author of this card is missing");
         return;
       }
       let authorRecipient = false;
       for (const recipient of transaction.toRecipients) {
-        let recipientUser = await db.findUserByAddress(recipient.address);
+        let recipientUser = await userManager.getUserByAddress(recipient.address);
         if (!recipientUser) {
           recipientUser = await db.findUserByHistoricalAddress(recipient.address);
         }
         if (recipientUser) {
-          if (recipientUser.id === card.by.id && recipient.portion === 'remainder') {
+          if (recipientUser.id === card.createdById && recipient.portion === 'remainder') {
             authorRecipient = true;
           }
           await userManager.updateUserBalance(recipientUser);
@@ -583,7 +598,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await userManager.updateUserBalance(user);
       const transactionResult = await bank.performTransfer(user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
-      await db.updateUserCardIncrementEarnedFromReader(card.by.id, card.id, amount, transactionResult.record.id);
+      await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
@@ -682,7 +697,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("You have already been paid a promotion on this card");
         return;
       }
-      const author = await this.getUser(card.by.id, true);
+      const author = await userManager.getUser(card.createdById, true);
       if (!author) {
         response.status(404).send("The author no longer has an account.");
         return;
@@ -886,7 +901,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (card.by.id !== user.id) {
+      if (card.createdById !== user.id) {
         response.status(403).send("Only the author is allowed to make this change.");
         return;
       }
@@ -918,7 +933,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (card.by.id !== user.id) {
+      if (card.createdById !== user.id) {
         response.status(403).send("Only the author is allowed to delete a card.");
         return;
       }
@@ -990,7 +1005,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (card.by.id !== user.id) {
+      if (card.createdById !== user.id) {
         response.status(401).send("Only the card author can edit it.");
         return;
       }
@@ -1004,7 +1019,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       if (requestBody.detailsObject.summary || keywords) {
         const summary = requestBody.detailsObject.summary;
-        await db.updateCardSummary(card, summary.title, summary.text, summary.linkUrl, summary.imageUrl, summary.imageWidth, summary.imageHeight, keywords);
+        await db.updateCardSummary(card, summary.title, summary.text, summary.linkUrl, summary.imageId, keywords);
       }
       if (requestBody.detailsObject.state) {
         await db.deleteCardProperties(card.id);
@@ -1037,7 +1052,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (card.by.id !== user.id) {
+      if (card.createdById !== user.id) {
         response.status(401).send("Only the card author can edit it.");
         return;
       }
@@ -1110,15 +1125,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return card;
   }
 
-  async postCard(user: UserRecord, details: PostCardDetails, byAddress: string): Promise<CardRecord> {
+  async postCard(user: UserRecord, details: PostCardDetails): Promise<CardRecord> {
     // if (!details.text) {
     //   throw new ErrorWithStatusCode(400, "Invalid card: missing text");
     // }
     if (!details.cardType && !details.linkUrl) {
       throw new ErrorWithStatusCode(400, "You must provide a card type or a linkUrl");
-    }
-    if (details.imageUrl && (details.imageHeight <= 0 || details.imageWidth <= 0)) {
-      throw new ErrorWithStatusCode(400, "You must provide image width and height");
     }
     this.validateCardPricing(user, details.pricing);
     details.private = details.private ? true : false;
@@ -1137,7 +1149,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, byAddress, user.identity.handle, user.identity.name, user.identity.imageUrl, details.imageUrl, details.imageWidth, details.imageHeight, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
+    const card = await db.insertCard(user.id, details.imageId, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
     await this.announceCard(card, user);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
@@ -1427,7 +1439,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const basePrice = await priceRegulator.getBaseCardFee();
     const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
-    const author = await this.getUser(record.by.id, false);
     const packageRootUrl = await channelsComponentManager.getPackageRootUrl(record.cardType.package);
     if (!packageRootUrl) {
       return null;
@@ -1442,16 +1453,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const card: CardDescriptor = {
         id: record.id,
         postedAt: record.postedAt,
-        by: {
-          address: author ? author.address : record.by.address,
-          handle: author ? author.identity.handle : record.by.handle,
-          name: author ? author.identity.name : record.by.name,
-          imageUrl: author ? fileManager.rewriteFileUrls(author.identity.imageUrl) : fileManager.rewriteFileUrls(record.by.imageUrl)
-        },
+        by: await userManager.getUserDescriptor(record.createdById, false),
         summary: {
-          imageUrl: fileManager.rewriteFileUrls(record.summary.imageUrl),
-          imageWidth: record.summary.imageWidth,
-          imageHeight: record.summary.imageHeight,
+          image: await fileManager.getFileInfo(record.summary.imageId),
           linkUrl: record.summary.linkUrl,
           title: record.summary.title,
           text: record.summary.text,
@@ -1484,7 +1488,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         score: record.score,
         userSpecific: {
-          isPoster: user && record.by.id === user.id ? true : false,
+          isPoster: user && record.createdById === user.id ? true : false,
           lastImpression: userInfo ? userInfo.lastImpression : 0,
           lastOpened: userInfo ? userInfo.lastOpened : 0,
           lastClosed: userInfo ? userInfo.lastClosed : 0,

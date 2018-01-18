@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -96,7 +96,7 @@ export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
   handle?: string;
   location?: string;
-  imageUrl?: string;
+  imageId?: string;
   emailAddress?: string;
   encryptedPrivateKey?: string;
 }
@@ -109,7 +109,7 @@ export interface GetUserIdentityResponse extends RestResponse {
   name: string;
   handle: string;
   location: string;
-  imageUrl: string;
+  image: FileInfo;
   emailAddress: string;
   encryptedPrivateKey: string;
 }
@@ -119,7 +119,7 @@ export interface GetHandleDetails extends CheckHandleDetails { }
 export interface GetHandleResponse extends RestResponse {
   name: string;
   handle: string;
-  imageUrl: string;
+  image: FileInfo;
 }
 
 export interface CheckHandleDetails extends Signable {
@@ -172,23 +172,11 @@ export interface CardFeedSet {
 export interface CardDescriptor {
   id: string;
   postedAt: number;
-  by: {
-    address: string;
-    handle: string;
-    name: string;
-    imageUrl: string;
-  };
-  referredBy?: {
-    address: string;
-    handle: string;
-    name: string;
-    imageUrl: string;
-  };
+  by: UserDescriptor;
+  referredBy?: UserDescriptor;
   private: boolean;
   summary: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
+    image: FileInfo;
     linkUrl: string;
     title: string;
     text: string;
@@ -317,9 +305,7 @@ export interface CardStatDatapoint {
 }
 
 export interface PostCardDetails extends Signable {
-  imageUrl?: string;
-  imageWidth?: number;
-  imageHeight?: number;
+  imageId?: string;
   linkUrl?: string;
   title?: string;
   text: string;
@@ -340,9 +326,7 @@ export interface PostCardResponse extends RestResponse {
 export interface UpdateCardStateDetails extends Signable {
   cardId: string;
   summary?: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
+    imageId: string;
     linkUrl: string;
     title: string;
     text: string;
@@ -518,63 +502,6 @@ export interface BankGenerateClientTokenDetails extends Signable { }
 
 export interface BankGenerateClientTokenResponse extends RestResponse {
   clientToken: string;
-}
-
-export interface BankClientCheckoutDetails extends Signable {
-  amount: number;
-  paymentMethodNonce: string;
-}
-
-export interface BankClientCheckoutResponse extends RestResponseWithUserStatus {
-  transactionResult: BraintreeTransactionResult;
-}
-
-export interface BraintreeTransactionResult {
-  params: any;
-  success: boolean;
-  errors: BraintreeTransactionError[];
-  transaction: {
-    id: string;
-    amount: string;
-    createdAt: string;
-    creditCard: {
-      token: string;
-      bin: string;
-      last4: string;
-      cardType: string;
-      expirationDate: string;
-      expirationMonth: string;
-      expirationYear: string;
-      imageUrl: string;
-      maskedNumber: string;
-    };
-    currencyIsoCode: string;  // "USD"
-    cvvResponseCode: string;
-    merchantAccountId: string;
-    paymentInstrumentType: string;
-    processorAuthorizationCode: string;
-    processorResponseCode: string;
-    processorResponseText: string;
-    processorSettlementResponseCode: string;
-    processorSettlementResponseText: string;
-    status: string;
-    statusHistory: BraintreeTransactionStatusItem[];
-    updatedAt: string;
-  };
-}
-
-export interface BraintreeTransactionStatusItem {
-  timestamp: string;
-  status: string;
-  amount: string;
-  user: string;
-  transactionSource: string;
-}
-
-export interface BraintreeTransactionError {
-  attribute: string;
-  code: string;
-  message: string;
 }
 
 export interface SearchDetails extends Signable {
@@ -778,8 +705,9 @@ export interface ListTopicsResponse extends RestResponse {
 }
 
 export interface GetChannelDetails extends Signable {
-  ownerId: string;  // you must provide either ownerId or handle
-  handle: string;
+  channelId: string;  // you must provide either channelId, ownerId or handle
+  ownerId: string;
+  channelHandle: string;
 }
 
 export interface GetChannelResponse extends RestResponse {
@@ -801,16 +729,11 @@ export interface ChannelDescriptor {
   subscriptionState: ChannelSubscriptionState;
 }
 
-export interface ChannelStats {
-  subscribers: number;
-  cards: number;
-  revenue: number;
-}
-
 export interface UserDescriptor {
   id: string;
+  address: string;
   handle: string;
-  publicKey: string;
+  publicKey?: string;
   name: string;
   image: FileInfo;
 }
@@ -818,12 +741,7 @@ export interface UserDescriptor {
 export interface FileInfo {
   id: string;
   url: string;
-  imageDescription: ImageDescription;
-}
-
-export interface ImageDescription {
-  width: number;
-  height: number;
+  imageInfo: ImageInfo;
 }
 
 export interface GetChannelsDetails extends Signable {

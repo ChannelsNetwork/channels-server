@@ -235,7 +235,7 @@
           },
           by: {
             name: $core.profile ? $core.profile.name : null,
-            imageUrl: $core.profile ? $core.profile.imageUrl : null
+            imageUrl: $core.profile && $core.profile.image ? $core.profile.image.url : null
           },
           postedAt: Date.now(),
           postedAtDisplay: "now",

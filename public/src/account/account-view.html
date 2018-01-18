@@ -111,8 +111,8 @@
             if (p.emailAddress) {
               profile.email = p.emailAddress;
             }
-            if (p.imageUrl) {
-              profile.image = p.imageUrl;
+            if (p.image && p.image.url) {
+              profile.image = p.image.url;
             }
           }
           this.profile = profile;

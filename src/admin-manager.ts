@@ -193,7 +193,7 @@ export class AdminManager implements RestServer {
         if (card) {
           cardsById[card.id] = card;
           if (card.postedAt > from && card.postedAt <= to) {
-            const firstCardByAuthor = await db.findFirstCardByUser(card.by.id);
+            const firstCardByAuthor = await db.findFirstCardByUser(card.createdById);
             if (card.pricing.openFeeUnits) {
               result.payFor.totalPosts++;
               if (firstCardByAuthor && firstCardByAuthor.id === card.id) {

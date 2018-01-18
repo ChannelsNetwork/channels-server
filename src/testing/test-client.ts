@@ -365,7 +365,7 @@ class TestClient implements RestServer {
 
   private async registerIdentity(name: string, handle: string, location: string): Promise<void> {
     const details: UpdateUserIdentityDetails = {
-      imageUrl: null,
+      imageId: null,
       address: this.keyInfo.address,
       fingerprint: null,
       name: name,

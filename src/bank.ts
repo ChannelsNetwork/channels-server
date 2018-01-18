@@ -8,7 +8,7 @@ import { KeyUtils } from "./key-utils";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankClientCheckoutDetails, BraintreeTransactionResult, BankClientCheckoutResponse, BankGenerateClientTokenResponse } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankGenerateClientTokenResponse } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import { SignedObject } from "./interfaces/signed-object";
 import * as paypal from 'paypal-rest-sdk';
@@ -74,9 +74,6 @@ export class Bank implements RestServer, Initializable {
     });
     this.app.post(this.urlManager.getDynamicUrl('bank-client-token'), (request: Request, response: Response) => {
       void this.handleClientTokenRequest(request, response);
-    });
-    this.app.post(this.urlManager.getDynamicUrl('bank-client-checkout'), (request: Request, response: Response) => {
-      void this.handleClientCheckout(request, response);
     });
   }
 
@@ -173,9 +170,6 @@ export class Bank implements RestServer, Initializable {
         if (user.identity.location) {
           html += "<div>location: " + user.identity.location + "</div>";
         }
-        if (user.identity.imageUrl) {
-          html += '<div><img style="width:100px;height:auto;" src="' + user.identity.imageUrl + '"></div>';
-        }
       }
       html += "</div>";
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
@@ -266,102 +260,6 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  private async handleClientCheckout(request: Request, response: Response): Promise<void> {
-    try {
-      const requestBody = request.body as RestRequest<BankClientCheckoutDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
-      if (!user) {
-        return;
-      }
-      console.log("Bank.bank-client-checkout", requestBody.detailsObject);
-      if (!requestBody.detailsObject.paymentMethodNonce) {
-        response.status(400).send("Payment method nonce missing");
-        return;
-      }
-      if (!requestBody.detailsObject.amount || requestBody.detailsObject.amount < 0) {
-        response.status(400).send("Amount is missing or invalid");
-        return;
-      }
-      if (requestBody.detailsObject.amount < 1) {
-        response.status(400).send("Amount is too small");
-        return;
-      }
-      if (requestBody.detailsObject.amount > 10000) {
-        response.status(400).send("Amount exceeds maximum allowed");
-        return;
-      }
-      const now = Date.now();
-      const amount = requestBody.detailsObject.amount;
-      const fees = amount * 0.029 + 0.3;
-      const netAmount = amount - fees;
-      const depositRecord = await db.insertBankDeposit("pending", now, user.id, amount, fees, netAmount, requestBody.detailsObject.paymentMethodNonce, now, null);
-      await userManager.updateUserBalance(user);
-      const transactionResponse = await this.braintreeTransaction(requestBody.detailsObject.paymentMethodNonce, amount);
-      console.log("Bank.handleClientCheckout:  transaction response from Braintree", transactionResponse);
-      if (transactionResponse.success) {
-        const transaction: BankTransactionDetails = {
-          address: null,
-          fingerprint: null,
-          timestamp: null,
-          type: "deposit",
-          reason: "deposit",
-          relatedCardId: null,
-          relatedCouponId: null,
-          amount: netAmount,
-          toRecipients: []
-        };
-        const recipient: BankTransactionRecipientDirective = {
-          address: user.address,
-          portion: "remainder",
-          reason: "depositor"
-        };
-        transaction.toRecipients.push(recipient);
-        const transactionResult = await networkEntity.performBankTransaction(transaction, null, false, true);
-        await db.updateBankDeposit(depositRecord.id, "completed", transactionResult.record.at, transactionResponse, transactionResult.record.id);
-        await db.incrementNetworkTotals(0, 0, netAmount, 0, 0);
-      } else {
-        await db.updateBankDeposit(depositRecord.id, "failed", Date.now(), transactionResponse, null);
-        response.json(transactionResponse);
-      }
-      const result: BankClientCheckoutResponse = {
-        serverVersion: SERVER_VERSION,
-        status: await userManager.getUserStatus(user, false),
-        transactionResult: transactionResponse
-      };
-      response.json(result);
-    } catch (err) {
-      console.error("Bank.handleClientCheckout: Failure", err);
-      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
-    }
-  }
-
-  private braintreeTransaction(nonce: string, amount: number): Promise<BraintreeTransactionResult> {
-    return new Promise<any>((resolve, reject) => {
-      this.braintreeGateway.transaction.sale({
-        amount: amount.toFixed(2),
-        paymentMethodNonce: nonce,
-        options: {
-          submitForSettlement: true
-        }
-      }, (err: any, result: any) => {
-        if (err) {
-          reject(err);
-        } else {
-          const transactionResult: BraintreeTransactionResult = {
-            params: result.params,
-            success: result.success,
-            errors: [],
-            transaction: result.transaction
-          };
-          if (!result.success) {
-            transactionResult.errors = result.errors.deepErrors();
-          }
-          resolve(transactionResult);
-        }
-      });
-    });
-  }
-
   async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
@@ -420,7 +318,7 @@ export class Bank implements RestServer, Initializable {
         console.error("Bank.transfer: Missing recipient address or portion", details);
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
       }
-      let recipientUser = await db.findUserByAddress(recipient.address);
+      let recipientUser = await userManager.getUserByAddress(recipient.address);
       if (!recipientUser) {
         recipientUser = await db.findUserByHistoricalAddress(recipient.address);
       }
@@ -470,7 +368,7 @@ export class Bank implements RestServer, Initializable {
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
-      let recipientUser = await db.findUserByAddress(recipient.address);
+      let recipientUser = await userManager.getUserByAddress(recipient.address);
       if (!recipientUser) {
         recipientUser = await db.findUserByHistoricalAddress(recipient.address);
       }
@@ -585,7 +483,7 @@ export class Bank implements RestServer, Initializable {
     if (coupon.budget.plusPercent === 0 || !coupon.cardId) {
       return coupon.budget.amount > coupon.budget.spent;
     }
-    const authorCardInfo = await db.findUserCardInfo(card.by.id, card.id);
+    const authorCardInfo = await db.findUserCardInfo(card.createdById, card.id);
     if (!authorCardInfo) {
       return coupon.budget.amount > coupon.budget.spent;
     }

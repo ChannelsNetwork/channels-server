@@ -248,20 +248,20 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  updateUserProfile(name, handle, location, imageUrl, email, password, trust) {
+  updateUserProfile(name, handle, location, imageId, email, password, trust) {
     if (password) {
       return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
         this.storage.setItem(_CKeys.KEYS, this._keys, trust);
         this.storage.clearItem(_CKeys.BACKUP_KEYS);
-        return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey);
+        return this._completeUserProfileUpdate(name, handle, location, imageId, email, password, encryptedPrivateKey);
       });
     } else {
-      return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password);
+      return this._completeUserProfileUpdate(name, handle, location, imageId, email, password);
     }
   }
 
-  _completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey) {
-    let details = RestUtils.updateIdentityDetails(this._keys.address, this._fingerprint, name, handle, location, imageUrl, email, encryptedPrivateKey);
+  _completeUserProfileUpdate(name, handle, location, imageId, email, password, encryptedPrivateKey) {
+    let details = RestUtils.updateIdentityDetails(this._keys.address, this._fingerprint, name, handle, location, imageId, email, encryptedPrivateKey);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-identity";
     return this.rest.post(url, request).then(() => {
@@ -382,8 +382,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateCardSummary(cardId, title, text, linkURL, imageUrl, imageWidth, imageHeight, keywords) {
-    const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight);
+  updateCardSummary(cardId, title, text, linkURL, imageId, keywords) {
+    const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageId);
     const details = RestUtils.updateCardStateDetails(this._keys.address, this._fingerprint, cardId, cardSummary, null, keywords);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";

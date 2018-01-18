@@ -314,7 +314,7 @@ export class FeedManager implements Initializable, RestServer {
       if (earnedAdCardIds.indexOf(card.id) >= 0) {
         continue;
       }
-      if (card.by.id === user.id) {
+      if (card.createdById === user.id) {
         continue;
       }
       if (existingAnnouncementId && card.id === existingAnnouncementId) {
@@ -480,7 +480,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const author = channelHandle ? await db.findUserByHandle(channelHandle) : null;
+    const author = channelHandle ? await userManager.getUserByHandle(channelHandle) : null;
     let cards: CardRecord[] = [];
     if (author) {
       cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true, user.id !== author.id);
@@ -502,7 +502,7 @@ export class FeedManager implements Initializable, RestServer {
     for (const info of infos) {
       const card = await db.findCardById(info.cardId, false);
       if (card) {
-        if (card.by.id === user.id || !card.curation || !card.curation.block) {
+        if (card.createdById === user.id || !card.curation || !card.curation.block) {
           cards.push(card);
         }
       }
@@ -609,7 +609,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async scoreCard(card: CardRecord, currentStats: NetworkCardStats): Promise<number> {
     const networkStats = await db.getNetworkCardStatsAt(card.postedAt);
-    const author = await userManager.getUserById(card.by.id);
+    const author = await userManager.getUser(card.createdById, false);
     if (!author) {
       return 0;
     }
@@ -768,7 +768,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
     await channelsComponentManager.ensureComponent('ChannelsNetwork/card-hello-world');
-    let index = 0;
+    const index = 0;
     for (const sample of cards) {
       const user = users[sample.handle];
       const cardId = uuid.v4();
@@ -778,9 +778,8 @@ export class FeedManager implements Initializable, RestServer {
       } else if (sample.openPrice < 0) {
         coupon = await this.createOpenCoupon(user, cardId, -sample.openPrice, 3);
       }
-      const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
-        user.user.identity.imageUrl,
-        this.getPreviewUrl("canned/" + (index++ + 10) + ".jpg"), 0, 0,
+      const card = await db.insertCard(user.user.id,
+        null,
         null,
         sample.title,
         sample.text,
@@ -1078,7 +1077,7 @@ export class FeedManager implements Initializable, RestServer {
     const identity: UserIdentity = {
       name: name,
       handle: handle,
-      imageUrl: imageUrl,
+      imageId: null,
       emailAddress: emailAddress,
       location: null,
       firstName: Utils.getFirstName(name),
@@ -1150,7 +1149,7 @@ export class FeedManager implements Initializable, RestServer {
       for (const record of cardRecords) {
         const descriptor = await this.populateCard(record, false, null, true);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
-        const author = await userManager.getUserById(record.by.id);
+        const author = await userManager.getUser(record.createdById, true);
         infos.push({
           descriptor: descriptor,
           scoring: {

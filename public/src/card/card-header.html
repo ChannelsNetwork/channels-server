@@ -128,7 +128,7 @@
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
           if (this._imagesLoaded) {
-            this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
+            this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
           }
           if (this.data.pricing.openFeeUnits === 0) {
             this.$.revenue.classList.add("hidden");
@@ -149,7 +149,7 @@
       loadImages() {
         if (!this._imagesLoaded) {
           this._imagesLoaded = true;
-          this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
+          this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
         }
       }
 

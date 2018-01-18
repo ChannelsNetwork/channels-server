@@ -111,8 +111,8 @@ class UserManager {
       } else {
         $core.getHandleInfo(handle).then((info) => {
           if (info) {
-            if (!info.imageUrl) {
-              info.imageUrl = this.getFallbackUserImage(info.handle);
+            if (!info.image || !info.image.url) {
+              info.image = { url: this.getFallbackUserImage(info.handle) };
             }
             this._handleInfos[handle] = info;
           }

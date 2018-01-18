@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -23,6 +23,7 @@ import * as uuid from "uuid";
 import { Utils } from "./utils";
 import fetch from "node-fetch";
 import { fileManager } from "./file-manager";
+import * as LRU from 'lru-cache';
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -46,6 +47,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
+  private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -79,6 +81,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       } else {
         await db.updateUserGeo(user.id, null, null, null, null);
+      }
+    }
+    const withoutImageId = await db.findUsersWithoutImageId();
+    const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
+    for (const user of withoutImageId) {
+      const imageUrl = user.identity.imageUrl;
+      if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
+        const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
+        await db.replaceUserImageUrl(user.id, fileId);
       }
     }
     setInterval(() => {
@@ -128,6 +139,34 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
   }
 
+  async getUser(userId: string, force: boolean): Promise<UserRecord> {
+    let result = this.userCache.get(userId);
+    if (result && !force) {
+      return result;
+    }
+    result = await db.findUserById(userId);
+    if (result) {
+      this.userCache.set(userId, result);
+    }
+    return result;
+  }
+
+  async getUserByAddress(address: string): Promise<UserRecord> {
+    const result = await db.findUserByAddress(address);
+    if (result) {
+      this.userCache.set(result.id, result);
+    }
+    return result;
+  }
+
+  async getUserByHandle(handle: string): Promise<UserRecord> {
+    const result = await db.findUserByHandle(handle);
+    if (result) {
+      this.userCache.set(result.id, result);
+    }
+    return result;
+  }
+
   private async handleRegisterUser(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RegisterUserDetails>;
@@ -159,7 +198,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
       }
       console.log("UserManager.register-user:", request.headers, ipAddress);
-      let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
+      let userRecord = await this.getUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
         if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
           await db.addUserIpAddress(userRecord, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
@@ -311,7 +350,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.register-user", requestBody);
-      let user = await db.findUserByHandle(requestBody.handleOrEmailAddress);
+      let user = await this.getUserByHandle(requestBody.handleOrEmailAddress);
       if (!user) {
         user = await db.findUserByEmail(requestBody.handleOrEmailAddress);
       }
@@ -404,7 +443,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       if (requestBody.detailsObject.handle) {
-        const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+        const existing = await this.getUserByHandle(requestBody.detailsObject.handle);
         if (existing && existing.id !== user.id) {
           response.status(409).send("This handle is not available");
           return;
@@ -418,7 +457,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
       if (configuration.get("notifications.userIdentityChange")) {
         let html = "<div>";
         html += "<div>userId: " + user.id + "</div>";
@@ -426,7 +465,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         html += "<div>handle: " + requestBody.detailsObject.handle + "</div>";
         html += "<div>email: " + requestBody.detailsObject.emailAddress ? requestBody.detailsObject.emailAddress : "not specified" + "</div>";
         html += "<div>location: " + requestBody.detailsObject.location ? requestBody.detailsObject.location : "not specified" + "</div>";
-        html += "<div>image: " + requestBody.detailsObject.imageUrl ? '<img style="width:100px;height:auto;" src="' + requestBody.detailsObject.imageUrl + '">' : "not specified" + "< /div>";
+        html += "<div>image: " + requestBody.detailsObject.imageId ? '<img style="width:100px;height:auto;" src="' + await fileManager.getFileUrlFromFileId(requestBody.detailsObject.imageId) + '">' : "not specified" + "< /div>";
         html += "</div>";
         void emailManager.sendInternalNotification("User identity added/updated", "A user has added or updated their identity", html);
       }
@@ -445,7 +484,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const requestBody = request.body as RequestRecoveryCodeDetails;
       let user: UserRecord;
       if (requestBody.handle) {
-        user = await db.findUserByHandle(requestBody.handle);
+        user = await this.getUserByHandle(requestBody.handle);
       } else if (requestBody.emailAddress) {
         user = await db.findUserByEmail(requestBody.emailAddress);
       } else {
@@ -528,7 +567,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         status: status,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? user.identity.imageUrl : null,
+        image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         encryptedPrivateKey: user.encryptedPrivateKey
@@ -552,7 +591,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? fileManager.rewriteFileUrls(user.identity.imageUrl) : null,
+        image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         encryptedPrivateKey: user.encryptedPrivateKey
@@ -577,7 +616,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.get-handle", user.id, requestBody.detailsObject);
-      const found = await db.findUserByHandle(handle);
+      const found = await this.getUserByHandle(handle);
       if (!found) {
         response.status(404).send("Handle not found");
         return;
@@ -586,7 +625,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         handle: found.identity ? found.identity.handle : null,
         name: found.identity ? found.identity.name : null,
-        imageUrl: found.identity ? fileManager.rewriteFileUrls(found.identity.imageUrl) : null
+        image: found.identity ? await fileManager.getFileInfo(found.identity.imageId) : null
       };
       response.json(reply);
     } catch (err) {
@@ -662,7 +701,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(403).send("You are not an admin");
         return;
       }
-      const mailingListUser = await db.findUserById(requestBody.detailsObject.userId);
+      const mailingListUser = await this.getUser(requestBody.detailsObject.userId, true);
       if (!mailingListUser) {
         response.status(404).send("No such user");
         return;
@@ -690,7 +729,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(403).send("You are not an admin");
         return;
       }
-      const user = await db.findUserById(requestBody.detailsObject.userId);
+      const user = await this.getUser(requestBody.detailsObject.userId, true);
       if (!user) {
         response.status(404).send("No such user");
         return;
@@ -736,10 +775,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return result;
   }
 
-  async getUserById(id: string): Promise<UserRecord> {
-    return await db.findUserById(id);
-  }
-
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<CheckHandleDetails>;
@@ -767,7 +802,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       reply.valid = true;
       console.log("UserManager.check-handle", requestBody.details);
-      const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+      const existing = await this.getUserByHandle(requestBody.detailsObject.handle);
       if (existing) {
         if (!user || existing.id !== user.id) {
           reply.inUse = true;
@@ -908,7 +943,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async onUserSocketMessage(address: string): Promise<UserRecord> {
-    const user = await db.findUserByAddress(address);
+    const user = await this.getUserByAddress(address);
     if (!user) {
       return null;
     }
@@ -926,6 +961,22 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
     }
     return false;
+  }
+
+  async getUserDescriptor(userId: string, includePublicKey: boolean): Promise<UserDescriptor> {
+    const user = await this.getUser(userId, false);
+    if (!user) {
+      return null;
+    }
+    const result: UserDescriptor = {
+      id: user.id,
+      address: user.address,
+      handle: user.identity ? user.identity.handle : null,
+      publicKey: user.publicKey,
+      name: user.identity ? user.identity.name : null,
+      image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null
+    };
+    return result;
   }
 }
 
