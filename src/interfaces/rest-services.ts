@@ -181,12 +181,8 @@ export interface CardDescriptor {
   by: UserDescriptor;
   referredBy?: UserDescriptor;
   private: boolean;
-  summary: {
-    image: FileInfo;
-    linkUrl: string;
-    title: string;
-    text: string;
-  };
+  summary: CardSummary;
+
   keywords: string[];
   cardType: {
     package: string;
@@ -221,6 +217,15 @@ export interface CardDescriptor {
 
   blocked: boolean;
   boost?: number;
+}
+
+export interface CardSummary {
+  imageUrl: string;  // Not included when posting
+  imageId: string;
+  imageInfo: ImageInfo;
+  linkUrl: string;
+  title: string;
+  text: string;
 }
 
 export interface CardDescriptorStatistics {

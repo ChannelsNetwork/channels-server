@@ -184,16 +184,16 @@ export class Database {
     await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });  // findCardsForScoring, findCardsByTime
     await this.cards.createIndex({ state: 1, "curation.block": 1, "budget.available": 1, private: 1, postedAt: -1 }); // findCardsWithAvailableBudget
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 10, "summary.text": 5, "keywords": 7, "by.name": 5, "by.handle": 5 } }); // findCardsBySearch
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "by.id": 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "by.id": 1, "stats.revenue.value": -1 }); // findCardsByRevenue
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "by.id": 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
+    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
+    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "stats.revenue.value": -1 }); // findCardsByRevenue
+    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.a": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.b": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
-    await this.cards.createIndex({ "by.id": 1, postedAt: -1 });
+    await this.cards.createIndex({ createdById: 1, postedAt: -1 });
 
     await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
   }
@@ -903,7 +903,7 @@ export class Database {
   }
 
   // async findLastCardByUser(userId: string): Promise<CardRecord> {
-  //   const results = await this.cards.find<CardRecord>({ "by.id": userId }).sort({ postedAt: -1 }).limit(1).toArray();
+  //   const results = await this.cards.find<CardRecord>({ createdById: userId }).sort({ postedAt: -1 }).limit(1).toArray();
   //   if (results.length > 0) {
   //     return results[0];
   //   } else {
@@ -1098,11 +1098,11 @@ export class Database {
   }
 
   async updateCardsBlockedByAuthor(userId: string, blocked: boolean): Promise<void> {
-    await this.cards.updateMany({ "by.id": userId }, { $set: { "curation.block": blocked } });
+    await this.cards.updateMany({ createdById: userId }, { $set: { "curation.block": blocked } });
   }
 
   async updateCardsLastScoredByAuthor(userId: string, blocked: boolean): Promise<void> {
-    await this.cards.updateMany({ "by.id": userId }, { $set: { lastScored: 0 } });
+    await this.cards.updateMany({ createdById: userId }, { $set: { lastScored: 0 } });
   }
 
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
@@ -1124,7 +1124,7 @@ export class Database {
   }
 
   findCardsByAuthor(userId: string): Cursor<CardRecord> {
-    return this.cards.find<CardRecord>({ "by.id": userId });
+    return this.cards.find<CardRecord>({ createdById: userId });
   }
 
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
@@ -1132,7 +1132,7 @@ export class Database {
     if (excludeBlocked) {
       query["curation.block"] = false;
     }
-    query["by.id"] = byUserId;
+    query.createdById = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
     } else if (before) {
@@ -1156,7 +1156,7 @@ export class Database {
   }
 
   async findFirstCardByUser(userId: string): Promise<CardRecord> {
-    const result = await this.cards.find<CardRecord>({ state: "active", "by.id": userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
+    const result = await this.cards.find<CardRecord>({ state: "active", createdById: userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
     if (result.length > 0) {
       return result[0];
     }
@@ -1185,7 +1185,7 @@ export class Database {
 
   private addAuthorClause(query: any, userId: string): void {
     query.$or = [
-      { "by.id": userId },
+      { createdById: userId },
       { private: false, "curation.block": false }
     ];
   }
@@ -1217,7 +1217,7 @@ export class Database {
   }
 
   async countCardPostsByUser(userId: string, from: number, to: number): Promise<number> {
-    return await this.cards.count({ "by.id": userId, postedAt: { $gt: from, $lte: to } });
+    return await this.cards.count({ createdById: userId, postedAt: { $gt: from, $lte: to } });
   }
 
   async ensureMutationIndex(): Promise<void> {
