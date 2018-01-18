@@ -342,7 +342,7 @@
           this._setMessage("Uploading image");
           $core.uploadImageFile(this._file, null, 256).then((fileInfo) => {
             this._setMessage("Saving profile");
-            this._updateProfile(name, email, fileInfo.id);
+            this._updateProfile(name, email, fileInfo.fileId);
           }).catch((err) => {
             console.error(err);
             this._setError(err || "Oops. Something went wrong.");

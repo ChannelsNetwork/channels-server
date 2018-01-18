@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -20,6 +20,7 @@ export class Database {
   private cardProperties: Collection;
   private cardCollections: Collection;
   private cardCollectionItems: Collection;
+  private cardFiles: Collection;
   private files: Collection;
   private cardOpens: Collection;
   private subsidyBalance: Collection;
@@ -52,6 +53,7 @@ export class Database {
     await this.initializeCardProperties();
     await this.initializeCardCollections();
     await this.initializeCardCollectionItems();
+    await this.initializeCardFiles();
     await this.initializeFiles();
     await this.initializeCardOpens();
     await this.initializeSubsidyBalance();
@@ -231,6 +233,11 @@ export class Database {
     this.cardCollectionItems = this.db.collection('cardCollectionItems');
     await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, key: 1 }, { unique: true });
     await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, index: 1 }, { unique: true });
+  }
+
+  private async initializeCardFiles(): Promise<void> {
+    this.cardFiles = this.db.collection('cardFiles');
+    await this.cardFiles.createIndex({ cardId: 1, group: 1, user: 1, fileId: 1 }, { unique: true });
   }
 
   private async initializeFiles(): Promise<void> {
@@ -1414,6 +1421,31 @@ export class Database {
 
   async updateCardCollectionItemIndex(cardId: string, group: CardStateGroup, user: string, collectionName: string, key: string, index: number): Promise<void> {
     await this.cardCollectionItems.updateOne({ cardId: cardId, group: group, user: user, collectionName: collectionName, key: key }, { $set: { index: index } });
+  }
+
+  async upsertCardFile(cardId: string, group: CardStateGroup, user: string, fileId: string, key: string): Promise<CardFileRecord> {
+    const now = Date.now();
+    const record: CardFileRecord = {
+      cardId: cardId,
+      group: group,
+      user: user,
+      fileId: fileId,
+      key: key
+    };
+    await this.cardFiles.updateOne({ cardId: cardId, group: group, user: user, fileId: fileId }, record, { upsert: true });
+    return record;
+  }
+
+  async findCardFiles(cardId: string, group: CardStateGroup, user: string): Promise<CardFileRecord[]> {
+    return await this.cardFiles.find<CardFileRecord>({ cardId: cardId, group: group, user: user }).sort({ fileId: 1 }).toArray();
+  }
+
+  async deleteCardFile(cardId: string, group: CardStateGroup, user: string, fileId: string): Promise<void> {
+    await this.cardFiles.deleteOne({ cardId: cardId, group: group, user: user, fileId: fileId });
+  }
+
+  async deleteCardFiles(cardId: string): Promise<void> {
+    await this.cardFiles.deleteMany({ cardId: cardId });
   }
 
   async insertFile(status: FileStatus, s3Bucket: string): Promise<FileRecord> {

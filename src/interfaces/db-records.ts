@@ -291,6 +291,14 @@ export interface CardCollectionItemRecord {
   value: any;
 }
 
+export interface CardFileRecord {
+  cardId: string;
+  group: CardStateGroup;
+  user: string;
+  fileId: string;
+  key: string;
+}
+
 export type FileStatus = "started" | "aborted" | "failed" | "uploading" | "complete" | "final" | "deleted";
 
 export interface FileRecord {

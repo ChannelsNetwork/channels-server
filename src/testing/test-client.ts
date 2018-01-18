@@ -473,7 +473,8 @@ class TestClient implements RestServer {
       },
       sharedState: {
         properties: { hello: "world" },
-        collections: {}
+        collections: {},
+        files: []
       },
       fileIds: []
     };

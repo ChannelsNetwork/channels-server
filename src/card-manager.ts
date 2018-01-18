@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, CardState, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardFileDescriptor, CardState, CardStateInfo, CardFileInfo } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -148,7 +148,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const state = await this.populateCardState(card.id, true, false);
       let searchText;
       if (state && state.state.shared) {
-        searchText = this.searchTextFromSharedState(state.state.shared);
+        searchText = this.searchTextFromSharedStateInfo(state.state.shared);
       } else {
         console.warn("Card.initialize2: No shared state to use for search text");
       }
@@ -292,6 +292,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return result;
   }
 
+  searchTextFromSharedStateInfo(sharedState: CardStateInfo): string {
+    let result = this.getObjectStringRecursive(sharedState);
+    if (result.length > MAX_SEARCH_STRING_LENGTH) {
+      result = result.substr(0, MAX_SEARCH_STRING_LENGTH);
+    }
+    return result;
+  }
+
   private getObjectStringRecursive(object: any): string {
     let result = "";
     if (!object) {
@@ -326,6 +334,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           await db.insertCardCollectionItem(card.id, "shared", '', key, collection.keyField ? record[collection.keyField] : index.toString(), index, record);
           index++;
         }
+      }
+    }
+    if (state.files) {
+      for (const f of state.files) {
+        const fileInfo = await fileManager.getFileInfo(f.fileId);
+        await db.upsertCardFile(card.id, "shared", '', f.fileId, f.key);
       }
     }
   }
@@ -1025,6 +1039,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.deleteCardProperties(card.id);
         await db.deleteCardCollections(card.id);
         await db.deleteCardCollectionItems(card.id);
+        await db.deleteCardFiles(card.id);
         await this.insertCardSharedState(card, requestBody.detailsObject.state);
       }
       const reply: UpdateCardStateResponse = {
@@ -1455,7 +1470,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         postedAt: record.postedAt,
         by: await userManager.getUserDescriptor(record.createdById, false),
         summary: {
-          image: await fileManager.getFileInfo(record.summary.imageId),
+          image: record.summary.imageId ? await fileManager.getFileInfo(record.summary.imageId) : { url: record.summary.imageUrl, id: null, imageInfo: null },
           linkUrl: record.summary.linkUrl,
           title: record.summary.title,
           text: record.summary.text,
@@ -1508,12 +1523,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           user: {
             mutationId: null,
             properties: {},
-            collections: {}
+            collections: {},
+            files: []
           },
           shared: {
             mutationId: null,
             properties: {},
-            collections: {}
+            collections: {},
+            files: []
           }
         };
       }
@@ -1543,6 +1560,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             card.state.user.collections[collection.collectionName].records.push(fileManager.rewriteObjectFileUrls(item.value));
           }
         }
+        const userFiles = await db.findCardFiles(card.id, "user", user.id);
+        for (const userFile of userFiles) {
+          const item: CardFileInfo = {
+            file: await fileManager.getFileInfo(userFile.fileId),
+            key: userFile.key
+          };
+          card.state.user.files.push(item);
+        }
       }
       const lastSharedMutation = await db.findLastMutation(card.id, "shared");
       if (lastSharedMutation) {
@@ -1569,6 +1594,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           for (const item of sharedCollectionRecords) {
             card.state.shared.collections[collection.collectionName].records.push(fileManager.rewriteObjectFileUrls(item.value));
           }
+        }
+        const sharedFiles = await db.findCardFiles(card.id, "shared", '');
+        for (const sharedFile of sharedFiles) {
+          const item: CardFileInfo = {
+            file: await fileManager.getFileInfo(sharedFile.fileId),
+            key: sharedFile.key
+          };
+          card.state.shared.files.push(item);
         }
       }
       return card;

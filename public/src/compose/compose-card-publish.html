@@ -169,7 +169,7 @@
       _onPublish() {
         this.$.overlay.classList.remove("hidden");
         this.$.spinner.spinning = true;
-        this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
+        this.wizard.data.summary.imageId = this.cardData.summary.imageId;
         this.wizard.data.summary.title = this.cardData.summary.title;
         this.wizard.data.summary.text = this.cardData.summary.text;
         this.wizard.data.summary.linkURL = this.cardData.summary.linkURL;
@@ -213,7 +213,7 @@
         let data = this.wizard.data;
         const cardData = {
           summary: {
-            imageUrl: data.summary.imageURL,
+            imageId: data.summary.imageId,
             imageWidth: data.summary.imageWidth,
             imageHeight: data.summary.imageHeight,
             title: data.summary.title,

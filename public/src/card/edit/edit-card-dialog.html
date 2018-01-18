@@ -125,11 +125,8 @@
         if (file) {
           this.$.dlg.showProgress("Uploading image");
           $core.uploadImageFile(file, null, 500).then((fileInfo) => {
-            let imageUrl = fileInfo.url;
-            return this._getImageSize(imageUrl).then((size) => {
-              return this._updateCard(imageUrl, size).then(() => {
-                return this._onCardUpdate();
-              });
+            return this._updateCard(fileInfo.fileId).then(() => {
+              return this._onCardUpdate();
             });
           }).catch((err) => {
             console.error(err);
@@ -163,7 +160,7 @@
         });
       }
 
-      _updateCard(imageId, size) {
+      _updateCard(imageId) {
         this.$.dlg.showProgress("Saving");
         let imgId = this._card.summary.image ? this._card.summary.image.id : null;
         if (imageId) {
@@ -200,22 +197,22 @@
         return keywords;
       }
 
-      _getImageSize(imageUrl) {
-        return new Promise((resolve, reject) => {
-          if (imageUrl) {
-            let img = new Image();
-            img.addEventListener('load', () => {
-              resolve([img.width, img.height]);
-            });
-            img.addEventListener('error', () => {
-              resolve(null);
-            });
-            img.src = imageUrl;
-          } else {
-            resolve(null);
-          }
-        });
-      }
+      // _getImageSize(imageUrl) {
+      //   return new Promise((resolve, reject) => {
+      //     if (imageUrl) {
+      //       let img = new Image();
+      //       img.addEventListener('load', () => {
+      //         resolve([img.width, img.height]);
+      //       });
+      //       img.addEventListener('error', () => {
+      //         resolve(null);
+      //       });
+      //       img.src = imageUrl;
+      //     } else {
+      //       resolve(null);
+      //     }
+      //   });
+      // }
     }
     window.customElements.define(EditCardDialog.is, EditCardDialog);
   </script>

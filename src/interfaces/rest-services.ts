@@ -132,9 +132,26 @@ export interface CheckHandleResponse extends RestResponse {
 }
 
 export interface CardState {
+  properties: { [name: string]: any };
+  collections: { [name: string]: CardCollection };
+  files: CardFileDescriptor[];
+}
+
+export interface CardFileDescriptor {
+  fileId: string;
+  key: string;
+}
+
+export interface CardStateInfo {
   mutationId?: string;
   properties: { [name: string]: any };
   collections: { [name: string]: CardCollection };
+  files: CardFileInfo[];
+}
+
+export interface CardFileInfo {
+  file: FileInfo;
+  key: string;
 }
 
 export interface CardCollection {
@@ -209,8 +226,8 @@ export interface CardDescriptor {
     earnedFromReader: number;
   };
   state?: {
-    user: CardState;
-    shared: CardState;
+    user: CardStateInfo;
+    shared: CardStateInfo;
   };
 
   blocked: boolean;

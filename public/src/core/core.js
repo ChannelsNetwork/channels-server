@@ -123,8 +123,6 @@ class CoreService extends Polymer.Element {
   _generateFingerprint() {
     return new Promise((resolve, reject) => {
       new Fingerprint2().get((result, components) => {
-        console.log("Fingerprint ", result);
-        console.log("Fingerprint components: ", components);
         this._fingerprint = result;
         resolve();
       });
