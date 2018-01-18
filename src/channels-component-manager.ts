@@ -54,9 +54,9 @@ export class ChannelsComponentManager implements RestServer {
       } else {
         versioned = await this._infoVersioned(pkg);
       }
-      if (!versioned || !versioned.name || !versioned.version || !/^\d+\.\d+\.\d+$/.test(versioned.version)) {
-        throw new ErrorWithStatusCode(404, "Cannot install this package because it is not found or doesn't have an available release");
-      }
+      // if (!versioned || !versioned.name || !versioned.version || !/^\d+\.\d+\.\d+$/.test(versioned.version)) {
+      //   throw new ErrorWithStatusCode(404, "Cannot install this package because it is not found or doesn't have an available release");
+      // }
       return await this._installVersion(pkg, versioned);
     } catch (err) {
       console.error("Bower: install failed", err);
@@ -243,18 +243,18 @@ export class ChannelsComponentManager implements RestServer {
     });
   }
 
-  private async _installVersion(nameToInstall: string, pkg: BowerPackageMeta): Promise<BowerInstallResult> {
-    nameToInstall = nameToInstall.split('#')[0] + "#" + pkg.version;
-    const fullPkgName = pkg.name + "_" + pkg.version;
-    const cached = this.installedPackageCache.get(fullPkgName);
+  private async _installVersion(pkgToInstall: string, pkg: BowerPackageMeta): Promise<BowerInstallResult> {
+    const nameToInstall = pkgToInstall.split('/').join('___').split('#').join('__').toLowerCase();
+    const fullPkgName = pkg.name + "#" + pkg.version;
+    const cached = this.installedPackageCache.get(nameToInstall);
     if (cached) {
       return cached;
     }
     return new Promise<BowerInstallResult>((resolve, reject) => {
-      console.log("Bower.install " + fullPkgName + "...");
+      console.log("Bower.install " + nameToInstall + "=" + pkg + "...");
       fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands
-        .install([fullPkgName + "=" + nameToInstall], { "force-latest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
+        .install([nameToInstall + "=" + pkgToInstall], { "force-latest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
         .on('end', (installed: { [name: string]: BowerInstallPackageResult }) => {
           let result: BowerInstallResult;
           if (installed && installed[fullPkgName]) {
@@ -264,15 +264,15 @@ export class ChannelsComponentManager implements RestServer {
             // It must have already been installed, so the pkg information is all we need
             result = {
               endpoint: {
-                name: fullPkgName,
-                source: nameToInstall,
+                name: nameToInstall,
+                source: pkgToInstall,
                 target: pkg.version
               },
               pkgMeta: pkg
             };
             console.log("Bower._installVersion: already installed", result);
           }
-          this.installedPackageCache.set(fullPkgName, result);
+          this.installedPackageCache.set(nameToInstall, result);
           resolve(result);
         })
         .on('error', (err: any) => {
