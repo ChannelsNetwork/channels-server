@@ -1,0 +1,15 @@
+<dom-module id="nav-bar">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+  </template>
+  <script>
+    class NavBar extends Polymer.Element {
+      static get is() { return 'nav-bar'; }
+    }
+    window.customElements.define(NavBar.is, NavBar);
+  </script>
+</dom-module>

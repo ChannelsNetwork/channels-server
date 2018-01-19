@@ -4,6 +4,10 @@
   "main": "index.html",
   "dependencies": {
     "polymer": "Polymer/polymer#^2.0.0",
+    "soso-router": "SosoElements/soso-router#^0.0.6",
+    "soso-app-shell": "SosoElements/soso-app-shell#^0.0.1",
+    "soso-app-header": "SosoElements/soso-app-header#^0.0.1",
+    "soso-icon": "SosoElements/soso-icon#^0.0.2",
     "iron-flex-layout": "^2.0.0",
     "channels-web-utils": "ChannelsNetwork/channels-web-key-utils#^0.1.3",
     "soso-truncated-text": "pshihn/soso-truncated-text#^1.0.2",
@@ -29,10 +33,8 @@
     "soso-text-input": "SosoElements/soso-text-input#^0.1.3",
     "soso-spinner": "SosoElements/soso-spinner#^0.1.0",
     "soso-number-input": "SosoElements/soso-number-input#^0.1.5",
-    "soso-icon": "SosoElements/soso-icon#^0.0.1",
     "soso-tooltip": "SosoElements/soso-tooltip#^0.0.4",
     "soso-dropdown": "SosoElements/soso-dropdown#^0.0.2",
-    "soso-router": "SosoElements/soso-router#^0.0.6",
     "fingerprintjs2": "^1.5.1"
   },
   "devDependencies": {

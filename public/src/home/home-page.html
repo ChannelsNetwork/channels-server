@@ -1,0 +1,17 @@
+<dom-module id="home-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+    <p>Home page content goes here</p>
+    <div style="height: 300vh;"></div>
+  </template>
+  <script>
+    class HomePage extends Polymer.Element {
+      static get is() { return 'home-page'; }
+    }
+    window.customElements.define(HomePage.is, HomePage);
+  </script>
+</dom-module>

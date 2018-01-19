@@ -1,0 +1,158 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/polymer/lib/utils/import-href.html">
+<link rel="import" href="../../bower_components/soso-router/soso-router.html">
+<link rel="import" href="../../bower_components/soso-app-shell/soso-app-shell.html">
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../core/core.html">
+<link rel="import" href="styles.html">
+<link rel="import" href="nav-bar.html">
+
+<dom-module id="channels-app">
+  <template>
+    <style is="custom-style" include="app-styles">
+    </style>
+    <soso-router id="router" on-route-change="_onRouteChange"></soso-router>
+    <soso-app-shell id="shell">
+      <!-- Main Body -->
+      <div slot="main">
+        <div id="pages">
+          <!-- Signin and registartion pages -->
+          <sign-in-view class="signin page" data-href="../account/sign-in-view.html"></sign-in-view>
+          <register-view class="register page" data-href="../account/register-view.html"></register-view>
+          <register-image-view class="register-photo page" data-href="../account/register-image-view.html"></register-image-view>
+          <request-recovery-view class="request-recovery page" data-href="../account/request-recovery-view.html"></request-recovery-view>
+          <recover-account-view class="recover page" data-href="../account/recover-account-view.html"></recover-account-view>
+
+          <home-page id="home" class="home page" data-href="../home/home-page.html"></home-page>
+        </div>
+      </div>
+      <!-- Navigation Menu -->
+      <div slot="nav">
+        <nav-bar id="nav"></nav-bar>
+      </div>
+    </soso-app-shell>
+    <!-- TODO: Right panel -->
+  </template>
+  <script>
+    class ChannelsApp extends Polymer.Element {
+      static get is() { return "channels-app"; }
+
+      constructor() {
+        super();
+        window.$app = this;
+        window.$core = new CoreService();
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        window.$router = this.$.router;
+        window.addEventListener('channels-server-version-change', () => {
+          // TODO: Show reading panel
+          // this.$.reloadingPanel.classList.remove("hidden");
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        });
+      }
+
+      _import(path) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(path), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      _onRouteChange(event) {
+        // Called when navigation happens or on first load
+        const cb = (event) => {
+          this._handleRouteChange(event.detail.route);
+        };
+
+        // The current page can prevent this navigation 
+        // If prevented, the previous path is pushed on to the
+        // history stack so the URL in the address bar reverses to the prev value
+        if (this._lastPage && this._lastPath && this._lastPage.validatePageChange) {
+          this._lastPage.validatePageChange(event).then((proceed) => {
+            if (proceed) {
+              cb(event);
+            } else {
+              window.history.pushState(null, null, this._lastPath);
+            }
+          }).catch((err) => {
+            if (err) console.warn(err);
+            cb(event);
+          });
+        } else {
+          cb(event);
+        }
+      }
+
+      _handleRouteChange(route) {
+        let segments = route.segments;
+        let pageName = segments[0] || "home";
+        if (pageName === 'c') {
+          pageName = "card";
+        }
+        const pages = this.shadowRoot.querySelectorAll(".page");
+        let activePage = this.shadowRoot.querySelector("." + pageName);
+        if (!activePage) {
+          activePage = this.$.home;
+          pageName = "home";
+        }
+
+        // Close pending dialogs
+        let dlgShell = document.getElementById("dialogShell");
+        if (dlgShell) {
+          this._clearNode(dlgShell);
+        }
+
+        // Notify current page that it is going away
+        if (this._lastPage && (this._lastPage != activePage) && (this._lastPage.onDeactivate)) {
+          try {
+            this._lastPage.onDeactivate();
+          } catch (err) { console.error("Error in page deactivate", err); }
+        }
+        this._lastPage = activePage;
+
+        // Import the new page
+        const pageHref = activePage.dataset.href;
+        this._import(pageHref).then(() => {
+          // show the active page
+          for (let i = 0; i < pages.length; i++) {
+            let p = pages[i];
+            if (p == activePage) {
+              p.classList.remove("hidden");
+            } else {
+              p.classList.add("hidden");
+            }
+          }
+
+          // let active page know
+          setTimeout(() => {
+            if (activePage.onActivate) {
+              activePage.onActivate(route);
+            }
+          });
+        });
+
+        // Let navbar know
+        this.$.nav.route = route;
+
+        // notify analytics and return
+        $core.analytics.page(window.location.pathname || "/");
+        return pageName;
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+    }
+    window.customElements.define(ChannelsApp.is, ChannelsApp);
+  </script>
+</dom-module>
