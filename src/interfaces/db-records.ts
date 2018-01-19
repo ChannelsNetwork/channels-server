@@ -529,18 +529,21 @@ export type IpAddressStatus = "success" | "fail";
 
 export interface ChannelRecord {
   id: string;
+  status: ChannelStatus;
   name: string;
   handle: string;
   ownerId: string;
   created: number;
   bannerImageFileId: string;
   about: string;
-  location: string;
   linkUrl: string;
   socialLinks: SocialLink[];
   stats: ChannelStats;
   lastStatsSnapshot: number;
+  lastContentUpdate: number;
 }
+
+export type ChannelStatus = "active" | "deleted";
 
 export interface ChannelStats {
   subscribers: number;
@@ -559,7 +562,9 @@ export interface ChannelUserRecord {
   channelId: string;
   userId: string;
   added: number;
+  channelLastUpdate: number;
   subscriptionState: ChannelSubscriptionState;
+  lastUpdated: number;
   lastNotification: number;
 }
 

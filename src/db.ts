@@ -394,6 +394,7 @@ export class Database {
   private async initializeChannelUsers(): Promise<void> {
     this.channelUsers = this.db.collection('channelUsers');
     await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
+    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, channelLatestCard: -1 });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
@@ -1191,13 +1192,17 @@ export class Database {
   }
 
   async findCardsByScore(limit: number, userId: string, ads: boolean, scoreLessThan = 0): Promise<CardRecord[]> {
+    return await this.getCardsByScore(userId, ads, scoreLessThan).limit(limit).toArray();
+  }
+
+  getCardsByScore(userId: string, ads: boolean, scoreLessThan = 0): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     if (scoreLessThan) {
       query.score = { $lt: scoreLessThan };
     }
-    return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ score: -1 });
   }
 
   async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit: number, userId: string): Promise<CardRecord[]> {
@@ -2190,16 +2195,16 @@ export class Database {
     return await this.findIpAddress(ipAddress);
   }
 
-  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<ChannelRecord> {
+  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[], lastContentUpdate: number): Promise<ChannelRecord> {
     if (!socialLinks) {
       socialLinks = [];
     }
     const now = Date.now();
     const record: ChannelRecord = {
       id: uuid.v4(),
+      status: 'active',
       handle: handle.toLowerCase(),
       name: name,
-      location: location,
       ownerId: ownerId,
       created: now,
       bannerImageFileId: bannerImageFileId,
@@ -2211,7 +2216,8 @@ export class Database {
         cards: 0,
         revenue: 0
       },
-      lastStatsSnapshot: 0
+      lastStatsSnapshot: 0,
+      lastContentUpdate: lastContentUpdate
     };
     await this.channels.insertOne(record);
     return record;
@@ -2229,12 +2235,42 @@ export class Database {
     return await this.channels.find<ChannelRecord>({ ownerId: ownerId }).sort({ created: 1 }).toArray();
   }
 
-  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState): Promise<ChannelUserRecord> {
+  async findChannelsByLastUpdate(maxCount: number, lastUpdateLessThan: number): Promise<ChannelRecord[]> {
+    const query: any = {};
+    if (lastUpdateLessThan) {
+      query.lastContentUpdate = { $lt: lastUpdateLessThan };
+    }
+    return await this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 }).limit(maxCount || 100).toArray();
+  }
+
+  async updateChannel(channelId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
+    const update: any = {};
+    if (typeof bannerImageFileId !== 'undefined') {
+      update.bannerImageFileId = bannerImageFileId;
+    }
+    if (typeof about !== 'undefined') {
+      update.about = about;
+    }
+    if (typeof linkUrl !== 'undefined') {
+      update.linkUrl = linkUrl;
+    }
+    if (typeof socialLinks !== 'undefined') {
+      update.socialLinks = socialLinks;
+    }
+    if (Object.keys(update).length === 0) {
+      return;
+    }
+    await this.channels.updateOne({ id: channelId }, { $set: update });
+  }
+
+  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
       userId: userId,
       added: now,
+      lastUpdated: now,
+      channelLastUpdate: channelLastUpdate,
       subscriptionState: subscriptionState,
       lastNotification: 0
     };
@@ -2243,7 +2279,40 @@ export class Database {
   }
 
   async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
-    return await this.channels.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+    return await this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+  }
+
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number): Promise<ChannelUserRecord> {
+    const now = Date.now();
+    const record: ChannelUserRecord = {
+      channelId: channelId,
+      userId: userId,
+      added: now,
+      channelLastUpdate: channelLastUpdate,
+      subscriptionState: subscriptionState,
+      lastUpdated: now,
+      lastNotification: 0
+    };
+    await this.channelUsers.update({ channelId: channelId, userId: userId }, record, { upsert: true });
+    return record;
+  }
+
+  async updateChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLatestCard: number): Promise<void> {
+    await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, {
+      $set: {
+        subscriptionState: subscriptionState,
+        lastUpdated: Date.now(),
+        channelLatestCard: channelLatestCard
+      }
+    });
+  }
+
+  async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number): Promise<ChannelUserRecord[]> {
+    const query: any = { userId: userId, subscriptionState: subscriptionState };
+    if (latestLessThan) {
+      query.channelLatestCard = { $lt: latestLessThan };
+    }
+    return await this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 }).limit(maxCount || 100).toArray();
   }
 
   async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
