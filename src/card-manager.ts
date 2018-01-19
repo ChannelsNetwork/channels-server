@@ -1472,7 +1472,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const summary: CardSummary = {
         imageId: image ? image.id : null,
         imageInfo: image ? image.imageInfo : null,
-        imageURL: image ? image.url : null,
+        imageURL: image ? image.url : record.summary.imageUrl,
         linkUrl: record.summary.linkUrl,
         title: record.summary.title,
         text: record.summary.text,
