@@ -220,7 +220,7 @@ export interface CardDescriptor {
 }
 
 export interface CardSummary {
-  imageUrl: string;  // Not included when posting
+  imageURL: string;  // Not included when posting
   imageId: string;
   imageInfo: ImageInfo;
   linkUrl: string;
@@ -336,12 +336,7 @@ export interface PostCardResponse extends RestResponse {
 
 export interface UpdateCardStateDetails extends Signable {
   cardId: string;
-  summary?: {
-    imageId: string;
-    linkUrl: string;
-    title: string;
-    text: string;
-  };
+  summary?: CardSummary;
   state?: CardState;
   keywords?: string[];
 }

@@ -140,9 +140,7 @@
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
         this._userClosed = true;
-        $core.postCard(data.summary.imageURL,
-          data.summary.imageWidth,
-          data.summary.imageHeight,
+        $core.postCard(data.summary.imageId,
           data.summary.linkURL,
           data.summary.title,
           data.summary.text,

@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, FileMetadata } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, FileMetadata, CardSummary } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -1468,16 +1468,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       iconUrl = url.resolve(packageRootUrl, record.cardType.iconUrl);
     }
     try {
+      const image = await fileManager.getFileInfo(record.summary.imageId);
+      const summary: CardSummary = {
+        imageId: image ? image.id : null,
+        imageInfo: image ? image.imageInfo : null,
+        imageURL: image ? image.url : null,
+        linkUrl: record.summary.linkUrl,
+        title: record.summary.title,
+        text: record.summary.text,
+      };
       const card: CardDescriptor = {
         id: record.id,
         postedAt: record.postedAt,
         by: await userManager.getUserDescriptor(record.createdById, false),
-        summary: {
-          image: record.summary.imageId ? await fileManager.getFileInfo(record.summary.imageId) : { url: record.summary.imageUrl, id: null, imageInfo: null },
-          linkUrl: record.summary.linkUrl,
-          title: record.summary.title,
-          text: record.summary.text,
-        },
+        summary: summary,
         keywords: record.keywords,
         private: record.private,
         cardType: {

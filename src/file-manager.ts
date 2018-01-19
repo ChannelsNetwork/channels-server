@@ -405,7 +405,7 @@ export class FileManager implements RestServer {
       return null;
     }
     const record = await this.getFile(fileId, false);
-    if (!record || record.status !== 'complete') {
+    if (!record || (record.status !== 'complete' && record.status !== 'final')) {
       return null;
     }
     const result: FileInfo = {

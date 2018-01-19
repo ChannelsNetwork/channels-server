@@ -97,7 +97,7 @@
         this.$.text.value = card.summary.text || "";
         this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
-        this.$.filePicker.image = card.summary.image ? card.summary.image.url : null;
+        this.$.filePicker.image = card.summary.imageURL;
 
         return this.$.dlg.show();
       }
@@ -125,7 +125,7 @@
         if (file) {
           this.$.dlg.showProgress("Uploading image");
           $core.uploadImageFile(file, null, 500).then((fileInfo) => {
-            return this._updateCard(fileInfo.fileId).then(() => {
+            return this._updateCard(fileInfo.fileId, fileInfo.url).then(() => {
               return this._onCardUpdate();
             });
           }).catch((err) => {
@@ -160,16 +160,19 @@
         });
       }
 
-      _updateCard(imageId) {
+      _updateCard(imageId, imageURL) {
         this.$.dlg.showProgress("Saving");
-        let imgId = this._card.summary.image ? this._card.summary.image.id : null;
+        let imgId = this._card.summary.imageId;
+        let imgURL = this._card.summary.imageURL;
         if (imageId) {
           imgId = imageId;
+          imgURL = imageURL;
         } else if (this._imageCleared) {
           imgId = null;
+          imgURL = null;
         }
         let keywords = this._getKeywords();
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, imgId, keywords).then((summary) => {
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, imgId, imgURL, keywords).then((summary) => {
           this._summary = summary;
           this._summary.keywords = keywords;
         });
