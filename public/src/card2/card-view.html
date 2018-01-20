@@ -31,6 +31,7 @@
         font-size: 13px;
         padding: 0 0 0 10px;
         border-top: 1px solid #e5e5e5;
+        color: #888888;
       }
 
       #revenue {
@@ -124,35 +125,46 @@
         position: relative;
       }
 
+      .wide #imagePanel {
+        border-radius: 3px 0 0 3px;
+      }
+
       #imagePanel.noImage {
         height: 80px;
         max-height: 80px;
       }
+
+      #spacer {
+        min-height: 60px;
+      }
     </style>
     <div class="cardShell">
-      <div class="container vertical layout">
+      <div id="container" class="container vertical layout">
         <div id="imagePanel" class="flex"></div>
-        <div id="infoPanel" class="vertical layout">
-          <div id="headline">
-            <img src$="[[data.cardType.iconUrl]]">
-            <span>[[data.summary.title]]</span>
+        <div id="contentPanel">
+          <div id="spacer" class="hidden"></div>
+          <div id="infoPanel" class="vertical layout">
+            <div id="headline">
+              <img src$="[[data.cardType.iconUrl]]">
+              <span>[[data.summary.title]]</span>
+            </div>
+            <div id="description" class="flex">[[descriptionText]]</div>
           </div>
-          <div id="description" class="flex">[[descriptionText]]</div>
-        </div>
-        <div id="bottomBar" class="horizontal layout center bottomBar">
-          <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
-          <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hiddsen"></soso-icon>
-          <div class="flex"></div>
-          <div id="upPanel" class="horizontal layout center">
-            <soso-icon id="shareIcon" icon="thumb-up"></soso-icon>
-            <span>3</span>
+          <div id="bottomBar" class="horizontal layout center bottomBar">
+            <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
+            <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+            <div class="flex"></div>
+            <div id="upPanel" class="horizontal layout center">
+              <soso-icon id="shareIcon" icon="thumb-up"></soso-icon>
+              <span>3</span>
+            </div>
+            <div id="downPanel" class="horizontal layout center">
+              <soso-icon id="shareIcon" icon="thumb-down"></soso-icon>
+              <span>0</span>
+            </div>
+            <soso-icon id="shareIcon" icon="share" class="actionIcon"></soso-icon>
+            <soso-icon id="moreIcon" icon="expand-more" class="actionIcon"></soso-icon>
           </div>
-          <div id="downPanel" class="horizontal layout center">
-            <soso-icon id="shareIcon" icon="thumb-down"></soso-icon>
-            <span>0</span>
-          </div>
-          <soso-icon id="shareIcon" icon="share" class="actionIcon"></soso-icon>
-          <soso-icon id="moreIcon" icon="expand-more" class="actionIcon"></soso-icon>
         </div>
       </div>
 
@@ -236,6 +248,7 @@
             this._imagesLoaded = false;
             this._loadImages();
           }
+          this._refreshLayout();
         }
       }
 
@@ -266,6 +279,48 @@
           this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
           this._loadAuthorImage();
         }
+      }
+
+      _refreshLayout() {
+        // TODO: Preet: transition opacity on layout
+        this._ensureWidth().then(() => {
+          let w = this.offsetWidth;
+          let h = this.offsetHeight;
+          let wide = w > h;
+          if (this._wide !== wide) {
+            this._wide = wide;
+            if (wide) {
+              this.$.container.classList.remove("vertical");
+              this.$.container.classList.add("horizontal", "wide");
+              this.$.contentPanel.classList.add("flex", "vertical", "layout");
+              this.$.spacer.classList.remove("hidden");
+              this.$.infoPanel.classList.add("flex");
+            } else {
+              this.$.container.classList.add("vertical");
+              this.$.container.classList.remove("horizontal", "wide");
+              this.$.contentPanel.classList.remove("flex", "vertical", "layout");
+              this.$.spacer.classList.add("hidden");
+              this.$.infoPanel.classList.remove("flex");
+            }
+          }
+        });
+      }
+
+      _ensureWidth() {
+        return new Promise((resolve, reject) => {
+          if (this.offsetWidth) {
+            resolve();
+          } else {
+            this._refreshAttempts = 0;
+            this._refreshInterval = setInterval(() => {
+              if (this.offsetWidth || this._refreshAttempts >= 10) {
+                clearInterval(this._refreshInterval);
+                this._refreshInterval = null;
+                resolve();
+              }
+            }, 50);
+          }
+        });
       }
     }
     window.customElements.define(CardView.is, CardView);

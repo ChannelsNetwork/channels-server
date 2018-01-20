@@ -107,6 +107,7 @@
           // fetch items
           return $core.getFeed(parsedRoute.feedName, parsedRoute.count, null, null, null, []).then((feed) => {
             this.items = feed.cards;
+            // this.items = feed.cards.length ? [feed.cards[0]] : [];
             if (this.items && this.items.length) {
               this.$.noItems.classList.add("hidden");
             } else {
