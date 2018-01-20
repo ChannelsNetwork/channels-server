@@ -1,3 +1,5 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
 <dom-module id="home-page">
   <template>
     <style is="custom-style" include="app-styles">
@@ -5,7 +7,9 @@
         display: block;
       }
     </style>
-    <p>Home page content goes here</p>
+    <soso-app-header>
+      <channels-bar></channels-bar>
+    </soso-app-header>
     <div style="height: 300vh;"></div>
   </template>
   <script>
