@@ -2,6 +2,7 @@
 <link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="feeds-bar.html">
+<link rel="import" href="card-list-view.html">
 
 <dom-module id="feed-page">
   <template>
@@ -39,6 +40,12 @@
         background: var(--bg-dark);
       }
 
+      card-list-view {
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
       @media (max-width: 600px) {
         #composeButton {
           bottom: 24px;
@@ -52,6 +59,7 @@
     </soso-app-header>
     <div class="container">
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
+      <card-list-view items="[[items]]"></card-list-view>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>

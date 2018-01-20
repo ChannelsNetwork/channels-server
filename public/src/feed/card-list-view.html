@@ -1,0 +1,56 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+
+<dom-module id="card-list-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .card {
+        height: var(--grid-card-height, 400px);
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        min-width: 300px;
+        max-width: 936px;
+        margin: 8px;
+        background: #f0f0f0;
+      }
+    </style>
+    <div id="container" class="horizontal layout wrap">
+      <dom-repeat items="[[items]]">
+        <template>
+          <div class="card"></div>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class CardListView extends Polymer.Element {
+      static get is() { return 'card-list-view'; }
+      static get properties() {
+        return {
+          items: Array
+        };
+      }
+
+      constructor() {
+        super();
+        let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 500);
+        this.updateStyles({
+          '--grid-card-height': ht + "px"
+        });
+      }
+    }
+    window.customElements.define(CardListView.is, CardListView);
+  </script>
+</dom-module>
