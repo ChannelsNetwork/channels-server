@@ -1,3 +1,5 @@
+<link rel="import" href="../controls/user-image.html">
+
 <dom-module id="card-view">
   <template>
     <style is="custom-style" include="app-styles">
@@ -78,10 +80,65 @@
       #downPanel:hover soso-icon {
         color: var(--highlight-green);
       }
+
+      #infoPanel {
+        padding: 10px 14px;
+        position: relative;
+      }
+
+      #headline {
+        font-size: 18px;
+        margin-bottom: 6px;
+      }
+
+      #headline img {
+        float: left;
+        margin: 0 8px 1px 0;
+        height: 1.4em;
+        opacity: 0.6;
+        width: auto;
+      }
+
+      #description {
+        font-size: 14px;
+        color: #424242;
+      }
+
+      #authorImage {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        padding: 5px;
+      }
+
+      #imagePanel {
+        overflow: hidden;
+        background-color: #fff;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+        border-radius: 3px 3px 0 0;
+        position: relative;
+      }
+
+      #imagePanel.noImage {
+        height: 80px;
+        max-height: 80px;
+      }
     </style>
     <div class="cardShell">
       <div class="container vertical layout">
-        <div class="flex"></div>
+        <div id="imagePanel" class="flex"></div>
+        <div id="infoPanel" class="vertical layout">
+          <div id="headline">
+            <img src$="[[data.cardType.iconUrl]]">
+            <span>[[data.summary.title]]</span>
+          </div>
+          <div id="description" class="flex">[[descriptionText]]</div>
+        </div>
         <div id="bottomBar" class="horizontal layout center bottomBar">
           <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
           <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hiddsen"></soso-icon>
@@ -98,8 +155,11 @@
           <soso-icon id="moreIcon" icon="expand-more" class="actionIcon"></soso-icon>
         </div>
       </div>
+
+      <user-image id="authorImage"></user-image>
     </div>
   </template>
+  <script src="../card/card-view-helper.js"></script>
   <script>
     class CardView extends Polymer.Element {
       static get is() { return 'card-view'; }
@@ -109,6 +169,7 @@
             type: Object,
             observer: "_onData"
           },
+          descriptionText: String,
           price: String,
           priceTip: String,
           promotedTip: String
@@ -124,12 +185,65 @@
       disconnectedCallback() {
         super.disconnectedCallback();
         this._attached = false;
+        this._detachIntersectionObservers();
+
+        // TODO: data update listener
+      }
+
+      _detachIntersectionObservers() {
+        $cardHelper.removeIntersectionObserver(this);
+      }
+
+      _attachIntersectionObservers() {
+        this._detachIntersectionObservers();
+        $cardHelper.addIntersectionObserver(this, (entry) => {
+          // impression check
+          if ((!this._impressionFired) && entry.isIntersecting && entry.intersectionRatio > 0.9) {
+            if (!this._impressionStarted) {
+              this._impressionStarted = (new Date()).getTime();
+              this._impressionTimeout = setTimeout(() => {
+                if (this._impressionStarted && (!this._impressionFired)) {
+                  this._impressionFired = true;
+                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true }));
+                }
+                this._impressionStarted = null;
+                this._impressionTimeout = null;
+              }, 2000);
+            }
+          } else {
+            this._impressionStarted = null;
+            if (this._impressionTimeout) {
+              clearTimeout(this._impressionTimeout);
+            }
+          }
+          // Image load check
+          if (entry.isIntersecting) {
+            this._loadImages();
+          }
+        });
       }
 
       _onData() {
         if (this._attached && this.data) {
+          this.descriptionText = this._truncate(this.data.summary.text || "", 180);
           this._refreshRevenue();
+          requestAnimationFrame(() => {
+            if (this._attached) {
+              this._attachIntersectionObservers();
+            }
+          });
+          if (this._imagesLoaded) {
+            this._imagesLoaded = false;
+            this._loadImages();
+          }
         }
+      }
+
+      _truncate(text, limit) {
+        if ((!text) || (text.length <= limit)) {
+          return text || "";
+        }
+        return (text.substring(0, limit - 3).trim() + "...");
       }
 
       _refreshRevenue() {
@@ -140,7 +254,29 @@
         }
         this.set("data.stats.revenueDisplay", this.data.stats.revenue.toFixed(2));
       }
+
+      _loadAuthorImage() {
+        this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
+      }
+
+      _loadImages() {
+        if (!this._imagesLoaded) {
+          this._imagesLoaded = true;
+          let img = this.data.summary.imageURL || ('/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg');
+          this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
+          this._loadAuthorImage();
+        }
+      }
     }
     window.customElements.define(CardView.is, CardView);
+
+// let img = this.data.summary.imageURL || (this.data.by.image && this.data.by.image.url ? this.data.by.image.url : ('/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg'));
+// if (this.data.summary.imageURL) {
+//   this.$.imagePanel.classList.add("flex");
+//   this.$.imagePanel.classList.remove("noImage");
+// } else {
+//   this.$.imagePanel.classList.add("noImage");
+//   this.$.imagePanel.classList.remove("flex");
+// }
   </script>
 </dom-module>
