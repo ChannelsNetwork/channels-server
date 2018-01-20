@@ -1,4 +1,5 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../card2/card-view.html">
 
 <dom-module id="card-list-view">
   <template>
@@ -12,7 +13,7 @@
         box-sizing: border-box;
       }
 
-      .card {
+      card-view {
         height: var(--grid-card-height, 400px);
         box-sizing: border-box;
         -ms-flex: 1 1 0.000000001px;
@@ -23,13 +24,12 @@
         min-width: 300px;
         max-width: 936px;
         margin: 8px;
-        background: #f0f0f0;
       }
     </style>
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <div class="card"></div>
+          <card-view data="[[item]]"></card-view>
         </template>
       </dom-repeat>
     </div>

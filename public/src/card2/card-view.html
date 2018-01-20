@@ -1,0 +1,146 @@
+<dom-module id="card-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        transition: opacity 0.2s ease;
+        position: relative;
+        background: white;
+      }
+
+      .cardShell {
+        position: relative;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .container {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        background: white;
+        position: relative
+      }
+
+      .bottomBar {
+        border-radius: 0 0 3px 3px;
+        font-size: 13px;
+        padding: 0 0 0 10px;
+        border-top: 1px solid #e5e5e5;
+      }
+
+      #revenue {
+        color: var(--highlight-green);
+        font-weight: bold;
+        font-size: 14px;
+        margin-right: 5px;
+      }
+
+      soso-icon {
+        color: #888888;
+        width: 18px;
+        height: 18px;
+      }
+
+      soso-icon.actionIcon {
+        width: 24px;
+        height: 24px;
+        padding: 10px 8px;
+        cursor: pointer;
+      }
+
+      #privateIcon {
+        margin: 0;
+        width: 16px;
+        height: 16px;
+      }
+
+      #upPanel,
+      #downPanel {
+        margin: 0 10px;
+        cursor: pointer;
+      }
+
+      #upPanel soso-icon,
+      #downPanel soso-icon {
+        margin-right: 5px;
+        color: #999;
+      }
+
+      #upPanel:hover,
+      #downPanel:hover {
+        color: var(--dark-green);
+      }
+
+      #upPanel:hover soso-icon,
+      #downPanel:hover soso-icon {
+        color: var(--highlight-green);
+      }
+    </style>
+    <div class="cardShell">
+      <div class="container vertical layout">
+        <div class="flex"></div>
+        <div id="bottomBar" class="horizontal layout center bottomBar">
+          <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
+          <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hiddsen"></soso-icon>
+          <div class="flex"></div>
+          <div id="upPanel" class="horizontal layout center">
+            <soso-icon id="shareIcon" icon="thumb-up"></soso-icon>
+            <span>3</span>
+          </div>
+          <div id="downPanel" class="horizontal layout center">
+            <soso-icon id="shareIcon" icon="thumb-down"></soso-icon>
+            <span>0</span>
+          </div>
+          <soso-icon id="shareIcon" icon="share" class="actionIcon"></soso-icon>
+          <soso-icon id="moreIcon" icon="expand-more" class="actionIcon"></soso-icon>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardView extends Polymer.Element {
+      static get is() { return 'card-view'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: "_onData"
+          },
+          price: String,
+          priceTip: String,
+          promotedTip: String
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._onData();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _onData() {
+        if (this._attached && this.data) {
+          this._refreshRevenue();
+        }
+      }
+
+      _refreshRevenue() {
+        if (this.data.pricing.openFeeUnits === 0) {
+          this.$.revenue.classList.add("hidden");
+        } else {
+          this.$.revenue.classList.remove("hidden");
+        }
+        this.set("data.stats.revenueDisplay", this.data.stats.revenue.toFixed(2));
+      }
+    }
+    window.customElements.define(CardView.is, CardView);
+  </script>
+</dom-module>
