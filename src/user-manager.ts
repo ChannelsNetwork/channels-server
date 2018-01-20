@@ -974,7 +974,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       handle: user.identity ? user.identity.handle : null,
       publicKey: user.publicKey,
       name: user.identity ? user.identity.name : null,
-      image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null
+      image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
+      location: user.identity ? user.identity.location : null
     };
     return result;
   }

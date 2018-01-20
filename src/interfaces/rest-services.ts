@@ -728,7 +728,6 @@ export interface ChannelDescriptor {
   owner: UserDescriptor;
   created: number;
   about: string;
-  location: string;
   linkUrl: string;
   socialLinks: SocialLink[];
   stats: ChannelStats;
@@ -742,6 +741,7 @@ export interface UserDescriptor {
   publicKey?: string;
   name: string;
   image: FileInfo;
+  location: string;
 }
 
 export interface FileInfo {
@@ -753,23 +753,22 @@ export interface FileInfo {
 export interface GetChannelsDetails extends Signable {
   type: ChannelFeedType;
   maxCount: number;
-  afterChannelId?: string;
+  nextPageReference?: string;   // if provided, used to get next page based on GetChannelsResponse.nextPageReference
 }
 
-export type ChannelFeedType = "recommended" | "new" | "subscribed";
+export type ChannelFeedType = "recommended" | "new" | "feed" | "blocked";
 
 export interface GetChannelsResponse extends RestResponse {
   channels: ChannelDescriptor[];
-  moreAvailable: boolean;
+  nextPageReference: string;  // If not-null, more is available; use this in next call
 }
 
 export interface UpdateChannelDetails extends Signable {
   channelId: string;
-  bannerImageFileId: string;
-  about: string;
-  location: string;
-  link: string;
-  socialLinks: SocialLink[];
+  bannerImageFileId?: string;
+  about?: string;
+  link?: string;
+  socialLinks?: SocialLink[];
 }
 
 export interface UpdateChannelResponse extends RestResponse { }
@@ -777,8 +776,6 @@ export interface UpdateChannelResponse extends RestResponse { }
 export interface UpdateChannelSubscriptionDetails extends Signable {
   channelId: string;
   subscriptionState: ChannelSubscriptionState;
-  report?: boolean;  // only if setting state to "blocked" and user believes inappropriate for others
-  reportReason?: string;
 }
 
 export interface UpdateChannelSubscriptionResponse extends RestResponse { }
