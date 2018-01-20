@@ -1,0 +1,91 @@
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+
+<dom-module id="feeds-bar">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #bar {
+        height: 50px;
+        padding: 0;
+        box-sizing: border-box;
+        background: #293C41;
+        color: white;
+      }
+
+      soso-icon {
+        width: 28px;
+        height: 28px;
+        padding: 10px;
+        cursor: pointer;
+        transition: color 0.15s ease;
+      }
+
+      soso-icon:hover {
+        color: var(--bg-yellow);
+      }
+
+      button {
+        color: white;
+        font-size: 14px;
+        background: none;
+        font-weight: 400;
+      }
+
+      button:hover {
+        color: var(--bg-yellow);
+      }
+
+      a {
+        text-align: center;
+      }
+
+      a:hover {
+        box-shadow: none;
+      }
+
+      @media (max-width: 600px) {
+        button {
+          font-size: 12px;
+        }
+      }
+    </style>
+    <div id="bar" class="horizontal layout center" on-click="_barClick">
+      <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
+      <a href="/feed/recommended" on-click="_linkClick">
+        <button id="recommended">Recommended</button>
+      </a>
+      <a href="/feed/subscribed" on-click="_linkClick">
+        <button id="subscribed">Subscribed</button>
+      </a>
+      <a href="/feed/new" on-click="_linkClick">
+        <button id="new">New</button>
+      </a>
+    </div>
+  </template>
+  <script>
+    class FeedsBar extends Polymer.Element {
+      static get is() { return 'feeds-bar'; }
+
+      _showMenu(event) {
+        event.stopPropagation();
+        $app.showMenu();
+      }
+
+      _linkClick(event) {
+      }
+
+      _barClick(event) {
+        if (event.target && event.target.tagName) {
+          if ((event.target.tagName === "BUTTON") || (event.target.tagName === "A")) {
+            return;
+          }
+        }
+        $app.scrollTo(0);
+      }
+    }
+    window.customElements.define(FeedsBar.is, FeedsBar);
+  </script>
+</dom-module>

@@ -45,6 +45,7 @@
       #userImage {
         height: 38px;
         width: 38px;
+        margin: 0 5px 0 10px;
       }
 
       button {
@@ -77,6 +78,9 @@
           padding: 0 10px;
           font-size: 15px;
         }
+        .logo {
+          height: 26px;
+        }
       }
     </style>
     <div id="bar" class="horizontal layout center">
@@ -84,10 +88,11 @@
         <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
       </a>
       <div class="flex"></div>
-      <user-image id="userImage" class="hidden"></user-image>
       <a id="signInLink" href="/signin" class="hidden">
         <button id="signin">Sign In</button>
       </a>
+      <soso-icon icon="search" on-click="_onSearch"></soso-icon>
+      <user-image id="userImage" class="hidden"></user-image>
       <a href="/balance">
         <div id="balancePanel" class="horizontal layout center">
           <span id="balanceLabel" style="opacity: 0;">[[balance]]</span>
@@ -121,6 +126,10 @@
       }
 
       deactivate() {
+        if (this._balanceTimer) {
+          clearInterval(this._balanceTimer);
+          this._balanceTimer = null;
+        }
         this._removeListeners();
       }
 

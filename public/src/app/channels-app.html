@@ -22,7 +22,8 @@
           <request-recovery-view class="request-recovery page" data-href="../account/request-recovery-view.html"></request-recovery-view>
           <recover-account-view class="recover page" data-href="../account/recover-account-view.html"></recover-account-view>
 
-          <home-page id="home" class="home page" data-href="../home/home-page.html"></home-page>
+          <!-- <home-page id="home" class="home page" data-href="../home/home-page.html"></home-page> -->
+          <feed-page id="feed" class="feed page" data-href="../feed/feed-page.html"></feed-page>
         </div>
       </div>
       <!-- Navigation Menu -->
@@ -40,6 +41,19 @@
         super();
         window.$app = this;
         window.$core = new CoreService();
+      }
+
+      showMenu() {
+        this.$.shell.showMenu();
+      }
+
+      scrollTo(value) {
+        if (window.scrollTo) {
+          window.scrollTo(0, value);
+        } else {
+          document.documentElement.scrollTop = value;
+          document.body.scrollTop = value;
+        }
       }
 
       connectedCallback() {
@@ -91,15 +105,15 @@
 
       _handleRouteChange(route) {
         let segments = route.segments;
-        let pageName = segments[0] || "home";
+        let pageName = segments[0] || "feed";
         if (pageName === 'c') {
           pageName = "card";
         }
         const pages = this.shadowRoot.querySelectorAll(".page");
         let activePage = this.shadowRoot.querySelector("." + pageName);
         if (!activePage) {
-          activePage = this.$.home;
-          pageName = "home";
+          activePage = this.$.feed;
+          pageName = "feed";
         }
 
         // Close pending dialogs

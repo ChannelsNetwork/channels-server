@@ -1,0 +1,31 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="feeds-bar.html">
+<dom-module id="feed-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
+    <div style="height: 300vh;"></div>
+  </template>
+  <script>
+    class FeedPage extends Polymer.Element {
+      static get is() { return 'feed-page'; }
+
+      onActivate(route) {
+        this.$.cbar.activate();
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
+      }
+    }
+    window.customElements.define(FeedPage.is, FeedPage);
+  </script>
+</dom-module>
