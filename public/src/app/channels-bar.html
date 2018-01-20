@@ -121,7 +121,6 @@
         window.addEventListener("channels-registration", this._balaceListener);
         window.addEventListener("channels-user-status", this._balaceListener);
         window.addEventListener("channels-profile", this._profileListener);
-        this._refreshUser();
         this._updateBalance();
       }
 
@@ -150,14 +149,18 @@
       }
 
       _refreshBalance() {
-        this.balance = "ℂ" + ($core.balance ? (Math.floor(value * 1000) / 1000).toFixed(3) : "0.000");
+        this.balance = "ℂ" + ($core.balance ? (Math.floor($core.balance * 1000) / 1000).toFixed(3) : "0.000");
       }
 
       _refreshUser() {
         if ($core.profile && $core.profile.handle) {
           this.$.signInLink.classList.add("hidden");
           this.$.userImage.classList.remove("hidden");
-          this.$.userImage.image = $core.profile.image || $core.userManager.getFallbackUserImage($core.profile.handle);
+          if ($core.profile.image && $core.profile.image.url) {
+            this.$.userImage.image = $core.profile.image.url;
+          } else {
+            this.$.userImage.image = $core.userManager.getFallbackUserImage($core.profile.handle);
+          }
         } else {
           this.$.signInLink.classList.remove("hidden");
           this.$.userImage.classList.add("hidden");
