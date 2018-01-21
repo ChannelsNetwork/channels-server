@@ -163,7 +163,7 @@
       }
 
       #withdrawExplain {
-        font-size: 14px;
+        font-size: 12px;
         color: #777;
         padding: 0 10px;
       }
@@ -204,7 +204,7 @@
               <div>
                 <button id="btnWithdraw" disabled on-click="_onWithdrawClick">Sell Coins</button>
               </div>
-              <div class="flex" id="withdrawExplain">Minimum balance of ℂ6.00 required</div>
+              <div class="flex" id="withdrawExplain">[[withdrawalExplanation]]</div>
             </div>
           </div>
         </div>
@@ -268,7 +268,8 @@
             value: function () { return []; }
           },
           totalPublisherRevenues: String,
-          totalCardDeveloperRevenues: String
+          totalCardDeveloperRevenues: String,
+          withdrawalExplanation: String
         };
       }
 
@@ -281,10 +282,9 @@
             this.balanceTimer = setInterval(() => {
               this.balance = "ℂ" + $core.balance.toFixed(8);
             }, 250);
-            this.$.btnWithdraw.disabled = $core.balance < $core.minBalanceAfterWithdrawal + 1;
-            this.$.withdrawExplain.style.display = this.$.btnWithdraw.disabled ? "" : "none";
             this._refreshTransactions();
             this._refreshNetworkTotals();
+            this._refreshWithdrawals();
             if ($core.depositUrl) {
               this.$.btnDeposit.disabled = false;
             }
@@ -295,6 +295,40 @@
             $router.goto("");
           }, 600);
         });
+      }
+
+      _refreshWithdrawals() {
+        if ($core.balance < $core.minBalanceAfterWithdrawal + 1) {
+          this.$.btnWithdraw.disabled = true;
+          this.set('withdrawalExplanation', "Minimum balance of ℂ6.00 required");
+        } else if ($core.timeUntilNextAllowedWithdrawal > 0) {
+          this.$.btnWithdraw.disabled = true;
+          this.set('withdrawalExplanation', "Time until next eligible coin sale: " + this._displayDuration($core.timeUntilNextAllowedWithdrawal));
+        } else {
+          this.$.btnWithdraw.disabled = false;
+          this.set('withdrawalExplanation', "Note: minimum interval between coin sales is 7 days");
+        }
+      }
+
+      _displayDuration(duration) {
+        const days = Math.floor(duration / (1000 * 60 * 60 * 24));
+        duration -= days * 1000 * 60 * 60 * 24;
+        const hours = Math.floor(duration / (1000 * 60 * 60));
+        duration -= hours * 1000 * 60 * 60;
+        const minutes = Math.floor(duration / (1000 * 60));
+        let result = "";
+        if (days > 0) {
+          result += days + "d ";
+        }
+        if (days > 0 || hours > 0) {
+          result += hours + "h ";
+        }
+        if (days === 0 && hours === 0) {
+          result += Math.max(1, minutes) + 'm';
+        } else {
+          result += minutes + 'm';
+        }
+        return result;
       }
 
       onInvite() {
