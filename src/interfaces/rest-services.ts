@@ -720,6 +720,11 @@ export interface GetChannelResponse extends RestResponse {
   channel: ChannelDescriptor;
 }
 
+export interface ChannelDescriptorWithCards {
+  channel: ChannelDescriptor;
+  cards: CardDescriptor[];
+}
+
 export interface ChannelDescriptor {
   id: string;
   name: string;
@@ -752,14 +757,15 @@ export interface FileInfo {
 
 export interface GetChannelsDetails extends Signable {
   type: ChannelFeedType;
-  maxCount: number;
+  maxChannels: number;
+  maxCardsPerChannel: number;
   nextPageReference?: string;   // if provided, used to get next page based on GetChannelsResponse.nextPageReference
 }
 
 export type ChannelFeedType = "recommended" | "new" | "feed" | "blocked";
 
 export interface GetChannelsResponse extends RestResponse {
-  channels: ChannelDescriptor[];
+  channels: ChannelDescriptorWithCards[];
   nextPageReference: string;  // If not-null, more is available; use this in next call
 }
 

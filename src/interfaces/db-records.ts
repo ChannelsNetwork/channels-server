@@ -566,6 +566,7 @@ export interface ChannelUserRecord {
   subscriptionState: ChannelSubscriptionState;
   lastUpdated: number;
   lastNotification: number;
+  lastVisited: number;
 }
 
 export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked";
@@ -573,8 +574,13 @@ export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked"
 export interface ChannelCardRecord {
   channelId: string;
   cardId: string;
+  state: ChannelCardState;
+  cardPostedAt: number;
   added: number;
+  lastUpdated: number;
 }
+
+export type ChannelCardState = "active" | "removed";
 
 export interface UserRegistrationRecord {
   userId: string;

@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelCardState } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -38,6 +38,7 @@ export class Database {
   private ipAddresses: Collection;
   private channels: Collection;
   private channelUsers: Collection;
+  private channelCards: Collection;
   private userRegistrations: Collection;
 
   async initialize(): Promise<void> {
@@ -71,6 +72,7 @@ export class Database {
     await this.initializeIpAddresses();
     await this.initializeChannels();
     await this.initializeChannelUsers();
+    await this.initializeChannelCards();
     await this.initializeUserRegistrations();
   }
 
@@ -395,6 +397,13 @@ export class Database {
     this.channelUsers = this.db.collection('channelUsers');
     await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
     await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, channelLatestCard: -1 });
+  }
+
+  private async initializeChannelCards(): Promise<void> {
+    this.channelCards = this.db.collection('channelCards');
+    await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
+    await this.channelCards.createIndex({ cardId: 1, state: 1, lastUpdated: -1 });
+    await this.channelCards.createIndex({ channelId: 1, state: 1, cardLastPosted: -1 });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
@@ -2235,12 +2244,12 @@ export class Database {
     return await this.channels.find<ChannelRecord>({ ownerId: ownerId }).sort({ created: 1 }).toArray();
   }
 
-  async findChannelsByLastUpdate(maxCount: number, lastUpdateLessThan: number): Promise<ChannelRecord[]> {
+  getChannelsByLastUpdate(lastUpdateLessThan: number): Cursor<ChannelRecord> {
     const query: any = {};
     if (lastUpdateLessThan) {
       query.lastContentUpdate = { $lt: lastUpdateLessThan };
     }
-    return await this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 }).limit(maxCount || 100).toArray();
+    return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
   }
 
   async updateChannel(channelId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
@@ -2263,7 +2272,7 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $set: update });
   }
 
-  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number): Promise<ChannelUserRecord> {
+  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
@@ -2272,7 +2281,8 @@ export class Database {
       lastUpdated: now,
       channelLastUpdate: channelLastUpdate,
       subscriptionState: subscriptionState,
-      lastNotification: 0
+      lastNotification: 0,
+      lastVisited: lastVisited
     };
     await this.channelUsers.insertOne(record);
     return record;
@@ -2282,7 +2292,7 @@ export class Database {
     return await this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
   }
 
-  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number): Promise<ChannelUserRecord> {
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
@@ -2291,28 +2301,80 @@ export class Database {
       channelLastUpdate: channelLastUpdate,
       subscriptionState: subscriptionState,
       lastUpdated: now,
-      lastNotification: 0
+      lastNotification: 0,
+      lastVisited: lastVisited
     };
     await this.channelUsers.update({ channelId: channelId, userId: userId }, record, { upsert: true });
     return record;
   }
 
-  async updateChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLatestCard: number): Promise<void> {
+  async updateChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLatestCard: number, lastVisited: number): Promise<void> {
     await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, {
       $set: {
         subscriptionState: subscriptionState,
         lastUpdated: Date.now(),
-        channelLatestCard: channelLatestCard
+        channelLatestCard: channelLatestCard,
+        lastVisited: lastVisited
       }
     });
   }
 
   async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number): Promise<ChannelUserRecord[]> {
+    return await this.getChannelUserRecords(userId, subscriptionState, latestLessThan).limit(maxCount || 100).toArray();
+  }
+
+  getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number): Cursor<ChannelUserRecord> {
     const query: any = { userId: userId, subscriptionState: subscriptionState };
     if (latestLessThan) {
       query.channelLatestCard = { $lt: latestLessThan };
     }
-    return await this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 }).limit(maxCount || 100).toArray();
+    return this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 });
+  }
+
+  async upsertChannelCard(channelId: string, cardId: string, state: ChannelCardState, cardPostedAt: number): Promise<ChannelCardRecord> {
+    const now = Date.now();
+    const record: ChannelCardRecord = {
+      channelId: channelId,
+      cardId: cardId,
+      added: now,
+      state: state,
+      lastUpdated: now,
+      cardPostedAt: cardPostedAt
+    };
+    await this.channelCards.update({ channelId: channelId, cardId: cardId }, record, { upsert: true });
+    return record;
+  }
+
+  async updateChannelCard(channelId: string, cardId: string, state: ChannelCardState): Promise<void> {
+    await this.channelCards.updateOne({ channelId: channelId, cardId: cardId }, {
+      $set: {
+        state: state,
+        lastUpdated: Date.now()
+      }
+    });
+  }
+
+  async findChannelCard(userId: string, cardId: string): Promise<ChannelCardRecord> {
+    return await this.channelCards.findOne<ChannelCardRecord>({ userId: userId, cardId: cardId });
+  }
+
+  async findChannelCardsByCard(cardId: string, state: ChannelCardState, maxCount: number): Promise<ChannelCardRecord[]> {
+    if (maxCount === 0) {
+      return [];
+    }
+    const query: any = { cardId: cardId, state: state };
+    return await this.channelCards.find<ChannelCardRecord>(query).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
+  }
+
+  async findChannelCardsByChannel(channelId: string, state: ChannelCardState, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
+    if (maxCount === 0) {
+      return [];
+    }
+    const query: any = { channelId: channelId, state: state };
+    if (since) {
+      query.since = { $gte: since };
+    }
+    return await this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 }).limit(maxCount || 100).toArray();
   }
 
   async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
