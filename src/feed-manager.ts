@@ -88,7 +88,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   async initialize2(): Promise<void> {
-    const cardCount = await db.countCards();
+    const cardCount = await db.countCards(Date.now(), 0);
     if (cardCount === 0) {
       await this.addSampleEntries();
       // await this.addPreviewCards();

@@ -6,7 +6,7 @@ import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { SERVER_VERSION } from "./server-version";
-import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse } from "./interfaces/rest-services";
+import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
@@ -44,21 +44,17 @@ export class AdminManager implements RestServer {
         return;
       }
       console.log("AdminManager.admin-goals", user.id, requestBody.detailsObject);
-      const now = Date.now();
-      const today = +moment().tz('America/Los_Angeles').startOf('day');
-      const yesterday = today - 1000 * 60 * 60 * 24;
-      const twoDaysAgo = yesterday - 1000 * 60 * 60 * 24;
-      const threeDaysAgo = twoDaysAgo - 1000 * 60 * 60 * 24;
       const reply: AdminGetGoalsResponse = {
         serverVersion: SERVER_VERSION,
-        today: await this.computeGoals(today, now),
-        yesterday: await this.computeGoals(yesterday, today),
-        twoDaysAgo: await this.computeGoals(twoDaysAgo, yesterday),
-        threeDaysAgo: await this.computeGoals(threeDaysAgo, twoDaysAgo),
-        past7Days: null,
-        pastMonth: null,
-        total: null
+        days: []
       };
+      let ending = Date.now();
+      let starting = +moment().tz('America/Los_Angeles').startOf('day');
+      for (let i = 0; i < 7; i++) {
+        reply.days.push(await this.computeGoals(starting, ending));
+        ending = starting;
+        starting -= 1000 * 60 * 60 * 24;
+      }
       response.json(reply);
     } catch (err) {
       console.error("AdminManager.handleGetAdminGoals: Failure", err);
@@ -68,206 +64,134 @@ export class AdminManager implements RestServer {
 
   private async computeGoals(from: number, to: number): Promise<AdminGoalsInfo> {
     const result: AdminGoalsInfo = {
+      dayStarting: from,
       users: await this.computeUserGoals(from, to),
-      cards: await this.computeCardGoals(from, to)
+      publishers: await this.computePublisherGoals(from, to),
+      cards: await this.computeCardGoals(from, to),
+      publisherRevenue: await this.computePublisherRevenueGoals(from, to),
+      adRevenue: await this.computeAdRevenueGoals(from, to)
     };
     return result;
   }
 
   private async computeUserGoals(from: number, to: number): Promise<AdminUserGoalsInfo> {
     const result: AdminUserGoalsInfo = {
+      total: 0,
+      totalWithIdentity: 0,
       newUsers: 0,
-      active: 0,
-      withIdentity: {
-        newUsers: 0,
-        returningUsers: 0,
-        active: 0,
-        nonViewers: 0,
-        oneTimeViewers: 0,
-        multipleViewers: 0,
-        posters: 0
-      },
-      anonymous: {
-        newUsers: 0,
-        returningUsers: 0,
-        active: 0,
-        nonViewers: 0,
-        oneTimeViewers: 0,
-        multipleViewers: 0
-      }
+      newUsersWithIdentity: 0,
+      activeUsers: 0,
+      activeUsersWithIdentity: 0,
+      returningUsers: 0,
+      returningUsersWithIdentity: 0
     };
-    const cursor = db.getUserCursorByLastContact(from, Date.now(), to);
+    result.total = await db.countTotalUsersBefore(to);
+    result.totalWithIdentity = await db.countTotalUsersWithIdentity(to);
+    const userIds = await db.findDistinctUsersActiveBetween(from, to);
+    const cursor = db.getUsersById(userIds);
     while (await cursor.hasNext()) {
       const user = await cursor.next();
-      // console.log("User", user.identity ? user.identity.name : user.address, new Date(user.lastContact).toString(), new Date(from).toString(), new Date(to).toString());
-      const actions = await db.countUserCardActionsInTimeframe(user.id, from, to);
-      if (user.added > from) {
+      if (user.added >= from) {
         result.newUsers++;
-      }
-      if (actions > 0) {
-        result.active++;
         if (user.identity && user.identity.handle) {
-          if (actions > 0) {
-            result.withIdentity.active++;
-          }
-          if (user.added > from) {
-            result.withIdentity.newUsers++;
-          }
-          if (user.lastContact - user.added > 1000 * 60 * 60 * 12) {
-            result.withIdentity.returningUsers++;
-          }
-          const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
-          if (views === 0) {
-            result.withIdentity.nonViewers++;
-          } else if (views === 1) {
-            result.withIdentity.oneTimeViewers++;
-          } else {
-            result.withIdentity.multipleViewers++;
-          }
-          const posts = await db.countCardPostsByUser(user.id, from, to);
-          if (posts > 0) {
-            result.withIdentity.posters++;
-          }
-        } else {
-          result.anonymous.active++;
-          if (user.added > from) {
-            result.anonymous.newUsers++;
-          }
-          if (user.lastContact - user.added > 1000 * 60 * 60 * 12) {
-            result.anonymous.returningUsers++;
-          }
-          const views = await db.countUserCardsPaidInTimeframe(user.id, from, to);
-          if (views === 0) {
-            result.anonymous.nonViewers++;
-          } else if (views === 1) {
-            result.anonymous.oneTimeViewers++;
-          } else {
-            result.anonymous.multipleViewers++;
-          }
+          result.newUsersWithIdentity++;
+        }
+      }
+      result.activeUsers++;
+      if (user.identity && user.identity.handle) {
+        result.activeUsersWithIdentity++;
+      }
+      if (user.added < from) {
+        result.returningUsers++;
+        if (user.identity && user.identity.handle) {
+          result.returningUsersWithIdentity++;
         }
       }
     }
     return result;
   }
 
+  private async computePublisherGoals(from: number, to: number): Promise<AdminPublisherGoalsInfo> {
+    const result: AdminPublisherGoalsInfo = {
+      total: 0,
+      newPublishers: 0,
+      posted: 0
+    };
+    result.total = await db.countDistinctCardOwners(0, to);
+    result.newPublishers = result.total - await db.countDistinctCardOwners(0, from);
+    result.posted = await db.countDistinctCardOwners(from, to);
+    return result;
+  }
+
   private async computeCardGoals(from: number, to: number): Promise<AdminCardGoalsInfo> {
     const result: AdminCardGoalsInfo = {
-      payFor: {
-        firstTimePosts: 0,
-        totalPosts: 0,
-        purchases: 0,
-        firstTimePurchases: 0
-      },
-      promoted: {
-        impressionBased: {
-          firstTimePosts: 0,
-          totalPosts: 0,
-          totalImpressions: 0,
-          usersWithImpressions: 0,
-          totalClicks: 0,
-          usersWhoClicked: 0
-        },
-        openBased: {
-          firstTimePosts: 0,
-          totalPosts: 0,
-          totalImpressions: 0,
-          usersWithImpressions: 0,
-          totalPaymentCount: 0,
-          usersWhoWerePaid: 0
-        }
-      }
+      total: 0,
+      totalNonPromoted: 0,
+      totalPromoted: 0,
+      totalAds: 0,
+      newCards: 0,
+      newNonPromoted: 0,
+      newPromoted: 0,
+      newAds: 0
     };
-    const cursor = db.getUserCardActionsFromTo(from, to);
-    const cardsById: { [id: string]: CardRecord } = {};
-    const usersById: { [id: string]: UserRecord } = {};
-    const firstPurchasesByUser: { [userId: string]: UserCardActionRecord } = {};
-    const userImpressionsImpressionBased: string[] = [];
-    const userImpressionsOpenBased: string[] = [];
-    const userClicksImpressionBased: string[] = [];
-    const userPaidOpenBased: string[] = [];
-    while (await cursor.hasNext()) {
-      const action = await cursor.next();
-      let card = cardsById[action.cardId];
-      if (!card) {
-        card = await db.findCardById(action.cardId, true, false);
-        if (card) {
-          cardsById[card.id] = card;
-          if (card.postedAt > from && card.postedAt <= to) {
-            const firstCardByAuthor = await db.findFirstCardByUser(card.by.id);
-            if (card.pricing.openFeeUnits) {
-              result.payFor.totalPosts++;
-              if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
-                result.payFor.firstTimePosts++;
-              }
-            } else if (card.pricing.promotionFee > 0) {
-              result.promoted.impressionBased.totalPosts++;
-              if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
-                result.promoted.impressionBased.firstTimePosts++;
-              }
-            } else {
-              result.promoted.openBased.totalPosts++;
-              if (firstCardByAuthor && firstCardByAuthor.id === card.id) {
-                result.promoted.openBased.firstTimePosts++;
-              }
-            }
-          }
-        }
-      }
-      if (card) {
-        if (card.pricing.openFeeUnits) {
-          if (action.action === 'pay') {
-            result.payFor.purchases++;
-            let firstPay = firstPurchasesByUser[action.userId];
-            if (!firstPay) {
-              firstPay = await db.findFirstUserCardActionByUser(action.userId, "pay");
-              firstPurchasesByUser[action.userId] = firstPay;
-            }
-            if (firstPay && firstPay.at === action.at) {
-              result.payFor.firstTimePurchases++;
-            }
-          }
-        } else if (card.pricing.promotionFee > 0) {
-          switch (action.action) {
-            case "impression":
-              result.promoted.impressionBased.totalImpressions++;
-              if (userImpressionsImpressionBased.indexOf(action.userId) < 0) {
-                result.promoted.impressionBased.usersWithImpressions++;
-                userImpressionsImpressionBased.push(action.userId);
-              }
-              break;
-            case "click":
-            case "open":
-              result.promoted.impressionBased.totalClicks++;
-              if (userClicksImpressionBased.indexOf(action.userId) < 0) {
-                result.promoted.impressionBased.usersWhoClicked++;
-                userClicksImpressionBased.push(action.userId);
-              }
-              break;
-            default:
-              break;
-          }
-        } else {
-          switch (action.action) {
-            case "impression":
-              result.promoted.openBased.totalImpressions++;
-              if (userImpressionsOpenBased.indexOf(action.userId) < 0) {
-                result.promoted.openBased.usersWithImpressions++;
-                userImpressionsOpenBased.push(action.userId);
-              }
-              break;
-            case "redeem-open-payment":
-              result.promoted.openBased.totalPaymentCount++;
-              if (userPaidOpenBased.indexOf(action.userId) < 0) {
-                result.promoted.openBased.usersWhoWerePaid++;
-                userPaidOpenBased.push(action.userId);
-              }
-              break;
-            default:
-              break;
-          }
-        }
-      }
-    }
+    result.total = await db.countCards(to, 0);
+    result.totalNonPromoted = await db.countNonPromotedCards(to, 0);
+    result.totalPromoted = await db.countPromotedCards(to, 0);
+    result.totalAds = await db.countAdCards(to, 0);
+
+    result.newCards = await db.countCards(to, from);
+    result.newNonPromoted = await db.countNonPromotedCards(to, from);
+    result.newPromoted = await db.countPromotedCards(to, from);
+    result.newAds = await db.countAdCards(to, from);
+    return result;
+  }
+
+  private async computePublisherRevenueGoals(from: number, to: number): Promise<AdminPublisherRevenueGoalsInfo> {
+    const result: AdminPublisherRevenueGoalsInfo = {
+      totalCardsOpened: 0,
+      totalCardsPurchased: 0,
+      totalCardsFullPrice: 0,
+      totalCardsDiscounted: 0,
+      totalRevenue: "",
+      newCardsOpened: 0,
+      newCardsPurchased: 0,
+      newCardsFullPrice: 0,
+      newCardsDiscounted: 0,
+      newRevenue: ""
+    };
+    result.totalCardsOpened = await db.countUserCardOpens(to, 0);
+    result.totalCardsPurchased = await db.countBankTransactionsByReason("card-open-fee", to, 0);
+    result.totalCardsDiscounted = await db.countBankTransactionsByReasonWithAmount("card-open-fee", to, 0, 0.000001);
+    result.totalCardsFullPrice = result.totalCardsPurchased - result.totalCardsDiscounted;
+    result.totalRevenue = (await db.totalBankTransactionsAmountByReason("card-open-fee", to, 0)).toFixed(2);
+
+    result.newCardsOpened = await db.countUserCardOpens(to, from);
+    result.newCardsPurchased = await db.countBankTransactionsByReason("card-open-fee", to, from);
+    result.newCardsDiscounted = await db.countBankTransactionsByReasonWithAmount("card-open-fee", to, from, 0.000001);
+    result.newCardsFullPrice = result.totalCardsPurchased - result.totalCardsDiscounted;
+    result.newRevenue = (await db.totalBankTransactionsAmountByReason("card-open-fee", to, from)).toFixed(2);
+    return result;
+  }
+
+  private async computeAdRevenueGoals(from: number, to: number): Promise<AdminAdRevenueGoalsInfo> {
+    const result: AdminAdRevenueGoalsInfo = {
+      totalImpressions: 0,
+      totalPromotedOpens: 0,
+      totalPromotedRevenue: "",
+      totalAdRevenue: "",
+      newImpressions: 0,
+      newPromotedOpens: 0,
+      newPromotedRevenue: "",
+      newAdRevenue: ""
+    };
+    result.totalImpressions = await db.countBankTransactionsByReason("card-promotion", to, 0);
+    result.totalPromotedOpens = await db.countBankTransactionsByReason("card-open-payment", to, 0);
+    result.totalPromotedRevenue = (await db.totalBankTransactionsAmountByReason("card-promotion", to, 0)).toFixed(2);
+    result.totalAdRevenue = (await db.totalBankTransactionsAmountByReason("card-open-payment", to, 0)).toFixed(2);
+    result.newImpressions = await db.countBankTransactionsByReason("card-promotion", to, from);
+    result.newPromotedOpens = await db.countBankTransactionsByReason("card-open-payment", to, from);
+    result.newPromotedRevenue = (await db.totalBankTransactionsAmountByReason("card-promotion", to, from)).toFixed(2);
+    result.newAdRevenue = (await db.totalBankTransactionsAmountByReason("card-open-payment", to, from)).toFixed(2);
     return result;
   }
 
