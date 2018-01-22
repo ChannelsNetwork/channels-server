@@ -65,8 +65,8 @@
       <a href="/feed/new">
         <button id="new">New</button>
       </a>
-      <a href="/feed/mine">
-        <button id="mine">Mine</button>
+      <a href="/feed/top">
+        <button id="top">Top</button>
       </a>
     </div>
   </template>
@@ -98,14 +98,14 @@
 
       _onSelected() {
         this.$.recommended.classList.remove("selected");
-        this.$.mine.classList.remove("selected");
+        this.$.top.classList.remove("selected");
         this.$.new.classList.remove("selected");
         switch (this.selected || "") {
           case "new":
             this.$.new.classList.add("selected");
             break;
-          case "mine":
-            this.$.mine.classList.add("selected");
+          case "top":
+            this.$.top.classList.add("selected");
             break;
           default:
             this.$.recommended.classList.add("selected");

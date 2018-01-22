@@ -158,7 +158,7 @@
         ).then(() => {
           $core.analytics.event("card", "publish");
           $core.cardManager.cardService.clearUploadedFileIds();
-          $router.goto("/feed/mine");
+          $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
         }).catch((err) => {
           this.$.wiz.navigationEnabled = true;
           this.$.publishPage.onPublishFail(err);
