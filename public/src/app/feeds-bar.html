@@ -54,13 +54,13 @@
     </style>
     <div id="bar" class="horizontal layout center" on-click="_barClick">
       <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
-      <a href="/feed/recommended" on-click="_linkClick">
+      <a href="/feed/recommended">
         <button id="recommended">Recommended</button>
       </a>
-      <a href="/feed/mine" on-click="_linkClick">
+      <a href="/feed/mine">
         <button id="subscribed">Subscribed</button>
       </a>
-      <a href="/feed/new" on-click="_linkClick">
+      <a href="/feed/new">
         <button id="new">New</button>
       </a>
     </div>
@@ -72,9 +72,6 @@
       _showMenu(event) {
         event.stopPropagation();
         $app.showMenu();
-      }
-
-      _linkClick(event) {
       }
 
       _barClick(event) {
