@@ -192,7 +192,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       return;
     }
     const author = await userManager.getUser(card.createdById, false);
-    await rootPageManager.handlePage("card", request, response, card, author);
+    await rootPageManager.handlePage("index", request, response, card, author);
   }
 
   private async handleGetCard(request: Request, response: Response): Promise<void> {
