@@ -161,6 +161,9 @@
           pageName = "feed";
         }
 
+        // hide nav menu
+        this.hideMenu();
+
         // Close pending dialogs
         let dlgShell = document.getElementById("dialogShell");
         if (dlgShell) {
@@ -238,7 +241,7 @@
     }
     window.customElements.define(ChannelsApp.is, ChannelsApp);
 
-    // TODO: Preet - Terms vie
+    // TODO: Preet - Terms view
     // TODO: Preet - home panel
   </script>
 </dom-module>
