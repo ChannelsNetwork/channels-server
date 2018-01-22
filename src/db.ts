@@ -300,6 +300,7 @@ export class Database {
     await this.bankTransactions.createIndex({ id: 1 }, { unique: true });
     await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
+    await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
   }
 
   private async initializeUserCardActions(): Promise<void> {
@@ -961,7 +962,7 @@ export class Database {
   }
 
   async countDistinctCardOwners(from: number, to: number): Promise<number> {
-    const creators = await this.cards.distinct('createdById', { postedAt: { $gte: from, $lt: to } });
+    const creators = await this.cards.distinct('by.id', { postedAt: { $gte: from, $lt: to } });
     return creators.length;
   }
 
@@ -1680,16 +1681,16 @@ export class Database {
   }
 
   async countBankTransactionsByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
-    return await this.bankTransactions.count({ "details.reason": reason, at: { $lt: before, $gte: after } });
+    return await this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after } });
   }
 
   async countBankTransactionsByReasonWithAmount(reason: BankTransactionReason, before: number, after: number, amount: number): Promise<number> {
-    return await this.bankTransactions.count({ "details.reason": reason, at: { $lt: before, $gte: after }, "details.amount": amount });
+    return await this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after }, "details.amount": amount });
   }
 
   async totalBankTransactionsAmountByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
     const result = await this.bankTransactions.aggregate([
-      { $match: { "details.reason": reason, at: { $lt: before, $gte: after } } },
+      { $match: { "details.reason": reason, "details.timestamp": { $lt: before, $gte: after } } },
       { $group: { _id: "total", count: { $sum: 1 }, total: { $sum: "$details.amount" } } }
     ]).toArray();
     if (result.length === 0) {

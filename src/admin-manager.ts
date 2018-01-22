@@ -50,7 +50,7 @@ export class AdminManager implements RestServer {
       };
       let ending = Date.now();
       let starting = +moment().tz('America/Los_Angeles').startOf('day');
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 7; i++) {
         reply.days.push(await this.computeGoals(starting, ending));
         ending = starting;
         starting -= 1000 * 60 * 60 * 24;
