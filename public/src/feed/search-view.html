@@ -22,21 +22,6 @@
         text-align: center;
       }
 
-      .searchArea {
-        margin: 40px 0;
-        text-align: center;
-      }
-
-      #search {
-        width: 60%;
-        max-width: 500px;
-        text-align: left;
-      }
-
-      #btnSearch {
-        margin-left: 5px;
-      }
-
       .main {
         padding: 0 0 90px;
         text-align: center;
@@ -49,15 +34,92 @@
       #feed {
         text-align: left;
       }
+
+      #searchBar {
+        box-sizing: border-box;
+        background: #293C41;
+        color: white;
+        padding: 40px 0 40px 16px;
+      }
+
+      #searchPanel {
+        max-width: 700px;
+        margin: 0 auto;
+      }
+
+      #btnSearch,
+      #btnClear {
+        padding: 10px 16px;
+        margin: 0;
+        cursor: pointer;
+      }
+
+      #btnSearch:hover,
+      #btnClear:hover {
+        color: var(--bg-yellow);
+      }
+
+      #query {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        background: transparent;
+        outline: none;
+        border: none;
+        border-bottom: 1px solid;
+        color: white;
+        font-family: inherit;
+        font-size: inherit;
+        font-weight: inherit;
+      }
+
+      #query::-webkit-input-placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 90%;
+        letter-spacing: 0.03em;
+      }
+
+      #query::-webkit-placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 90%;
+        letter-spacing: 0.03em;
+      }
+
+      #query::-moz-placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 90%;
+        letter-spacing: 0.03em;
+      }
+
+      #query::-ms-placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 90%;
+        letter-spacing: 0.03em;
+      }
+
+      #titleBar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        pointer-events: none;
+        opacity: 0;
+      }
     </style>
-    <soso-app-header collapse-height="50">
+    <soso-app-header collapse-height="50" on-collapse-change="_onHeaderCollapse">
       <channels-bar id="cbar"></channels-bar>
-      <title-bar text="[[searchTitle]]"></title-bar>
+      <title-bar text="Search"></title-bar>
+      <div id="searchBar">
+        <div id="searchPanel" class="horizontal layout center">
+          <div class="flex">
+            <input id="query" placeholder="Enter search words/phrase" on-input="_onInput" on-keydown="_onKeyDown">
+          </div>
+          <soso-icon id="btnSearch" style="opacity: 0;" icon="search" on-click="_onSearch"></soso-icon>
+          <soso-icon id="btnClear" class="hidden" icon="close" on-click="_onClearSearch"></soso-icon>
+        </div>
+        <title-bar id="titleBar" text="[[searchTitle]]"></title-bar>
+      </div>
     </soso-app-header>
-    <div class="searchArea horizontal layout center-center">
-      <soso-text-input id="search" label="Enter search words/phrase" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
-      <button id="btnSearch" on-click="_onSearch">Search</button>
-    </div>
     <div class="main">
       <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
       <div id="noItems" style="display:none;">There are no matching cards</div>
@@ -66,6 +128,7 @@
         <button id="btnMore" on-click="_onMoreClick">More</button>
       </div>
     </div>
+    <div style="height: 200vh;"></div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
@@ -79,6 +142,23 @@
             value: "Search"
           }
         };
+      }
+
+      _onHeaderCollapse(event) {
+        let ratio = event.detail.ratio;
+        if (ratio < 0.2) {
+          this.$.searchPanel.style.opacity = 1;
+          this.$.titleBar.style.opacity = 0;
+          this.$.titleBar.style.pointerEvents = "none";
+        } else if (ratio > 0.9) {
+          this.$.searchPanel.style.opacity = 0;
+          this.$.titleBar.style.opacity = (9 * ratio) - 8;
+          this.$.titleBar.style.pointerEvents = "auto";
+        } else {
+          this.$.searchPanel.style.opacity = (ratio < 0.2) ? 1 : ((9 / 7) + ((-10 / 7) * ratio));
+          this.$.titleBar.style.opacity = 0;
+          this.$.titleBar.style.pointerEvents = "none";
+        }
       }
 
       onActivate(route) {
@@ -103,14 +183,19 @@
           this.$.buttons.style.display = "none";
           this.$.noItems.style.display = "none";
           this._searchString = searchQuery;
-          this.$.search.value = searchQuery;
+          this.$.query.value = searchQuery;
           this.$.btnSearch.disabled = true;
-          this.$.search.input.focus();
+          this.$.query.focus();
           if (searchQuery) {
             this.searchTitle = '"' + searchQuery + '"';
+            this.$.btnClear.classList.remove("hidden");
+            this.$.btnSearch.classList.add("hidden");
           } else {
             this.searchTitle = "Search";
+            this.$.btnClear.classList.add("hidden");
+            this.$.btnSearch.classList.remove("hidden");
           }
+          this.$.btnSearch.style.opacity = 1;
 
           this._setItems([]);
           if (this._searchString) {
@@ -130,17 +215,23 @@
       }
 
       _onInput() {
-        this.$.btnSearch.disabled = this.$.search.value.trim().length === 0 ? true : false;
+        this.$.btnSearch.disabled = this.$.query.value.trim().length === 0 ? true : false;
+        this.$.btnClear.classList.add("hidden");
+        this.$.btnSearch.classList.remove("hidden");
       }
 
       _onKeyDown(event) {
-        if (event.keyCode === 13 && this.$.search.value.trim().length > 0) {
+        if (event.keyCode === 13 && this.$.query.value.trim().length > 0) {
           this._onSearch();
         }
       }
 
+      _onClearSearch() {
+        $router.goto("/search");
+      }
+
       _onSearch() {
-        let q = this.$.search.value.trim();
+        let q = this.$.query.value.trim();
         if (q) {
           $router.goto("/search/" + encodeURIComponent(q));
         }
