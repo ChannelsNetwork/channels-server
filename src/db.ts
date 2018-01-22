@@ -464,6 +464,7 @@ export class Database {
       admin: false,
       ipAddresses: [],
       lastPosted: 0,
+      lastWithdrawal: 0,
       marketing: {
         includeInMailingList: includeInMailingList
       },
@@ -498,6 +499,11 @@ export class Database {
 
   async updateUserLastPosted(userId: string, value: number): Promise<void> {
     await this.users.updateOne({ id: userId }, { $set: { lastPosted: value } });
+  }
+
+  async updateUserLastWithdrawal(user: UserRecord, value: number): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { lastWithdrawal: value } });
+    user.lastWithdrawal = value;
   }
 
   async updateUserRecoveryCode(user: UserRecord, code: string, expires: number): Promise<void> {

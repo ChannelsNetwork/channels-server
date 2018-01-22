@@ -180,6 +180,7 @@ export class Bank implements RestServer, Initializable {
       html += "</div>";
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
       await db.incrementNetworkTotals(0, 0, 0, amountInUSD, 0);
+      await db.updateUserLastWithdrawal(user, now);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: BankWithdrawResponse = {
         serverVersion: SERVER_VERSION,
