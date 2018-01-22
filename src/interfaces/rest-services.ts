@@ -683,7 +683,7 @@ export interface AdminPublisherRevenueGoalsInfo {
   totalCardsPurchased: number;
   totalCardsFullPrice: number;
   totalCardsDiscounted: number;
-  totalRevenue: number;
+  totalRevenue: string;
   newCardsOpened: number;
   newCardsPurchased: number;
   newCardsFullPrice: number;

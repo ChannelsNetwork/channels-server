@@ -152,7 +152,7 @@ export class AdminManager implements RestServer {
       totalCardsPurchased: 0,
       totalCardsFullPrice: 0,
       totalCardsDiscounted: 0,
-      totalRevenue: 0,
+      totalRevenue: "",
       newCardsOpened: 0,
       newCardsPurchased: 0,
       newCardsFullPrice: 0,
@@ -163,7 +163,7 @@ export class AdminManager implements RestServer {
     result.totalCardsPurchased = await db.countBankTransactionsByReason("card-open-fee", to, 0);
     result.totalCardsDiscounted = await db.countBankTransactionsByReasonWithAmount("card-open-fee", to, 0, 0.000001);
     result.totalCardsFullPrice = result.totalCardsPurchased - result.totalCardsDiscounted;
-    result.totalRevenue = await db.totalBankTransactionsAmountByReason("card-open-fee", to, 0);
+    result.totalRevenue = (await db.totalBankTransactionsAmountByReason("card-open-fee", to, 0)).toFixed(2);
 
     result.newCardsOpened = await db.countUserCardOpens(to, from);
     result.newCardsPurchased = await db.countBankTransactionsByReason("card-open-fee", to, from);

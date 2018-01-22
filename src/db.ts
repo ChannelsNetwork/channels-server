@@ -1684,7 +1684,7 @@ export class Database {
   }
 
   async countBankTransactionsByReasonWithAmount(reason: BankTransactionReason, before: number, after: number, amount: number): Promise<number> {
-    return await this.bankTransactions.count({ "details.reason": reason, at: { $lt: before, $gte: after }, amount: amount });
+    return await this.bankTransactions.count({ "details.reason": reason, at: { $lt: before, $gte: after }, "details.amount": amount });
   }
 
   async totalBankTransactionsAmountByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
