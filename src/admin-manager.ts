@@ -175,7 +175,7 @@ export class AdminManager implements RestServer {
     result.newCardsOpened = await db.countUserCardOpens(to, from);
     result.newCardsPurchased = await db.countBankTransactionsByReason("card-open-fee", to, from);
     result.newCardsDiscounted = await db.countBankTransactionsByReasonWithAmount("card-open-fee", to, from, 0.000001);
-    result.newCardsFullPrice = result.totalCardsPurchased - result.totalCardsDiscounted;
+    result.newCardsFullPrice = result.newCardsPurchased - result.newCardsDiscounted;
     result.newRevenue = (await db.totalBankTransactionsAmountByReason("card-open-fee", to, from)).toFixed(2);
     console.log("Admin.computePublisherRevenueGoals took " + ((Date.now() - starting) / 1000).toFixed(1) + " seconds");
     return result;
