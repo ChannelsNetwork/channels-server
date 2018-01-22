@@ -167,6 +167,10 @@
           this.$.userImage.classList.add("hidden");
         }
       }
+
+      _onSearch() {
+        $router.goto("/search");
+      }
     }
     window.customElements.define(ChannelsBar.is, ChannelsBar);
   </script>

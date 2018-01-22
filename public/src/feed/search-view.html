@@ -1,3 +1,6 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="card-feed.html">
 <link rel="import" href="feed-mixin.html">
 <link rel="import" href="../channel-icons.html">
@@ -47,7 +50,10 @@
         text-align: left;
       }
     </style>
-    <div class="spacer"></div>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="[[searchTitle]]"></title-bar>
+    </soso-app-header>
     <div class="searchArea horizontal layout center-center">
       <soso-text-input id="search" label="Enter search words/phrase" on-input="_onInput" on-keydown="_onKeyDown"></soso-text-input>
       <button id="btnSearch" on-click="_onSearch">Search</button>
@@ -66,8 +72,19 @@
     class SearchView extends Polymer.Element {
       static get is() { return 'search-view'; }
 
+      static get properties() {
+        return {
+          searchTitle: {
+            type: String,
+            value: "Search"
+          }
+        };
+      }
+
       onActivate(route) {
         $core.register().then(() => {
+          this.$.cbar.activate();
+
           // register event handlers
           this._resizeListener = _debounce(() => {
             this._onResize();
@@ -89,6 +106,11 @@
           this.$.search.value = searchQuery;
           this.$.btnSearch.disabled = true;
           this.$.search.input.focus();
+          if (searchQuery) {
+            this.searchTitle = '"' + searchQuery + '"';
+          } else {
+            this.searchTitle = "Search";
+          }
 
           this._setItems([]);
           if (this._searchString) {
@@ -178,6 +200,7 @@
       }
 
       onDeactivate() {
+        this.$.cbar.deactivate();
         if (this._resizeListener) {
           window.removeEventListener("resize", this._resizeListener);
           this._resizeListener = null;
