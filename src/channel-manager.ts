@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -13,10 +13,14 @@ import { SERVER_VERSION } from "./server-version";
 import { ChannelRecord, UserRecord, ChannelUserRecord, ChannelSubscriptionState } from "./interfaces/db-records";
 import { fileManager } from "./file-manager";
 import { userManager } from "./user-manager";
+import * as LRU from 'lru-cache';
+import { cardManager } from "./card-manager";
 
 export class ChannelManager implements RestServer, Initializable {
   private app: express.Application;
   private urlManager: UrlManager;
+  private subscribedChannelIdsByUser = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 5 });
+  private channelIdsByCard = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -108,7 +112,7 @@ export class ChannelManager implements RestServer, Initializable {
       }
       requestBody.detailsObject = JSON.parse(requestBody.details);
       console.log("ChannelManager.get-channels:", request.headers, requestBody.detailsObject);
-      const listInfo = await this.getChannels(user, requestBody.detailsObject.type || "recommended", requestBody.detailsObject.maxCount || 24, requestBody.detailsObject.nextPageReference, response);
+      const listInfo = await this.getChannels(user, requestBody.detailsObject.type || "recommended", requestBody.detailsObject.maxChannels || 24, requestBody.detailsObject.maxCardsPerChannel || 4, requestBody.detailsObject.nextPageReference, response);
       const registerResponse: GetChannelsResponse = {
         serverVersion: SERVER_VERSION,
         channels: listInfo.channels,
@@ -121,20 +125,20 @@ export class ChannelManager implements RestServer, Initializable {
     }
   }
 
-  private async getChannels(user: UserRecord, type: ChannelFeedType, maxCount: number, nextPageReference: string, response: Response): Promise<ChannelsListInfo> {
+  private async getChannels(user: UserRecord, type: ChannelFeedType, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string, response: Response): Promise<ChannelsListInfo> {
     let listResult: ChannelsRecordsInfo;
     switch (type) {
       case "recommended":
-        listResult = await this.getRecommendedChannels(user, maxCount, nextPageReference);
+        listResult = await this.getRecommendedChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
       case "new":
-        listResult = await this.getNewChannels(user, maxCount, nextPageReference);
+        listResult = await this.getNewChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
       case "feed":
-        listResult = await this.getSubscribedChannels(user, maxCount, nextPageReference);
+        listResult = await this.getSubscribedChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
       case "blocked":
-        listResult = await this.getBlockedChannels(user, maxCount, nextPageReference);
+        listResult = await this.getBlockedChannels(user, maxChannels, nextPageReference);
         break;
       default:
         response.status(400).send("Invalid type " + type);
@@ -144,61 +148,63 @@ export class ChannelManager implements RestServer, Initializable {
       channels: [],
       nextPageReference: listResult.nextPageReference
     };
-    for (const record of listResult.records) {
-      const descriptor = await this.populateRecordDescriptor(user, record);
+    for (const record of listResult.recordsWithCards) {
+      const descriptor = await this.populateRecordDescriptor(user, record.record);
       if (descriptor) {
-        result.channels.push(descriptor);
+        result.channels.push({ channel: descriptor, cards: record.cards });
       }
     }
     return result;
   }
 
-  private async getRecommendedChannels(user: UserRecord, maxCount: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    let scoreLessThan: number;
-    let priorChannelIds: string[] = [];
-    if (nextPageReference) {
-      const parts = nextPageReference.split(':');
-      const cardId = parts[0];
-      if (parts.length > 1) {
-        priorChannelIds = parts[1].split(',');
-      }
-      const card = await db.findCardById(cardId, true);
-      if (card) {
-        scoreLessThan = card.score;
-      }
-    }
+  private async getRecommendedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     const result: ChannelsRecordsInfo = {
-      records: [],
+      recordsWithCards: [],
       nextPageReference: null
     };
     const subscribedChannelIds = await this.findSubscribedChannelIdsForUser(user, 100);
-    const cursor = db.getCardsByScore(user.id, false, scoreLessThan);
+    const cursor = db.getCardsByScore(user.id, false, 0);
     while (await cursor.hasNext()) {
       const card = await cursor.next();
-      let selectedChannel: ChannelRecord;
-      const channels = await this.findChannelsByCard(card.id, 25);
-      if (channels.length > 0) {
-        let skip = false;
-        for (const channel of channels) {
-          if (priorChannelIds.indexOf(channel.id) >= 0) {
-            skip = true;
-            break;
-          }
-        }
-        if (!skip) {
-          for (const channel of channels) {
-            if (subscribedChannelIds.indexOf(channel.id) >= 0) {
-              selectedChannel = channel;
+      let selectedChannelId: string;
+      const channelIds = await this.findChannelIdsByCard(card.id, 25);
+      if (channelIds.length > 0) {
+        let found = false;
+        for (const channelId of channelIds) {
+          for (const entry of result.recordsWithCards) {
+            if (entry.record.id === channelId) {
+              if (entry.cards.length < maxCardsPerChannel) {
+                const descriptor = await cardManager.populateCardState(card.id, false, false, user);
+                entry.cards.push(descriptor);
+              }
+              found = true;
               break;
             }
           }
-          if (!selectedChannel) {
-            selectedChannel = channels[0];
+          if (found) {
+            break;
           }
-          result.records.push(selectedChannel);
-          priorChannelIds.push(selectedChannel.id);
-          if (result.records.length >= maxCount) {
-            result.nextPageReference = card.id + ":" + priorChannelIds.join(',');
+        }
+        if (!found) {
+          for (const channelId of channelIds) {
+            if (subscribedChannelIds.indexOf(channelId) >= 0) {
+              selectedChannelId = channelId;
+              break;
+            }
+          }
+          if (!selectedChannelId) {
+            selectedChannelId = channelIds[0];
+          }
+          const selectedChannel = await db.findChannelById(selectedChannelId);
+          if (selectedChannel) {
+            const cardDescriptor = await cardManager.populateCardState(card.id, false, false, user);
+            const recordWithCards: ChannelRecordWithCards = {
+              record: selectedChannel,
+              cards: [cardDescriptor]
+            };
+            result.recordsWithCards.push(recordWithCards);
+          }
+          if (result.recordsWithCards.length >= maxChannels) {
             break;
           }
         }
@@ -208,14 +214,32 @@ export class ChannelManager implements RestServer, Initializable {
   }
 
   private async findSubscribedChannelIdsForUser(user: UserRecord, limit: number): Promise<string[]> {
-
+    let result = this.subscribedChannelIdsByUser.get(user.id);
+    if (typeof result !== 'undefined') {
+      return result;
+    }
+    result = [];
+    const channelUsers = await db.findChannelUserRecords(user.id, "subscribed", limit, 0);
+    for (const channelUser of channelUsers) {
+      result.push(channelUser.channelId);
+    }
+    return result;
   }
 
-  private async findChannelsByCard(cardId: string, limit: number): Promise<ChannelRecord[]> {
-
+  private async findChannelIdsByCard(cardId: string, limit: number): Promise<string[]> {
+    let result = this.channelIdsByCard.get(cardId);
+    if (typeof result !== 'undefined') {
+      return result;
+    }
+    result = [];
+    const channelUsers = await db.findChannelCardsByCard(cardId, "active", limit);
+    for (const channelUser of channelUsers) {
+      result.push(channelUser.channelId);
+    }
+    return result;
   }
 
-  private async getNewChannels(user: UserRecord, maxCount: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+  private async getNewChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     let lastUpdateLessThan: number;
     if (nextPageReference) {
       const afterRecord = await db.findChannelById(nextPageReference);
@@ -223,30 +247,48 @@ export class ChannelManager implements RestServer, Initializable {
         lastUpdateLessThan = afterRecord.lastContentUpdate;
       }
     }
-    const channels = await db.findChannelsByLastUpdate(maxCount + 1, lastUpdateLessThan);
     const result: ChannelsRecordsInfo = {
-      records: [],
+      recordsWithCards: [],
       nextPageReference: null
     };
-    for (const channel of channels) {
-      if (result.records.length >= maxCount) {
-        result.nextPageReference = result.records[result.records.length - 1].id;
+    const cursor = await db.getChannelsByLastUpdate(lastUpdateLessThan);
+    while (await cursor.hasNext()) {
+      const channel = await cursor.next();
+      if (result.recordsWithCards.length >= maxChannels) {
+        result.nextPageReference = result.recordsWithCards[result.recordsWithCards.length - 1].record.id;
         break;
       }
-      result.records.push(channel);
+      const channelUser = await db.findChannelUser(channel.id, user.id);
+      const recordWithCards: ChannelRecordWithCards = {
+        record: channel,
+        cards: []
+      };
+      recordWithCards.cards = await this.populateChannelCardsSince(user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
+      if (recordWithCards.cards.length > 0) {  // Don't list a channel if no cards to show
+        result.recordsWithCards.push(recordWithCards);
+      }
     }
     return result;
   }
 
-  private async getSubscribedChannels(user: UserRecord, maxCount: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    return await this.getChannelsByState(user, maxCount, "subscribed", nextPageReference);
+  private async populateChannelCardsSince(user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
+    const channelCards = await db.findChannelCardsByChannel(channel.id, "active", since, maxCards);
+    const result: CardDescriptor[] = [];
+    for (const channelCard of channelCards) {
+      const descriptor = await cardManager.populateCardState(channelCard.cardId, false, false, user);
+      result.push(descriptor);
+    }
+    return result;
+  }
+  private async getSubscribedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+    return await this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference);
   }
 
-  private async getBlockedChannels(user: UserRecord, maxCount: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    return await this.getChannelsByState(user, maxCount, "blocked", nextPageReference);
+  private async getBlockedChannels(user: UserRecord, maxChannels: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+    return await this.getChannelsByState(user, maxChannels, 0, "blocked", nextPageReference);
   }
 
-  private async getChannelsByState(user: UserRecord, maxCount: number, subscriptionState: ChannelSubscriptionState, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+  private async getChannelsByState(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, subscriptionState: ChannelSubscriptionState, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     let latestLessThan: number;
     if (nextPageReference) {
       const afterRecord = await db.findChannelUser(nextPageReference, user.id);
@@ -254,26 +296,52 @@ export class ChannelManager implements RestServer, Initializable {
         latestLessThan = afterRecord.channelLastUpdate;
       }
     }
-    const channelUserRecords = await db.findChannelUserRecords(user.id, subscriptionState, maxCount + 1, latestLessThan);
     const result: ChannelsRecordsInfo = {
-      records: [],
+      recordsWithCards: [],
       nextPageReference: null
     };
-    for (const channelUser of channelUserRecords) {
-      if (result.records.length >= maxCount) {
-        result.nextPageReference = result.records[result.records.length - 1].id;
-        break;
-      }
+    const cursor = db.getChannelUserRecords(user.id, subscriptionState, latestLessThan);
+    while (await cursor.hasNext()) {
+      const channelUser = await cursor.next();
       const channel = await db.findChannelById(channelUser.channelId);
       if (channel) {
-        result.records.push(channel);
+        const recordWithCards: ChannelRecordWithCards = {
+          record: channel,
+          cards: []
+        };
+        if (maxCardsPerChannel === 0) {
+          result.recordsWithCards.push(recordWithCards);
+        } else {
+          recordWithCards.cards = await this.populateChannelCardsSince(user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
+          if (recordWithCards.cards.length > 0) {
+            result.recordsWithCards.push(recordWithCards);
+          }
+        }
+        if (result.recordsWithCards.length >= maxChannels) {
+          result.nextPageReference = result.recordsWithCards[result.recordsWithCards.length - 1].record.id;
+          break;
+        }
       }
     }
     return result;
   }
 
   private async populateRecordDescriptor(user: UserRecord, record: ChannelRecord): Promise<ChannelDescriptor> {
-
+    const channelUser = await db.findChannelUser(record.id, user.id);
+    const result: ChannelDescriptor = {
+      id: record.id,
+      name: record.name,
+      handle: record.handle,
+      bannerImage: await fileManager.getFileInfo(record.bannerImageFileId),
+      owner: await userManager.getUserDescriptor(record.ownerId, false),
+      created: record.created,
+      about: record.about,
+      linkUrl: record.linkUrl,
+      socialLinks: record.socialLinks,
+      stats: record.stats,
+      subscriptionState: channelUser ? channelUser.subscriptionState : "unsubscribed"
+    };
+    return result;
   }
 
   private async handleUpdateChannel(request: Request, response: Response): Promise<void> {
@@ -328,9 +396,9 @@ export class ChannelManager implements RestServer, Initializable {
       }
       const channelUser = await db.findChannelUser(channel.id, user.id);
       if (channelUser) {
-        await db.updateChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.lastContentUpdate);
+        await db.updateChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.lastContentUpdate, Date.now());
       } else {
-        await db.upsertChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.lastContentUpdate);
+        await db.upsertChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.lastContentUpdate, Date.now());
       }
       console.log("ChannelManager.update-channel-subscription:", request.headers, requestBody.detailsObject);
       const result: UpdateChannelSubscriptionResponse = {
@@ -349,11 +417,16 @@ const channelManager = new ChannelManager();
 export { channelManager };
 
 interface ChannelsRecordsInfo {
-  records: ChannelRecord[];
+  recordsWithCards: ChannelRecordWithCards[];
   nextPageReference: string;
 }
 
+interface ChannelRecordWithCards {
+  record: ChannelRecord;
+  cards: CardDescriptor[];
+}
+
 interface ChannelsListInfo {
-  channels: ChannelDescriptor[];
+  channels: ChannelDescriptorWithCards[];
   nextPageReference: string;
 }
