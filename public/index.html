@@ -27,8 +27,14 @@
   <meta name="twitter:image:width" content="{{&og_imagewidth}}">
   <meta name="twitter:image:height" content="{{&og_imageheight}}">
 
+  <!-- Global javascript - Pre loader -->
+  {{&pre_globaljs}}
+
   <script src="{{&public_base}}/bower_components/webcomponentsjs/webcomponents-loader.js"></script>
   <link rel="import" href="{{&public_base}}/src/app/channels-app.html">
+
+  <!-- Global javascript -->
+  {{&globaljs}}
 
   <style>
     body {
@@ -39,13 +45,14 @@
       -webkit-font-smoothing: antialiased;
       color: #292929;
       font-size: 18px;
-      background: #fafafa;
+      background: #fff;
     }
   </style>
 </head>
 
 <body>
   <channels-app></channels-app>
+  <div id="dialogShell"></div>
 </body>
 
 </html>

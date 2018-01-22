@@ -122,6 +122,7 @@
         window.addEventListener("channels-user-status", this._balaceListener);
         window.addEventListener("channels-profile", this._profileListener);
         this._updateBalance();
+        this._refreshUser();
       }
 
       deactivate() {

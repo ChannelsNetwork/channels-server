@@ -148,6 +148,59 @@
         box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
       }
 
+      .card {
+        border-radius: 3px;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14),
+        0 1px 5px 0 rgba(0, 0, 0, 0.12),
+        0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      .dialog .card {
+        box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+      }
+
+      soso-wizard {
+        --soso-stepper-active-color: var(--highlight-green);
+        --soso-wizard-button-color: var(--dark-green);
+        --soso-wizard-button-weight: 600;
+      }
+
+      soso-text-input {
+        --soso-label-color: var(--dark-green);
+        --soso-label-size: 90%;
+        --soso-valid-color: var(--dark-green);
+      }
+
+      soso-spinner {
+        --soso-spinner-thickness: 6px;
+        --sosos-spinner-major-color: var(--highlight-green);
+        width: 42px;
+        height: 42px;
+      }
+
+      soso-radio-button {
+        --soso-radio-color: var(--highlight-green);
+      }
+
+      soso-checkbox {
+        --soso-checkbox-color: var(--highlight-green);
+      }
+
+      soso-slider {
+        --soso-knob-color: var(--highlight-green);
+      }
+
+      soso-number-input {
+        --soso-button-color: var(--highlight-green);
+      }
+
+      soso-tooltip {
+        line-height: 1.2em;
+        font-size: 13px;
+        color: #000;
+        --soso-tip-background: rgba(255, 255, 255, 0.95);
+      }
+
       @media (max-width: 600px) {
         h2 {
           font-size: 24px;

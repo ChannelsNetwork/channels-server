@@ -1,3 +1,8 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+
 <link rel="import" href="feed-mixin.html">
 <link rel="import" href="card-feed.html">
 <link rel="import" href="../channel-icons.html">
@@ -6,6 +11,10 @@
 <dom-module id="feed-view">
   <template>
     <style is="custom-style" include="app-styles feed-styles">
+      :host {
+        display: block;
+      }
+
       #composeButton {
         position: fixed;
         cursor: pointer;
@@ -26,21 +35,25 @@
 
       .main {
         padding: 0 0 200px;
-      }
-
-      @media (max-width: 600px) {
-        .composeButton {
-          bottom: 24px;
-          right: 16px;
-        }
+        margin-top: 20px;
       }
 
       #buttons {
         margin: 25px 0;
         text-align: center;
       }
+
+      @media (max-width: 600px) {
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+      }
     </style>
-    <div id="spacer" class="spacer"></div>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
     <publicity-panel id="pubPanel" class="hidden" on-create-card="_compose"></publicity-panel>
     <div class="main">
       <div id="noItems" class="hidden">There are no matching cards in this category.</div>
@@ -64,6 +77,7 @@
 
       _onDeactivate() {
         this._active = false;
+        this.$.cbar.deactivate();
         this._detachListseners();
       }
 
@@ -98,6 +112,9 @@
           window.addEventListener("channels-user-status", this._statusListener);
         }
 
+        this.$.cbar.activate();
+        this.$.fbar.selected = feedName;
+
         return {
           type: "feed",
           feedName: feedName,
@@ -119,11 +136,11 @@
       }
 
       _refreshHomePanelVisibility() {
-        if ($app.homePanelVisible) {
-          this.$.spacer.classList.add("hidden");
-        } else {
-          this.$.spacer.classList.remove("hidden");
-        }
+        // if ($app.homePanelVisible) {
+        //   this.$.spacer.classList.add("hidden");
+        // } else {
+        //   this.$.spacer.classList.remove("hidden");
+        // }
       }
 
       _compose() {

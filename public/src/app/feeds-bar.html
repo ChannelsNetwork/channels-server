@@ -46,6 +46,11 @@
         box-shadow: none;
       }
 
+      .selected {
+        color: var(--bg-yellow) !important;
+        font-weight: bold;
+      }
+
       @media (max-width: 600px) {
         button {
           font-size: 12px;
@@ -55,19 +60,27 @@
     <div id="bar" class="horizontal layout center" on-click="_barClick">
       <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
       <a href="/feed/recommended">
-        <button id="recommended">Recommended</button>
-      </a>
-      <a href="/feed/mine">
-        <button id="subscribed">Subscribed</button>
+        <button id="recommended">Feed</button>
       </a>
       <a href="/feed/new">
         <button id="new">New</button>
+      </a>
+      <a href="/feed/mine">
+        <button id="mine">Mine</button>
       </a>
     </div>
   </template>
   <script>
     class FeedsBar extends Polymer.Element {
       static get is() { return 'feeds-bar'; }
+      static get properties() {
+        return {
+          selected: {
+            type: String,
+            observer: '_onSelected'
+          }
+        };
+      }
 
       _showMenu(event) {
         event.stopPropagation();
@@ -81,6 +94,23 @@
           }
         }
         $app.scrollTo(0);
+      }
+
+      _onSelected() {
+        this.$.recommended.classList.remove("selected");
+        this.$.mine.classList.remove("selected");
+        this.$.new.classList.remove("selected");
+        switch (this.selected || "") {
+          case "new":
+            this.$.new.classList.add("selected");
+            break;
+          case "mine":
+            this.$.mine.classList.add("selected");
+            break;
+          default:
+            this.$.recommended.classList.add("selected");
+            break;
+        }
       }
     }
     window.customElements.define(FeedsBar.is, FeedsBar);
