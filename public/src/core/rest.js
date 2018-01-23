@@ -687,4 +687,21 @@ class RestUtils {
     };
   }
 
+  static requestEmailConfirmationDetails(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static confirmEmailDetails(address, fingerprint, code) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      code: code
+    };
+  }
+
 }

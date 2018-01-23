@@ -124,6 +124,7 @@ export class Database {
     await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
     await this.users.createIndex({ added: -1 });
+    await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -546,7 +547,7 @@ export class Database {
   }
 
   async updateUserContentNotification(user: UserRecord): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now()}});
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
   }
 
   async findUserById(id: string): Promise<UserRecord> {
@@ -656,7 +657,7 @@ export class Database {
     await this.users.deleteOne({ id: id });
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageId: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageId: string, location: string, emailAddress: string, emailConfirmed: boolean, encryptedPrivateKey: string): Promise<void> {
     const update: any = {};
     if (!userRecord.identity) {
       userRecord.identity = {
@@ -665,6 +666,9 @@ export class Database {
         imageId: null,
         location: null,
         emailAddress: null,
+        emailConfirmed: false,
+        emailConfirmationCode: null,
+        emailLastConfirmed: 0,
         firstName: null,
         lastName: null
       };
@@ -696,6 +700,10 @@ export class Database {
     if (emailAddress) {
       update["identity.emailAddress"] = emailAddress.toLowerCase();
       userRecord.identity.emailAddress = emailAddress.toLowerCase();
+    }
+    if (typeof emailConfirmed !== 'undefined') {
+      update["identity.emailConfirmed"] = emailConfirmed;
+      userRecord.identity.emailConfirmed = emailConfirmed;
     }
     if (encryptedPrivateKey) {
       update.encryptedPrivateKey = encryptedPrivateKey;
@@ -729,6 +737,18 @@ export class Database {
   async updateUserMailingList(userRecord: UserRecord, mailingList: boolean): Promise<void> {
     await this.users.updateOne({ id: userRecord.id }, { $set: { "marketing.includeInMailingList": mailingList } });
     userRecord.marketing.includeInMailingList = mailingList;
+  }
+
+  async updateUserEmailConfirmationCode(user: UserRecord, code: string): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "identity.emailConfirmed": false, "identity.emailConfirmationCode": code } });
+  }
+
+  async findUserByEmailConfirmationCode(code: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ "identity.emailConfirmationCode": code });
+  }
+
+  async updateUserEmailConfirmation(userId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { "identity.emailConfirmed": true, "identity.emailLastConfirmed": Date.now() }, $unset: { "identity.emailConfirmationCode": 1 } });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {

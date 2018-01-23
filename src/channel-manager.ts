@@ -510,6 +510,13 @@ export class ChannelManager implements RestServer, Initializable {
       const channelUser = await cursor.next();
       const user = await userManager.getUser(channelUser.userId, false);
       if (user) {
+        if (!user.identity || !user.identity.emailAddress) {
+          continue;
+        }
+        if (!user.identity.emailConfirmed) {
+          console.log("Channel.notifySubscribers: Skipping notification because email confirmation still pending", user.identity.emailAddress);
+          continue;
+        }
         if (user.notifications && (user.notifications.disallowContentNotifications || user.notifications.lastContentNotification > Date.now() - MINIMUM_CONTENT_NOTIFICATION_INTERVAL)) {
           continue;
         }

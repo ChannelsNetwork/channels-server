@@ -112,6 +112,7 @@ export interface GetUserIdentityResponse extends RestResponse {
   location: string;
   image: FileInfo;
   emailAddress: string;
+  emailConfirmed: boolean;
   encryptedPrivateKey: string;
 }
 
@@ -794,3 +795,16 @@ export interface ReportChannelVisitDetails extends Signable {
 }
 
 export interface ReportChannelVisitResponse extends RestResponse { }
+
+export interface RequestEmailConfirmationDetails extends Signable { }
+
+export interface RequestEmailConfirmationResponse extends RestResponse { }
+
+export interface ConfirmEmailDetails extends Signable {
+  code: string;
+}
+
+export interface ConfirmEmailResponse extends RestResponse {
+  userId: string;
+  handle: string;
+}

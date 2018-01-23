@@ -630,6 +630,20 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  requestEmailConfirmation() {
+    let details = RestUtils.requestEmailConfirmationDetails(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/request-email-confirmation";
+    return this.rest.post(url, request);
+  }
+
+  confirmEmail(code) {
+    let details = RestUtils.confirmEmailDetails(this._keys.address, this._fingerprint, code);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/confirm-email";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

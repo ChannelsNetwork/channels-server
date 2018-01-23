@@ -87,6 +87,9 @@ export interface UserIdentity {
   imageId: string;
   location: string;
   emailAddress: string;
+  emailConfirmed: boolean;
+  emailConfirmationCode: string;
+  emailLastConfirmed: number;
   firstName: string;
   lastName: string;
 }

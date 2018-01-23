@@ -1147,6 +1147,9 @@ export class FeedManager implements Initializable, RestServer {
       handle: handle,
       imageId: null,
       emailAddress: emailAddress,
+      emailConfirmed: false,
+      emailConfirmationCode: null,
+      emailLastConfirmed: 0,
       location: null,
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)

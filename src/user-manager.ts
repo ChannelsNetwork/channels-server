@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -17,7 +17,7 @@ import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
 import { bank } from "./bank";
-import { emailManager } from "./email-manager";
+import { emailManager, EmailButton } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
 import { Utils } from "./utils";
@@ -139,6 +139,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('get-handle'), (request: Request, response: Response) => {
       void this.handleGetHandle(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('request-email-confirmation'), (request: Request, response: Response) => {
+      void this.handleRequestEmailConfirmation(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('confirm-email'), (request: Request, response: Response) => {
+      void this.handleConfirmEmail(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-get-users'), (request: Request, response: Response) => {
       void this.handleAdminGetUsers(request, response);
@@ -469,7 +475,18 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
+      let emailConfirmed: boolean;
+      let sendConfirmation = false;
+      if (requestBody.detailsObject.emailAddress) {
+        if (!user.identity || !user.identity.emailAddress || requestBody.detailsObject.emailAddress !== requestBody.detailsObject.emailAddress) {
+          sendConfirmation = true;
+          emailConfirmed = false;
+        }
+      }
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
+      if (sendConfirmation) {
+        void this.sendEmailConfirmation(user);
+      }
       if (configuration.get("notifications.userIdentityChange")) {
         let html = "<div>";
         html += "<div>userId: " + user.id + "</div>";
@@ -582,6 +599,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
+        emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
         encryptedPrivateKey: user.encryptedPrivateKey
       };
       response.json(result);
@@ -606,6 +624,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
+        emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
         encryptedPrivateKey: user.encryptedPrivateKey
       };
       response.json(reply);
@@ -642,6 +661,60 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       console.error("User.handleGetHandle: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.request-email-confirmation", user.id, requestBody.detailsObject);
+      if (!user.identity || !user.identity.emailAddress) {
+        response.status(409).send("User has no email address to confirm");
+        return;
+      }
+      await this.sendEmailConfirmation(user);
+      const reply: RequestEmailConfirmationResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleRequestEmailConfirmation: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleConfirmEmail(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<ConfirmEmailDetails>;
+      const confirmationCode = requestBody.detailsObject ? requestBody.detailsObject.code : null;
+      if (!confirmationCode) {
+        response.status(400).send("Missing code");
+        return;
+      }
+      console.log("UserManager.confirm-email", requestBody.detailsObject);
+      const user = await db.findUserByEmailConfirmationCode(confirmationCode);
+      if (!user) {
+        response.status(404).send("No such user");
+        return;
+      }
+      if (!user.identity || !user.identity.emailAddress) {
+        response.status(409).send("User has no email address to confirm");
+        return;
+      }
+      await db.updateUserEmailConfirmation(user.id);
+      const reply: ConfirmEmailResponse = {
+        serverVersion: SERVER_VERSION,
+        userId: user.id,
+        handle: user.identity.handle
+      };
+      response.json(reply);
+    } catch (err) {
+      console.error("User.handleConfirmEmail: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -996,6 +1069,21 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       location: user.identity ? user.identity.location : null
     };
     return result;
+  }
+
+  async sendEmailConfirmation(user: UserRecord): Promise<void> {
+    if (!user.identity || !user.identity.emailAddress) {
+      throw new Error("User does not have an email address to confirm.");
+    }
+    const confirmationCode = uuid.v4();
+    await db.updateUserEmailConfirmationCode(user, confirmationCode);
+    const info: any = {};
+    const button: EmailButton = {
+      caption: "Confirm",
+      url: this.urlManager.getAbsoluteUrl('/confirm-email?code=' + encodeURIComponent(confirmationCode))
+    };
+    const buttons: EmailButton[] = [button];
+    await emailManager.sendUsingTemplate("Channel.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "Confirm your identity", "email-confirmation", info, buttons);
   }
 }
 
