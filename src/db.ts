@@ -123,6 +123,7 @@ export class Database {
     await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
     await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
+    await this.users.createIndex({ added: -1 });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -295,6 +296,7 @@ export class Database {
     await this.bankTransactions.createIndex({ id: 1 }, { unique: true });
     await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
+    await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
   }
 
   private async initializeUserCardActions(): Promise<void> {
@@ -474,6 +476,7 @@ export class Database {
       admin: false,
       ipAddresses: [],
       lastPosted: 0,
+      lastWithdrawal: 0,
       marketing: {
         includeInMailingList: includeInMailingList
       },
@@ -510,6 +513,11 @@ export class Database {
     await this.users.updateOne({ id: userId }, { $set: { lastPosted: value } });
   }
 
+  async updateUserLastWithdrawal(user: UserRecord, value: number): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { lastWithdrawal: value } });
+    user.lastWithdrawal = value;
+  }
+
   async updateUserRecoveryCode(user: UserRecord, code: string, expires: number): Promise<void> {
     await this.users.updateOne({ id: user.id }, { $set: { recoveryCode: code, recoveryCodeExpires: expires } });
     user.recoveryCode = code;
@@ -539,6 +547,10 @@ export class Database {
 
   async findUserById(id: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ id: id });
+  }
+
+  getUsersById(ids: string[]): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ id: { $in: ids } });
   }
 
   async findUserByAddress(address: string): Promise<UserRecord> {
@@ -609,6 +621,22 @@ export class Database {
       $unset: { "identity.imageUrl": 1 },
       $set: { "identity.imageId": imageId }
     });
+  }
+
+  countTotalUsersBefore(before: number, after = 0): Promise<number> {
+    const added: any = { $lt: before };
+    if (after) {
+      added.$gte = after;
+    }
+    return this.users.count({ added: added, type: "normal" });
+  }
+
+  countTotalUsersWithIdentity(before: number, after = 0): Promise<number> {
+    const added: any = { $lt: before };
+    if (after) {
+      added.$gte = after;
+    }
+    return this.users.count({ added: added, identity: { $exists: true }, type: "normal" });
   }
 
   async updateLastUserContact(userRecord: UserRecord, lastContact: number): Promise<void> {
@@ -857,8 +885,20 @@ export class Database {
     return fixedKeywords;
   }
 
-  async countCards(): Promise<number> {
-    return await this.cards.count({});
+  async countCards(before: number, after: number): Promise<number> {
+    return await this.cards.count({ postedAt: { $lt: before, $gte: after } });
+  }
+
+  async countNonPromotedCards(before: number, after: number): Promise<number> {
+    return await this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
+  }
+
+  async countPromotedCards(before: number, after: number): Promise<number> {
+    return await this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
+  }
+
+  async countAdCards(before: number, after: number): Promise<number> {
+    return await this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openPayment": { $gt: 0 } });
   }
 
   async lockCard(cardId: string, timeout: number, serverId: string): Promise<CardRecord> {
@@ -958,6 +998,11 @@ export class Database {
       },
       $set: { "summary.imageId": imageId }
     });
+  }
+
+  async countDistinctCardOwners(from: number, to: number): Promise<number> {
+    const creators = await this.cards.distinct('by.id', { postedAt: { $gte: from, $lt: to } });
+    return creators.length;
   }
 
   async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
@@ -1661,7 +1706,7 @@ export class Database {
   }
 
   async findBankTransactionById(id: string): Promise<BankTransactionRecord> {
-    return await db.bankTransactions.findOne<BankTransactionRecord>({ id: id });
+    return await this.bankTransactions.findOne<BankTransactionRecord>({ id: id });
   }
 
   async findBankTransactionsByParticipant(participantUserId: string, omitInterest: boolean, limit = 500): Promise<BankTransactionRecord[]> {
@@ -1671,15 +1716,34 @@ export class Database {
     if (omitInterest) {
       query["details.reason"] = { $nin: ["interest", "subsidy"] };
     }
-    return await db.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+    return await this.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
   }
 
   async countBankTransactions(): Promise<number> {
-    return await db.bankTransactions.count({});
+    return await this.bankTransactions.count({});
+  }
+
+  async countBankTransactionsByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
+    return await this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after } });
+  }
+
+  async countBankTransactionsByReasonWithAmount(reason: BankTransactionReason, before: number, after: number, amount: number): Promise<number> {
+    return await this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after }, "details.amount": amount });
+  }
+
+  async totalBankTransactionsAmountByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
+    const result = await this.bankTransactions.aggregate([
+      { $match: { "details.reason": reason, "details.timestamp": { $lt: before, $gte: after } } },
+      { $group: { _id: "total", count: { $sum: 1 }, total: { $sum: "$details.amount" } } }
+    ]).toArray();
+    if (result.length === 0) {
+      return 0;
+    }
+    return result[0].total;
   }
 
   async updateBankTransactionWithdrawalStatus(transactionId: string, referenceId: string, status: string, err: any): Promise<void> {
-    await db.bankTransactions.updateOne({ id: transactionId }, {
+    await this.bankTransactions.updateOne({ id: transactionId }, {
       $set: {
         "withdrawalInfo.referenceId": referenceId,
         "withdrawalInfo.status": status,
@@ -1736,6 +1800,10 @@ export class Database {
     return null;
   }
 
+  async countUserCardsOpenedInTimeframe(userId: string, from: number, to: number): Promise<number> {
+    return await this.userCardActions.count({ userId: userId, action: "open", at: { $gt: from, $lte: to } });
+  }
+
   async countUserCardsPaid(userId: string): Promise<number> {
     return await this.userCardActions.count({ userId: userId, action: "pay" });
   }
@@ -1781,6 +1849,14 @@ export class Database {
   async countDistinctUserPromotedPayments(cardId: string, from: number, to: number): Promise<number> {
     const userIds = await this.userCardActions.distinct("userId", { cardId: cardId, action: "redeem-open-payment", at: { $gt: from, $lte: to } });
     return userIds.length;
+  }
+
+  async countUserCardOpens(before: number, after: number): Promise<number> {
+    return await this.userCardActions.count({ action: "open", at: { $lt: before, $gte: after } });
+  }
+
+  async findDistinctUsersActiveBetween(from: number, to: number): Promise<string[]> {
+    return await this.userCardActions.distinct("userId", { at: { $gte: from, $lt: to } }) as string[];
   }
 
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {

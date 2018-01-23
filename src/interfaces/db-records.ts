@@ -21,6 +21,7 @@ export interface UserRecord {
   invitationsAccepted: number;
   lastContact: number;
   lastPosted: number;
+  lastWithdrawal: number;
   identity?: UserIdentity;
   storage: number;
   admin: boolean;

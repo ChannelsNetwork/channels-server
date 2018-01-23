@@ -657,6 +657,13 @@ class CoreService extends Polymer.Element {
     return 1;
   }
 
+  get timeUntilNextAllowedWithdrawal() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.timeUntilNextAllowedWithdrawal;
+  }
+
   get depositUrl() {
     return this._registration.depositUrl;
   }
