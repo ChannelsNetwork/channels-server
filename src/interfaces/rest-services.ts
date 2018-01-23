@@ -58,6 +58,7 @@ export interface UserStatus {
   userBalance: number;
   userBalanceAt: number;
   minBalanceAfterWithdrawal: number;
+  timeUntilNextAllowedWithdrawal: number;
   targetBalance: number;
   inviteCode: string;
   invitationsUsed: number;
@@ -570,67 +571,68 @@ export interface AdminUserInfo {
 export interface AdminGetGoalsDetails extends Signable { }
 
 export interface AdminGetGoalsResponse extends RestResponse {
-  today: AdminGoalsInfo;
-  yesterday: AdminGoalsInfo;
-  twoDaysAgo: AdminGoalsInfo;
-  threeDaysAgo: AdminGoalsInfo;
-  past7Days: AdminGoalsInfo;
-  pastMonth: AdminGoalsInfo;
-  total: AdminGoalsInfo;
+  days: AdminGoalsInfo[];
 }
 
 export interface AdminGoalsInfo {
+  dayStarting: number;
   users: AdminUserGoalsInfo;
+  publishers: AdminPublisherGoalsInfo;
   cards: AdminCardGoalsInfo;
+  publisherRevenue: AdminPublisherRevenueGoalsInfo;
+  adRevenue: AdminAdRevenueGoalsInfo;
 }
 
 export interface AdminUserGoalsInfo {
+  total: number;
+  totalWithIdentity: number;
   newUsers: number;
-  active: number;
-  withIdentity: {
-    active: number;
-    newUsers: number;
-    returningUsers: number;
-    nonViewers: number;
-    oneTimeViewers: number;
-    multipleViewers: number;
-    posters: number;
-  };
-  anonymous: {
-    active: number;
-    newUsers: number;
-    returningUsers: number;
-    nonViewers: number;
-    oneTimeViewers: number;
-    multipleViewers: number;
-  };
+  newUsersWithIdentity: number;
+  activeUsers: number;
+  activeUsersWithIdentity: number;
+  returningUsers: number;
+  returningUsersWithIdentity: number;
+}
+
+export interface AdminPublisherGoalsInfo {
+  total: number;
+  newPublishers: number;
+  posted: number;
 }
 
 export interface AdminCardGoalsInfo {
-  payFor: {
-    firstTimePosts: number;
-    totalPosts: number;
-    purchases: number;
-    firstTimePurchases: number;
-  };
-  promoted: {
-    impressionBased: {
-      firstTimePosts: number;
-      totalPosts: number;
-      totalImpressions: number;
-      usersWithImpressions: number;
-      totalClicks: number;
-      usersWhoClicked: number;
-    };
-    openBased: {
-      firstTimePosts: number;
-      totalPosts: number;
-      totalImpressions: number;
-      usersWithImpressions: number;
-      totalPaymentCount: number;
-      usersWhoWerePaid: number;
-    };
-  };
+  total: number;
+  totalNonPromoted: number;
+  totalPromoted: number;
+  totalAds: number;
+  newCards: number;
+  newNonPromoted: number;
+  newPromoted: number;
+  newAds: number;
+}
+
+export interface AdminPublisherRevenueGoalsInfo {
+  totalCardsOpened: number;
+  totalCardsPurchased: number;
+  totalCardsFullPrice: number;
+  totalCardsDiscounted: number;
+  totalRevenue: string;
+  newCardsOpened: number;
+  newCardsPurchased: number;
+  newCardsFullPrice: number;
+  newCardsDiscounted: number;
+  newRevenue: string;
+}
+
+export interface AdminAdRevenueGoalsInfo {
+  totalImpressions: number;
+  totalPromotedOpens: number;
+  totalPromotedRevenue: string;
+  totalAdRevenue: string;
+  newImpressions: number;
+  newPromotedOpens: number;
+  newPromotedRevenue: string;
+  newAdRevenue: string;
 }
 
 export interface AdminSetUserMailingListDetails extends Signable {
@@ -713,6 +715,7 @@ export interface ListTopicsResponse extends RestResponse {
 export interface GetChannelDetails extends Signable {
   channelId: string;  // you must provide either channelId, ownerId or handle
   ownerId: string;
+  ownerHandle: string;
   channelHandle: string;
 }
 
@@ -762,10 +765,10 @@ export interface GetChannelsDetails extends Signable {
   nextPageReference?: string;   // if provided, used to get next page based on GetChannelsResponse.nextPageReference
 }
 
-export type ChannelFeedType = "recommended" | "new" | "feed" | "blocked";
+export type ChannelFeedType = "recommended" | "new" | "subscribed" | "blocked";
 
 export interface GetChannelsResponse extends RestResponse {
-  channels: ChannelDescriptorWithCards[];
+  channels: ChannelDescriptor[];
   nextPageReference: string;  // If not-null, more is available; use this in next call
 }
 
@@ -785,3 +788,9 @@ export interface UpdateChannelSubscriptionDetails extends Signable {
 }
 
 export interface UpdateChannelSubscriptionResponse extends RestResponse { }
+
+export interface ReportChannelVisitDetails extends Signable {
+  channelId: string;
+}
+
+export interface ReportChannelVisitResponse extends RestResponse { }

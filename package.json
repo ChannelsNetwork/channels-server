@@ -17,7 +17,6 @@
   },
   "homepage": "https://github.com/ChannelsNetwork/channels-server#readme",
   "dependencies": {
-    "@types/uuid": "^3.4.0",
     "aws-sdk": "^2.100.0",
     "basic-auth": "^1.1.0",
     "basic-authorization-header": "^0.2.7",
@@ -71,6 +70,7 @@
   "devDependencies": {
     "@types/basic-auth": "^1.1.1",
     "@types/body-parser": "^1.16.3",
+    "@types/bson": "^1.0.6",
     "@types/busboy": "^0.2.3",
     "@types/cheerio": "^0.22.2",
     "@types/compression": "0.0.33",

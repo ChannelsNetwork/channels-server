@@ -42,6 +42,7 @@ const DEFAULT_TARGET_BALANCE = 5;
 
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
+const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
 export class UserManager implements RestServer, UserSocketHandler, Initializable {
   private app: express.Application;
@@ -90,6 +91,17 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
         const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
         await db.replaceUserImageUrl(user.id, fileId);
+      }
+    }
+
+    const withdrawals = await db.listManualWithdrawals(1000);
+    for (const withdrawal of withdrawals) {
+      const user = await db.findUserById(withdrawal.userId);
+      if (user) {
+        if (!user.lastWithdrawal || withdrawal.created > user.lastWithdrawal) {
+          console.log("User.initialize2: Updating user last withdrawal", user.id, withdrawal.created);
+          await db.updateUserLastWithdrawal(user, withdrawal.created);
+        }
       }
     }
     setInterval(() => {
@@ -766,12 +778,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   private async countUserPaidOpens(user: UserRecord, from: number, to: number): Promise<number> {
-    const cursor = db.findCardsByAuthor(user.id);
+    const cursor = db.getCardsByAuthor(user.id);
     let result = 0;
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       result += await db.countCardPayments(card.id, from, to);
     }
+    await cursor.close();
     return result;
   }
 
@@ -822,6 +835,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await this.updateUserBalance(user);
     }
     const network = await db.getNetwork();
+    let timeUntilNextAllowedWithdrawal = 0;
+    if (user.lastWithdrawal) {
+      timeUntilNextAllowedWithdrawal = Math.max(0, MINIMUM_WITHDRAWAL_INTERVAL - (Date.now() - user.lastWithdrawal));
+    }
     const result: UserStatus = {
       goLive: this.goLiveDate,
       userBalance: user.balance,
@@ -834,7 +851,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       totalPublisherRevenue: network.totalPublisherRevenue,
       totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
-      publisherSubsidies: await networkEntity.getPublisherSubsidies()
+      publisherSubsidies: await networkEntity.getPublisherSubsidies(),
+      timeUntilNextAllowedWithdrawal: timeUntilNextAllowedWithdrawal
     };
     return result;
   }

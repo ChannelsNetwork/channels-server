@@ -19,6 +19,7 @@ import { networkEntity } from "./network-entity";
 import { userManager } from "./user-manager";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
+import { channelManager } from "./channel-manager";
 const braintree = require('braintree');
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
@@ -174,6 +175,7 @@ export class Bank implements RestServer, Initializable {
       html += "</div>";
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
       await db.incrementNetworkTotals(0, 0, 0, amountInUSD, 0);
+      await db.updateUserLastWithdrawal(user, now);
       const userStatus = await userManager.getUserStatus(user, false);
       const reply: BankWithdrawResponse = {
         serverVersion: SERVER_VERSION,
@@ -414,6 +416,9 @@ export class Bank implements RestServer, Initializable {
         user.balance += creditAmount;
       }
       amountByRecipientReason[recipient.reason.toString()] = creditAmount;
+    }
+    if (details.relatedCardId) {
+      await channelManager.onChannelCardTransaction(details);
     }
     const result: BankTransactionResult = {
       record: record,

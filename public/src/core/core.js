@@ -587,6 +587,49 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getChannelByOwnerHandle(ownerHandle) {
+    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, ownerHandle, null);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel";
+    return this.rest.post(url, request);
+  }
+
+  getChannelByChannelHandle(channelHandle) {
+    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, null, channelHandle);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel";
+    return this.rest.post(url, request);
+  }
+
+  // export type ChannelFeedType = "recommended" | "new" | "subscribed" | "blocked";
+  getChannels(feedType, maxCount, nextPageRef) {
+    let details = RestUtils.getChannelsDetails(this._keys.address, this._fingerprint, feedType, maxChannels, nextPageRef);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channels";
+    return this.rest.post(url, request);
+  }
+
+  updateChannel(channelId, bannerImageFileId, about, link, socialLinks) {
+    let details = RestUtils.updateChannelDetails(this._keys.address, this._fingerprint, channelId, bannerImageFileId, about, link, socialLinks);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-channel";
+    return this.rest.post(url, request);
+  }
+
+  updateChannelSubscription(channelId, state) {
+    let details = RestUtils.updateChannelSubscriptionDetails(this._keys.address, this._fingerprint, channelId, state);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-channel-subscription";
+    return this.rest.post(url, request);
+  }
+
+  reportChannelVisit(channelId) {
+    let details = RestUtils.reportChannelVisitDetails(this._keys.address, this._fingerprint, channelId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/report-channel-visit";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
@@ -655,6 +698,13 @@ class CoreService extends Polymer.Element {
 
   get coinSellExchangeRate() {
     return 1;
+  }
+
+  get timeUntilNextAllowedWithdrawal() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.timeUntilNextAllowedWithdrawal;
   }
 
   get depositUrl() {

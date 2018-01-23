@@ -29,6 +29,7 @@ import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
 import { feedManager } from "./feed-manager";
+import { channelManager } from "./channel-manager";
 
 const promiseLimit = require('promise-limit');
 
@@ -154,6 +155,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await db.updateCardSearchText(card.id, searchText);
     }
+    await cursor.close();
 
     cursor = db.getCardsWithBy();
     while (await cursor.hasNext()) {
@@ -161,6 +163,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("Card.initialize2: Replacing by.id with createdById", card.id);
       await db.replaceCardBy(card.id, card.by.id);
     }
+    await cursor.close();
 
     cursor = db.getCardsWithSummaryImageUrl();
     const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
@@ -182,6 +185,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
       }
     }
+    await cursor.close();
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
@@ -956,6 +960,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.delete-card", requestBody.detailsObject);
       await db.updateCardState(card, "deleted");
+      await channelManager.onCardDeleted(card);
       const reply: DeleteCardResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -1159,7 +1164,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const couponRecord = await bank.registerCoupon(user, cardId, details.pricing.coupon);
       couponId = couponRecord.id;
     }
-    const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0);
+    const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
     const keywords: string[] = [];
     if (details.keywords) {
       for (const keyword of details.keywords) {
@@ -1191,6 +1196,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       void emailManager.sendInternalNotification("Card posted", "", html);
     }
     await db.updateUserLastPosted(user.id, card.postedAt);
+    await channelManager.addCardToUserChannel(card, user);
     return card;
   }
 
@@ -1642,20 +1648,20 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   getPromotionScores(card: CardRecord): CardPromotionScores {
-    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value);
+    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.boost ? card.curation.boost : 0);
   }
 
-  private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): CardPromotionScores {
+  private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): CardPromotionScores {
     return {
-      a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens),
-      e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens)
+      a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+      b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+      c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+      d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+      e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost)
     };
   }
 
-  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number): number {
+  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): number {
     if (promotionFee === 0 && openPayment === 0) {
       return 0;
     }
@@ -1668,16 +1674,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
     // if the card pays based on opens
-    let boost = 1;
+    let openBoost = 1;
     if (openPayment > 0) {
-      boost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
+      openBoost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
     }
-    const revenuePotential = promotionFee + openPayment * openProbability * boost;
+    const revenuePotential = promotionFee + openPayment * openProbability * openBoost;
     const desireability = openProbability * 5;
     let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
     // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
     const randomFactor = result * 0.1 * (Math.random() - 0.5);
-    result += randomFactor;
+    result += randomFactor + boost;
     return result;
   }
 

@@ -21,6 +21,7 @@ export interface UserRecord {
   invitationsAccepted: number;
   lastContact: number;
   lastPosted: number;
+  lastWithdrawal: number;
   identity?: UserIdentity;
   storage: number;
   admin: boolean;
@@ -540,7 +541,7 @@ export interface ChannelRecord {
   socialLinks: SocialLink[];
   stats: ChannelStats;
   lastStatsSnapshot: number;
-  lastContentUpdate: number;
+  latestCardPosted: number;
 }
 
 export type ChannelStatus = "active" | "deleted";
@@ -574,13 +575,9 @@ export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked"
 export interface ChannelCardRecord {
   channelId: string;
   cardId: string;
-  state: ChannelCardState;
   cardPostedAt: number;
   added: number;
-  lastUpdated: number;
 }
-
-export type ChannelCardState = "active" | "removed";
 
 export interface UserRegistrationRecord {
   userId: string;

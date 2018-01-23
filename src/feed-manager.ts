@@ -25,6 +25,7 @@ import * as fs from 'fs';
 import { Cursor } from "mongodb";
 import { channelsComponentManager } from "./channels-component-manager";
 import { Utils } from "./utils";
+import { channelManager } from "./channel-manager";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -56,6 +57,7 @@ const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
+const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
@@ -88,7 +90,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   async initialize2(): Promise<void> {
-    const cardCount = await db.countCards();
+    const cardCount = await db.countCards(Date.now(), 0);
     if (cardCount === 0) {
       await this.addSampleEntries();
       // await this.addPreviewCards();
@@ -361,6 +363,7 @@ export class FeedManager implements Initializable, RestServer {
         return card;
       }
     }
+    await adCursor.close();
     return null;
   }
 
@@ -409,16 +412,68 @@ export class FeedManager implements Initializable, RestServer {
         scoreLessThan = afterCard.score;
       }
     }
-    const result = await this.getCardsWithHighestScores(user, false, limit + 1, startWithCardId, scoreLessThan);
+    const result = await this.getCardsWithHighestScores(user, false, limit + 1, startWithCardId, afterCardId, scoreLessThan);
     // for (const r of result) {
     //   console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
     // }
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, count: number, startWithCardId: string, scoreLessThan: number): Promise<CardDescriptor[]> {
-    const cards = await db.findCardsByScore(count, user.id, ads, scoreLessThan);
+  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, count: number, startWithCardId: string, afterCardId: string, scoreLessThan: number): Promise<CardDescriptor[]> {
+    if (!count) {
+      count = 24;
+    }
+    // Taking one less than count from feed cards, because we want the last card on the page to always
+    // be based on score for the purpose of getting subsequent cards based on score
+    const feedCards = await this.getCardsInFeed(user, count - 1, Date.now() - RECOMMENDED_FEED_CARD_MAX_AGE);
+    const cards: CardRecord[] = [];
+    const cardIds: string[] = [];
+    for (const feedCard of feedCards) {
+      cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
+      if (!afterCardId) {  // Only include subscribed cards on first page of results
+        const userCard = await db.findUserCardInfo(user.id, feedCard.id);
+        if (!userCard.lastOpened) {
+          cards.push(feedCard);
+        }
+      }
+    }
+
+    if (cards.length < count) {
+      const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
+      while (await cursor.hasNext()) {
+        const cardByScore = await cursor.next();
+        if (cardIds.indexOf(cardByScore.id) < 0) {
+          cards.push(cardByScore);
+          cardIds.push(cardByScore.id);
+        }
+        if (cards.length >= count) {
+          break;
+        }
+      }
+      await cursor.close();
+    }
     return await this.populateCards(cards, false, user, startWithCardId);
+  }
+
+  private async getCardsInFeed(user: UserRecord, maxCount: number, since: number): Promise<CardRecord[]> {
+    const channelIds = await channelManager.findSubscribedChannelIdsForUser(user, false);
+    if (channelIds.length === 0) {
+      return [];
+    }
+    const cursor = channelManager.getCardsInChannels(channelIds, since);
+    const result: CardRecord[] = [];
+    while (await cursor.hasNext()) {
+      const channelCard = await cursor.next();
+      const card = await db.findCardById(channelCard.cardId, false);
+      if (card) {
+        result.push(card);
+      }
+      if (result.length >= maxCount) {
+        break;
+      }
+    }
+    await cursor.close();
+    return result;
   }
 
   private async scoreCandidateCard(user: UserRecord, candidate: CardWithUserScore): Promise<CardWithUserScore> {
@@ -473,6 +528,9 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+    if (!limit) {
+      limit = 24;
+    }
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -480,15 +538,25 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const author = channelHandle ? await userManager.getUserByHandle(channelHandle) : null;
-    let cards: CardRecord[] = [];
-    if (author) {
-      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true, user.id !== author.id);
+    const cards: CardRecord[] = [];
+    const channel = await db.findChannelByHandle(channelHandle);
+    if (channel && channel.status === 'active') {
+      const cursor = db.getChannelCardsByChannel(channel.id, 0);
+      while (await cursor.hasNext()) {
+        const channelCard = await cursor.next();
+        const card = await db.findCardById(channelCard.cardId, false);
+        if (card && (!card.curation || !card.curation.block)) {
+          cards.push(card);
+        }
+        if (cards.length >= limit) {
+          break;
+        }
+      }
+      await cursor.close();
     }
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
-
   private async getRecentlyOpenedFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
