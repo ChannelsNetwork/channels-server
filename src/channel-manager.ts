@@ -569,7 +569,7 @@ export class ChannelManager implements RestServer, Initializable {
         break;
       }
     }
-    cursor.close();
+    await cursor.close();
     if (cards.length === 0) {
       return;
     }
