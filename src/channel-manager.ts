@@ -16,6 +16,9 @@ import { userManager } from "./user-manager";
 import * as LRU from 'lru-cache';
 import { cardManager } from "./card-manager";
 import { Cursor } from "mongodb";
+import { emailManager, EmailButton } from "./email-manager";
+
+const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
 
 export class ChannelManager implements RestServer, Initializable {
   private app: express.Application;
@@ -497,6 +500,55 @@ export class ChannelManager implements RestServer, Initializable {
       }
     }
     await db.updateChannelUsersForLatestUpdate(channel.id, card.postedAt);
+    await this.notifySubscribers(card, channel);
+  }
+
+  private async notifySubscribers(card: CardRecord, channel: ChannelRecord): Promise<void> {
+    console.log("Channel.notifySubscribers", card.id, card.summary.title, channel.handle);
+    const cursor = db.getChannelUserSubscribers(channel.id);
+    while (await cursor.hasNext()) {
+      const channelUser = await cursor.next();
+      const user = await userManager.getUser(channelUser.userId, false);
+      if (user) {
+        if (user.notifications && (user.notifications.disallowContentNotifications || user.notifications.lastContentNotification > Date.now() - MINIMUM_CONTENT_NOTIFICATION_INTERVAL)) {
+          continue;
+        }
+        void this.sendUserContentNotification(user, card, channel);
+      }
+    }
+    await cursor.close();
+  }
+
+  private async sendUserContentNotification(user: UserRecord, newCard: CardRecord, channel: ChannelRecord): Promise<void> {
+    console.log("Channel.sendUserContentNotification", user.id, user.identity.handle, channel.handle);
+    const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
+    const since = Math.min(Date.now() - 1000 * 60 * 60 * 24 * 7, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
+    const cursor = await db.getChannelCardsInChannels(channelIds, since);
+    const cards: CardDescriptor[] = [];
+    while (await cursor.hasNext()) {
+      const channelCard = await cursor.next();
+      const card = await db.findCardById(channelCard.cardId, false);
+      if (card) {
+        const descriptor = await cardManager.populateCardState(card.id, false, false, user);
+        cards.push(descriptor);
+      }
+      if (cards.length > 10) {
+        break;
+      }
+    }
+    cursor.close();
+    await db.updateUserContentNotification(user);
+    const button: EmailButton = {
+      caption: "View feed",
+      url: this.urlManager.getAbsoluteUrl("/")
+    };
+    const info: any = {
+      count: cards.length
+      // TODO: information about new cards/channels
+    };
+    const buttons: EmailButton[] = [button];
+    const templateName = cards.length > 1 ? "multi-card-notification" : "single-card-notification";
+    await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "New cards for you to look at", templateName, info, buttons);
   }
 
   async getUserDefaultChannel(user: UserRecord): Promise<ChannelRecord> {

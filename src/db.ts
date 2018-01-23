@@ -545,6 +545,10 @@ export class Database {
     delete user.recoveryCodeExpires;
   }
 
+  async updateUserContentNotification(user: UserRecord): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now()}});
+  }
+
   async findUserById(id: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ id: id });
   }
@@ -2419,6 +2423,10 @@ export class Database {
 
   async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number, latestGreaterThan: number): Promise<ChannelUserRecord[]> {
     return await this.getChannelUserRecords(userId, subscriptionState, latestLessThan, latestGreaterThan).limit(maxCount || 100).toArray();
+  }
+
+  getChannelUserSubscribers(channelId: string): Cursor<ChannelUserRecord> {
+    return this.channelUsers.find<ChannelUserRecord>({ channelId: channelId, subscriptionState: "subscribed" });
   }
 
   getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number, latestGreaterThan: number): Cursor<ChannelUserRecord> {

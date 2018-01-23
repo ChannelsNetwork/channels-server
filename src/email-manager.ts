@@ -66,18 +66,18 @@ export class EmailManager implements Initializable {
       }
     }
 
-    const kaiLogoUrl = url.resolve(configuration.get('baseClientUri'), '/s/images/logo-wide.png');
+    const logoUrl = url.resolve(configuration.get('baseClientUri'), '/s/images/logo-wide.png');
     const htmlContent = Mustache.render(baseHtml, {
       messageBody: htmlBody,
       buttons: buttonsBodyHtml,
       signature: "",
       tagLine: "",
-      kaiLogoUrl: "kaiLogoUrl"
+      logoUrl: logoUrl
     });
     const textContent = Mustache.render(baseText, {
       messageBody: textBody,
       buttons: buttonsBodyText,
-      signature: skipSignature ? "" : "Your automated task master,"
+      signature: ""
     });
 
     await this.send(fromName, fromEmail, toName, toEmail, subject, textContent, htmlContent);

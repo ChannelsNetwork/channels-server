@@ -36,6 +36,11 @@ export interface UserRecord {
   curation?: UserCurationType;
   originalReferrer: string;
   originalLandingPage: string;
+  notifications?: {
+    disallowAnnouncements?: boolean;
+    disallowContentNotifications?: boolean;
+    lastContentNotification?: number;
+  };
 }
 
 export type UserCurationType = "blocked" | "discounted";
