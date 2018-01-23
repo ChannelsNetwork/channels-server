@@ -2354,7 +2354,7 @@ export class Database {
 
   async incrementChannelStat(channelId: string, statName: string, incrementBy: number): Promise<void> {
     const inc: any = {};
-    inc[statName] = incrementBy;
+    inc["stats." + statName] = incrementBy;
     await this.channels.updateOne({ id: channelId }, { $inc: inc });
   }
 
@@ -2407,6 +2407,14 @@ export class Database {
         lastVisited: lastVisited
       }
     });
+  }
+
+  async updateChannelUsersForLatestUpdate(channelId: string, cardLastPosted: number): Promise<void> {
+    await this.channelUsers.updateMany({ channelId: channelId, channelLastUpdate: { $lt: cardLastPosted } }, { $set: { channelLastUpdate: cardLastPosted } });
+  }
+
+  async updateChannelUserLastVisit(channelId: string, userId: string, lastVisited: number): Promise<void> {
+    await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, { $set: { lastVisited: lastVisited } });
   }
 
   async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number): Promise<ChannelUserRecord[]> {

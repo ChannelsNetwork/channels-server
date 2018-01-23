@@ -677,4 +677,13 @@ class RestUtils {
     };
   }
 
+  static reportChannelVisitDetails(address, fingerprint, channelId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId
+    };
+  }
+
 }

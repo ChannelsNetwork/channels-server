@@ -787,3 +787,9 @@ export interface UpdateChannelSubscriptionDetails extends Signable {
 }
 
 export interface UpdateChannelSubscriptionResponse extends RestResponse { }
+
+export interface ReportChannelVisitDetails extends Signable {
+  channelId: string;
+}
+
+export interface ReportChannelVisitResponse extends RestResponse { }

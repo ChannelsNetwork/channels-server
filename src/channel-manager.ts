@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -68,6 +68,9 @@ export class ChannelManager implements RestServer, Initializable {
     });
     this.app.post(this.urlManager.getDynamicUrl('update-channel-subscription'), (request: Request, response: Response) => {
       void this.handleUpdateChannelSubscription(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('report-channel-visit'), (request: Request, response: Response) => {
+      void this.handleReportChannelVisit(request, response);
     });
 
   }
@@ -417,6 +420,44 @@ export class ChannelManager implements RestServer, Initializable {
     }
   }
 
+  private async handleReportChannelVisit(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<ReportChannelVisitDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      if (!user) {
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      if (!requestBody.detailsObject.channelId) {
+        response.status(400).send("Missing channel");
+        return;
+      }
+      const channel = await db.findChannelById(requestBody.detailsObject.channelId);
+      if (!channel || channel.status !== 'active') {
+        response.status(404).send("No such channel");
+        return;
+      }
+      console.log("ChannelManager.report-channel-visit:", request.headers, requestBody.detailsObject);
+      const channelUser = await this.ensureChannelUser(channel, user);
+      await db.updateChannelUserLastVisit(channel.id, user.id, Date.now());
+      const result: ReportChannelVisitResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(result);
+    } catch (err) {
+      console.error("ChannelManager.handleReportChannelVisit: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async ensureChannelUser(channel: ChannelRecord, user: UserRecord): Promise<ChannelUserRecord> {
+    const channelUser = await db.findChannelUser(channel.id, user.id);
+    if (channelUser) {
+      return channelUser;
+    }
+    return await db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0);
+  }
+
   async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {
     const channel = await this.getUserDefaultChannel(user);
     await this.addCardToChannel(card, channel);
@@ -435,6 +476,7 @@ export class ChannelManager implements RestServer, Initializable {
         await db.updateChannelLatestCardPosted(channel.id, card.postedAt);
       }
     }
+    await db.updateChannelUsersForLatestUpdate(channel.id, card.postedAt);
   }
 
   async getUserDefaultChannel(user: UserRecord): Promise<ChannelRecord> {
