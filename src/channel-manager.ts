@@ -10,7 +10,7 @@ import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { Initializable } from "./interfaces/initializable";
 import { SERVER_VERSION } from "./server-version";
-import { ChannelRecord, UserRecord, ChannelUserRecord, ChannelSubscriptionState } from "./interfaces/db-records";
+import { ChannelRecord, UserRecord, ChannelUserRecord, ChannelSubscriptionState, CardRecord } from "./interfaces/db-records";
 import { fileManager } from "./file-manager";
 import { userManager } from "./user-manager";
 import * as LRU from 'lru-cache';
@@ -32,7 +32,28 @@ export class ChannelManager implements RestServer, Initializable {
   }
 
   async initialize2(): Promise<void> {
-    // noop
+    // Need to create channels for users if they don't already have one
+    const cursor = db.getUsersWithIdentity();
+    while (await cursor.hasNext()) {
+      const user = await cursor.next();
+      let channel = await db.findChannelByHandle(user.identity.handle);
+      if (!channel) {
+        channel = await this.createChannelForUser(user);
+        const cardCursor = await db.getCardsByAuthor(user.id);
+        while (await cardCursor.hasNext()) {
+          const card = await cardCursor.next();
+          console.log("Channel.initialize2:     Adding card to channel", channel.handle, card.summary.title);
+          await this.addCardToChannel(card, channel);
+          await db.incrementChannelStat(channel.id, "revenue", card.stats.revenue.value);
+        }
+      }
+    }
+  }
+
+  async createChannelForUser(user: UserRecord): Promise<ChannelRecord> {
+    console.log("Channel.createChannelForUser: Creating channel for user", user.identity.handle);
+    const channel = await db.insertChannel(user.identity.handle, user.identity.name, user.identity.location, user.id, null, null, null, null, 0);
+    return channel;
   }
 
   private registerHandlers(): void {
@@ -222,9 +243,9 @@ export class ChannelManager implements RestServer, Initializable {
       return result;
     }
     result = [];
-    const channelUsers = await db.findChannelCardsByCard(cardId, "active", limit);
-    for (const channelUser of channelUsers) {
-      result.push(channelUser.channelId);
+    const channelCards = await db.findChannelCardsByCard(cardId, limit);
+    for (const channelCard of channelCards) {
+      result.push(channelCard.channelId);
     }
     return result;
   }
@@ -234,7 +255,7 @@ export class ChannelManager implements RestServer, Initializable {
     if (nextPageReference) {
       const afterRecord = await db.findChannelById(nextPageReference);
       if (afterRecord) {
-        lastUpdateLessThan = afterRecord.lastContentUpdate;
+        lastUpdateLessThan = afterRecord.latestCardPosted;
       }
     }
     const result: ChannelsRecordsInfo = {
@@ -258,7 +279,7 @@ export class ChannelManager implements RestServer, Initializable {
   }
 
   private async populateChannelCardsSince(user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
-    const channelCards = await db.findChannelCardsByChannel(channel.id, "active", since, maxCards);
+    const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
     const result: CardDescriptor[] = [];
     for (const channelCard of channelCards) {
       const descriptor = await cardManager.populateCardState(channelCard.cardId, false, false, user);
@@ -369,13 +390,23 @@ export class ChannelManager implements RestServer, Initializable {
         response.status(404).send("No such channel");
         return;
       }
-      const channelUser = await db.findChannelUser(channel.id, user.id);
-      if (channelUser) {
-        await db.updateChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.lastContentUpdate, Date.now());
-      } else {
-        await db.upsertChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.lastContentUpdate, Date.now());
-      }
       console.log("ChannelManager.update-channel-subscription:", request.headers, requestBody.detailsObject);
+      const channelUser = await db.findChannelUser(channel.id, user.id);
+      let subscriptionChange = 0;
+      if (requestBody.detailsObject.subscriptionState === "subscribed") {
+        subscriptionChange++;
+      }
+      if (channelUser) {
+        if (channelUser.subscriptionState === "subscribed") {
+          subscriptionChange--;
+        }
+        await db.updateChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.latestCardPosted, Date.now());
+      } else {
+        await db.upsertChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.latestCardPosted, Date.now());
+      }
+      if (subscriptionChange) {
+        await db.incrementChannelStat(channel.id, "subscribers", subscriptionChange);
+      }
       const result: UpdateChannelSubscriptionResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -385,6 +416,55 @@ export class ChannelManager implements RestServer, Initializable {
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
+
+  async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {
+    const channel = await this.getUserDefaultChannel(user);
+    await this.addCardToChannel(card, channel);
+  }
+
+  async addCardToChannel(card: CardRecord, channel: ChannelRecord): Promise<void> {
+    const channelCard = await db.findChannelCard(channel.id, card.id);
+    let incrementChannelCardCount = false;
+    if (!channelCard) {
+      await db.upsertChannelCard(channel.id, card.id, card.postedAt);
+      incrementChannelCardCount = true;
+    }
+    if (incrementChannelCardCount) {
+      await db.incrementChannelStat(channel.id, "cards", 1);
+      if (channel.latestCardPosted < card.postedAt) {
+        await db.updateChannelLatestCardPosted(channel.id, card.postedAt);
+      }
+    }
+  }
+
+  async getUserDefaultChannel(user: UserRecord): Promise<ChannelRecord> {
+    const channels = await db.findChannelsByOwnerId(user.id);
+    const channel = channels.length === 0 ? await this.createChannelForUser(user) : channels[0];
+    return channel;
+  }
+
+  async onChannelCardTransaction(transaction: BankTransactionDetails): Promise<void> {
+    if (transaction.reason !== "card-open-fee") {
+      return;
+    }
+    if (!transaction.relatedCardId) {
+      return;
+    }
+    const channelCards = await db.findChannelCardsByCard(transaction.relatedCardId, 1);
+    if (channelCards.length > 0) {
+      await db.incrementChannelStat(channelCards[0].channelId, "revenue", transaction.amount);
+    }
+  }
+
+  async onCardDeleted(card: CardRecord): Promise<void> {
+    const cursor = db.getChannelCardsByCard(card.id);
+    while (await cursor.hasNext()) {
+      const channelCard = await cursor.next();
+      await db.incrementChannelStat(channelCard.channelId, "cards", -1);
+    }
+    await db.removeChannelCardsByCard(card.id);
+  }
+
 }
 
 const channelManager = new ChannelManager();

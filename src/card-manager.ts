@@ -29,6 +29,7 @@ import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
 import { feedManager } from "./feed-manager";
+import { channelManager } from "./channel-manager";
 
 const promiseLimit = require('promise-limit');
 
@@ -956,6 +957,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.delete-card", requestBody.detailsObject);
       await db.updateCardState(card, "deleted");
+      await channelManager.onCardDeleted(card);
       const reply: DeleteCardResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -1191,6 +1193,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       void emailManager.sendInternalNotification("Card posted", "", html);
     }
     await db.updateUserLastPosted(user.id, card.postedAt);
+    await channelManager.addCardToUserChannel(card, user);
     return card;
   }
 

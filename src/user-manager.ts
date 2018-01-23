@@ -778,7 +778,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   private async countUserPaidOpens(user: UserRecord, from: number, to: number): Promise<number> {
-    const cursor = db.findCardsByAuthor(user.id);
+    const cursor = db.getCardsByAuthor(user.id);
     let result = 0;
     while (await cursor.hasNext()) {
       const card = await cursor.next();

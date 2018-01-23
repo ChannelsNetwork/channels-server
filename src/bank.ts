@@ -19,6 +19,7 @@ import { networkEntity } from "./network-entity";
 import { userManager } from "./user-manager";
 import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
+import { channelManager } from "./channel-manager";
 const braintree = require('braintree');
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
@@ -415,6 +416,9 @@ export class Bank implements RestServer, Initializable {
         user.balance += creditAmount;
       }
       amountByRecipientReason[recipient.reason.toString()] = creditAmount;
+    }
+    if (details.relatedCardId) {
+      await channelManager.onChannelCardTransaction(details);
     }
     const result: BankTransactionResult = {
       record: record,
