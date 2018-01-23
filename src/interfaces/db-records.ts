@@ -571,9 +571,10 @@ export interface ChannelUserRecord {
   channelId: string;
   userId: string;
   added: number;
-  channelLastUpdate: number;
+  lastCardPosted: number;
   subscriptionState: ChannelSubscriptionState;
   lastUpdated: number;
+  notificationPending: boolean;
   lastNotification: number;
   lastVisited: number;
 }

@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -54,6 +54,28 @@ export class ChannelManager implements RestServer, Initializable {
       }
     }
     await cursor.close();
+    setInterval(this.poll.bind(this), 1000 * 60 * 15);
+  }
+
+  private async poll(): Promise<void> {
+    const cursor = db.getChannelUserPendingNotifications();
+    while (cursor.hasNext()) {
+      const channelUser = await cursor.next();
+      if (channelUser.lastCardPosted < channelUser.lastNotification) {
+        console.warn("Channel.poll: Unexpected lastCardPosted < lastNotification.  Ignoring.");
+      } else {
+        const user = await userManager.getUser(channelUser.userId, true);
+        if (user.identity && user.identity.emailAddress && user.identity.emailConfirmed) {
+          if (!user.notifications || (user.notifications && !user.notifications.disallowContentNotifications && (!user.notifications.lastContentNotification || Date.now() - user.notifications.lastContentNotification > MINIMUM_CONTENT_NOTIFICATION_INTERVAL))) {
+            await this.sendUserContentNotification(user);
+          } else {
+            console.log("Channel.poll: skipping content notification because disallowed or too soon", user.identity.handle);
+          }
+        } else {
+          console.log("Channel.poll: skipping content notification because email not confirmed", user.identity.handle);
+        }
+      }
+    }
   }
 
   async createChannelForUser(user: UserRecord): Promise<ChannelRecord> {
@@ -325,7 +347,7 @@ export class ChannelManager implements RestServer, Initializable {
     if (nextPageReference) {
       const afterRecord = await db.findChannelUser(nextPageReference, user.id);
       if (afterRecord) {
-        latestLessThan = afterRecord.channelLastUpdate;
+        latestLessThan = afterRecord.lastCardPosted;
       }
     }
     const result: ChannelsRecordsInfo = {
@@ -520,31 +542,39 @@ export class ChannelManager implements RestServer, Initializable {
         if (user.notifications && (user.notifications.disallowContentNotifications || user.notifications.lastContentNotification > Date.now() - MINIMUM_CONTENT_NOTIFICATION_INTERVAL)) {
           continue;
         }
-        void this.sendUserContentNotification(user, card, channel);
+        void this.sendUserContentNotification(user);
       }
     }
     await cursor.close();
   }
 
-  private async sendUserContentNotification(user: UserRecord, newCard: CardRecord, channel: ChannelRecord): Promise<void> {
-    console.log("Channel.sendUserContentNotification", user.id, user.identity.handle, channel.handle);
+  private async sendUserContentNotification(user: UserRecord): Promise<void> {
+    console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
     const since = Math.min(Date.now() - 1000 * 60 * 60 * 24 * 7, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
     const cursor = await db.getChannelCardsInChannels(channelIds, since);
     const cards: CardDescriptor[] = [];
+    const sentChannelIds: string[] = [];
     while (await cursor.hasNext()) {
       const channelCard = await cursor.next();
       const card = await db.findCardById(channelCard.cardId, false);
       if (card) {
         const descriptor = await cardManager.populateCardState(card.id, false, false, user);
         cards.push(descriptor);
+        if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
+          sentChannelIds.push(channelCard.channelId);
+        }
       }
       if (cards.length > 10) {
         break;
       }
     }
     cursor.close();
+    if (cards.length === 0) {
+      return;
+    }
     await db.updateUserContentNotification(user);
+    await db.updateChannelUserNotificationSent(user.id, sentChannelIds);
     const button: EmailButton = {
       caption: "View feed",
       url: this.urlManager.getAbsoluteUrl("/")

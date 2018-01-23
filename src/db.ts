@@ -399,7 +399,8 @@ export class Database {
   private async initializeChannelUsers(): Promise<void> {
     this.channelUsers = this.db.collection('channelUsers');
     await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
-    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, channelLatestCard: -1 });
+    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, lastCardPosted: -1 });
+    await this.channelUsers.createIndex({ notificationPending: 1, lastCardPosted: -1 });
   }
 
   private async initializeChannelCards(): Promise<void> {
@@ -2386,15 +2387,16 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $set: { latestCardPosted: cardPostedAt } });
   }
 
-  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number, lastVisited: number): Promise<ChannelUserRecord> {
+  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
       userId: userId,
       added: now,
       lastUpdated: now,
-      channelLastUpdate: channelLastUpdate,
+      lastCardPosted: lastCardPosted,
       subscriptionState: subscriptionState,
+      notificationPending: false,
       lastNotification: 0,
       lastVisited: lastVisited
     };
@@ -2406,15 +2408,16 @@ export class Database {
     return await this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
   }
 
-  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number, lastVisited: number): Promise<ChannelUserRecord> {
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
       userId: userId,
       added: now,
-      channelLastUpdate: channelLastUpdate,
+      lastCardPosted: lastCardPosted,
       subscriptionState: subscriptionState,
       lastUpdated: now,
+      notificationPending: false,
       lastNotification: 0,
       lastVisited: lastVisited
     };
@@ -2434,11 +2437,18 @@ export class Database {
   }
 
   async updateChannelUsersForLatestUpdate(channelId: string, cardLastPosted: number): Promise<void> {
-    await this.channelUsers.updateMany({ channelId: channelId, channelLastUpdate: { $lt: cardLastPosted } }, { $set: { channelLastUpdate: cardLastPosted } });
+    await this.channelUsers.updateMany({ channelId: channelId, channelLastUpdate: { $lt: cardLastPosted } }, { $set: { channelLastUpdate: cardLastPosted, notificationPending: true } });
   }
 
   async updateChannelUserLastVisit(channelId: string, userId: string, lastVisited: number): Promise<void> {
     await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, { $set: { lastVisited: lastVisited } });
+  }
+
+  async updateChannelUserNotificationSent(userId: string, channelIds: string[]) {
+    if (channelIds.length === 0) {
+      return;
+    }
+    await this.channelUsers.updateMany({ channelId: { $in: channelIds }, userId: userId }, { $set: { lastNotification: Date.now(), notificationPending: false } });
   }
 
   async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number, latestGreaterThan: number): Promise<ChannelUserRecord[]> {
@@ -2457,6 +2467,10 @@ export class Database {
       query.channelLatestCard = { $gt: latestGreaterThan };
     }
     return this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 });
+  }
+
+  getChannelUserPendingNotifications(): Cursor<ChannelUserRecord> {
+    return this.channelUsers.find<ChannelUserRecord>({ notificationPending: true }).sort({ lastCardPosted: -1 });
   }
 
   async upsertChannelCard(channelId: string, cardId: string, cardPostedAt: number): Promise<ChannelCardRecord> {
