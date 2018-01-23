@@ -609,8 +609,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateChannel(channelId, bannerImageFileId, about, link, socialLinks) {
-    let details = RestUtils.updateChannelDetails(this._keys.address, this._fingerprint, channelId, bannerImageFileId, about, link, socialLinks);
+  updateChannel(channelId, name, bannerImageFileId, about, link, socialLinks) {
+    let details = RestUtils.updateChannelDetails(this._keys.address, this._fingerprint, channelId, name, bannerImageFileId, about, link, socialLinks);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-channel";
     return this.rest.post(url, request);
@@ -627,6 +627,20 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.reportChannelVisitDetails(this._keys.address, this._fingerprint, channelId);
     let request = this._createRequest(details);
     const url = this.restBase + "/report-channel-visit";
+    return this.rest.post(url, request);
+  }
+
+  requestEmailConfirmation() {
+    let details = RestUtils.requestEmailConfirmationDetails(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/request-email-confirmation";
+    return this.rest.post(url, request);
+  }
+
+  confirmEmail(code) {
+    let details = RestUtils.confirmEmailDetails(this._keys.address, this._fingerprint, code);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/confirm-email";
     return this.rest.post(url, request);
   }
 

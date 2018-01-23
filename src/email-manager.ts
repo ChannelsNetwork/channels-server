@@ -46,9 +46,9 @@ export class EmailManager implements Initializable {
     const baseHtml = this.baseHtmlTemplate;
     const baseText = this.baseTextTemplate;
 
-    let data = fs.readFileSync(path.join(__dirname, '../modules/templates/email/' + templateName + '.txt'), 'utf8');
+    let data = fs.readFileSync(path.join(__dirname, '../templates/email/' + templateName + '.txt'), 'utf8');
     const textBody = Mustache.render(data, info);
-    data = fs.readFileSync(path.join(__dirname, '../modules/templates/email/' + templateName + '.html'), 'utf8');
+    data = fs.readFileSync(path.join(__dirname, '../templates/email/' + templateName + '.html'), 'utf8');
     const htmlBody = Mustache.render(data, info);
 
     let buttonsBodyHtml = "";
@@ -66,18 +66,18 @@ export class EmailManager implements Initializable {
       }
     }
 
-    const kaiLogoUrl = url.resolve(configuration.get('baseClientUri'), '/s/images/logo-wide.png');
+    const logoUrl = url.resolve(configuration.get('baseClientUri'), '/s/images/logo-wide.png');
     const htmlContent = Mustache.render(baseHtml, {
       messageBody: htmlBody,
       buttons: buttonsBodyHtml,
       signature: "",
       tagLine: "",
-      kaiLogoUrl: "kaiLogoUrl"
+      logoUrl: logoUrl
     });
     const textContent = Mustache.render(baseText, {
       messageBody: textBody,
       buttons: buttonsBodyText,
-      signature: skipSignature ? "" : "Your automated task master,"
+      signature: ""
     });
 
     await this.send(fromName, fromEmail, toName, toEmail, subject, textContent, htmlContent);
@@ -93,6 +93,7 @@ export class EmailManager implements Initializable {
 
   async send(fromName: string, fromEmail: string, toName: string, toEmail: string, subject: string, text: string, html: string): Promise<void> {
     if (this.transporter) {
+      console.log("Email.send", fromEmail, toEmail, subject);
       let from = '<' + fromEmail + '>';
       if (fromName) {
         from = '"' + fromName + '" ' + from;
@@ -108,6 +109,8 @@ export class EmailManager implements Initializable {
         text: text,
         html: html
       });
+    } else {
+      console.log("Email.send: Skipping because no transport configured", fromEmail, toEmail, subject);
     }
   }
 }

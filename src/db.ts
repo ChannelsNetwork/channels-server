@@ -124,6 +124,7 @@ export class Database {
     await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
     await this.users.createIndex({ added: -1 });
+    await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -398,7 +399,8 @@ export class Database {
   private async initializeChannelUsers(): Promise<void> {
     this.channelUsers = this.db.collection('channelUsers');
     await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
-    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, channelLatestCard: -1 });
+    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, lastCardPosted: -1 });
+    await this.channelUsers.createIndex({ notificationPending: 1, lastCardPosted: -1 });
   }
 
   private async initializeChannelCards(): Promise<void> {
@@ -545,6 +547,10 @@ export class Database {
     delete user.recoveryCodeExpires;
   }
 
+  async updateUserContentNotification(user: UserRecord): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
+  }
+
   async findUserById(id: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ id: id });
   }
@@ -652,7 +658,7 @@ export class Database {
     await this.users.deleteOne({ id: id });
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageId: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageId: string, location: string, emailAddress: string, emailConfirmed: boolean, encryptedPrivateKey: string): Promise<void> {
     const update: any = {};
     if (!userRecord.identity) {
       userRecord.identity = {
@@ -661,6 +667,9 @@ export class Database {
         imageId: null,
         location: null,
         emailAddress: null,
+        emailConfirmed: false,
+        emailConfirmationCode: null,
+        emailLastConfirmed: 0,
         firstName: null,
         lastName: null
       };
@@ -692,6 +701,10 @@ export class Database {
     if (emailAddress) {
       update["identity.emailAddress"] = emailAddress.toLowerCase();
       userRecord.identity.emailAddress = emailAddress.toLowerCase();
+    }
+    if (typeof emailConfirmed !== 'undefined') {
+      update["identity.emailConfirmed"] = emailConfirmed;
+      userRecord.identity.emailConfirmed = emailConfirmed;
     }
     if (encryptedPrivateKey) {
       update.encryptedPrivateKey = encryptedPrivateKey;
@@ -725,6 +738,18 @@ export class Database {
   async updateUserMailingList(userRecord: UserRecord, mailingList: boolean): Promise<void> {
     await this.users.updateOne({ id: userRecord.id }, { $set: { "marketing.includeInMailingList": mailingList } });
     userRecord.marketing.includeInMailingList = mailingList;
+  }
+
+  async updateUserEmailConfirmationCode(user: UserRecord, code: string): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "identity.emailConfirmed": false, "identity.emailConfirmationCode": code } });
+  }
+
+  async findUserByEmailConfirmationCode(code: string): Promise<UserRecord> {
+    return await this.users.findOne<UserRecord>({ "identity.emailConfirmationCode": code });
+  }
+
+  async updateUserEmailConfirmation(userId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { "identity.emailConfirmed": true, "identity.emailLastConfirmed": Date.now() }, $unset: { "identity.emailConfirmationCode": 1 } });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
@@ -2332,8 +2357,11 @@ export class Database {
     return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
   }
 
-  async updateChannel(channelId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
+  async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
     const update: any = {};
+    if (typeof name !== 'undefined') {
+      update.name = name;
+    }
     if (typeof bannerImageFileId !== 'undefined') {
       update.bannerImageFileId = bannerImageFileId;
     }
@@ -2362,15 +2390,16 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $set: { latestCardPosted: cardPostedAt } });
   }
 
-  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number, lastVisited: number): Promise<ChannelUserRecord> {
+  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
       userId: userId,
       added: now,
       lastUpdated: now,
-      channelLastUpdate: channelLastUpdate,
+      lastCardPosted: lastCardPosted,
       subscriptionState: subscriptionState,
+      notificationPending: false,
       lastNotification: 0,
       lastVisited: lastVisited
     };
@@ -2382,15 +2411,16 @@ export class Database {
     return await this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
   }
 
-  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLastUpdate: number, lastVisited: number): Promise<ChannelUserRecord> {
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
       userId: userId,
       added: now,
-      channelLastUpdate: channelLastUpdate,
+      lastCardPosted: lastCardPosted,
       subscriptionState: subscriptionState,
       lastUpdated: now,
+      notificationPending: false,
       lastNotification: 0,
       lastVisited: lastVisited
     };
@@ -2410,15 +2440,26 @@ export class Database {
   }
 
   async updateChannelUsersForLatestUpdate(channelId: string, cardLastPosted: number): Promise<void> {
-    await this.channelUsers.updateMany({ channelId: channelId, channelLastUpdate: { $lt: cardLastPosted } }, { $set: { channelLastUpdate: cardLastPosted } });
+    await this.channelUsers.updateMany({ channelId: channelId, channelLastUpdate: { $lt: cardLastPosted } }, { $set: { channelLastUpdate: cardLastPosted, notificationPending: true } });
   }
 
   async updateChannelUserLastVisit(channelId: string, userId: string, lastVisited: number): Promise<void> {
     await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, { $set: { lastVisited: lastVisited } });
   }
 
+  async updateChannelUserNotificationSent(userId: string, channelIds: string[]) {
+    if (channelIds.length === 0) {
+      return;
+    }
+    await this.channelUsers.updateMany({ channelId: { $in: channelIds }, userId: userId }, { $set: { lastNotification: Date.now(), notificationPending: false } });
+  }
+
   async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number, latestGreaterThan: number): Promise<ChannelUserRecord[]> {
     return await this.getChannelUserRecords(userId, subscriptionState, latestLessThan, latestGreaterThan).limit(maxCount || 100).toArray();
+  }
+
+  getChannelUserSubscribers(channelId: string): Cursor<ChannelUserRecord> {
+    return this.channelUsers.find<ChannelUserRecord>({ channelId: channelId, subscriptionState: "subscribed" });
   }
 
   getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number, latestGreaterThan: number): Cursor<ChannelUserRecord> {
@@ -2429,6 +2470,10 @@ export class Database {
       query.channelLatestCard = { $gt: latestGreaterThan };
     }
     return this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 });
+  }
+
+  getChannelUserPendingNotifications(): Cursor<ChannelUserRecord> {
+    return this.channelUsers.find<ChannelUserRecord>({ notificationPending: true }).sort({ lastCardPosted: -1 });
   }
 
   async upsertChannelCard(channelId: string, cardId: string, cardPostedAt: number): Promise<ChannelCardRecord> {

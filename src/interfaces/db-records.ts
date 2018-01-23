@@ -36,6 +36,11 @@ export interface UserRecord {
   curation?: UserCurationType;
   originalReferrer: string;
   originalLandingPage: string;
+  notifications?: {
+    disallowAnnouncements?: boolean;
+    disallowContentNotifications?: boolean;
+    lastContentNotification?: number;
+  };
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -82,6 +87,9 @@ export interface UserIdentity {
   imageId: string;
   location: string;
   emailAddress: string;
+  emailConfirmed: boolean;
+  emailConfirmationCode: string;
+  emailLastConfirmed: number;
   firstName: string;
   lastName: string;
 }
@@ -563,9 +571,10 @@ export interface ChannelUserRecord {
   channelId: string;
   userId: string;
   added: number;
-  channelLastUpdate: number;
+  lastCardPosted: number;
   subscriptionState: ChannelSubscriptionState;
   lastUpdated: number;
+  notificationPending: boolean;
   lastNotification: number;
   lastVisited: number;
 }

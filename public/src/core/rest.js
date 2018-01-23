@@ -655,12 +655,13 @@ class RestUtils {
     };
   }
 
-  static updateChannelDetails(address, fingerprint, channelId, bannerImageFileId, about, link, socialLinks) {
+  static updateChannelDetails(address, fingerprint, channelId, name, bannerImageFileId, about, link, socialLinks) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       channelId: channelId,
+      name: name,
       bannerImageFileId: bannerImageFileId,
       about: about,
       link: link,
@@ -684,6 +685,23 @@ class RestUtils {
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       channelId: channelId
+    };
+  }
+
+  static requestEmailConfirmationDetails(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static confirmEmailDetails(address, fingerprint, code) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      code: code
     };
   }
 
