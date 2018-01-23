@@ -2446,13 +2446,16 @@ export class Database {
     if (maxCount === 0) {
       return [];
     }
+    return await this.getChannelCardsByChannel(channelId, state, since).limit(maxCount || 100).toArray();
+  }
+
+  getChannelCardsByChannel(channelId: string, state: ChannelCardState, since: number): Cursor<ChannelCardRecord> {
     const query: any = { channelId: channelId, state: state };
     if (since) {
       query.since = { $gte: since };
     }
-    return await this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 }).limit(maxCount || 100).toArray();
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
-
   async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,

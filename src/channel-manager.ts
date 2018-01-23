@@ -134,7 +134,7 @@ export class ChannelManager implements RestServer, Initializable {
       case "new":
         listResult = await this.getNewChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
-      case "feed":
+      case "subscribed":
         listResult = await this.getSubscribedChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
       case "blocked":
@@ -148,20 +148,24 @@ export class ChannelManager implements RestServer, Initializable {
       channels: [],
       nextPageReference: listResult.nextPageReference
     };
-    for (const record of listResult.recordsWithCards) {
-      const descriptor = await this.populateRecordDescriptor(user, record.record);
+    for (const record of listResult.records) {
+      const descriptor = await this.populateRecordDescriptor(user, record);
       if (descriptor) {
-        result.channels.push({ channel: descriptor, cards: record.cards });
+        result.channels.push(descriptor);
       }
     }
     return result;
   }
 
   private async getRecommendedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+    if (!maxChannels) {
+      maxChannels = 50;
+    }
     const result: ChannelsRecordsInfo = {
-      recordsWithCards: [],
+      records: [],
       nextPageReference: null
     };
+    const includedChannelIds: string[] = [];
     const subscribedChannelIds = await this.findSubscribedChannelIdsForUser(user, 100);
     const cursor = db.getCardsByScore(user.id, false, 0);
     while (await cursor.hasNext()) {
@@ -171,17 +175,8 @@ export class ChannelManager implements RestServer, Initializable {
       if (channelIds.length > 0) {
         let found = false;
         for (const channelId of channelIds) {
-          for (const entry of result.recordsWithCards) {
-            if (entry.record.id === channelId) {
-              if (entry.cards.length < maxCardsPerChannel) {
-                const descriptor = await cardManager.populateCardState(card.id, false, false, user);
-                entry.cards.push(descriptor);
-              }
-              found = true;
-              break;
-            }
-          }
-          if (found) {
+          if (includedChannelIds.indexOf(channelId) >= 0) {
+            found = true;
             break;
           }
         }
@@ -197,14 +192,9 @@ export class ChannelManager implements RestServer, Initializable {
           }
           const selectedChannel = await db.findChannelById(selectedChannelId);
           if (selectedChannel) {
-            const cardDescriptor = await cardManager.populateCardState(card.id, false, false, user);
-            const recordWithCards: ChannelRecordWithCards = {
-              record: selectedChannel,
-              cards: [cardDescriptor]
-            };
-            result.recordsWithCards.push(recordWithCards);
+            result.records.push(selectedChannel);
           }
-          if (result.recordsWithCards.length >= maxChannels) {
+          if (result.records.length >= maxChannels) {
             break;
           }
         }
@@ -248,24 +238,20 @@ export class ChannelManager implements RestServer, Initializable {
       }
     }
     const result: ChannelsRecordsInfo = {
-      recordsWithCards: [],
+      records: [],
       nextPageReference: null
     };
     const cursor = await db.getChannelsByLastUpdate(lastUpdateLessThan);
     while (await cursor.hasNext()) {
       const channel = await cursor.next();
-      if (result.recordsWithCards.length >= maxChannels) {
-        result.nextPageReference = result.recordsWithCards[result.recordsWithCards.length - 1].record.id;
+      if (result.records.length >= maxChannels) {
+        result.nextPageReference = result.records[result.records.length - 1].id;
         break;
       }
       const channelUser = await db.findChannelUser(channel.id, user.id);
-      const recordWithCards: ChannelRecordWithCards = {
-        record: channel,
-        cards: []
-      };
-      recordWithCards.cards = await this.populateChannelCardsSince(user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
-      if (recordWithCards.cards.length > 0) {  // Don't list a channel if no cards to show
-        result.recordsWithCards.push(recordWithCards);
+      const cards = await this.populateChannelCardsSince(user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
+      if (cards.length > 0) {  // Don't list a channel if no cards to show
+        result.records.push(channel);
       }
     }
     return result;
@@ -297,7 +283,7 @@ export class ChannelManager implements RestServer, Initializable {
       }
     }
     const result: ChannelsRecordsInfo = {
-      recordsWithCards: [],
+      records: [],
       nextPageReference: null
     };
     const cursor = db.getChannelUserRecords(user.id, subscriptionState, latestLessThan);
@@ -305,20 +291,9 @@ export class ChannelManager implements RestServer, Initializable {
       const channelUser = await cursor.next();
       const channel = await db.findChannelById(channelUser.channelId);
       if (channel) {
-        const recordWithCards: ChannelRecordWithCards = {
-          record: channel,
-          cards: []
-        };
-        if (maxCardsPerChannel === 0) {
-          result.recordsWithCards.push(recordWithCards);
-        } else {
-          recordWithCards.cards = await this.populateChannelCardsSince(user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
-          if (recordWithCards.cards.length > 0) {
-            result.recordsWithCards.push(recordWithCards);
-          }
-        }
-        if (result.recordsWithCards.length >= maxChannels) {
-          result.nextPageReference = result.recordsWithCards[result.recordsWithCards.length - 1].record.id;
+        result.records.push(channel);
+        if (result.records.length >= maxChannels) {
+          result.nextPageReference = result.records[result.records.length - 1].id;
           break;
         }
       }
@@ -417,7 +392,7 @@ const channelManager = new ChannelManager();
 export { channelManager };
 
 interface ChannelsRecordsInfo {
-  recordsWithCards: ChannelRecordWithCards[];
+  records: ChannelRecord[];
   nextPageReference: string;
 }
 
@@ -427,6 +402,6 @@ interface ChannelRecordWithCards {
 }
 
 interface ChannelsListInfo {
-  channels: ChannelDescriptorWithCards[];
+  channels: ChannelDescriptor[];
   nextPageReference: string;
 }

@@ -473,6 +473,9 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+    if (!limit) {
+      limit = 24;
+    }
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -480,15 +483,24 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const author = channelHandle ? await userManager.getUserByHandle(channelHandle) : null;
-    let cards: CardRecord[] = [];
-    if (author) {
-      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true, user.id !== author.id);
+    const cards: CardRecord[] = [];
+    const channel = await db.findChannelByHandle(channelHandle);
+    if (channel && channel.status === 'active') {
+      const cursor = db.getChannelCardsByChannel(channel.id, "active", 0);
+      while (await cursor.hasNext()) {
+        const channelCard = await cursor.next();
+        const card = await db.findCardById(channelCard.cardId, false);
+        if (card) {
+          cards.push(card);
+        }
+        if (cards.length >= limit) {
+          break;
+        }
+      }
     }
     const result = await this.populateCards(cards, false, user, startWithCardId);
     return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
-
   private async getRecentlyOpenedFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {

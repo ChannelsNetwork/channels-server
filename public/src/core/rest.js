@@ -631,4 +631,50 @@ class RestUtils {
       promotedCardIds: promotedCardIds
     };
   }
+
+  static getChannelDetails(address, fingerprint, channelId, ownerId, channelHandle) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      ownerId: ownerId,
+      channelHandle: channelHandle
+    };
+  }
+
+  static getChannelsDetails(address, fingerprint, type, maxChannels, nextPageRef) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      type: type,
+      maxChannels: maxChannels,
+      nextPageReference: nextPageRef
+    };
+  }
+
+  static updateChannelDetails(address, fingerprint, channelId, bannerImageFileId, about, link, socialLinks) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      bannerImageFileId: bannerImageFileId,
+      about: about,
+      link: link,
+      socialLinks: socialLinks
+    };
+  }
+
+  static updateChannelSubscriptionDetails(address, fingerprint, channelId, state) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      subscriptionState: state
+    };
+  }
+
 }

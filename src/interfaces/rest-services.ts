@@ -764,10 +764,10 @@ export interface GetChannelsDetails extends Signable {
   nextPageReference?: string;   // if provided, used to get next page based on GetChannelsResponse.nextPageReference
 }
 
-export type ChannelFeedType = "recommended" | "new" | "feed" | "blocked";
+export type ChannelFeedType = "recommended" | "new" | "subscribed" | "blocked";
 
 export interface GetChannelsResponse extends RestResponse {
-  channels: ChannelDescriptorWithCards[];
+  channels: ChannelDescriptor[];
   nextPageReference: string;  // If not-null, more is available; use this in next call
 }
 
