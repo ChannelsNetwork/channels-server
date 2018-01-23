@@ -159,6 +159,7 @@
           textarea.value = !(value || value === 0) ? '' : value;
         }
         this.$.mirror.innerHTML = this._valueForMirror();
+        this._onInput();
       }
 
       _onInput(event) {

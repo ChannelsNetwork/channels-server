@@ -99,6 +99,7 @@
       }
 
       text-area {
+        margin-top: 15px;
         border-bottom: 1px solid;
       }
 
@@ -135,6 +136,9 @@
         #filePicker {
           height: 120px;
         }
+        h2 {
+          display: none;
+        }
       }
     </style>
     <soso-app-header>
@@ -146,19 +150,20 @@
     </soso-app-header>
     <div id="container">
       <div id="main">
-        <h2>[[channel.name]]</h2>
+        <h2>Edit Channel</h2>
         <label>Banner Image</label>
         <div id="bannerPanel">
           <image-upload id="filePicker" on-image-set="_onImageSet"></image-upload>
           <soso-icon class="hidden" id="clearImage" icon="close" on-click="_clearImage"></soso-icon>
         </div>
+        <soso-text-input id="name" label="Name" placeholder="Channel name" on-input="_onInput"></soso-text-input>
         <text-area id="about" single-line class="ftext" label="Description" placeholder="Describe your channel"></text-area>
         <soso-text-input id="website" label="Website" placeholder="Website URL"></soso-text-input>
         <!-- <h2 class="sectionLabel">Social Media Links</h2>-->
         <div id="buttons" class="horizontal layout center">
           <div class="flex"></div>
           <button on-click="_onCancel">Cancel</button>
-          <button on-click="_onSave">Save</button>
+          <button id="btnSave" on-click="_onSave">Save</button>
         </div>
       </div>
 
@@ -234,12 +239,13 @@
               return;
             }
             this.$.main.style.opacity = 1;
-
+            this.$.name.value = this.channel.name || "";
             this.$.about.value = this.channel.about || "";
             this.$.website.value = this.channel.linkUrl || "";
             if (this.channel.bannerImage && this.channel.bannerImage.url) {
               this.$.filePicker.image = this.channel.bannerImage.url;
             }
+            this._onInput();
           }).catch(err => {
             console.error(err);
             $app.showError(err).then(() => {
@@ -247,6 +253,10 @@
             });
           });
         });
+      }
+
+      _onInput() {
+        this.$.btnSave.disabled = (this.$.name.value.trim()) ? false : true;
       }
 
       _clearImage() {
@@ -279,6 +289,10 @@
       }
 
       _onSave() {
+        let name = this.$.name.value.trim();
+        if (!name) {
+          return;
+        }
         let file = this.$.filePicker.file;
         if (file) {
           this._showProgress("Uploading image");
@@ -302,7 +316,8 @@
         }
         let about = this.$.about.value.trim();
         let link = this.$.website.value.trim();
-        $core.updateChannel(this.channel.id, imId, about, link, []).then(() => {
+        let name = this.$.name.value.trim() || this.channel.name;
+        $core.updateChannel(this.channel.id, name, imId, about, link, []).then(() => {
           window.__dirtyFeed = true;
           this._onCancel();
         }).catch((err) => {
