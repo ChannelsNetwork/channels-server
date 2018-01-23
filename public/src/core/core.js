@@ -587,15 +587,15 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getChannelByOwnerId(ownerId) {
-    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, ownerId, null);
+  getChannelByOwnerHandle(ownerHandle) {
+    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, ownerHandle, null);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-channel";
     return this.rest.post(url, request);
   }
 
-  getChannelByChannelHandle(handle) {
-    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, handle);
+  getChannelByChannelHandle(channelHandle) {
+    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, null, channelHandle);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-channel";
     return this.rest.post(url, request);

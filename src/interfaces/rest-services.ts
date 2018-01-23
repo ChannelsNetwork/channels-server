@@ -715,6 +715,7 @@ export interface ListTopicsResponse extends RestResponse {
 export interface GetChannelDetails extends Signable {
   channelId: string;  // you must provide either channelId, ownerId or handle
   ownerId: string;
+  ownerHandle: string;
   channelHandle: string;
 }
 

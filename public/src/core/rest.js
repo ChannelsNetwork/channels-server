@@ -632,13 +632,14 @@ class RestUtils {
     };
   }
 
-  static getChannelDetails(address, fingerprint, channelId, ownerId, channelHandle) {
+  static getChannelDetails(address, fingerprint, channelId, ownerId, ownerHandle, channelHandle) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       channelId: channelId,
       ownerId: ownerId,
+      ownerHandle: ownerHandle,
       channelHandle: channelHandle
     };
   }
