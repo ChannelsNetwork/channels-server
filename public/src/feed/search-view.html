@@ -6,6 +6,7 @@
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 
 <dom-module id="search-view">
   <template>
@@ -17,13 +18,18 @@
         padding: 0 0 200px;
       }
 
+      :host {
+        display: block;
+        background: white !important;
+      }
+
       #buttons {
         margin: 25px 0;
         text-align: center;
       }
 
       .main {
-        padding: 0 0 90px;
+        padding: 15px 0 20px;
         text-align: center;
       }
 
@@ -105,6 +111,44 @@
         pointer-events: none;
         opacity: 0;
       }
+
+      h3 {
+        font-size: 22px;
+        font-weight: 400;
+        letter-spacing: 0.03em;
+        color: #555;
+        margin-bottom: 20px;
+      }
+
+      #topicsPanel {
+        padding: 30px 16px;
+        max-width: 700px;
+        margin: 0 auto;
+        font-size: 16px;
+      }
+
+      .topicLink {
+        background: #f0f0f0;
+        padding: 5px 10px;
+        border-radius: 5px;
+        line-height: 2.5em;
+        margin: 0.3px;
+      }
+
+      .topicLink:hover {
+        box-shadow: none;
+        background: var(--bg-yellow);
+      }
+
+      @media (max-width: 600px) {
+        h3 {
+          font-size: 18px;
+          margin-bottom: 10px;
+        }
+        #topicsPanel {
+          padding: 20px 16px;
+        }
+      }
     </style>
     <soso-app-header collapse-height="50" on-collapse-change="_onHeaderCollapse">
       <channels-bar id="cbar"></channels-bar>
@@ -120,6 +164,14 @@
         <title-bar id="titleBar" text="[[searchTitle]]"></title-bar>
       </div>
     </soso-app-header>
+    <div id="topicsPanel" class="hidden">
+      <h3>Frequently searched keywords</h3>
+      <dom-repeat items="[[topics]]">
+        <template>
+          <a class="topicLink" href$="[[item.href]]">[[item.label]]</a>
+        </template>
+      </dom-repeat>
+    </div>
     <div class="main">
       <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
       <div id="noItems" style="display:none;">There are no matching cards</div>
@@ -128,7 +180,6 @@
         <button id="btnMore" on-click="_onMoreClick">More</button>
       </div>
     </div>
-    <div style="height: 200vh;"></div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
@@ -140,7 +191,8 @@
           searchTitle: {
             type: String,
             value: "Search"
-          }
+          },
+          topics: Array
         };
       }
 
@@ -172,6 +224,8 @@
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
 
+          this._refreshTopics();
+
           // if query has not changes, do not search again
           let searchQuery = route.segments.length > 1 ? decodeURIComponent(route.segments[1]) : null;
           if (this._searchString === searchQuery) {
@@ -190,10 +244,12 @@
             this.searchTitle = '"' + searchQuery + '"';
             this.$.btnClear.classList.remove("hidden");
             this.$.btnSearch.classList.add("hidden");
+            this.$.topicsPanel.classList.add("hidden");
           } else {
             this.searchTitle = "Search";
             this.$.btnClear.classList.add("hidden");
             this.$.btnSearch.classList.remove("hidden");
+            this.$.topicsPanel.classList.remove("hidden");
           }
           this.$.btnSearch.style.opacity = 1;
 
@@ -201,6 +257,27 @@
           if (this._searchString) {
             this._search();
           }
+        });
+      }
+
+      _refreshTopics() {
+        if (this.topics && this.topics.length) {
+          return;
+        }
+        $core.listTopics().then((response) => {
+          let list = [];
+          if (response && response.topics) {
+            for (let i = 0; i < response.topics.length; i++) {
+              list.push({
+                label: response.topics[i],
+                href: "/search/" + encodeURIComponent(response.topics[i])
+              });
+            }
+          }
+          this.topics = list;
+        }).catch((err) => {
+          console.error(err);
+          this.topics = [];
         });
       }
 
