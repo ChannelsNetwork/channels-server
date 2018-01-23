@@ -2417,14 +2417,16 @@ export class Database {
     await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, { $set: { lastVisited: lastVisited } });
   }
 
-  async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number): Promise<ChannelUserRecord[]> {
-    return await this.getChannelUserRecords(userId, subscriptionState, latestLessThan).limit(maxCount || 100).toArray();
+  async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number, latestGreaterThan: number): Promise<ChannelUserRecord[]> {
+    return await this.getChannelUserRecords(userId, subscriptionState, latestLessThan, latestGreaterThan).limit(maxCount || 100).toArray();
   }
 
-  getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number): Cursor<ChannelUserRecord> {
+  getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number, latestGreaterThan: number): Cursor<ChannelUserRecord> {
     const query: any = { userId: userId, subscriptionState: subscriptionState };
     if (latestLessThan) {
-      query.channelLatestCard = { $lt: latestLessThan };
+      query.channelLatestCard = { $lt: latestLessThan, $gt: latestGreaterThan || 0 };
+    } else if (latestGreaterThan) {
+      query.channelLatestCard = { $gt: latestGreaterThan };
     }
     return this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 });
   }
@@ -2466,6 +2468,10 @@ export class Database {
       return [];
     }
     return await this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
+  }
+
+  getChannelCardsInChannels(channelIds: string[], since: number): Cursor<ChannelCardRecord> {
+    return this.channelCards.find<ChannelCardRecord>({ channelId: { $in: channelIds }, cardPostedAt: { $gt: since } }).sort({ cardPostedAt: -1 });
   }
 
   getChannelCardsByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {

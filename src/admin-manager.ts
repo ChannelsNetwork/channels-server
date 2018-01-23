@@ -109,6 +109,7 @@ export class AdminManager implements RestServer {
         }
       }
     }
+    await cursor.close();
     console.log("Admin.computeUserGoals took " + ((Date.now() - starting) / 1000).toFixed(1) + " seconds");
     return result;
   }

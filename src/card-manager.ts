@@ -155,6 +155,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await db.updateCardSearchText(card.id, searchText);
     }
+    await cursor.close();
 
     cursor = db.getCardsWithBy();
     while (await cursor.hasNext()) {
@@ -162,6 +163,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("Card.initialize2: Replacing by.id with createdById", card.id);
       await db.replaceCardBy(card.id, card.by.id);
     }
+    await cursor.close();
 
     cursor = db.getCardsWithSummaryImageUrl();
     const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
@@ -183,6 +185,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
       }
     }
+    await cursor.close();
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {

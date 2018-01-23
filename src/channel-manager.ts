@@ -10,11 +10,12 @@ import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { Initializable } from "./interfaces/initializable";
 import { SERVER_VERSION } from "./server-version";
-import { ChannelRecord, UserRecord, ChannelUserRecord, ChannelSubscriptionState, CardRecord } from "./interfaces/db-records";
+import { ChannelRecord, UserRecord, ChannelUserRecord, ChannelSubscriptionState, CardRecord, ChannelCardRecord } from "./interfaces/db-records";
 import { fileManager } from "./file-manager";
 import { userManager } from "./user-manager";
 import * as LRU from 'lru-cache';
 import { cardManager } from "./card-manager";
+import { Cursor } from "mongodb";
 
 export class ChannelManager implements RestServer, Initializable {
   private app: express.Application;
@@ -46,8 +47,10 @@ export class ChannelManager implements RestServer, Initializable {
           await this.addCardToChannel(card, channel);
           await db.incrementChannelStat(channel.id, "revenue", card.stats.revenue.value);
         }
+        await cardCursor.close();
       }
     }
+    await cursor.close();
   }
 
   async createChannelForUser(user: UserRecord): Promise<ChannelRecord> {
@@ -200,7 +203,7 @@ export class ChannelManager implements RestServer, Initializable {
       nextPageReference: null
     };
     const includedChannelIds: string[] = [];
-    const subscribedChannelIds = await this.findSubscribedChannelIdsForUser(user, 100);
+    const subscribedChannelIds = await this.findSubscribedChannelIdsForUser(user, false);
     const cursor = db.getCardsByScore(user.id, false, 0);
     while (await cursor.hasNext()) {
       const card = await cursor.next();
@@ -234,16 +237,21 @@ export class ChannelManager implements RestServer, Initializable {
         }
       }
     }
+    await cursor.close();
     return result;
   }
 
-  private async findSubscribedChannelIdsForUser(user: UserRecord, limit: number): Promise<string[]> {
+  getCardsInChannels(channelIds: string[], postedSince: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsInChannels(channelIds, postedSince);
+  }
+
+  async findSubscribedChannelIdsForUser(user: UserRecord, force: boolean): Promise<string[]> {
     let result = this.subscribedChannelIdsByUser.get(user.id);
-    if (typeof result !== 'undefined') {
+    if (!force && typeof result !== 'undefined') {
       return result;
     }
     result = [];
-    const channelUsers = await db.findChannelUserRecords(user.id, "subscribed", limit, 0);
+    const channelUsers = await db.findChannelUserRecords(user.id, "subscribed", 1000, 0, 0);
     for (const channelUser of channelUsers) {
       result.push(channelUser.channelId);
     }
@@ -288,6 +296,7 @@ export class ChannelManager implements RestServer, Initializable {
         result.records.push(channel);
       }
     }
+    await cursor.close();
     return result;
   }
 
@@ -320,7 +329,7 @@ export class ChannelManager implements RestServer, Initializable {
       records: [],
       nextPageReference: null
     };
-    const cursor = db.getChannelUserRecords(user.id, subscriptionState, latestLessThan);
+    const cursor = db.getChannelUserRecords(user.id, subscriptionState, latestLessThan, 0);
     while (await cursor.hasNext()) {
       const channelUser = await cursor.next();
       const channel = await db.findChannelById(channelUser.channelId);
@@ -332,6 +341,7 @@ export class ChannelManager implements RestServer, Initializable {
         }
       }
     }
+    await cursor.close();
     return result;
   }
 
@@ -514,6 +524,7 @@ export class ChannelManager implements RestServer, Initializable {
       const channelCard = await cursor.next();
       await db.incrementChannelStat(channelCard.channelId, "cards", -1);
     }
+    await cursor.close();
     await db.removeChannelCardsByCard(card.id);
   }
 

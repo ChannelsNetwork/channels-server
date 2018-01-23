@@ -784,6 +784,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const card = await cursor.next();
       result += await db.countCardPayments(card.id, from, to);
     }
+    await cursor.close();
     return result;
   }
 
