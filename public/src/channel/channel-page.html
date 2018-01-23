@@ -1,0 +1,107 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
+
+<dom-module id="channel-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #banner {
+        display: block;
+        box-sizing: border-box;
+        overflow: hidden;
+        background-color: #293C41;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+        height: 140px;
+      }
+
+      @media (min-width: 450px) {
+        #banner {
+          height: 200px;
+        }
+      }
+
+      @media (min-width: 600px) {
+        #banner {
+          height: 280px;
+        }
+      }
+
+      @media (min-width: 1100px) {
+        #banner {
+          height: 300px;
+        }
+      }
+
+      @media (min-width: 1200px) {
+        #banner {
+          height: 320px;
+        }
+      }
+
+      @media (min-width: 1370px) {
+        #banner {
+          height: 360px;
+        }
+      }
+
+      @media (min-width: 1510px) {
+        #banner {
+          height: 420px;
+        }
+      }
+
+      @media (min-width: 1620px) {
+        #banner {
+          height: 460px;
+        }
+      }
+
+      @media (min-width: 1820px) {
+        #banner {
+          height: 500px;
+        }
+      }
+
+      @media (min-width: 2300px) {
+        #banner {
+          height: 600px;
+        }
+      }
+    </style>
+    <soso-app-header collapse-height="50" on-collapse-change="_onHeaderCollapse">
+      <channels-bar id="cbar"></channels-bar>
+      <div id="banner"></div>
+      <!-- <title-bar text="Channel"></title-bar> -->
+    </soso-app-header>
+  </template>
+  <script>
+    class ChannelPage extends Polymer.Element {
+      static get is() { return 'channel-page'; }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          this.$.cbar.activate();
+        });
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
+        if (this._resizeListener) {
+          window.removeEventListener("resize", this._resizeListener);
+          this._resizeListener = null;
+        }
+      }
+
+      _onHeaderCollapse() {
+
+      }
+    }
+    window.customElements.define(ChannelPage.is, ChannelPage);
+  </script>
+</dom-module>
