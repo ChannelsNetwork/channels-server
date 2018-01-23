@@ -1,6 +1,8 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="channel-page">
   <template>
@@ -18,6 +20,45 @@
         background-origin: border-box;
         background-position: 50% 50%;
         height: 140px;
+        position: relative;
+      }
+
+      user-image {
+        width: 90px;
+        height: 90px;
+        border: 5px solid #fafafa;
+        border-radius: 50%;
+        margin-top: -50%;
+        background: #fafafa;
+      }
+
+      #imagePanel {
+        padding: 2px;
+      }
+
+      .name {
+        font-family: 'Raleway', 'Roboto', sans-serif;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #212121;
+        font-size: 22px;
+        padding: 0px 0 5px;
+      }
+
+      #contentPanel {
+        padding: 8px 5px 16px;
+        font-size: 13px;
+      }
+
+      .maxWidth {
+        max-width: 800px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      #userContent {
+        background: #fafafa;
       }
 
       @media (min-width: 450px) {
@@ -30,11 +71,26 @@
         #banner {
           height: 280px;
         }
+        user-image {
+          width: 120px;
+          height: 120px;
+        }
+        #contentPanel {
+          padding: 8px 10px 16px;
+          font-size: 14px;
+        }
+        .name {
+          font-size: 28px;
+        }
       }
 
       @media (min-width: 1100px) {
         #banner {
           height: 300px;
+        }
+        user-image {
+          width: 160px;
+          height: 160px;
         }
       }
 
@@ -48,11 +104,24 @@
         #banner {
           height: 360px;
         }
+        #contentPanel {
+          font-size: 15px;
+        }
+        .name {
+          font-size: 30px;
+        }
       }
 
       @media (min-width: 1510px) {
         #banner {
           height: 420px;
+        }
+        user-image {
+          width: 190px;
+          height: 190px;
+        }
+        .maxWidth {
+          max-width: 900px;
         }
       }
 
@@ -73,33 +142,266 @@
           height: 600px;
         }
       }
+
+      #statsBarContainer {
+        border-bottom: 1px solid #e5e5e5;
+        border-top: 1px solid #e5e5e5;
+      }
+
+      #statsBar {
+        padding: 10px 16px;
+      }
+
+      #btnU {
+        color: #2E7D32;
+        background: transparent;
+        border: 2px solid #2E7D32;
+      }
+
+      #btnS {
+        border: 2px solid transparent;
+      }
+
+      #btnE,
+      #btnBE {
+        font-size: 15px;
+        padding: 10px 8px;
+      }
+
+      .statLabel {
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        color: #555;
+      }
+
+      .statValue {
+        font-size: 15px;
+        font-weight: bold;
+        color: #777;
+        letter-spacing: 0.05em;
+      }
+
+      .revenueStat .statValue {
+        color: var(--dark-green);
+      }
+
+      .statItem {
+        white-space: nowrap;
+        padding-right: 30px;
+        text-align: center;
+      }
+
+      #bannerButtons {
+        position: absolute;
+        right: 15px;
+        bottom: 10px;
+        display: none;
+      }
+
+      @media (max-width: 600px) {
+        #statusBarButton {
+          display: none;
+        }
+
+        #bannerButtons {
+          display: block;
+        }
+      }
     </style>
     <soso-app-header collapse-height="50" on-collapse-change="_onHeaderCollapse">
       <channels-bar id="cbar"></channels-bar>
-      <div id="banner"></div>
-      <!-- <title-bar text="Channel"></title-bar> -->
+      <div id="banner">
+        <div id="bannerButtons">
+          <button id="btnBS" class="hidden">Subscribe</button>
+          <button id="btnBU" class="hidden">Unsubscribe</button>
+          <button id="btnBE" class="hidden">Edit Channel</button>
+        </div>
+      </div>
+      <div id="userContent">
+        <div class="maxWidth horizontal layout">
+          <div id="imagePanel">
+            <user-image image="[[channelImage]]"></user-image>
+          </div>
+          <div id="contentPanel" class="flex">
+            <div class="name">[[channel.name]]</div>
+            <div class="description">[[channel.about]]</div>
+          </div>
+        </div>
+        <div id="statsBarContainer">
+          <div id="statsBar" class="maxWidth horizontal layout center">
+            <div class="flex"></div>
+            <dom-repeat items="[[stats]]">
+              <template>
+                <div class="statItem">
+                  <div class$="[[item.class]]">
+                    <div class="statLabel">[[item.label]]</div>
+                    <div class="statValue">[[item.value]]</div>
+                  </div>
+                </div>
+              </template>
+            </dom-repeat>
+            <div id="statusBarButton">
+              <button id="btnS" class="hidden">Subscribe</button>
+              <button id="btnU" class="hidden">Unsubscribe</button>
+              <button id="btnE" class="hidden">Edit Channel</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </soso-app-header>
+    <div style="height: 100vh;"></div>
   </template>
   <script>
     class ChannelPage extends Polymer.Element {
       static get is() { return 'channel-page'; }
 
+      static get properties() {
+        return {
+          channel: {
+            type: Object,
+            observer: '_onChannel'
+          },
+          channelImage: String,
+          stats: Array,
+          items: Array,
+          promotedItems: Array
+        };
+      }
+
+      constructor() {
+        super();
+        this._resizeListener = _debounce(() => {
+          this._onResize();
+        }, 350);
+      }
+
       onActivate(route) {
         $core.register().then(() => {
+          let handle = null;
+          if (route && route.segments && route.segments.length > 1) {
+            handle = route.segments[1];
+          }
+          if (!handle) {
+            if ($core.profile) {
+              handle = $core.profile.handle;
+            }
+          }
+          if (!handle) {
+            setTimeout(() => {
+              $router.goto("");
+            }, 100);
+            return;
+          }
           this.$.cbar.activate();
+          window.removeEventListener("resize", this._resizeListener);
+          window.addEventListener("resize", this._resizeListener);
+          this._onResize();
+
+          // fetch only if route is different
+          let fetchNewContent = true;
+          if (!window.__dirtyFeed) {
+            if (this._handle && this._fetchTimestamp) {
+              if (this._handle === handle) {
+                let timeDiff = (new Date()).getTime() - this._fetchTimestamp;
+                if (timeDiff < (5 * 60 * 1000)) {
+                  fetchNewContent = false;
+                }
+              }
+            }
+          }
+          if (!fetchNewContent) {
+            $app.scrollTo(route.context.scrollTop);
+            return;
+          }
+
+          this._handle = handle;
+          window.__dirtyFeed = false;
+          this.channel = null;
+          this.items = [];
+          this.promotedItems = [];
+          this._fetchTimestamp = (new Date()).getTime();
+          this._promotedCardIds = [];
+
+          this._refreshChannel();
         });
       }
 
       onDeactivate() {
         this.$.cbar.deactivate();
-        if (this._resizeListener) {
-          window.removeEventListener("resize", this._resizeListener);
-          this._resizeListener = null;
-        }
+        window.removeEventListener("resize", this._resizeListener);
       }
 
       _onHeaderCollapse() {
 
+      }
+
+      _onResize() {
+      }
+
+      _refreshChannel() {
+        this.stats = [];
+        $core.getChannelByOwnerHandle(this._handle).then(response => {
+          this.channel = response.channel;
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onChannel() {
+        if (this.channel) {
+          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+          this._refreshButtons();
+          let stats = [];
+          stats.push({
+            label: "Revenue",
+            value: 'ℂ' + this.channel.stats.revenue.toFixed(2),
+            class: 'revenueStat'
+          });
+          stats.push({
+            label: "Cards",
+            value: this.channel.stats.cards,
+            class: 'cardStat'
+          });
+          stats.push({
+            label: "Subscribers",
+            value: this.channel.stats.subscribers,
+            class: 'subscribersStat'
+          });
+          this.stats = stats;
+          console.log(this.channel);
+        }
+      }
+
+      _refreshButtons() {
+        this.$.btnU.classList.add("hidden");
+        this.$.btnBU.classList.add("hidden");
+        this.$.btnS.classList.add("hidden");
+        this.$.btnBS.classList.add("hidden");
+        this.$.btnE.classList.add("hidden");
+        this.$.btnBE.classList.add("hidden");
+        let isMe = false;
+        if ($core.profile) {
+          isMe = $core.profile.handle == this.channel.owner.handle;
+        }
+        if (isMe) {
+          this.$.btnE.classList.remove("hidden");
+          this.$.btnBE.classList.remove("hidden");
+        } else {
+          switch (this.channel.subscriptionState) {
+            case "subscribed":
+              this.$.btnU.classList.remove("hidden");
+              this.$.btnBU.classList.remove("hidden");
+              break;
+            case "unsubscribed":
+              this.$.btnS.classList.remove("hidden");
+              this.$.btnBS.classList.remove("hidden");
+              break;
+            default:
+              break;
+          }
+        }
       }
     }
     window.customElements.define(ChannelPage.is, ChannelPage);
