@@ -21,6 +21,7 @@
         background-position: 50% 50%;
         height: 140px;
         position: relative;
+        z-index: -1;
       }
 
       user-image {
@@ -215,7 +216,7 @@
         <div id="bannerButtons">
           <button id="btnBS" class="hidden">Subscribe</button>
           <button id="btnBU" class="hidden">Unsubscribe</button>
-          <button id="btnBE" class="hidden">Edit Channel</button>
+          <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
         </div>
       </div>
       <div id="userContent">
@@ -244,7 +245,7 @@
             <div id="statusBarButton">
               <button id="btnS" class="hidden">Subscribe</button>
               <button id="btnU" class="hidden">Unsubscribe</button>
-              <button id="btnE" class="hidden">Edit Channel</button>
+              <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
             </div>
           </div>
         </div>
@@ -370,6 +371,12 @@
             class: 'subscribersStat'
           });
           this.stats = stats;
+
+          let bgImage = "";
+          if (this.channel.bannerImage) {
+            bgImage = this.channel.bannerImage.url;
+          }
+          this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
           console.log(this.channel);
         }
       }
@@ -402,6 +409,10 @@
               break;
           }
         }
+      }
+
+      _onEdit() {
+        $router.goto("/edit-channel/" + encodeURIComponent(this._handle || ""));
       }
     }
     window.customElements.define(ChannelPage.is, ChannelPage);
