@@ -609,8 +609,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateChannel(channelId, bannerImageFileId, about, link, socialLinks) {
-    let details = RestUtils.updateChannelDetails(this._keys.address, this._fingerprint, channelId, bannerImageFileId, about, link, socialLinks);
+  updateChannel(channelId, name, bannerImageFileId, about, link, socialLinks) {
+    let details = RestUtils.updateChannelDetails(this._keys.address, this._fingerprint, channelId, name, bannerImageFileId, about, link, socialLinks);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-channel";
     return this.rest.post(url, request);

@@ -409,7 +409,7 @@ export class ChannelManager implements RestServer, Initializable {
         response.status(401).send("Only owner is allowed to update channel");
         return;
       }
-      await db.updateChannel(channel.id, requestBody.detailsObject.bannerImageFileId, requestBody.detailsObject.about, requestBody.detailsObject.link, requestBody.detailsObject.socialLinks);
+      await db.updateChannel(channel.id, requestBody.detailsObject.name, requestBody.detailsObject.bannerImageFileId, requestBody.detailsObject.about, requestBody.detailsObject.link, requestBody.detailsObject.socialLinks);
       console.log("ChannelManager.update-channel:", request.headers, requestBody.detailsObject);
       const result: UpdateChannelResponse = {
         serverVersion: SERVER_VERSION

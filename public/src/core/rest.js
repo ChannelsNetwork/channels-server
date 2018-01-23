@@ -655,12 +655,13 @@ class RestUtils {
     };
   }
 
-  static updateChannelDetails(address, fingerprint, channelId, bannerImageFileId, about, link, socialLinks) {
+  static updateChannelDetails(address, fingerprint, channelId, name, bannerImageFileId, about, link, socialLinks) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       channelId: channelId,
+      name: name,
       bannerImageFileId: bannerImageFileId,
       about: about,
       link: link,

@@ -2357,8 +2357,11 @@ export class Database {
     return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
   }
 
-  async updateChannel(channelId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
+  async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
     const update: any = {};
+    if (typeof name !== 'undefined') {
+      update.name = name;
+    }
     if (typeof bannerImageFileId !== 'undefined') {
       update.bannerImageFileId = bannerImageFileId;
     }

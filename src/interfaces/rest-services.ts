@@ -775,6 +775,7 @@ export interface GetChannelsResponse extends RestResponse {
 
 export interface UpdateChannelDetails extends Signable {
   channelId: string;
+  name?: string;
   bannerImageFileId?: string;
   about?: string;
   link?: string;
