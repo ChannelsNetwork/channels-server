@@ -485,7 +485,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
-      await channelManager.createChannelForUser(user);
+      await channelManager.getUserDefaultChannel(user);
       if (sendConfirmation) {
         void this.sendEmailConfirmation(user);
       }
