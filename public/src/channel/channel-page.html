@@ -390,9 +390,11 @@
         this.$.feed.refreshLayout();
       }
 
-      _refreshChannel() {
-        this.channel = null;
-        this.stats = [];
+      _refreshChannel(preventClear) {
+        if (!preventClear) {
+          this.channel = null;
+          this.stats = [];
+        }
         return $core.getChannelByOwnerHandle(this._handle).then(response => {
           this.channel = response.channel;
         }).catch(err => {
@@ -514,7 +516,7 @@
 
       _onSubscribe() {
         $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
-          return this._refreshChannel();
+          return this._refreshChannel(true);
         }).catch((err) => {
           console.error(err);
           $app.showError(err);
@@ -523,7 +525,7 @@
 
       _onUnsubscribe() {
         $core.updateChannelSubscription(this.channel.id, 'unsubscribed').then(() => {
-          return this._refreshChannel();
+          return this._refreshChannel(true);
         }).catch((err) => {
           console.error(err);
           $app.showError(err);
