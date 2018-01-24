@@ -156,7 +156,7 @@ export class ChannelManager implements RestServer, Initializable {
   }
 
   private async getChannelDescriptor(user: UserRecord, record: ChannelRecord): Promise<ChannelDescriptor> {
-    const userChannel = await db.findChannelUser(record.id, user.id);
+    const userChannel = await this.ensureChannelUser(record, user);
     const channel: ChannelDescriptor = {
       id: record.id,
       name: record.name,
@@ -417,7 +417,7 @@ export class ChannelManager implements RestServer, Initializable {
         return;
       }
       const channel = await db.findChannelById(requestBody.detailsObject.channelId);
-      if (!channel || channel.status !== 'active') {
+      if (!channel || channel.state !== 'active') {
         response.status(404).send("No such channel");
         return;
       }
@@ -450,7 +450,7 @@ export class ChannelManager implements RestServer, Initializable {
         return;
       }
       const channel = await db.findChannelById(requestBody.detailsObject.channelId);
-      if (!channel || channel.status !== 'active') {
+      if (!channel || channel.state !== 'active') {
         response.status(404).send("No such channel");
         return;
       }
@@ -494,7 +494,7 @@ export class ChannelManager implements RestServer, Initializable {
         return;
       }
       const channel = await db.findChannelById(requestBody.detailsObject.channelId);
-      if (!channel || channel.status !== 'active') {
+      if (!channel || channel.state !== 'active') {
         response.status(404).send("No such channel");
         return;
       }
@@ -673,7 +673,7 @@ export class ChannelManager implements RestServer, Initializable {
       result += '</td>\n';
     }
     result += '<td style="border:0;padding:0 5px;">\n';
-    result += '<div style="width:250px;whitespace:no-wrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(Utils.truncate(card.summary.title, 40, true)) + '</div>\n';
+    result += '<div style="width:250px;whitespace:no-wrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;">' + escapeHtml(Utils.truncate(card.summary.title, 38, true)) + '</div>\n';
     result += '<div style="color:#555;font-size:85%;">' + escapeHtml(card.by.name) + '</div>\n';
     result += '</td>\n';
     result += '</tr>\n';
@@ -719,7 +719,7 @@ export class ChannelManager implements RestServer, Initializable {
       nextSkip: 0
     };
     if (limit === 0) {
-      return result;
+      limit = 12;
     }
     if (limit < 1 || limit > 999) {
       limit = 50;

@@ -538,7 +538,7 @@ export type IpAddressStatus = "success" | "fail";
 
 export interface ChannelRecord {
   id: string;
-  status: ChannelStatus;
+  state: ChannelStatus;
   name: string;
   handle: string;
   ownerId: string;

@@ -2325,7 +2325,7 @@ export class Database {
     const now = Date.now();
     const record: ChannelRecord = {
       id: uuid.v4(),
-      status: 'active',
+      state: 'active',
       handle: handle.toLowerCase(),
       name: name,
       ownerId: ownerId,
