@@ -1,0 +1,59 @@
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<dom-module id="title-bar">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #bar {
+        height: 50px;
+        padding: 0;
+        box-sizing: border-box;
+        background: #293C41;
+        color: white;
+      }
+
+      soso-icon {
+        width: 28px;
+        height: 28px;
+        padding: 10px;
+        cursor: pointer;
+        transition: color 0.15s ease;
+      }
+
+      soso-icon:hover {
+        color: var(--bg-yellow);
+      }
+
+      .title {
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+    <div id="bar" class="horizontal layout center" on-click="_barClick">
+      <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
+      <div class="title flex">[[text]]</div>
+    </div>
+  </template>
+  <script>
+    class TitleBar extends Polymer.Element {
+      static get is() { return 'title-bar'; }
+      static get properties() {
+        return {
+          text: String
+        };
+      }
+      _showMenu(event) {
+        event.stopPropagation();
+        $app.showMenu();
+      }
+      _barClick(event) {
+        $app.scrollTo(0);
+      }
+    }
+    window.customElements.define(TitleBar.is, TitleBar);
+  </script>
+</dom-module>

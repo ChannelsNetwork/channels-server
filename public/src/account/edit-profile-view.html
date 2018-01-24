@@ -354,6 +354,7 @@
       }
 
       _updateProfile(name, email, imageId) {
+        window.__dirtyFeed = true;
         $core.updateUserProfile(name, null, null, imageId, email, null).then(() => {
           $router.goto("/account");
         }).catch((err) => {

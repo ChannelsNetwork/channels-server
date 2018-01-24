@@ -1,3 +1,6 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
 <dom-module id="learn-card-development-view">
   <template>
     <style is="custom-style" include="app-styles">
@@ -19,6 +22,10 @@
         font-weight: bold;
       }
     </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="Card Development"></title-bar>
+    </soso-app-header>
     <section>
       <div class="content">
         <h1>Developing Your Own Card Design</h1>
@@ -73,7 +80,12 @@
     class LearnCardDevelopmentView extends Polymer.Element {
       static get is() { return 'learn-card-development-view'; }
       onActivate() {
-        $core.register();
+        $core.register().then(() => {
+          this.$.cbar.activate();
+        });
+      }
+      onDeactivate() {
+        this.$.cbar.deactivate();
       }
     }
     window.customElements.define(LearnCardDevelopmentView.is, LearnCardDevelopmentView);

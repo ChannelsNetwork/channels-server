@@ -126,12 +126,12 @@ export class ChannelManager implements RestServer, Initializable {
       } else if (requestBody.detailsObject.channelHandle) {
         record = await db.findChannelByHandle(requestBody.detailsObject.channelId);
       } else if (requestBody.detailsObject.ownerHandle) {
-        const owner = userManager.getUserByHandle(requestBody.detailsObject.ownerHandle);
+        const owner = await userManager.getUserByHandle(requestBody.detailsObject.ownerHandle);
         if (!owner) {
           response.status(404).send("No such user handle");
           return;
         }
-        const records = await db.findChannelsByOwnerId(requestBody.detailsObject.ownerId);
+        const records = await db.findChannelsByOwnerId(owner.id);
         if (records.length > 0) {
           record = records[0];
         }

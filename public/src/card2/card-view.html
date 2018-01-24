@@ -1,0 +1,337 @@
+<link rel="import" href="../controls/user-image.html">
+
+<dom-module id="card-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        transition: opacity 0.2s ease;
+        position: relative;
+        background: white;
+      }
+
+      .cardShell {
+        position: relative;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .container {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        background: white;
+        position: relative
+      }
+
+      .bottomBar {
+        border-radius: 0 0 3px 3px;
+        font-size: 13px;
+        padding: 0 0 0 10px;
+        border-top: 1px solid #e5e5e5;
+        color: #888888;
+      }
+
+      #revenue {
+        color: var(--highlight-green);
+        font-weight: bold;
+        font-size: 14px;
+        margin-right: 5px;
+      }
+
+      soso-icon {
+        color: #888888;
+        width: 18px;
+        height: 18px;
+      }
+
+      soso-icon.actionIcon {
+        width: 24px;
+        height: 24px;
+        padding: 10px 8px;
+        cursor: pointer;
+      }
+
+      #privateIcon {
+        margin: 0;
+        width: 16px;
+        height: 16px;
+      }
+
+      #upPanel,
+      #downPanel {
+        margin: 0 10px;
+        cursor: pointer;
+      }
+
+      #upPanel soso-icon,
+      #downPanel soso-icon {
+        margin-right: 5px;
+        color: #999;
+      }
+
+      #upPanel:hover,
+      #downPanel:hover {
+        color: var(--dark-green);
+      }
+
+      #upPanel:hover soso-icon,
+      #downPanel:hover soso-icon {
+        color: var(--highlight-green);
+      }
+
+      #infoPanel {
+        padding: 10px 14px;
+        position: relative;
+      }
+
+      #headline {
+        font-size: 18px;
+        margin-bottom: 6px;
+      }
+
+      #headline img {
+        float: left;
+        margin: 0 8px 1px 0;
+        height: 1.4em;
+        opacity: 0.6;
+        width: auto;
+      }
+
+      #description {
+        font-size: 14px;
+        color: #424242;
+      }
+
+      #authorImage {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        padding: 5px;
+      }
+
+      #imagePanel {
+        overflow: hidden;
+        background-color: #fff;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+        border-radius: 3px 3px 0 0;
+        position: relative;
+      }
+
+      .wide #imagePanel {
+        border-radius: 3px 0 0 3px;
+      }
+
+      #imagePanel.noImage {
+        height: 80px;
+        max-height: 80px;
+      }
+
+      #spacer {
+        min-height: 60px;
+      }
+    </style>
+    <div class="cardShell">
+      <div id="container" class="container vertical layout">
+        <div id="imagePanel" class="flex"></div>
+        <div id="contentPanel">
+          <div id="spacer" class="hidden"></div>
+          <div id="infoPanel" class="vertical layout">
+            <div id="headline">
+              <img src$="[[data.cardType.iconUrl]]">
+              <span>[[data.summary.title]]</span>
+            </div>
+            <div id="description" class="flex">[[descriptionText]]</div>
+          </div>
+          <div id="bottomBar" class="horizontal layout center bottomBar">
+            <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
+            <soso-icon id="privateIcon" icon="lock" icon-map="[[iconMap]]" class="hidden"></soso-icon>
+            <div class="flex"></div>
+            <div id="upPanel" class="horizontal layout center">
+              <soso-icon id="shareIcon" icon="thumb-up"></soso-icon>
+              <span>3</span>
+            </div>
+            <div id="downPanel" class="horizontal layout center">
+              <soso-icon id="shareIcon" icon="thumb-down"></soso-icon>
+              <span>0</span>
+            </div>
+            <soso-icon id="shareIcon" icon="share" class="actionIcon"></soso-icon>
+            <soso-icon id="moreIcon" icon="expand-more" class="actionIcon"></soso-icon>
+          </div>
+        </div>
+      </div>
+
+      <user-image id="authorImage"></user-image>
+    </div>
+  </template>
+  <script src="../card/card-view-helper.js"></script>
+  <script>
+    class CardView extends Polymer.Element {
+      static get is() { return 'card-view'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: "_onData"
+          },
+          descriptionText: String,
+          price: String,
+          priceTip: String,
+          promotedTip: String
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._onData();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+        this._detachIntersectionObservers();
+
+        // TODO: data update listener
+      }
+
+      _detachIntersectionObservers() {
+        $cardHelper.removeIntersectionObserver(this);
+      }
+
+      _attachIntersectionObservers() {
+        this._detachIntersectionObservers();
+        $cardHelper.addIntersectionObserver(this, (entry) => {
+          // impression check
+          if ((!this._impressionFired) && entry.isIntersecting && entry.intersectionRatio > 0.9) {
+            if (!this._impressionStarted) {
+              this._impressionStarted = (new Date()).getTime();
+              this._impressionTimeout = setTimeout(() => {
+                if (this._impressionStarted && (!this._impressionFired)) {
+                  this._impressionFired = true;
+                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true }));
+                }
+                this._impressionStarted = null;
+                this._impressionTimeout = null;
+              }, 2000);
+            }
+          } else {
+            this._impressionStarted = null;
+            if (this._impressionTimeout) {
+              clearTimeout(this._impressionTimeout);
+            }
+          }
+          // Image load check
+          if (entry.isIntersecting) {
+            this._loadImages();
+          }
+        });
+      }
+
+      _onData() {
+        if (this._attached && this.data) {
+          this.descriptionText = this._truncate(this.data.summary.text || "", 180);
+          this._refreshRevenue();
+          requestAnimationFrame(() => {
+            if (this._attached) {
+              this._attachIntersectionObservers();
+            }
+          });
+          if (this._imagesLoaded) {
+            this._imagesLoaded = false;
+            this._loadImages();
+          }
+          this._refreshLayout();
+        }
+      }
+
+      _truncate(text, limit) {
+        if ((!text) || (text.length <= limit)) {
+          return text || "";
+        }
+        return (text.substring(0, limit - 3).trim() + "...");
+      }
+
+      _refreshRevenue() {
+        if (this.data.pricing.openFeeUnits === 0) {
+          this.$.revenue.classList.add("hidden");
+        } else {
+          this.$.revenue.classList.remove("hidden");
+        }
+        this.set("data.stats.revenueDisplay", this.data.stats.revenue.toFixed(2));
+      }
+
+      _loadAuthorImage() {
+        this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
+      }
+
+      _loadImages() {
+        if (!this._imagesLoaded) {
+          this._imagesLoaded = true;
+          let img = this.data.summary.imageURL || ('/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg');
+          this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
+          this._loadAuthorImage();
+        }
+      }
+
+      _refreshLayout() {
+        // TODO: Preet: transition opacity on layout
+        this._ensureWidth().then(() => {
+          let w = this.offsetWidth;
+          let h = this.offsetHeight;
+          let wide = w > h;
+          if (this._wide !== wide) {
+            this._wide = wide;
+            if (wide) {
+              this.$.container.classList.remove("vertical");
+              this.$.container.classList.add("horizontal", "wide");
+              this.$.contentPanel.classList.add("flex", "vertical", "layout");
+              this.$.spacer.classList.remove("hidden");
+              this.$.infoPanel.classList.add("flex");
+            } else {
+              this.$.container.classList.add("vertical");
+              this.$.container.classList.remove("horizontal", "wide");
+              this.$.contentPanel.classList.remove("flex", "vertical", "layout");
+              this.$.spacer.classList.add("hidden");
+              this.$.infoPanel.classList.remove("flex");
+            }
+          }
+        });
+      }
+
+      _ensureWidth() {
+        return new Promise((resolve, reject) => {
+          if (this.offsetWidth) {
+            resolve();
+          } else {
+            this._refreshAttempts = 0;
+            this._refreshInterval = setInterval(() => {
+              if (this.offsetWidth || this._refreshAttempts >= 10) {
+                clearInterval(this._refreshInterval);
+                this._refreshInterval = null;
+                resolve();
+              }
+            }, 50);
+          }
+        });
+      }
+    }
+    window.customElements.define(CardView.is, CardView);
+
+// let img = this.data.summary.imageURL || (this.data.by.image && this.data.by.image.url ? this.data.by.image.url : ('/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg'));
+// if (this.data.summary.imageURL) {
+//   this.$.imagePanel.classList.add("flex");
+//   this.$.imagePanel.classList.remove("noImage");
+// } else {
+//   this.$.imagePanel.classList.add("noImage");
+//   this.$.imagePanel.classList.remove("flex");
+// }
+  </script>
+</dom-module>

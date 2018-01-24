@@ -1,0 +1,217 @@
+<dom-module id="text-area">
+  <template>
+    <style>
+      :host {
+        display: block;
+        position: relative;
+        box-sizing: border-box;
+        font-family: inherit;
+        font-size: inherit;
+        letter-spacing: inherit;
+        font-weight: inherit;
+        font-style: inherit;
+        box-sizing: border-box;
+      }
+
+      :host(.disabled) {
+        opacity: 0.6 !important;
+        cursor: default;
+        pointer-events: none;
+      }
+
+      .fit {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      .mirror-text {
+        visibility: hidden;
+        word-wrap: break-word;
+        box-sizing: border-box;
+        padding: 1px;
+      }
+
+      textarea {
+        position: relative;
+        border: none;
+        resize: none;
+        background: inherit;
+        color: inherit;
+        width: 100%;
+        height: 100%;
+        font-size: inherit;
+        font-family: inherit;
+        line-height: inherit;
+        text-align: inherit;
+        padding: 1px;
+        box-sizing: border-box;
+        letter-spacing: inherit;
+        font-weight: inherit;
+        font-style: inherit;
+        outline: none;
+      }
+
+      label {
+        display: block;
+        font-size: var(--soso-label-size, 90%);
+        letter-spacing: 0.05em;
+        margin-bottom: 5px;
+        color: var(--soso-label-color, #2E7D32);
+        opacity: 0;
+        transition: opacity 0.28s ease-out;
+      }
+    </style>
+    <label id="lbl" for="">[[label]]</label>
+    <div style="position: relative;">
+      <div id="mirror" class="mirror-text">&#160;</div>
+      <div class="fit">
+        <textarea id="textarea" name$="[[name]]" autocomplete$="[[autocomplete]]" autofocus$="[[autofocus]]" inputmode$="[[inputmode]]"
+          placeholder$="[[placeholder]]" readonly$="[[readonly]]" required$="[[required]]" disabled$="[[disabled]]" rows$="[[rows]]"
+          minlength$="[[minlength]]" maxlength$="[[maxlength]]" on-input="_onInput" on-keydown="_onKeydown"></textarea>
+      </div>
+    </div>
+  </template>
+  <script>
+    class TextArea extends Polymer.Element {
+      static get is() { return 'text-area'; }
+      static get properties() {
+        return {
+          label: {
+            type: String,
+            observer: '_labelChanged'
+          },
+          value: {
+            observer: '_valueChanged',
+            type: String,
+            notify: true
+          },
+          rows: {
+            type: Number,
+            value: 1
+          },
+          maxRows: {
+            type: Number,
+            value: 0,
+            observer: '_updateCached'
+          },
+          autocomplete: {
+            type: String,
+            value: 'off'
+          },
+          autofocus: {
+            type: Boolean,
+            value: false
+          },
+          inputmode: {
+            type: String
+          },
+          placeholder: {
+            type: String
+          },
+          readonly: {
+            type: String
+          },
+          required: {
+            type: Boolean
+          },
+          minlength: {
+            type: Number
+          },
+          maxlength: {
+            type: Number
+          },
+          disabled: {
+            type: Boolean,
+            value: false,
+            observer: '_onDisableChange'
+          },
+          singleLine: {
+            type: Boolean,
+            value: false
+          }
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.value = "";
+      }
+
+      get textarea() {
+        return this.$.textarea;
+      }
+
+      _labelChanged() {
+        if (!this.placeholder) {
+          this.placeholder = this.label;
+        }
+      }
+
+      _valueChanged(value) {
+        var textarea = this.textarea;
+        if (!textarea) {
+          return;
+        }
+        if (textarea.value !== value) {
+          textarea.value = !(value || value === 0) ? '' : value;
+        }
+        this.$.mirror.innerHTML = this._valueForMirror();
+        this._onInput();
+      }
+
+      _onInput(event) {
+        this.value = this.$.textarea.value;
+        if (this.value) {
+          this.$.lbl.style.opacity = 1;
+        } else {
+          this.$.lbl.style.opacity = 0;
+        }
+      }
+
+      _constrain(tokens) {
+        var _tokens;
+        tokens = tokens || [''];
+        if (this.maxRows > 0 && tokens.length > this.maxRows) {
+          _tokens = tokens.slice(0, this.maxRows);
+        } else {
+          _tokens = tokens.slice(0);
+        }
+        while (this.rows > 0 && _tokens.length < this.rows) {
+          _tokens.push('');
+        }
+        return _tokens.join('<br/>') + '&#160;';
+      }
+
+      _valueForMirror() {
+        var input = this.textarea;
+        if (!input) {
+          return;
+        }
+        this.tokens = (input && input.value) ? input.value.replace(/&/gm, '&amp;').replace(/"/gm, '&quot;').replace(/'/gm, '&#39;').replace(/</gm, '&lt;').replace(/>/gm, '&gt;').split('\n') : [''];
+        return this._constrain(this.tokens);
+      }
+
+      _updateCached() {
+        this.$.mirror.innerHTML = this._constrain(this.tokens);
+      }
+
+      _onDisableChange() {
+        if (this.disabled) {
+          this.classList.add("disabled");
+        } else {
+          this.classList.remove("disabled");
+        }
+      }
+
+      _onKeydown(event) {
+        if (this.singleLine && (event.keyCode === 13)) {
+          event.preventDefault();
+        }
+      }
+    }
+    window.customElements.define(TextArea.is, TextArea);
+  </script>
+</dom-module>

@@ -1,3 +1,6 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
 
 <dom-module id="account-view">
@@ -51,6 +54,10 @@
         }
       }
     </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="My Account"></title-bar>
+    </soso-app-header>
     <div id="container">
       <div class="horizontal layout center header">
         <div id="imagePanel">
@@ -87,6 +94,7 @@
       onActivate() {
         this.profile = {};
         $core.register().then((info) => {
+          this.$.cbar.activate();
           if (!$core.profile || !$core.profile.handle) {
             setTimeout(() => {
               $router.goto("");
@@ -122,6 +130,10 @@
             $router.goto("");
           }, 600);
         });
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
       }
 
       _onEdit() {
