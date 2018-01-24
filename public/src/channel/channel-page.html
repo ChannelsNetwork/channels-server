@@ -1,0 +1,616 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
+<link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../feed/card-feed.html">
+
+<dom-module id="channel-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #banner {
+        display: block;
+        box-sizing: border-box;
+        overflow: hidden;
+        background-color: #293C41;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+        height: 140px;
+        position: relative;
+        z-index: -1;
+      }
+
+      user-image {
+        width: 90px;
+        height: 90px;
+        border: 5px solid #fafafa;
+        border-radius: 50%;
+        margin-top: -50%;
+        background: #fafafa;
+      }
+
+      #imagePanel {
+        padding: 2px;
+      }
+
+      .name {
+        font-family: 'Raleway', 'Roboto', sans-serif;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #212121;
+        font-size: 22px;
+        padding: 0px 0 5px;
+      }
+
+      #contentPanel {
+        padding: 8px 5px 16px;
+        font-size: 13px;
+      }
+
+      .maxWidth {
+        max-width: 800px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      #userContent {
+        background: #fafafa;
+      }
+
+      @media (min-width: 450px) {
+        #banner {
+          height: 200px;
+        }
+      }
+
+      @media (min-width: 600px) {
+        #banner {
+          height: 280px;
+        }
+        user-image {
+          width: 120px;
+          height: 120px;
+        }
+        #contentPanel {
+          padding: 8px 10px 16px;
+          font-size: 14px;
+        }
+        .name {
+          font-size: 28px;
+        }
+      }
+
+      @media (min-width: 1100px) {
+        #banner {
+          height: 300px;
+        }
+        user-image {
+          width: 160px;
+          height: 160px;
+        }
+      }
+
+      @media (min-width: 1200px) {
+        #banner {
+          height: 320px;
+        }
+      }
+
+      @media (min-width: 1370px) {
+        #banner {
+          height: 360px;
+        }
+        #contentPanel {
+          font-size: 15px;
+        }
+        .name {
+          font-size: 30px;
+        }
+      }
+
+      @media (min-width: 1510px) {
+        #banner {
+          height: 420px;
+        }
+        user-image {
+          width: 190px;
+          height: 190px;
+        }
+        .maxWidth {
+          max-width: 900px;
+        }
+      }
+
+      @media (min-width: 1620px) {
+        #banner {
+          height: 460px;
+        }
+      }
+
+      @media (min-width: 1820px) {
+        #banner {
+          height: 500px;
+        }
+      }
+
+      @media (min-width: 2300px) {
+        #banner {
+          height: 600px;
+        }
+      }
+
+      #statsBarContainer {
+        border-bottom: 1px solid #e5e5e5;
+        border-top: 1px solid #e5e5e5;
+      }
+
+      #statsBar {
+        padding: 10px 16px;
+      }
+
+      #btnU {
+        color: #2E7D32;
+        background: transparent;
+        border: 2px solid #2E7D32;
+      }
+
+      #btnS {
+        border: 2px solid transparent;
+      }
+
+      #btnE,
+      #btnBE {
+        font-size: 15px;
+        padding: 10px 8px;
+      }
+
+      .statLabel {
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        color: #555;
+      }
+
+      .statValue {
+        font-size: 15px;
+        font-weight: bold;
+        color: #777;
+        letter-spacing: 0.05em;
+      }
+
+      .revenueStat .statValue {
+        color: var(--dark-green);
+      }
+
+      .statItem {
+        white-space: nowrap;
+        padding-right: 30px;
+        text-align: center;
+      }
+
+      #bannerButtons {
+        position: absolute;
+        right: 15px;
+        bottom: 10px;
+        display: none;
+      }
+
+      #feed {
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding: 20px 0;
+      }
+
+      #noItems {
+        padding: 40px 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      #titleBar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      .channelLink,
+      .channelLink:visited,
+      .channelLink:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+
+      #linkPanel {
+        margin-top: 5px;
+      }
+
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      @media (max-width: 600px) {
+        #statusBarButton {
+          display: none;
+        }
+
+        #bannerButtons {
+          display: block;
+        }
+
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+      }
+    </style>
+    <soso-app-header id="header" collapse-height="50" on-collapse-change="_onHeaderCollapse">
+      <channels-bar id="cbar"></channels-bar>
+      <div id="banner">
+        <div id="bannerButtons">
+          <button id="btnBS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+          <button id="btnBU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+          <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
+        </div>
+      </div>
+      <div id="userContent">
+        <div class="maxWidth horizontal layout">
+          <div id="imagePanel">
+            <user-image image="[[channelImage]]"></user-image>
+          </div>
+          <div id="contentPanel" class="flex">
+            <div class="name">[[channel.name]]</div>
+            <div class="description">[[channel.about]]</div>
+            <div id="linkPanel" class="hidden">
+              <a class="channelLink" href$="[[channel.linkUrl]]" target="_blank">[[channel.linkUrl]]</a>
+            </div>
+          </div>
+        </div>
+        <div id="statsBarContainer">
+          <div id="statsBar" class="maxWidth horizontal layout center">
+            <div class="flex"></div>
+            <dom-repeat items="[[stats]]">
+              <template>
+                <div class="statItem">
+                  <div class$="[[item.class]]">
+                    <div class="statLabel">[[item.label]]</div>
+                    <div class="statValue">[[item.value]]</div>
+                  </div>
+                </div>
+              </template>
+            </dom-repeat>
+            <div id="statusBarButton">
+              <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+              <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+              <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
+    </soso-app-header>
+    <div id="noItems" class="hidden">There are no cards in this channel.</div>
+    <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
+    <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
+  </template>
+  <script>
+    class ChannelPage extends Polymer.Element {
+      static get is() { return 'channel-page'; }
+
+      static get properties() {
+        return {
+          channel: {
+            type: Object,
+            observer: '_onChannel'
+          },
+          channelImage: String,
+          stats: Array,
+          items: Array,
+          promotedItems: Array
+        };
+      }
+
+      constructor() {
+        super();
+        this._resizeListener = _debounce(() => {
+          this._onResize();
+        }, 350);
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          let handle = null;
+          if (route && route.segments && route.segments.length > 1) {
+            handle = route.segments[1];
+          }
+          if (!handle) {
+            if ($core.profile) {
+              handle = $core.profile.handle;
+            }
+          }
+          if (!handle) {
+            setTimeout(() => {
+              $router.goto("");
+            }, 100);
+            return;
+          }
+          this.$.cbar.activate();
+          window.removeEventListener("resize", this._resizeListener);
+          window.addEventListener("resize", this._resizeListener);
+          this._onResize();
+
+          // fetch only if route is different
+          let fetchNewContent = true;
+          if (!window.__dirtyFeed) {
+            if (this._handle && this._fetchTimestamp) {
+              if (this._handle === handle) {
+                let timeDiff = (new Date()).getTime() - this._fetchTimestamp;
+                if (timeDiff < (5 * 60 * 1000)) {
+                  fetchNewContent = false;
+                }
+              }
+            }
+          }
+          if (!fetchNewContent) {
+            $app.scrollTo(route.context.scrollTop);
+            return;
+          }
+
+          this._handle = handle;
+          window.__dirtyFeed = false;
+          this._refreshChannel().then(() => {
+            this._refreshFeed();
+          })
+        });
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
+        window.removeEventListener("resize", this._resizeListener);
+      }
+
+      _onHeaderCollapse(event) {
+        let ratio = event.detail.ratio;
+        if (ratio > 0.9) {
+          this.$.userContent.style.opacity = 9 - (9 * ratio);
+          this.$.titleBar.style.opacity = (9 * ratio) - 8;
+          this.$.titleBar.style.pointerEvents = "auto";
+        } else {
+          this.$.userContent.style.opacity = 1;
+          this.$.titleBar.style.opacity = 0;
+          this.$.titleBar.style.pointerEvents = "none";
+        }
+      }
+
+      _onResize() {
+        this.$.header.measureHeader();
+        setTimeout(() => {
+          this.$.header.measureHeader();
+        }, 100);
+        this.$.feed.refreshLayout();
+      }
+
+      _refreshChannel(preventClear) {
+        if (!preventClear) {
+          this.channel = null;
+          this.stats = [];
+        }
+        return $core.getChannelByOwnerHandle(this._handle).then(response => {
+          this.channel = response.channel;
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onChannel() {
+        if (this.channel) {
+          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+          this._refreshLinks();
+          this._refreshButtons();
+          let stats = [];
+          stats.push({
+            label: "Revenue",
+            value: 'ℂ' + this.channel.stats.revenue.toFixed(2),
+            class: 'revenueStat'
+          });
+          stats.push({
+            label: "Cards",
+            value: this.channel.stats.cards,
+            class: 'cardStat'
+          });
+          stats.push({
+            label: "Subscribers",
+            value: this.channel.stats.subscribers,
+            class: 'subscribersStat'
+          });
+          this.stats = stats;
+
+          let bgImage = "";
+          if (this.channel.bannerImage) {
+            bgImage = this.channel.bannerImage.url;
+          }
+          this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
+          console.log(this.channel);
+
+          setTimeout(() => {
+            this.$.header.measureHeader();
+          }, 100);
+          setTimeout(() => {
+            this.$.header.measureHeader();
+          }, 1000);
+        }
+      }
+
+      _refreshLinks() {
+        if (this.channel.linkUrl) {
+          this.$.linkPanel.classList.remove("hidden");
+        } else {
+          this.$.linkPanel.classList.add("hidden");
+        }
+      }
+
+      _refreshFeed() {
+        this.items = [];
+        this.promotedItems = [];
+        this._promotedCardIds = [];
+        this._fetchTimestamp = (new Date()).getTime();
+        return $core.getFeed("channel", 100, null, null, this._handle, []).then((feed) => {
+          let list = [];
+          let plist = [];
+          for (let i = 0; i < feed.cards.length; i++) {
+            if (feed.cards[i].promoted) {
+              plist.push(feed.cards[i]);
+              this._promotedCardIds.push(feed.cards[i].id);
+            } else {
+              list.push(feed.cards[i]);
+            }
+          }
+          this.items = list;
+          this.promotedItems = plist;
+          if (this.items.length) {
+            this.$.noItems.classList.add("hidden");
+          } else {
+            this.$.noItems.classList.remove("hidden");
+          }
+          console.log("cards", this.items, this.promotedItems);
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _refreshButtons() {
+        this.$.btnU.classList.add("hidden");
+        this.$.btnBU.classList.add("hidden");
+        this.$.btnS.classList.add("hidden");
+        this.$.btnBS.classList.add("hidden");
+        this.$.btnE.classList.add("hidden");
+        this.$.btnBE.classList.add("hidden");
+        this.$.composeButton.classList.add("hidden");
+
+        let isMe = false;
+        if ($core.profile) {
+          isMe = $core.profile.handle == this.channel.owner.handle;
+        }
+        if (isMe) {
+          this.$.btnE.classList.remove("hidden");
+          this.$.btnBE.classList.remove("hidden");
+          this.$.composeButton.classList.remove("hidden");
+        } else {
+          switch (this.channel.subscriptionState) {
+            case "subscribed":
+              this.$.btnU.classList.remove("hidden");
+              this.$.btnBU.classList.remove("hidden");
+              break;
+            case "unsubscribed":
+              this.$.btnS.classList.remove("hidden");
+              this.$.btnBS.classList.remove("hidden");
+              break;
+            default:
+              break;
+          }
+        }
+      }
+
+      _onEdit() {
+        $router.goto("/edit-channel/" + encodeURIComponent(this._handle || ""));
+      }
+
+      _onSubscribe() {
+        $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
+          return this._refreshChannel(true);
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onUnsubscribe() {
+        $core.updateChannelSubscription(this.channel.id, 'unsubscribed').then(() => {
+          return this._refreshChannel(true);
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onCardImpression(event) {
+        let card = event.detail.card;
+        let view = event.detail.view;
+        if (card && view) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
+            $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+          } else {
+            $core.cardImpression(card.id);
+          }
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("/balance");
+                }
+              });
+            });
+          } else {
+            let context = {
+              card: card,
+              scrollTop: $app.scrollValue
+            };
+            if (this._handle) {
+              context.returnPath = "/channel/" + encodeURIComponent(this._handle);
+            }
+            $router.updateContext({
+              scrollTop: $app.scrollValue
+            });
+            $router.goto("/c/" + encodeURIComponent(card.id), context);
+          }
+        }
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        let context = {};
+        if (this._handle) {
+          context.returnPath = "/channel/" + encodeURIComponent(this._handle);
+        }
+        $router.goto("/compose", context);
+      }
+    }
+    window.customElements.define(ChannelPage.is, ChannelPage);
+  </script>
+</dom-module>

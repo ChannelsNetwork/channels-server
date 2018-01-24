@@ -1,0 +1,21 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<dom-module id="home-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+    <soso-app-header>
+      <channels-bar></channels-bar>
+    </soso-app-header>
+    <div style="height: 300vh;"></div>
+  </template>
+  <script>
+    class HomePage extends Polymer.Element {
+      static get is() { return 'home-page'; }
+    }
+    window.customElements.define(HomePage.is, HomePage);
+  </script>
+</dom-module>

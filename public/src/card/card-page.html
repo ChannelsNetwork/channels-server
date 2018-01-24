@@ -1,3 +1,5 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
 
@@ -7,18 +9,12 @@
       :host {
         display: block;
         position: relative;
-        padding-top: 60px;
         border-radius: 0 !important;
         box-shadow: none !important;
         background: white;
       }
 
       #header {
-        z-index: 1;
-        position: fixed;
-        top: 60px;
-        left: 0;
-        right: 0;
         opacity: 0;
         transition: opacity 0.25s ease;
       }
@@ -88,6 +84,11 @@
         }
       }
     </style>
+    <soso-app-header>
+      <channels-bar id="cbar"></channels-bar>
+      <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
+        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+    </soso-app-header>
     <div id="nocard" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box; padding: 16px;">
         <div style="margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; color: #808080;">No card found</div>
@@ -124,8 +125,7 @@
             <a href="/feed">View your feed</a> to see recommended cards.</div>
         </div>
       </div>
-      <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
-        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -151,6 +151,7 @@
         this.data = null;
         this.paymentInterval = 10000;
         $core.register().then(() => {
+          this.$.cbar.activate();
           if (route.segments.length < 2) {
             this._onNoCard();
           } else {
@@ -174,6 +175,7 @@
 
       onDeactivate() {
         this._active = false;
+        this.$.cbar.deactivate();
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
         this.$.header.style.opacity = 0;

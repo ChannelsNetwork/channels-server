@@ -44,10 +44,15 @@
 
       _onCancel() {
         this._userClosed = true;
-        $router.goto("/feed");
+        if (this._context && this._context.returnPath) {
+          $router.goto(this._context.returnPath);
+        } else {
+          $router.goto("/feed");
+        }
       }
 
-      onActivate() {
+      onActivate(route) {
+        this._context = route ? route.context : null;
         this._userClosed = false;
         this.$.wiz.navigationEnabled = true;
         this.$.wiz.reset();
@@ -158,7 +163,11 @@
         ).then(() => {
           $core.analytics.event("card", "publish");
           $core.cardManager.cardService.clearUploadedFileIds();
-          $router.goto("/feed/mine");
+          if (this._context && this._context.returnPath) {
+            $router.goto(this._context.returnPath);
+          } else {
+            $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
+          }
         }).catch((err) => {
           this.$.wiz.navigationEnabled = true;
           this.$.publishPage.onPublishFail(err);

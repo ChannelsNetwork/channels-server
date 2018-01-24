@@ -1,3 +1,8 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
+
 <link rel="import" href="feed-mixin.html">
 <link rel="import" href="card-feed.html">
 <link rel="import" href="../controls/user-image.html">
@@ -5,6 +10,10 @@
 <dom-module id="channel-view">
   <template>
     <style is="custom-style" include="app-styles feed-styles">
+      :host {
+        display: block;
+      }
+
       #userPanel {
         padding: 16px;
         margin-bottom: 10px;
@@ -58,6 +67,10 @@
         text-align: center;
       }
     </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="[[channelName]]"></title-bar>
+    </soso-app-header>
     <div class="main">
       <div id="userPanel" class="hidden">
         <div class="horizontal layout center userContent">
@@ -98,11 +111,13 @@
             type: Object,
             observer: '_onHandleInfo'
           },
-          promotedItems: Array
+          promotedItems: Array,
+          channelName: String
         };
       }
 
-      _onActivate() {
+      _onDeactivate() {
+        this.$.cbar.deactivate();
       }
 
       _setItems(items) {
@@ -154,6 +169,9 @@
             cardId = route.segments[2];
           }
         }
+
+        this.$.cbar.activate();
+
         return {
           type: "feed",
           feedName: "channel",
@@ -180,8 +198,10 @@
       _onHandleInfo() {
         if (this.handleInfo) {
           this.$.userPanel.classList.remove("hidden");
+          this.channelName = this.handleInfo.name;
         } else {
           this.$.userPanel.classList.add("hidden");
+          this.channelName = "Channels"
         }
       }
 
