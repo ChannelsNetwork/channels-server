@@ -224,6 +224,17 @@
         opacity: 0;
       }
 
+      .channelLink,
+      .channelLink:visited,
+      .channelLink:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+
+      #linkPanel {
+        margin-top: 5px;
+      }
+
       @media (max-width: 600px) {
         #statusBarButton {
           display: none;
@@ -238,8 +249,8 @@
       <channels-bar id="cbar"></channels-bar>
       <div id="banner">
         <div id="bannerButtons">
-          <button id="btnBS" class="hidden">Subscribe</button>
-          <button id="btnBU" class="hidden">Unsubscribe</button>
+          <button id="btnBS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+          <button id="btnBU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
           <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
         </div>
       </div>
@@ -251,6 +262,9 @@
           <div id="contentPanel" class="flex">
             <div class="name">[[channel.name]]</div>
             <div class="description">[[channel.about]]</div>
+            <div id="linkPanel" class="hidden">
+              <a class="channelLink" href$="[[channel.linkUrl]]" target="_blank">[[channel.linkUrl]]</a>
+            </div>
           </div>
         </div>
         <div id="statsBarContainer">
@@ -267,8 +281,8 @@
               </template>
             </dom-repeat>
             <div id="statusBarButton">
-              <button id="btnS" class="hidden">Subscribe</button>
-              <button id="btnU" class="hidden">Unsubscribe</button>
+              <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+              <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
               <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
             </div>
           </div>
@@ -344,7 +358,9 @@
 
           this._handle = handle;
           window.__dirtyFeed = false;
-          this._refreshChannel();
+          this._refreshChannel().then(() => {
+            this._refreshFeed();
+          })
         });
       }
 
@@ -377,11 +393,7 @@
       _refreshChannel() {
         this.channel = null;
         this.stats = [];
-        this.items = [];
-        this.promotedItems = [];
-        this._promotedCardIds = [];
-        this._fetchTimestamp = (new Date()).getTime();
-        $core.getChannelByOwnerHandle(this._handle).then(response => {
+        return $core.getChannelByOwnerHandle(this._handle).then(response => {
           this.channel = response.channel;
         }).catch(err => {
           console.error(err);
@@ -392,6 +404,7 @@
       _onChannel() {
         if (this.channel) {
           this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+          this._refreshLinks();
           this._refreshButtons();
           let stats = [];
           stats.push({
@@ -424,8 +437,14 @@
           setTimeout(() => {
             this.$.header.measureHeader();
           }, 1000);
+        }
+      }
 
-          this._refreshFeed();
+      _refreshLinks() {
+        if (this.channel.linkUrl) {
+          this.$.linkPanel.classList.remove("hidden");
+        } else {
+          this.$.linkPanel.classList.add("hidden");
         }
       }
 
@@ -433,6 +452,7 @@
         this.items = [];
         this.promotedItems = [];
         this._promotedCardIds = [];
+        this._fetchTimestamp = (new Date()).getTime();
         return $core.getFeed("channel", 100, null, null, this._handle, []).then((feed) => {
           let list = [];
           let plist = [];
@@ -490,6 +510,24 @@
 
       _onEdit() {
         $router.goto("/edit-channel/" + encodeURIComponent(this._handle || ""));
+      }
+
+      _onSubscribe() {
+        $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
+          return this._refreshChannel();
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onUnsubscribe() {
+        $core.updateChannelSubscription(this.channel.id, 'unsubscribed').then(() => {
+          return this._refreshChannel();
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
       }
 
       _onCardImpression(event) {
