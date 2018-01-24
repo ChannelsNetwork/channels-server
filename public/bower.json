@@ -6,7 +6,7 @@
     "polymer": "Polymer/polymer#^2.0.0",
     "soso-router": "SosoElements/soso-router#^0.0.6",
     "soso-app-shell": "SosoElements/soso-app-shell#^0.0.1",
-    "soso-app-header": "SosoElements/soso-app-header#^0.0.2",
+    "soso-app-header": "SosoElements/soso-app-header#^0.0.3",
     "soso-icon": "SosoElements/soso-icon#^0.0.2",
     "iron-flex-layout": "^2.0.0",
     "channels-web-utils": "ChannelsNetwork/channels-web-key-utils#^0.1.3",
