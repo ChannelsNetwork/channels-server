@@ -59,7 +59,7 @@ export class ChannelManager implements RestServer, Initializable {
 
   private async poll(): Promise<void> {
     const cursor = db.getChannelUserPendingNotifications();
-    while (cursor.hasNext()) {
+    while (await cursor.hasNext()) {
       const channelUser = await cursor.next();
       if (channelUser.lastCardPosted < channelUser.lastNotification) {
         console.warn("Channel.poll: Unexpected lastCardPosted < lastNotification.  Ignoring.");
