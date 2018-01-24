@@ -341,10 +341,28 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  search(searchString, skip, limit, existingPromotedCardIds) {
-    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit, existingPromotedCardIds);
+  search(searchString, limitCards, limitChannels) {
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, limitCards, limitChannels);
     let request = this._createRequest(details);
     const url = this.restBase + "/search";
+    return this.rest.post(url, request).then((response) => {
+      return response;
+    });
+  }
+
+  searchMoreCards(searchString, skip, limit) {
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/search-more-cards";
+    return this.rest.post(url, request).then((response) => {
+      return response;
+    });
+  }
+
+  searchMoreChannels(searchString, skip, limit) {
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/search-more-channels";
     return this.rest.post(url, request).then((response) => {
       return response;
     });

@@ -394,6 +394,7 @@ export class Database {
     await this.channels.createIndex({ id: 1 }, { unique: true });
     await this.channels.createIndex({ handle: 1 }, { unique: true });
     await this.channels.createIndex({ ownerId: 1 });
+    await this.channels.createIndex({ state: 1, name: "text", handle: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 3, handle: 3, about: 1 } });
   }
 
   private async initializeChannelUsers(): Promise<void> {
@@ -1197,7 +1198,7 @@ export class Database {
     return await this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findCardsBySearch(searchText: string, skip: number, limit: number, userId: string): Promise<CardRecord[]> {
+  async findCardsBySearch(searchText: string, skip: number, limit: number): Promise<CardRecord[]> {
     const query: any = {
       state: "active",
       "curation.block": false,
@@ -2347,6 +2348,14 @@ export class Database {
 
   async findChannelsByOwnerId(ownerId: string): Promise<ChannelRecord[]> {
     return await this.channels.find<ChannelRecord>({ ownerId: ownerId }).sort({ created: 1 }).toArray();
+  }
+
+  async findChannelsBySearch(searchText: string, skip: number, limit: number): Promise<ChannelRecord[]> {
+    const query: any = {
+      state: "active",
+      $text: { $search: searchText }
+    };
+    return await this.channels.find<ChannelRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
   getChannelsByLastUpdate(lastUpdateLessThan: number): Cursor<ChannelRecord> {

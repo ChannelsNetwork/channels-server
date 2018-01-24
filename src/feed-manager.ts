@@ -8,7 +8,7 @@ import { db } from "./db";
 import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin, NetworkCardStatsHistoryRecord, NetworkCardStats } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse, SearchCardResults } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -1184,12 +1184,20 @@ export class FeedManager implements Initializable, RestServer {
     return this.urlManager.getStaticUrl("preview/" + relative, true);
   }
 
-  async search(user: UserRecord, searchString: string, skip: number, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
-    if (!limit || limit < 1 || limit > 999) {
+  async searchCards(user: UserRecord, searchString: string, skip: number, limit: number): Promise<SearchCardResults> {
+    const result: SearchCardResults = {
+      cards: [],
+      moreAvailable: false,
+      nextSkip: 0
+    };
+    if (limit === 0) {
+      return result;
+    }
+    if (limit < 1 || limit > 999) {
       limit = 50;
     }
     const culledRecords: CardRecord[] = [];
-    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1, user.id);
+    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
     if (cardRecords.length > 0) {
       const max = (cardRecords[0] as any).searchScore as number;
       for (const cardRecord of cardRecords) {
@@ -1202,8 +1210,12 @@ export class FeedManager implements Initializable, RestServer {
         }
       }
     }
-    const cards = await this.populateCards(culledRecords, false, user);
-    return await this.mergeWithAdCards(user, cards, cardRecords.length > limit, limit, existingPromotedCardIds);
+    if (cardRecords.length > limit && culledRecords.length === cardRecords.length) {
+      result.moreAvailable = true;
+      result.nextSkip = skip + limit;
+    }
+    result.cards = await this.populateCards(culledRecords, false, user);
+    return result;
   }
 
   private async handleAdminGetCards(request: Request, response: Response): Promise<void> {

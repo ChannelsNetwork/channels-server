@@ -57,6 +57,7 @@ class ChannelsNetworkWebClient {
   }
 
   async start(): Promise<void> {
+    this.started = Date.now();
     this.setupExceptionHandling();
     await this.setupConfiguration();
     await db.initialize();
@@ -75,7 +76,6 @@ class ChannelsNetworkWebClient {
     for (const initializable of this.initializables) {
       await initializable.initialize2();
     }
-    this.started = Date.now();
 
     console.log("Channels Network Server is running");
   }

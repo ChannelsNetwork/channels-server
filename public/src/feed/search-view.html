@@ -142,11 +142,11 @@
             this.$.spinner.style.display = "";
           }
         }, 100)
-        $core.search(this._searchString, 0, 24, this._promotedCardIds).then((searchResponse) => {
+        $core.search(this._searchString, 24, 24).then((searchResponse) => {
           this.$.spinner.style.display = "none";
           finished = true;
-          this._skip = searchResponse.nextSkip;
-          const cards = searchResponse.cards;
+          this._skip = searchResponse.cardResults.nextSkip;
+          const cards = searchResponse.cardResults.cards;
           for (const card of cards) {
             if (card.promoted) {
               this._promotedCardIds.push(card.id);
@@ -158,14 +158,14 @@
           } else {
             this.$.noItems.style.display = "none";
           }
-          this._onMoreUpdated(searchResponse.moreAvailable);
+          this._onMoreUpdated(searchResponse.cardResults.moreAvailable);
         });
       }
 
       _onMoreClick() {
         this.$.btnMore.disabled = true;
-        $core.search(this._searchString, this._skip, 24, this._promotedCardIds).then((searchResponse) => {
-          this._skip = searchResponse.nextSkip;
+        $core.searchMoreCards(this._searchString, this._skip, 24).then((searchResponse) => {
+          this._skip = searchResponse.cardResults.nextSkip;
           const cards = searchResponse.cards;
           for (const card of cards) {
             if (card.promoted) {

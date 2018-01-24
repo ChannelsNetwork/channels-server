@@ -513,18 +513,48 @@ export interface BankGenerateClientTokenResponse extends RestResponse {
 }
 
 export interface SearchDetails extends Signable {
-  channelId?: string;  // if within a channel
   searchString: string;
-  skip: number;
-  limit: number;
-  existingPromotedCardIds: string[];
+  limitCards: number;
+  limitChannels: number;
 }
 
 export interface SearchResponse extends RestResponse {
+  cardResults: SearchCardResults;
+  channelResults: SearchChannelResults;
+}
+
+export interface SearchMoreCardsDetails extends Signable {
+  searchString: string;
+  skip: number;
+  limit: number;
+}
+
+export interface SearchMoreCardsResponse extends RestResponse {
+  cardResults: SearchCardResults;
+}
+
+export interface SearchMoreChannelsDetails extends Signable {
+  searchString: string;
+  skip: number;
+  limit: number;
+}
+
+export interface SearchMoreChannelsResponse extends RestResponse {
+  channelResults: SearchChannelResults;
+}
+
+export interface SearchCardResults {
   cards: CardDescriptor[];
   moreAvailable: boolean;
   nextSkip: number;
 }
+
+export interface SearchChannelResults {
+  channels: ChannelDescriptor[];
+  moreAvailable: boolean;
+  nextSkip: number;
+}
+
 export interface DiscardFilesDetails extends Signable {
   fileIds: string[];
 }
