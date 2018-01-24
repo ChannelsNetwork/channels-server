@@ -572,10 +572,13 @@ export class ChannelManager implements RestServer, Initializable {
       const channelCard = await cursor.next();
       const card = await db.findCardById(channelCard.cardId, false);
       if (card) {
-        const descriptor = await cardManager.populateCardState(card.id, false, false, user);
-        cards.push(descriptor);
-        if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
-          sentChannelIds.push(channelCard.channelId);
+        const cardUser = await db.findUserCardInfo(user.id, card.id);
+        if (!cardUser || cardUser.lastOpened === 0) {
+          const descriptor = await cardManager.populateCardState(card.id, false, false, user);
+          cards.push(descriptor);
+          if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
+            sentChannelIds.push(channelCard.channelId);
+          }
         }
       }
       if (cards.length > 10) {
@@ -584,6 +587,7 @@ export class ChannelManager implements RestServer, Initializable {
     }
     await cursor.close();
     if (cards.length === 0) {
+      console.log("Channel.sendUserContentNotification: no unopened cards; skipping notification", user.id, user.identity.handle);
       return;
     }
     await db.updateUserContentNotification(user);
@@ -599,6 +603,7 @@ export class ChannelManager implements RestServer, Initializable {
     const buttons: EmailButton[] = [button];
     const templateName = cards.length > 1 ? "multi-card-notification" : "single-card-notification";
     await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "New cards for you to look at", templateName, info, buttons);
+    console.log("Channel.sendUserContentNotification: notification sent for " + cards.length + " cards", user.id, user.identity.handle);
   }
 
   async getUserDefaultChannel(user: UserRecord): Promise<ChannelRecord> {
