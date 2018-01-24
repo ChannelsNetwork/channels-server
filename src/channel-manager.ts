@@ -17,8 +17,11 @@ import * as LRU from 'lru-cache';
 import { cardManager } from "./card-manager";
 import { Cursor } from "mongodb";
 import { emailManager, EmailButton } from "./email-manager";
+import * as escapeHtml from 'escape-html';
+import { Utils } from './utils';
 
 const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
+const MAX_KEYWORDS_PER_CHANNEL = 16;
 
 export class ChannelManager implements RestServer, Initializable {
   private app: express.Application;
@@ -246,7 +249,7 @@ export class ChannelManager implements RestServer, Initializable {
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       let selectedChannelId: string;
-      const channelIds = await this.findChannelIdsByCard(card.id, 25);
+      const channelIds = await this.findChannelIdsByCard(card.id);
       if (channelIds.length > 0) {
         let found = false;
         for (const channelId of channelIds) {
@@ -296,13 +299,13 @@ export class ChannelManager implements RestServer, Initializable {
     return result;
   }
 
-  private async findChannelIdsByCard(cardId: string, limit: number): Promise<string[]> {
+  private async findChannelIdsByCard(cardId: string): Promise<string[]> {
     let result = this.channelIdsByCard.get(cardId);
     if (typeof result !== 'undefined') {
       return result;
     }
     result = [];
-    const channelCards = await db.findChannelCardsByCard(cardId, limit);
+    const channelCards = await db.findChannelCardsByCard(cardId, 100);
     for (const channelCard of channelCards) {
       result.push(channelCard.channelId);
     }
@@ -414,7 +417,7 @@ export class ChannelManager implements RestServer, Initializable {
         return;
       }
       const channel = await db.findChannelById(requestBody.detailsObject.channelId);
-      if (!channel || channel.status !== 'active') {
+      if (!channel || channel.state !== 'active') {
         response.status(404).send("No such channel");
         return;
       }
@@ -447,7 +450,7 @@ export class ChannelManager implements RestServer, Initializable {
         return;
       }
       const channel = await db.findChannelById(requestBody.detailsObject.channelId);
-      if (!channel || channel.status !== 'active') {
+      if (!channel || channel.state !== 'active') {
         response.status(404).send("No such channel");
         return;
       }
@@ -491,7 +494,7 @@ export class ChannelManager implements RestServer, Initializable {
         return;
       }
       const channel = await db.findChannelById(requestBody.detailsObject.channelId);
-      if (!channel || channel.status !== 'active') {
+      if (!channel || channel.state !== 'active') {
         response.status(404).send("No such channel");
         return;
       }
@@ -535,7 +538,28 @@ export class ChannelManager implements RestServer, Initializable {
       }
     }
     await db.updateChannelUsersForLatestUpdate(channel.id, card.postedAt);
+    await this.updateChannelKeywordsForCard(channel, card.keywords, card.postedAt);
     await this.notifySubscribers(card, channel);
+  }
+
+  private async updateChannelKeywordsForCard(channel: ChannelRecord, keywords: string[], cardPostedAt: number): Promise<void> {
+    if (!keywords || keywords.length === 0) {
+      return;
+    }
+    for (const keyword of keywords) {
+      const channelKeyword = await db.findChannelKeyword(channel.id, keyword);
+      if (channelKeyword) {
+        await db.updateChannelKeyword(channel.id, keyword, 1, channelKeyword.lastUsed < cardPostedAt ? cardPostedAt : null);
+      } else {
+        await db.insertChannelKeyword(channel.id, keyword, 1, cardPostedAt);
+      }
+    }
+    const bestKeywords = await db.findChannelKeywords(channel.id, MAX_KEYWORDS_PER_CHANNEL);
+    const newKeywords: string[] = [];
+    for (const bestKeyword of bestKeywords) {
+      newKeywords.push(bestKeyword.keyword);
+    }
+    await db.updateChannelWithKeywords(channel.id, newKeywords);
   }
 
   private async notifySubscribers(card: CardRecord, channel: ChannelRecord): Promise<void> {
@@ -581,7 +605,7 @@ export class ChannelManager implements RestServer, Initializable {
           }
         }
       }
-      if (cards.length > 10) {
+      if (cards.length >= 10) {
         break;
       }
     }
@@ -596,14 +620,67 @@ export class ChannelManager implements RestServer, Initializable {
       caption: "View feed",
       url: this.urlManager.getAbsoluteUrl("/")
     };
+    const cardTable = await this.generateContentEmail(user, cards);
     const info: any = {
-      count: cards.length
-      // TODO: information about new cards/channels
+      cardTable: cardTable
     };
     const buttons: EmailButton[] = [button];
-    const templateName = cards.length > 1 ? "multi-card-notification" : "single-card-notification";
-    await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "New cards for you to look at", templateName, info, buttons);
+    await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, cards[0].by.name + ": " + cards[0].summary.title, "content-notification", info, buttons);
     console.log("Channel.sendUserContentNotification: notification sent for " + cards.length + " cards", user.id, user.identity.handle);
+  }
+
+  private async generateContentEmail(user: UserRecord, cards: CardDescriptor[]): Promise<string> {
+    let result = "";
+    result += '<div style="width:300px;margin:0 auto;">\n';
+    result += '<div style="font-size:24px;font-family:sans-serif;margin:0 0 16px;color:black;">Subscriptions</div>\n';
+    for (const card of cards) {
+      const channel = await this.findChannelForCard(user, card);
+      result += await this.generateCardContent(user, card, channel);
+    }
+    result += '</div>\n';
+    return result;
+  }
+
+  private async findChannelForCard(user: UserRecord, card: CardDescriptor): Promise<ChannelDescriptor> {
+    const channelIds = await this.findChannelIdsByCard(card.id);
+    if (channelIds.length === 0) {
+      return null;
+    }
+    const channel = await db.findChannelById(channelIds[0]);
+    if (!channel) {
+      return null;
+    }
+    return await this.getChannelDescriptor(user, channel);
+  }
+
+  private getChannelUrl(channel: ChannelDescriptor): string {
+    return this.urlManager.getAbsoluteUrl('/channel/' + channel.handle);
+  }
+
+  private async generateCardContent(user: UserRecord, card: CardDescriptor, channel: ChannelDescriptor): Promise<string> {
+    let result = "";
+    result += '<div style="margin:15px 0 50px 0;">\n';
+    const url = channel ? this.getChannelUrl(channel) : cardManager.getCardUrl(card);
+    result += '<a href="' + url + '" style="border:0;text-decoration:none;">\n';
+    if (card.summary.imageURL) {
+      result += '<img src="' + card.summary.imageURL + '" style="width:300px;height:auto;">\n';
+    }
+    result += '<table width="300" style="font-size:15px;color:black;">\n';
+    result += '<tr>\n';
+    if (card.by.image) {
+      result += '<td style="border:0;padding:0;width:48px;">\n';
+      result += '<img src="' + card.by.image.url + '" style="width:40px;height:auto;">\n';
+      result += '</td>\n';
+    }
+    result += '<td style="border:0;padding:0 5px;">\n';
+    result += '<div style="width:250px;whitespace:no-wrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;">' + escapeHtml(Utils.truncate(card.summary.title, 38, true)) + '</div>\n';
+    result += '<div style="color:#555;font-size:85%;">' + escapeHtml(card.by.name) + '</div>\n';
+    result += '</td>\n';
+    result += '</tr>\n';
+    result += '</table>\n';
+    result += '</a>\n';
+    result += '</div>\n';
+    return result;
   }
 
   async getUserDefaultChannel(user: UserRecord): Promise<ChannelRecord> {
@@ -642,7 +719,7 @@ export class ChannelManager implements RestServer, Initializable {
       nextSkip: 0
     };
     if (limit === 0) {
-      return result;
+      limit = 12;
     }
     if (limit < 1 || limit > 999) {
       limit = 50;

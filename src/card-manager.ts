@@ -1687,6 +1687,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return result;
   }
 
+  getCardUrl(card: CardDescriptor): string {
+    return this.urlManager.getAbsoluteUrl('/c/' + card.id);
+  }
+
 }
 
 const cardManager = new CardManager();

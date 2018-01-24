@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -40,6 +40,7 @@ export class Database {
   private channelUsers: Collection;
   private channelCards: Collection;
   private userRegistrations: Collection;
+  private channelKeywords: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -74,6 +75,7 @@ export class Database {
     await this.initializeChannelUsers();
     await this.initializeChannelCards();
     await this.initializeUserRegistrations();
+    await this.initializeChannelKeywords();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -394,7 +396,7 @@ export class Database {
     await this.channels.createIndex({ id: 1 }, { unique: true });
     await this.channels.createIndex({ handle: 1 }, { unique: true });
     await this.channels.createIndex({ ownerId: 1 });
-    await this.channels.createIndex({ state: 1, name: "text", handle: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 3, handle: 3, about: 1 } });
+    await this.channels.createIndex({ state: 1, name: "text", handle: "text", keywords: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 5, handle: 5, keywords: 3, about: 1 } });
   }
 
   private async initializeChannelUsers(): Promise<void> {
@@ -415,6 +417,12 @@ export class Database {
     this.userRegistrations = this.db.collection('userRegistrations');
     await this.userRegistrations.createIndex({ userId: 1, at: -1 });
     await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
+  }
+
+  private async initializeChannelKeywords(): Promise<void> {
+    this.channelKeywords = this.db.collection('channelKeywords');
+    await this.channelKeywords.createIndex({ channelId: 1, keyword: 1 }, { unique: true });
+    await this.channelKeywords.createIndex({ channelId: 1, cardCount: -1, lastUsed: -1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -2317,7 +2325,7 @@ export class Database {
     const now = Date.now();
     const record: ChannelRecord = {
       id: uuid.v4(),
-      status: 'active',
+      state: 'active',
       handle: handle.toLowerCase(),
       name: name,
       ownerId: ownerId,
@@ -2332,7 +2340,8 @@ export class Database {
         revenue: 0
       },
       lastStatsSnapshot: 0,
-      latestCardPosted: latestCardPosted
+      latestCardPosted: latestCardPosted,
+      keywords: []
     };
     await this.channels.insertOne(record);
     return record;
@@ -2397,6 +2406,10 @@ export class Database {
 
   async updateChannelLatestCardPosted(channelId: string, cardPostedAt: number): Promise<void> {
     await this.channels.updateOne({ id: channelId }, { $set: { latestCardPosted: cardPostedAt } });
+  }
+
+  async updateChannelWithKeywords(channelId: string, keywords: string[]): Promise<void> {
+    await this.channels.updateOne({ id: channelId }, { $set: { keywords: keywords } });
   }
 
   async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
@@ -2552,6 +2565,35 @@ export class Database {
   async existsUserRegistration(userId: string, ipAddress: string, fingerprint: string): Promise<boolean> {
     const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, ipAddress: ipAddress.toLowerCase(), fingerprint: fingerprint }).limit(1).toArray();
     return record.length > 0 ? true : false;
+  }
+
+  async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {
+    const record: ChannelKeywordRecord = {
+      channelId: channelId,
+      keyword: keyword.toLowerCase(),
+      cardCount: cardCount,
+      lastUsed: lastUsed
+    };
+    await this.channelKeywords.insertOne(record);
+    return record;
+  }
+
+  async findChannelKeyword(channelId: string, keyword: string): Promise<ChannelKeywordRecord> {
+    return await this.channelKeywords.findOne<ChannelKeywordRecord>({ channelId: channelId, keyword: keyword.toLowerCase() });
+  }
+
+  async findChannelKeywords(channelId: string, limit: number): Promise<ChannelKeywordRecord[]> {
+    return await this.channelKeywords.find<ChannelKeywordRecord>({ channelId: channelId }).sort({ cardCount: -1, lastUsed: -1 }).limit(limit).toArray();
+  }
+
+  async updateChannelKeyword(channelId: string, keyword: string, incrementCardCountBy: number, lastUsed: number): Promise<void> {
+    const update: any = {
+      $inc: { cardCount: incrementCardCountBy }
+    };
+    if (lastUsed) {
+      update.$set = { lastUsed: lastUsed };
+    }
+    await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
   }
 }
 
