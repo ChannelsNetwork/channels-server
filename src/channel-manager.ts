@@ -662,14 +662,16 @@ export class ChannelManager implements RestServer, Initializable {
     result += '<div style="margin:15px 0 50px 0;">\n';
     const url = channel ? this.getChannelUrl(channel) : cardManager.getCardUrl(card);
     result += '<a href="' + url + '" style="border:0;text-decoration:none;">\n';
-    if (card.summary.imageURL) {
-      result += '<img src="' + card.summary.imageURL + '" style="width:300px;height:auto;">\n';
+    if (card.summary.imageId) {
+      const coverUrl = fileManager.getCoverImageUrl(card.summary.imageId, 300, 250);
+      result += '<img src="' + coverUrl + '" style="width:300px;height:auto;">\n';
     }
     result += '<table width="300" style="font-size:15px;color:black;">\n';
     result += '<tr>\n';
     if (card.by.image) {
       result += '<td style="border:0;padding:0;width:48px;">\n';
-      result += '<img src="' + card.by.image.url + '" style="width:40px;height:auto;">\n';
+      const userUrl = fileManager.getCircularImageUrl(card.by.image.id, 42);
+      result += '<img src="' + userUrl + '" style="width:40px;height:auto;">\n';
       result += '</td>\n';
     }
     result += '<td style="border:0;padding:0 5px;">\n';
