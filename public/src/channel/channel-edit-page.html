@@ -5,48 +5,13 @@
 <link rel="import" href="../controls/image-upload.html">
 <link rel="import" href="../controls/text-area.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+<link rel="import" href="../app/dialog-bar.html">
 
 <dom-module id="channel-edit-page">
   <template>
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
-      }
-
-      #bar {
-        height: 50px;
-        padding: 0 12px 0 0;
-        box-sizing: border-box;
-        background: #293C41;
-        color: white;
-      }
-
-      soso-icon {
-        width: 28px;
-        height: 28px;
-        padding: 10px;
-        cursor: pointer;
-        transition: color 0.15s ease;
-      }
-
-      soso-icon:hover {
-        color: var(--bg-yellow);
-      }
-
-      .title {
-        font-weight: bold;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      button.link {
-        color: var(--bg-yellow);
-        font-weight: bold;
-      }
-
-      button.link:hover {
-        box-shadow: none;
       }
 
       #container {
@@ -142,11 +107,7 @@
       }
     </style>
     <soso-app-header>
-      <div id="bar" class="horizontal layout center" on-click="_barClick">
-        <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
-        <div class="title flex">Edit Channel</div>
-        <button class="link" on-click="_onCancel">Cancel</button>
-      </div>
+      <dialog-bar text="Edit Channel" on-cancel="_onCancel"></dialog-bar>
     </soso-app-header>
     <div id="container">
       <div id="main">
@@ -186,15 +147,6 @@
           channel: Object,
           message: String
         };
-      }
-
-      _showMenu(event) {
-        event.stopPropagation();
-        $app.showMenu();
-      }
-
-      _barClick(event) {
-        $app.scrollTo(0);
       }
 
       _onCancel(event) {
