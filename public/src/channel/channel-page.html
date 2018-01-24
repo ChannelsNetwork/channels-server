@@ -235,6 +235,24 @@
         margin-top: 5px;
       }
 
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
       @media (max-width: 600px) {
         #statusBarButton {
           display: none;
@@ -242,6 +260,11 @@
 
         #bannerButtons {
           display: block;
+        }
+
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
         }
       }
     </style>
@@ -292,6 +315,7 @@
     </soso-app-header>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
     <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
+    <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
   </template>
   <script>
     class ChannelPage extends Polymer.Element {
@@ -487,6 +511,8 @@
         this.$.btnBS.classList.add("hidden");
         this.$.btnE.classList.add("hidden");
         this.$.btnBE.classList.add("hidden");
+        this.$.composeButton.classList.add("hidden");
+
         let isMe = false;
         if ($core.profile) {
           isMe = $core.profile.handle == this.channel.owner.handle;
@@ -494,6 +520,7 @@
         if (isMe) {
           this.$.btnE.classList.remove("hidden");
           this.$.btnBE.classList.remove("hidden");
+          this.$.composeButton.classList.remove("hidden");
         } else {
           switch (this.channel.subscriptionState) {
             case "subscribed":
@@ -570,6 +597,18 @@
             $router.goto("/c/" + encodeURIComponent(card.id), context);
           }
         }
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        let context = {};
+        if (this._handle) {
+          context.returnPath = "/channel/" + encodeURIComponent(this._handle);
+        }
+        $router.goto("/compose", context);
       }
     }
     window.customElements.define(ChannelPage.is, ChannelPage);
