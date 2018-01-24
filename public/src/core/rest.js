@@ -504,15 +504,36 @@ class RestUtils {
     };
   }
 
-  static search(address, fingerprint, searchString, skip, limit, existingPromotedCardIds) {
+  static search(address, fingerprint, searchString, limitCards, limitChannels) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      searchString: searchString,
+      limitCards: limitCards,
+      limitChannels: limitChannels
+    };
+  }
+
+  static searchMoreCards(address, fingerprint, searchString, skip, limit) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       searchString: searchString,
       skip: skip,
-      limit: limit,
-      existingPromotedCardIds: existingPromotedCardIds
+      limit: limit
+    };
+  }
+
+  static searchMoreChannels(address, fingerprint, searchString, skip, limit) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      searchString: searchString,
+      skip: skip,
+      limit: limit
     };
   }
 

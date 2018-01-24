@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -140,20 +140,7 @@ export class ChannelManager implements RestServer, Initializable {
         response.status(404).send("No such channel");
         return;
       }
-      const userChannel = await this.ensureChannelUser(record, user);
-      const channel: ChannelDescriptor = {
-        id: record.id,
-        name: record.name,
-        handle: record.handle,
-        bannerImage: await fileManager.getFileInfo(record.bannerImageFileId),
-        owner: await userManager.getUserDescriptor(record.ownerId, false),
-        created: record.created,
-        about: record.about,
-        linkUrl: record.linkUrl,
-        socialLinks: record.socialLinks,
-        stats: record.stats,
-        subscriptionState: userChannel.subscriptionState ? userChannel.subscriptionState : "unsubscribed"
-      };
+      const channel = await this.getChannelDescriptor(user, record);
       const registerResponse: GetChannelResponse = {
         serverVersion: SERVER_VERSION,
         channel: channel
@@ -163,6 +150,32 @@ export class ChannelManager implements RestServer, Initializable {
       console.error("ChannelManager.handleGetChannel: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async getChannelDescriptor(user: UserRecord, record: ChannelRecord): Promise<ChannelDescriptor> {
+    const userChannel = await this.ensureChannelUser(record, user);
+    const channel: ChannelDescriptor = {
+      id: record.id,
+      name: record.name,
+      handle: record.handle,
+      bannerImage: await fileManager.getFileInfo(record.bannerImageFileId),
+      owner: await userManager.getUserDescriptor(record.ownerId, false),
+      created: record.created,
+      about: record.about,
+      linkUrl: record.linkUrl,
+      socialLinks: record.socialLinks,
+      stats: record.stats,
+      subscriptionState: userChannel.subscriptionState ? userChannel.subscriptionState : "unsubscribed"
+    };
+    return channel;
+  }
+
+  private async getChannelDescriptors(user: UserRecord, records: ChannelRecord[]): Promise<ChannelDescriptor[]> {
+    const result: ChannelDescriptor[] = [];
+    for (const record of records) {
+      result.push(await this.getChannelDescriptor(user, record));
+    }
+    return result;
   }
 
   private async handleGetChannels(request: Request, response: Response): Promise<void> {
@@ -617,6 +630,39 @@ export class ChannelManager implements RestServer, Initializable {
     await db.removeChannelCardsByCard(card.id);
   }
 
+  async searchChannels(user: UserRecord, searchString: string, skip: number, limit: number): Promise<SearchChannelResults> {
+    const result: SearchChannelResults = {
+      channels: [],
+      moreAvailable: false,
+      nextSkip: 0
+    };
+    if (limit === 0) {
+      return result;
+    }
+    if (limit < 1 || limit > 999) {
+      limit = 50;
+    }
+    const culledRecords: ChannelRecord[] = [];
+    const channels = await db.findChannelsBySearch(searchString, skip, limit + 1);
+    if (channels.length > 0) {
+      const max = (channels[0] as any).searchScore as number;
+      for (const channel of channels) {
+        console.log("search result: ", (channel as any).searchScore, channel.handle, channel.name);
+        const score = (channel as any).searchScore as number;
+        if (score > max / 2) {
+          culledRecords.push(channel);
+        } else {
+          break;
+        }
+      }
+    }
+    if (channels.length > limit && culledRecords.length === channels.length) {
+      result.moreAvailable = true;
+      result.nextSkip = skip + limit;
+    }
+    result.channels = await this.getChannelDescriptors(user, culledRecords);
+    return result;
+  }
 }
 
 const channelManager = new ChannelManager();
