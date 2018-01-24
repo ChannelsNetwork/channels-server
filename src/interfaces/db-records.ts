@@ -550,6 +550,7 @@ export interface ChannelRecord {
   stats: ChannelStats;
   lastStatsSnapshot: number;
   latestCardPosted: number;
+  keywords: string[];
 }
 
 export type ChannelStatus = "active" | "deleted";
@@ -596,4 +597,11 @@ export interface UserRegistrationRecord {
   address: string;
   referrer: string;
   landingPage: string;
+}
+
+export interface ChannelKeywordRecord {
+  channelId: string;
+  keyword: string;
+  cardCount: number;
+  lastUsed: number;
 }

@@ -119,4 +119,14 @@ export class Utils {
     const result = parseFullName(name);
     return result.last;
   }
+
+  static truncate(value: string, maxLength: number, useEllipsis: boolean): string {
+    if (!value) {
+      return value;
+    }
+    if (value.length <= maxLength) {
+      return value;
+    }
+    return useEllipsis ? value.substr(0, maxLength - 3) + '...' : value.substr(0, maxLength);
+  }
 }
