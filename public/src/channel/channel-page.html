@@ -3,6 +3,7 @@
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../feed/card-feed.html">
 
 <dom-module id="channel-page">
   <template>
@@ -200,6 +201,29 @@
         display: none;
       }
 
+      #feed {
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding: 20px 0;
+      }
+
+      #noItems {
+        padding: 40px 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      #titleBar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        pointer-events: none;
+        opacity: 0;
+      }
+
       @media (max-width: 600px) {
         #statusBarButton {
           display: none;
@@ -210,7 +234,7 @@
         }
       }
     </style>
-    <soso-app-header collapse-height="50" on-collapse-change="_onHeaderCollapse">
+    <soso-app-header id="header" collapse-height="50" on-collapse-change="_onHeaderCollapse">
       <channels-bar id="cbar"></channels-bar>
       <div id="banner">
         <div id="bannerButtons">
@@ -250,8 +274,10 @@
           </div>
         </div>
       </div>
+      <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
     </soso-app-header>
-    <div style="height: 100vh;"></div>
+    <div id="noItems" class="hidden">There are no cards in this channel.</div>
+    <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
   </template>
   <script>
     class ChannelPage extends Polymer.Element {
@@ -318,12 +344,6 @@
 
           this._handle = handle;
           window.__dirtyFeed = false;
-          this.channel = null;
-          this.items = [];
-          this.promotedItems = [];
-          this._fetchTimestamp = (new Date()).getTime();
-          this._promotedCardIds = [];
-
           this._refreshChannel();
         });
       }
@@ -333,15 +353,34 @@
         window.removeEventListener("resize", this._resizeListener);
       }
 
-      _onHeaderCollapse() {
-
+      _onHeaderCollapse(event) {
+        let ratio = event.detail.ratio;
+        if (ratio > 0.9) {
+          this.$.userContent.style.opacity = 9 - (9 * ratio);
+          this.$.titleBar.style.opacity = (9 * ratio) - 8;
+          this.$.titleBar.style.pointerEvents = "auto";
+        } else {
+          this.$.userContent.style.opacity = 1;
+          this.$.titleBar.style.opacity = 0;
+          this.$.titleBar.style.pointerEvents = "none";
+        }
       }
 
       _onResize() {
+        this.$.header.measureHeader();
+        setTimeout(() => {
+          this.$.header.measureHeader();
+        }, 100);
+        this.$.feed.refreshLayout();
       }
 
       _refreshChannel() {
+        this.channel = null;
         this.stats = [];
+        this.items = [];
+        this.promotedItems = [];
+        this._promotedCardIds = [];
+        this._fetchTimestamp = (new Date()).getTime();
         $core.getChannelByOwnerHandle(this._handle).then(response => {
           this.channel = response.channel;
         }).catch(err => {
@@ -378,7 +417,45 @@
           }
           this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
           console.log(this.channel);
+
+          setTimeout(() => {
+            this.$.header.measureHeader();
+          }, 100);
+          setTimeout(() => {
+            this.$.header.measureHeader();
+          }, 1000);
+
+          this._refreshFeed();
         }
+      }
+
+      _refreshFeed() {
+        this.items = [];
+        this.promotedItems = [];
+        this._promotedCardIds = [];
+        return $core.getFeed("channel", 100, null, null, this._handle, []).then((feed) => {
+          let list = [];
+          let plist = [];
+          for (let i = 0; i < feed.cards.length; i++) {
+            if (feed.cards[i].promoted) {
+              plist.push(feed.cards[i]);
+              this._promotedCardIds.push(feed.cards[i].id);
+            } else {
+              list.push(feed.cards[i]);
+            }
+          }
+          this.items = list;
+          this.promotedItems = plist;
+          if (this.items.length) {
+            this.$.noItems.classList.add("hidden");
+          } else {
+            this.$.noItems.classList.remove("hidden");
+          }
+          console.log("cards", this.items, this.promotedItems);
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
       }
 
       _refreshButtons() {
@@ -413,6 +490,46 @@
 
       _onEdit() {
         $router.goto("/edit-channel/" + encodeURIComponent(this._handle || ""));
+      }
+
+      _onCardImpression(event) {
+        let card = event.detail.card;
+        let view = event.detail.view;
+        if (card && view) {
+          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
+            $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+          } else {
+            $core.cardImpression(card.id);
+          }
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
+            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
+              return this.$.insufficientFunds.show().then((result) => {
+                if (result && result.page && result.page === "balance") {
+                  $router.goto("/balance");
+                }
+              });
+            });
+          } else {
+            let context = {
+              card: card,
+              scrollTop: $app.scrollValue
+            };
+            if (this._handle) {
+              context.returnPath = "/channel/" + encodeURIComponent(this._handle);
+            }
+            $router.updateContext({
+              scrollTop: $app.scrollValue
+            });
+            $router.goto("/c/" + encodeURIComponent(card.id), context);
+          }
+        }
       }
     }
     window.customElements.define(ChannelPage.is, ChannelPage);
