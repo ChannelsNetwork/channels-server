@@ -621,7 +621,7 @@ class CoreService extends Polymer.Element {
 
   // export type ChannelFeedType = "recommended" | "new" | "subscribed" | "blocked";
   getChannels(feedType, maxCount, nextPageRef) {
-    let details = RestUtils.getChannelsDetails(this._keys.address, this._fingerprint, feedType, maxChannels, nextPageRef);
+    let details = RestUtils.getChannelsDetails(this._keys.address, this._fingerprint, feedType, maxCount, nextPageRef);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-channels";
     return this.rest.post(url, request);
