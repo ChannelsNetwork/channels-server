@@ -359,7 +359,7 @@ export class FileManager implements RestServer {
   }
 
   getCoverImageUrl(fileId: string, width: number, height: number): string {
-    return this.urlManager.getAbsoluteUrl('/img/' + fileId + "?" + (width ? "w=" + width + "&" : "") + (height ? "h=" + height : "");
+    return this.urlManager.getAbsoluteUrl('/img/' + fileId + "?" + (width ? "w=" + width + "&" : "") + (height ? "h=" + height : ""));
   }
 
   getCircularImageUrl(fileId: string, diameter: number): string {
