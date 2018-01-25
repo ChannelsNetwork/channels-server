@@ -769,9 +769,15 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       // First try search using the provided string as a phrase
       channelRecords = await db.findChannelsBySearch('"' + searchString + '"', skip, limit + 1);
       moreAvailable = channelRecords.length > limit;
+      for (const channel of channelRecords) {
+        console.log("Channel.searchChannels: phrase-based score", (channel as any).searchScore, channel.handle, channel.id);
+      }
     }
     if (channelRecords.length === 0) {
       channelRecords = await db.findChannelsBySearch(searchString, skip, limit + 1);
+      for (const channel of channelRecords) {
+        console.log("Channel.searchChannels: score", (channel as any).searchScore, channel.handle, channel.id);
+      }
       if (channelRecords.length > 0) {
         if (channelRecords.length > 10) {
           const culledRecords: ChannelRecord[] = [];
