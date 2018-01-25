@@ -479,7 +479,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       let emailConfirmed: boolean;
       let sendConfirmation = false;
       if (requestBody.detailsObject.emailAddress) {
-        if (!user.identity || !user.identity.emailAddress || requestBody.detailsObject.emailAddress !== requestBody.detailsObject.emailAddress) {
+        if (!user.identity || !user.identity.emailAddress || requestBody.detailsObject.emailAddress !== user.identity.emailAddress) {
           sendConfirmation = true;
           emailConfirmed = false;
         }
