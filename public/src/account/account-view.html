@@ -1,5 +1,8 @@
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/styles.html">
 <link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
 
@@ -27,6 +30,11 @@
         margin-bottom: 20px;
       }
 
+      h3 {
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+      }
+
       .handle {
         color: #555;
         font-size: 16px;
@@ -41,11 +49,26 @@
       }
 
       #emailConfirmPanel {
+        padding: 20px 0 0;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 30px;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+        text-align: left;
+      }
+
+      #emailConfirmPanel soso-icon {
+        margin-right: 5px;
+        color: var(--highlight-green);
+      }
+
+      #emailSettingsPanel {
         padding: 20px 0;
         border-top: 1px solid #e5e5e5;
         margin-top: 30px;
         font-size: 16px;
         letter-spacing: 0.03em;
+        text-align: left;
       }
 
       #emailConfirmPanel button {
@@ -55,6 +78,10 @@
       #codeSent {
         margin-top: 10px;
         color: var(--dark-green);
+      }
+
+      soso-checkbox {
+        margin-top: 5px;
       }
     </style>
     <soso-app-header collapse-height="50">
@@ -71,11 +98,19 @@
         <button on-click="_onSignOut">Sign out</button>
       </div>
       <div id="emailConfirmPanel" class="hidden">
-        <div>Your email address has not been confirmed. Check your inbox for a confirmation email, or request a new confirmation
-          code.
+        <div>
+          <soso-icon icon="notifications-active"></soso-icon>
+          <span>Your email address has not been confirmed. Check your inbox for a confirmation email, or request a new confirmation
+            code.
+          </span>
         </div>
         <button on-click="_requestCode">Request new code</button>
         <div id="codeSent" class="hidden">Request code sent.</div>
+      </div>
+      <div id="emailSettingsPanel" class="hidden">
+        <h3>Email Settings</h3>
+        <soso-checkbox id="chkGeneral" on-change="_updateSettings" label="Email me about new and interesting updates to Channels"></soso-checkbox>
+        <soso-checkbox id="chkSubscription" on-change="_updateSettings" label="Email me about new content based on my subscriptions"></soso-checkbox>
       </div>
     </div>
   </template>
@@ -106,6 +141,10 @@
           } else {
             this.$.emailConfirmPanel.classList.remove("hidden");
           }
+
+          this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
+          this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
+          this.$.emailSettingsPanel.classList.remove("hidden");
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -135,6 +174,22 @@
         $core.requestEmailConfirmation().then(() => {
           this.$.codeSent.classList.remove("hidden");
         });
+      }
+
+      _updateSettings() {
+        if (!this._pendingUpdate) {
+          this._pendingUpdate = true;
+          setTimeout(() => {
+            this._pendingUpdate = false;
+            let settings = this.profile.accountSettings;
+            settings.disallowPlatformEmailAnnouncements = !(this.$.chkGeneral.checked);
+            settings.disallowContentEmailAnnouncements = !(this.$.chkSubscription.checked);
+            $core.updateAccountSettings(settings).catch((err) => {
+              console.error(err);
+              $app.showError(err);
+            });
+          }, 1200);
+        }
       }
 
     }
