@@ -190,7 +190,7 @@ export class Database {
     await this.cards.createIndex({ type: 1, postedAt: -1 });  // findCardMostRecentByType
     await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });  // findCardsForScoring, findCardsByTime
     await this.cards.createIndex({ state: 1, "curation.block": 1, "budget.available": 1, private: 1, postedAt: -1 }); // findCardsWithAvailableBudget
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 10, "summary.text": 5, "keywords": 7, "by.name": 5, "by.handle": 5 } }); // findCardsBySearch
+    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 4, "summary.text": 4, "keywords": 4, "by.name": 4, "by.handle": 4 } }); // findCardsBySearch
     await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
     await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "stats.revenue.value": -1 }); // findCardsByRevenue
     await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore

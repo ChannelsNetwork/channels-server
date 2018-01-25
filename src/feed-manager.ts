@@ -1205,27 +1205,36 @@ export class FeedManager implements Initializable, RestServer {
       // First try search using the provided string as a phrase
       cardRecords = await db.findCardsBySearch('"' + searchString + '"', skip, limit + 1);
       moreAvailable = cardRecords.length > limit;
+      for (const card of cardRecords) {
+        console.log("Feed.searchCards: phrase-based card score", (card as any).searchScore, card.summary.title, card.id);
+      }
     }
     if (cardRecords.length === 0) {
       cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
+      for (const card of cardRecords) {
+        console.log("Feed.searchCards: card score", (card as any).searchScore, card.summary.title, card.id);
+      }
       if (cardRecords.length > 0) {
-        const culledRecords: CardRecord[] = [];
-        const max = (cardRecords[0] as any).searchScore as number;
-        for (const cardRecord of cardRecords) {
-          console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
-          const score = (cardRecord as any).searchScore as number;
-          if (score > max / 3) {
-            culledRecords.push(cardRecord);
-          } else {
-            break;
+        // If lots of results, then cull based on scores, discarding scores that are a lot lower than the max
+        if (cardRecords.length > 10) {
+          let culledRecords: CardRecord[] = [];
+          const max = (cardRecords[0] as any).searchScore as number;
+          for (const cardRecord of cardRecords) {
+            const score = (cardRecord as any).searchScore as number;
+            if (score > max / 4) {
+              culledRecords.push(cardRecord);
+            } else {
+              break;
+            }
           }
+          moreAvailable = cardRecords.length === culledRecords.length && cardRecords.length === limit;
+          cardRecords = culledRecords;
         }
-        moreAvailable = cardRecords.length === culledRecords.length;
-        cardRecords = culledRecords;
       }
     }
     if (moreAvailable) {
       result.moreAvailable = true;
+      cardRecords = cardRecords.slice(0, limit);
       result.nextSkip = skip + limit;
     }
     result.cards = await this.populateCards(request, cardRecords, false, user);
