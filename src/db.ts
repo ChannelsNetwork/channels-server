@@ -7,6 +7,7 @@ import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
+import { errorManager } from "./error-manager";
 
 const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
 export class Database {
@@ -273,7 +274,7 @@ export class Database {
       try {
         await this.subsidyBalance.insertOne(record);
       } catch (err) {
-        console.error("Db.initializeSubsidyBalance: collision adding initial record");
+        errorManager.error("Db.initializeSubsidyBalance: collision adding initial record", null);
       }
     }
   }
@@ -1329,7 +1330,7 @@ export class Database {
       };
       await this.mutationIndexes.insert(record);
     } catch (err) {
-      console.warn("Db.ensureMutationIndex: race condition");
+      errorManager.warning("Db.ensureMutationIndex: race condition", null);
     }
   }
 
@@ -2224,7 +2225,7 @@ export class Database {
         return;
       }
     }
-    console.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions");
+    errorManager.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions", null);
   }
 
   async incrementNetworkCardStatBlockedOpens(periodStarting: number, blockedPaidOpens: number): Promise<void> {

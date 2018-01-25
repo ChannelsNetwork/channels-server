@@ -109,7 +109,7 @@ export class ChannelManager implements RestServer, Initializable {
   private async handleGetChannel(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetChannelDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -184,13 +184,13 @@ export class ChannelManager implements RestServer, Initializable {
   private async handleGetChannels(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetChannelsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
       requestBody.detailsObject = JSON.parse(requestBody.details);
       console.log("ChannelManager.get-channels:", request.headers, requestBody.detailsObject);
-      const listInfo = await this.getChannels(user, requestBody.detailsObject.type || "recommended", requestBody.detailsObject.maxChannels || 24, requestBody.detailsObject.maxCardsPerChannel || 4, requestBody.detailsObject.nextPageReference, response);
+      const listInfo = await this.getChannels(user, requestBody.detailsObject.type || "recommended", requestBody.detailsObject.maxChannels || 24, requestBody.detailsObject.maxCardsPerChannel || 4, requestBody.detailsObject.nextPageReference, request, response);
       const registerResponse: GetChannelsResponse = {
         serverVersion: SERVER_VERSION,
         channels: listInfo.channels,
@@ -203,14 +203,14 @@ export class ChannelManager implements RestServer, Initializable {
     }
   }
 
-  private async getChannels(user: UserRecord, type: ChannelFeedType, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string, response: Response): Promise<ChannelsListInfo> {
+  private async getChannels(user: UserRecord, type: ChannelFeedType, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string, request: Request, response: Response): Promise<ChannelsListInfo> {
     let listResult: ChannelsRecordsInfo;
     switch (type) {
       case "recommended":
-        listResult = await this.getRecommendedChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
+        listResult = await this.getRecommendedChannels(request, user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
       case "new":
-        listResult = await this.getNewChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
+        listResult = await this.getNewChannels(request, user, maxChannels, maxCardsPerChannel, nextPageReference);
         break;
       case "subscribed":
         listResult = await this.getSubscribedChannels(user, maxChannels, maxCardsPerChannel, nextPageReference);
@@ -235,7 +235,7 @@ export class ChannelManager implements RestServer, Initializable {
     return result;
   }
 
-  private async getRecommendedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+  private async getRecommendedChannels(request: Request, user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     if (!maxChannels) {
       maxChannels = 50;
     }
@@ -312,7 +312,7 @@ export class ChannelManager implements RestServer, Initializable {
     return result;
   }
 
-  private async getNewChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+  private async getNewChannels(request: Request, user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     let lastUpdateLessThan: number;
     if (nextPageReference) {
       const afterRecord = await db.findChannelById(nextPageReference);
@@ -332,7 +332,7 @@ export class ChannelManager implements RestServer, Initializable {
         break;
       }
       const channelUser = await db.findChannelUser(channel.id, user.id);
-      const cards = await this.populateChannelCardsSince(user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
+      const cards = await this.populateChannelCardsSince(request, user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
       if (cards.length > 0) {  // Don't list a channel if no cards to show
         result.records.push(channel);
       }
@@ -341,11 +341,11 @@ export class ChannelManager implements RestServer, Initializable {
     return result;
   }
 
-  private async populateChannelCardsSince(user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
+  private async populateChannelCardsSince(request: Request, user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
     const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
     const result: CardDescriptor[] = [];
     for (const channelCard of channelCards) {
-      const descriptor = await cardManager.populateCardState(channelCard.cardId, false, false, user);
+      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, user);
       result.push(descriptor);
     }
     return result;
@@ -407,7 +407,7 @@ export class ChannelManager implements RestServer, Initializable {
   private async handleUpdateChannel(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<UpdateChannelDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -440,7 +440,7 @@ export class ChannelManager implements RestServer, Initializable {
   private async handleUpdateChannelSubscription(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<UpdateChannelSubscriptionDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -484,7 +484,7 @@ export class ChannelManager implements RestServer, Initializable {
   private async handleReportChannelVisit(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<ReportChannelVisitDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -598,7 +598,7 @@ export class ChannelManager implements RestServer, Initializable {
       if (card) {
         const cardUser = await db.findUserCardInfo(user.id, card.id);
         if (!cardUser || cardUser.lastOpened === 0) {
-          const descriptor = await cardManager.populateCardState(card.id, false, false, user);
+          const descriptor = await cardManager.populateCardState(null, card.id, false, false, user);
           cards.push(descriptor);
           if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
             sentChannelIds.push(channelCard.channelId);

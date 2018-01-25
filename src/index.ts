@@ -37,6 +37,7 @@ import { searchManager } from "./search-manager";
 import { clientServices } from "./client-services";
 import { adminManager } from "./admin-manager";
 import { channelManager } from "./channel-manager";
+import { errorManager } from "./error-manager";
 
 const xFrameOptions = require('x-frame-options');
 
@@ -47,7 +48,7 @@ class ChannelsNetworkWebClient {
   private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager, channelManager];
 
   // DO NOT INCLUDE rootPageHandler in restServers. It is added after adding the static handler
-  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager, channelManager];
+  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager, channelManager, errorManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
@@ -92,13 +93,13 @@ class ChannelsNetworkWebClient {
       console.log(code, signal);
     });
 
-    process.on('unhandledRejection', (reason: any) => {
-      console.error("Unhandled Rejection!", JSON.stringify(reason), reason.stack);
-    });
+    // process.on('unhandledRejection', (reason: any) => {
+    //   errorManager.error("Unhandled Rejection!", JSON.stringify(reason), reason.stack);
+    // });
 
-    process.on('uncaughtException', (err: any) => {
-      console.error("Unhandled Exception!", err.toString(), err.stack);
-    });
+    // process.on('uncaughtException', (err: any) => {
+    //   errorManager.error("Unhandled Exception!", err.toString(), err.stack);
+    // });
   }
 
   private async setupConfiguration(): Promise<void> {
@@ -181,7 +182,7 @@ class ChannelsNetworkWebClient {
 
     this.server.listen(configuration.get('client.port'), (err: any) => {
       if (err) {
-        console.error("Failure listening", err);
+        errorManager.error("Failure listening", err);
         process.exit();
       } else {
         console.log("Listening for client connections on port " + configuration.get('client.port'));

@@ -25,6 +25,7 @@ import fetch from "node-fetch";
 import { fileManager } from "./file-manager";
 import * as LRU from 'lru-cache';
 import { channelManager } from "./channel-manager";
+import { errorManager } from "./error-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -97,7 +98,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
     const withdrawals = await db.listManualWithdrawals(1000);
     for (const withdrawal of withdrawals) {
-      const user = await db.findUserById(withdrawal.userId);
+      const user = await this.getUser(withdrawal.userId, true);
       if (user) {
         if (!user.lastWithdrawal || withdrawal.created > user.lastWithdrawal) {
           console.log("User.initialize2: Updating user last withdrawal", user.id, withdrawal.created);
@@ -253,7 +254,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(reward, null, true, false);
+          await networkEntity.performBankTransaction(request, reward, null, true, false);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -274,7 +275,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(grant, null, true, false);
+        await networkEntity.performBankTransaction(request, grant, null, true, false);
         userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
@@ -288,13 +289,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(inviteeRewardDetails, null, true, false);
+          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false);
           userRecord.balance += inviteeReward;
         }
       }
       await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
 
-      const userStatus = await this.getUserStatus(userRecord, true);
+      const userStatus = await this.getUserStatus(request, userRecord, true);
       const registerResponse: RegisterUserResponse = {
         serverVersion: SERVER_VERSION,
         status: userStatus,
@@ -311,7 +312,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(registerResponse);
     } catch (err) {
-      console.error("User.handleRegisterUser: Failure", err);
+      errorManager.error("User.handleRegisterUser: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -350,13 +351,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             return await db.insertIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
           }
         } else {
-          console.warn("User.initiateIpAddressUpdate: invalid response from ipapi", json);
+          errorManager.warning("User.initiateIpAddressUpdate: invalid response from ipapi", null, json);
         }
       } else {
-        console.warn("User.initiateIpAddressUpdate: unexpected response from ipapi", fetchResponse);
+        errorManager.warning("User.initiateIpAddressUpdate: unexpected response from ipapi", null, fetchResponse);
       }
     } catch (err) {
-      console.warn("User.initiateIpAddressUpdate: failure fetching IP geo info", err);
+      errorManager.warning("User.initiateIpAddressUpdate: failure fetching IP geo info", null, err);
     }
     return null;
   }
@@ -386,7 +387,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleSignIn: Failure", err);
+      errorManager.error("User.handleSignIn: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -415,7 +416,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   //     const reply: RegisterDeviceResponse = { success: true };
   //     response.json(reply);
   //   } catch (err) {
-  //     console.error("User.handleRegisterDevice: Failure", err);
+  //     errorManager.error("User.handleRegisterDevice: Failure", err);
   //     response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
   //   }
   // }
@@ -423,19 +424,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleStatus(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<UserStatusDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
       // console.log("UserManager.status", requestBody.detailsObject.address);
-      const status = await this.getUserStatus(user, false);
+      const status = await this.getUserStatus(request, user, false);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
       };
       response.json(result);
     } catch (err) {
-      console.error("User.handleStatus: Failure", err);
+      errorManager.error("User.handleStatus: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -443,7 +444,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleUpdateIdentity(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<UpdateUserIdentityDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -505,7 +506,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleUpdateIdentity: Failure", err);
+      errorManager.error("User.handleUpdateIdentity: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -552,7 +553,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleRequestRecoveryCode: Failure", err);
+      errorManager.error("User.handleRequestRecoveryCode: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -560,7 +561,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleRecoverUser(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RecoverUserDetails>;
-      const registeredUser = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const registeredUser = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!registeredUser) {
         return;
       }
@@ -592,7 +593,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.recover-user", requestBody.detailsObject);
       await db.deleteUser(registeredUser.id);
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
-      const status = await this.getUserStatus(user, true);
+      const status = await this.getUserStatus(request, user, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
         status: status,
@@ -606,7 +607,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(result);
     } catch (err) {
-      console.error("User.handleRecoverUser: Failure", err);
+      errorManager.error("User.handleRecoverUser: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -614,7 +615,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleGetIdentity(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetUserIdentityDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -631,7 +632,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetIdentity: Failure", err);
+      errorManager.error("User.handleGetIdentity: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -639,7 +640,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleGetHandle(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetHandleDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -662,7 +663,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetHandle: Failure", err);
+      errorManager.error("User.handleGetHandle: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -670,7 +671,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -725,7 +726,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleAdminGetUsers(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminGetUsersDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -773,7 +774,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminGetUsers: Failure", err);
+      errorManager.error("User.handleAdminGetUsers: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -781,7 +782,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleAdminSetUserMailingList(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminSetUserMailingListDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -801,7 +802,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminSetUserMailingList: Failure", err);
+      errorManager.error("User.handleAdminSetUserMailingList: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -809,7 +810,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleAdminSetUserCuration(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminSetUserCurationDetails>;
-      const admin = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const admin = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!admin) {
         return;
       }
@@ -848,7 +849,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminSetUserCuration: Failure", err);
+      errorManager.error("User.handleAdminSetUserCuration: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -869,7 +870,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const requestBody = request.body as RestRequest<CheckHandleDetails>;
       let user: UserRecord;
       if (requestBody.signature) {
-        user = await RestHelper.validateRegisteredRequest(requestBody, response);
+        user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
         if (!user) {
           return;
         }
@@ -901,14 +902,14 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       response.json(reply);
     } catch (err) {
-      console.error("User.handleCheckHandle: Failure", err);
+      errorManager.error("User.handleCheckHandle: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
-  async getUserStatus(user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
+  async getUserStatus(request: Request, user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
     if (updateBalance) {
-      await this.updateUserBalance(user);
+      await this.updateUserBalance(request, user);
     }
     const network = await db.getNetwork();
     let timeUntilNextAllowedWithdrawal = 0;
@@ -968,11 +969,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const now = Date.now();
     const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
     for (const user of users) {
-      await this.updateUserBalance(user);
+      await this.updateUserBalance(null, user);
     }
   }
 
-  async updateUserBalance(user: UserRecord): Promise<void> {
+  async updateUserBalance(request: Request, user: UserRecord): Promise<void> {
     const now = Date.now();
     let subsidy = 0;
     let balanceBelowTarget = false;
@@ -1001,7 +1002,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(subsidyDetails, null, false, false);
+        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1024,7 +1025,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(grant, null, true, false);
+        await networkEntity.performBankTransaction(request, grant, null, true, false);
       }
     }
   }

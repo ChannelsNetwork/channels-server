@@ -9,6 +9,7 @@ import { SERVER_VERSION } from "./server-version";
 import { UrlManager } from "./url-manager";
 import { RestRequest, SearchDetails, SearchResponse, SearchMoreCardsDetails, SearchMoreCardsResponse, SearchMoreChannelsResponse, SearchMoreChannelsDetails } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
+import { errorManager } from "./error-manager";
 import { feedManager } from "./feed-manager";
 import { channelManager } from "./channel-manager";
 
@@ -37,7 +38,7 @@ export class SearchManager implements RestServer {
   private async handleSearch(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<SearchDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -46,7 +47,7 @@ export class SearchManager implements RestServer {
         return;
       }
       console.log("SearchManager.search", requestBody.detailsObject);
-      const cardResults = await feedManager.searchCards(user, requestBody.detailsObject.searchString, 0, requestBody.detailsObject.limitCards);
+      const cardResults = await feedManager.searchCards(request, user, requestBody.detailsObject.searchString, 0, requestBody.detailsObject.limitCards);
       const channelResults = await channelManager.searchChannels(user, requestBody.detailsObject.searchString, 0, requestBody.detailsObject.limitChannels);
       const reply: SearchResponse = {
         serverVersion: SERVER_VERSION,
@@ -63,7 +64,7 @@ export class SearchManager implements RestServer {
   private async handleSearchMoreCards(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<SearchMoreCardsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -72,7 +73,7 @@ export class SearchManager implements RestServer {
         return;
       }
       console.log("SearchManager.handleSearchMoreCards", requestBody.detailsObject);
-      const cardResults = await feedManager.searchCards(user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit);
+      const cardResults = await feedManager.searchCards(request, user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit);
       const reply: SearchMoreCardsResponse = {
         serverVersion: SERVER_VERSION,
         cardResults: cardResults
@@ -87,7 +88,7 @@ export class SearchManager implements RestServer {
   private async handleSearchMoreChannels(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<SearchMoreChannelsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -103,7 +104,7 @@ export class SearchManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("Search.handleSearchMoreChannels: Failure", err);
+      errorManager.error("Search.handleSearchMoreChannels: Failure", request, err);
       response.status(err.code && err.code >= 400 ? err.code : 500).send(err.message ? err.message : err);
     }
   }

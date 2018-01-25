@@ -23,6 +23,7 @@ import * as LRU from 'lru-cache';
 import * as Jimp from 'jimp';
 const imageProbe = require('probe-image-size');
 import path = require('path');
+import { errorManager } from "./error-manager";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -69,15 +70,15 @@ export class FileManager implements RestServer {
       const fileRecord = await this.getFile(fileId, true);
       if (fileRecord) {
         if (fileRecord.ownerId !== user.id) {
-          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not owned by this user", user.id, fileRecord);
+          errorManager.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not owned by this user", null, user.id, fileRecord);
         } else if (fileRecord.status === "complete") {
           console.log("FileManager.finalizeFiles: setting state of file to 'final'", fileRecord);
           await db.updateFileStatus(fileRecord, "final");
         } else {
-          console.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not currently 'complete'", fileRecord);
+          errorManager.error("FileManager.finalizeFiles: Ignoring request to finalize a file that is not currently 'complete'", null, fileRecord);
         }
       } else {
-        console.error("FileManager.finalizeFiles: Ignoring request to finalize a missing file", fileId);
+        errorManager.error("FileManager.finalizeFiles: Ignoring request to finalize a missing file", null, fileId);
       }
     }
   }
@@ -169,7 +170,7 @@ export class FileManager implements RestServer {
       console.log("FileManager.handleUpload uploading to S3", filename);
       await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
     } catch (err) {
-      console.error("File.handleUploadStart: Failure", err);
+      errorManager.error("File.handleUploadStart: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -200,7 +201,7 @@ export class FileManager implements RestServer {
     await db.updateFileProgress(fileRecord, user.id, filename, encoding, mimetype, key, 'uploading');
     const upload = this.s3StreamUploader.upload(destination);
     upload.on('error', (err) => {
-      console.warn("FileManager.uploadS3: upload failed", err);
+      errorManager.warning("FileManager.uploadS3: upload failed", null, err);
       void db.updateFileStatus(fileRecord, 'failed');
       response.status(500).send("Internal error " + err);
     });
@@ -348,7 +349,7 @@ export class FileManager implements RestServer {
 
   private async getImageBuffer(image: Jimp, mime: string): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
-      image.getBuffer(mime, (err, buf) => {
+      image.getBuffer(mime, (err: any, buf: Buffer) => {
         if (err) {
           reject(err);
         } else {
@@ -376,7 +377,7 @@ export class FileManager implements RestServer {
   private async handleDiscardFiles(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<DiscardFilesDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -403,9 +404,9 @@ export class FileManager implements RestServer {
           await this.deleteS3File(fileRecord);
           console.log("FileManager.handleDiscardFiles: file deleted", fileRecord.filename);
         } else if (fileRecord.status === "final") {
-          console.error("FileManager.handleDiscardFiles: file discard request for 'final' file ignored", fileRecord);
+          errorManager.error("FileManager.handleDiscardFiles: file discard request for 'final' file ignored", null, fileRecord);
         } else {
-          console.warn("FileManager.handleDiscardFiles: request to discard file in incomplete state.  Ignored.", fileRecord);
+          errorManager.warning("FileManager.handleDiscardFiles: request to discard file in incomplete state.  Ignored.", request, fileRecord);
         }
       }
       const reply: DiscardFilesResponse = {
@@ -413,7 +414,7 @@ export class FileManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("File.handleDiscardFiles: Failure", err);
+      errorManager.error("File.handleDiscardFiles: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

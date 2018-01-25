@@ -21,6 +21,7 @@ import { emailManager } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import { channelManager } from "./channel-manager";
 const braintree = require('braintree');
+import { errorManager } from "./error-manager";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
 const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
@@ -89,11 +90,11 @@ export class Bank implements RestServer, Initializable {
         return;
       }
       const requestBody = request.body as RestRequest<BankWithdrawDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
-      await userManager.updateUserBalance(user);
+      await userManager.updateUserBalance(request, user);
       if (!requestBody.detailsObject.transaction) {
         response.status(400).send("Missing details");
         return;
@@ -176,7 +177,7 @@ export class Bank implements RestServer, Initializable {
       void emailManager.sendInternalNotification("Channels Withdrawal Request", "Withdrawal requested: " + manualRecord.id, html);
       await db.incrementNetworkTotals(0, 0, 0, amountInUSD, 0);
       await db.updateUserLastWithdrawal(user, now);
-      const userStatus = await userManager.getUserStatus(user, false);
+      const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: BankWithdrawResponse = {
         serverVersion: SERVER_VERSION,
         paidAmount: paidAmount,
@@ -191,7 +192,7 @@ export class Bank implements RestServer, Initializable {
       };
       response.json(reply);
     } catch (err) {
-      console.error("Bank.handleWithdraw: Failure", err);
+      errorManager.error("Bank.handleWithdraw: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -199,7 +200,7 @@ export class Bank implements RestServer, Initializable {
   private async handleStatement(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<BankStatementDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -227,7 +228,7 @@ export class Bank implements RestServer, Initializable {
       }
       response.json(reply);
     } catch (err) {
-      console.error("Bank.handleStatement: Failure", err);
+      errorManager.error("Bank.handleStatement: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -240,7 +241,7 @@ export class Bank implements RestServer, Initializable {
       }
       await this.generateBraintreeToken(response);
     } catch (err) {
-      console.error("Bank.handleClientTokenRequest: Failure", err);
+      errorManager.error("Bank.handleClientTokenRequest: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -262,7 +263,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
+  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -317,7 +318,7 @@ export class Bank implements RestServer, Initializable {
     const recipientUsers: UserRecord[] = [];
     for (const recipient of details.toRecipients) {
       if (!recipient.address || !recipient.portion) {
-        console.error("Bank.transfer: Missing recipient address or portion", details);
+        errorManager.error("Bank.transfer: Missing recipient address or portion", request, details);
         throw new ErrorWithStatusCode(400, "Invalid recipient: missing address or portion");
       }
       let recipientUser = await userManager.getUserByAddress(recipient.address);
