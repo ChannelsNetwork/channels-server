@@ -2,6 +2,7 @@ import { Initializable } from "./interfaces/initializable";
 import { UrlManager } from "./url-manager";
 import { db } from "./db";
 import { SubsidyBalanceRecord, CardOpensInfo, CardOpensRecord } from "./interfaces/db-records";
+import { errorManager } from "./error-manager";
 
 // The PriceRegulator is the entity responsible for determining the base card price and
 // base card subsidy.  The base card price is calculated based on the total net network
@@ -51,7 +52,7 @@ export class PriceRegulator implements Initializable {
   private async contributeSubsidies(): Promise<void> {
     const balance = await db.getSubsidyBalance();
     if (!balance) {
-      console.error("PriceRegulator.contributeSubsidies: missing balance");
+      errorManager.error("PriceRegulator.contributeSubsidies: missing balance", null);
       return;
     }
     const now = Date.now();

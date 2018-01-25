@@ -9,6 +9,7 @@ import { SERVER_VERSION } from "./server-version";
 import { UrlManager } from "./url-manager";
 import { RestRequest, SearchDetails, SearchResponse } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
+import { errorManager } from "./error-manager";
 import { feedManager } from "./feed-manager";
 
 export class SearchManager implements RestServer {
@@ -30,7 +31,7 @@ export class SearchManager implements RestServer {
   private async handleSearch(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<SearchDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -39,7 +40,7 @@ export class SearchManager implements RestServer {
         return;
       }
       console.log("SearchManager.search", requestBody.detailsObject);
-      const result = await feedManager.search(user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit, requestBody.detailsObject.existingPromotedCardIds);
+      const result = await feedManager.search(request, user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit, requestBody.detailsObject.existingPromotedCardIds);
       const reply: SearchResponse = {
         serverVersion: SERVER_VERSION,
         cards: result.cards,
@@ -48,7 +49,7 @@ export class SearchManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetFeed: Failure", err);
+      errorManager.error("User.handleGetFeed: Failure", err);
       response.status(err.code && err.code >= 400 ? err.code : 500).send(err.message ? err.message : err);
     }
   }

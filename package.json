@@ -55,6 +55,7 @@
     "remove": "^0.1.5",
     "request": "^2.81.0",
     "request-promise-native": "^1.0.4",
+    "rollbar": "^2.3.7",
     "s3-upload-stream": "^1.0.7",
     "secp256k1": "^3.3.0",
     "signal-exit": "^3.0.2",
