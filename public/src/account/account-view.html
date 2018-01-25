@@ -11,47 +11,33 @@
       }
 
       #container {
-        max-width: 400px;
+        max-width: 600px;
         margin: 0 auto;
         padding: 20px 16px;
-      }
-
-      #imagePanel {
-        padding-right: 20px;
-      }
-
-      .header {
-        margin-bottom: 20px;
-      }
-
-      .row {
-        margin-top: 10px;
-      }
-
-      label {
-        font-size: 90%;
-        text-transform: capitalize;
-        padding-right: 10px;
-        letter-spacing: 0.05em;
-        opacity: 0.87;
-        width: 75px;
+        text-align: center;
       }
 
       .buttons {
         padding: 40px 0 10px;
       }
 
-      @media (max-width: 490px) {
-        .row {
-          font-size: 14px;
-        }
-        user-image {
-          width: 70px;
-          height: 70px;
-        }
-        .buttons {
-          text-align: center;
-        }
+      user-image {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 20px;
+      }
+
+      .handle {
+        color: #555;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+      }
+
+      .email {
+        color: #555;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        margin-top: 15px;
       }
     </style>
     <soso-app-header collapse-height="50">
@@ -59,23 +45,10 @@
       <title-bar text="My Account"></title-bar>
     </soso-app-header>
     <div id="container">
-      <div class="horizontal layout center header">
-        <div id="imagePanel">
-          <user-image image="[[profile.image]]"></user-image>
-        </div>
-        <div class="flex">
-          <h2>[[profile.name]]</h2>
-          <em>[[profile.handle]]</em>
-        </div>
-      </div>
-      <div class="row horizontal layout center">
-        <label>Email: </label>
-        <div class="flex">[[profile.email]]</div>
-      </div>
-      <div class="row horizontal layout center">
-        <label>Address: </label>
-        <div class="flex">[[profile.address]]</div>
-      </div>
+      <user-image image="[[profile.image]]"></user-image>
+      <h2>[[profile.name]]</h2>
+      <div class="handle">([[profile.handle]])</div>
+      <div class="email">[[profile.email]]</div>
       <div class="buttons">
         <button style="margin-right: 10px;" on-click="_onEdit">Edit profile</button>
         <button on-click="_onSignOut">Sign out</button>
