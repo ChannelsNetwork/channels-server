@@ -19,17 +19,20 @@ import { Cursor } from "mongodb";
 import { emailManager, EmailButton } from "./email-manager";
 import * as escapeHtml from 'escape-html';
 import { Utils } from './utils';
+import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
+import { errorManager } from "./error-manager";
 
 const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
 const MAX_KEYWORDS_PER_CHANNEL = 16;
 
-export class ChannelManager implements RestServer, Initializable {
+export class ChannelManager implements RestServer, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private subscribedChannelIdsByUser = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 5 });
   private channelIdsByCard = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
+    awsManager.registerNotificationHandler(this);
     this.urlManager = urlManager;
   }
 
@@ -65,7 +68,7 @@ export class ChannelManager implements RestServer, Initializable {
     while (await cursor.hasNext()) {
       const channelUser = await cursor.next();
       if (channelUser.lastCardPosted < channelUser.lastNotification) {
-        console.warn("Channel.poll: Unexpected lastCardPosted < lastNotification.  Ignoring.");
+        errorManager.warning("Channel.poll: Unexpected lastCardPosted < lastNotification.  Ignoring.", null);
       } else {
         const user = await userManager.getUser(channelUser.userId, true);
         if (user.identity && user.identity.emailAddress && user.identity.emailConfirmed) {
@@ -104,6 +107,39 @@ export class ChannelManager implements RestServer, Initializable {
       void this.handleReportChannelVisit(request, response);
     });
 
+  }
+
+  async handleNotification(notification: ChannelsServerNotification): Promise<void> {
+    switch (notification.type) {
+      case 'card-posted':
+        await this.handleCardPostedNotification(notification);
+        break;
+      case 'channel-subscription-changed':
+        await this.handleChannelSubscriptionChangedNotification(notification);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private async handleCardPostedNotification(notification: ChannelsServerNotification): Promise<void> {
+    console.log("ChannelManager.handleCardPostedNotification");
+    this.channelIdsByCard.del(notification.card);
+  }
+
+  private async handleChannelSubscriptionChangedNotification(notification: ChannelsServerNotification): Promise<void> {
+    console.log("ChannelManager.handleChannelSubscriptionChangedNotification");
+    this.subscribedChannelIdsByUser.del(notification.user);
+    this.channelIdsByCard.reset();
+  }
+
+  private async announceSubscriptionChange(channel: ChannelRecord, user: UserRecord): Promise<void> {
+    const notification: ChannelsServerNotification = {
+      type: 'channel-subscription-changed',
+      user: user.id,
+      channel: channel.id
+    };
+    await awsManager.sendSns(notification);
   }
 
   private async handleGetChannel(request: Request, response: Response): Promise<void> {
@@ -150,7 +186,7 @@ export class ChannelManager implements RestServer, Initializable {
       };
       response.json(registerResponse);
     } catch (err) {
-      console.error("ChannelManager.handleGetChannel: Failure", err);
+      errorManager.error("ChannelManager.handleGetChannel: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -198,7 +234,7 @@ export class ChannelManager implements RestServer, Initializable {
       };
       response.json(registerResponse);
     } catch (err) {
-      console.error("ChannelManager.handleGetChannel: Failure", err);
+      errorManager.error("ChannelManager.handleGetChannel: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -432,7 +468,7 @@ export class ChannelManager implements RestServer, Initializable {
       };
       response.json(result);
     } catch (err) {
-      console.error("ChannelManager.handleUpdateChannel: Failure", err);
+      errorManager.error("ChannelManager.handleUpdateChannel: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -471,12 +507,13 @@ export class ChannelManager implements RestServer, Initializable {
       if (subscriptionChange) {
         await db.incrementChannelStat(channel.id, "subscribers", subscriptionChange);
       }
+      await this.announceSubscriptionChange(channel, user);
       const result: UpdateChannelSubscriptionResponse = {
         serverVersion: SERVER_VERSION
       };
       response.json(result);
     } catch (err) {
-      console.error("ChannelManager.handleUpdateChannelSubscription: Failure", err);
+      errorManager.error("ChannelManager.handleUpdateChannelSubscription: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -506,7 +543,7 @@ export class ChannelManager implements RestServer, Initializable {
       };
       response.json(result);
     } catch (err) {
-      console.error("ChannelManager.handleReportChannelVisit: Failure", err);
+      errorManager.error("ChannelManager.handleReportChannelVisit: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

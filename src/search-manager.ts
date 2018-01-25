@@ -56,7 +56,7 @@ export class SearchManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("Search.handleSearch: Failure", err);
+      errorManager.error("Search.handleSearch: Failure", request, err);
       response.status(err.code && err.code >= 400 ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -80,7 +80,7 @@ export class SearchManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("Search.handleSearchMoreCards: Failure", err);
+      errorManager.error("Search.handleSearchMoreCards: Failure", request, err);
       response.status(err.code && err.code >= 400 ? err.code : 500).send(err.message ? err.message : err);
     }
   }

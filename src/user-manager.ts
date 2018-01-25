@@ -26,6 +26,7 @@ import { fileManager } from "./file-manager";
 import * as LRU from 'lru-cache';
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
+import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -46,7 +47,7 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
-export class UserManager implements RestServer, UserSocketHandler, Initializable {
+export class UserManager implements RestServer, UserSocketHandler, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
@@ -157,6 +158,30 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('admin-set-user-curation'), (request: Request, response: Response) => {
       void this.handleAdminSetUserCuration(request, response);
     });
+  }
+
+  async handleNotification(notification: ChannelsServerNotification): Promise<void> {
+    switch (notification.type) {
+      case 'user-updated':
+        await this.handleUserUpdatedNotification(notification);
+        break;
+      default:
+        throw new Error("Unhandled notification type " + notification.type);
+    }
+  }
+
+  private async handleUserUpdatedNotification(notification: ChannelsServerNotification): Promise<void> {
+    console.log("UserManager.handleUserUpdatedNotification");
+    this.userCache.del(notification.user);
+  }
+
+  private async announceUserUpdated(user: UserRecord): Promise<void> {
+    const notification: ChannelsServerNotification = {
+      type: 'user-updated',
+      user: user.id
+    };
+    await awsManager.sendSns(notification);
+    this.userCache.del(user.id);
   }
 
   async getUser(userId: string, force: boolean): Promise<UserRecord> {
@@ -501,6 +526,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         html += "</div>";
         void emailManager.sendInternalNotification("User identity added/updated", "A user has added or updated their identity", html);
       }
+      await this.announceUserUpdated(user);
       const reply: UpdateUserIdentityResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -548,6 +574,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       html += "<li>Handle: " + user.identity.handle + "</li>";
       html += "<p>If you did not request account recovery, you can safely ignore this message.</p>";
       await emailManager.sendNoReplyUserNotification(user.identity.name, user.identity.emailAddress, "Account recovery", text, html);
+      await this.announceUserUpdated(user);
       const reply: RequestRecoveryCodeResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -593,6 +620,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.recover-user", requestBody.detailsObject);
       await db.deleteUser(registeredUser.id);
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
+      await this.announceUserUpdated(registeredUser);
+      await this.announceUserUpdated(user);
       const status = await this.getUserStatus(request, user, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
@@ -686,7 +715,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleRequestEmailConfirmation: Failure", err);
+      errorManager.error("User.handleRequestEmailConfirmation: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -711,6 +740,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       await db.updateUserEmailConfirmation(user.id);
+      await this.announceUserUpdated(user);
       const reply: ConfirmEmailResponse = {
         serverVersion: SERVER_VERSION,
         userId: user.id,
@@ -718,7 +748,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleConfirmEmail: Failure", err);
+      errorManager.error("User.handleConfirmEmail: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -844,6 +874,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.updateCardsLastScoredByAuthor(user.id, true);
       }
       await db.updateUserCuration(user.id, requestBody.detailsObject.curation);
+      await this.announceUserUpdated(user);
       const reply: AdminSetUserCurationResponse = {
         serverVersion: SERVER_VERSION
       };

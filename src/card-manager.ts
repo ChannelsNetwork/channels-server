@@ -1174,7 +1174,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
     const card = await db.insertCard(user.id, details.imageId, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
-    await this.announceCard(card, user);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -1198,6 +1197,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     await db.updateUserLastPosted(user.id, card.postedAt);
     await channelManager.addCardToUserChannel(card, user);
+    await this.announceCardPosted(card, user);
     return card;
   }
 
@@ -1380,7 +1380,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  private async announceCard(card: CardRecord, user: UserRecord): Promise<void> {
+  private async announceCardPosted(card: CardRecord, user: UserRecord): Promise<void> {
     const notification: ChannelsServerNotification = {
       type: 'card-posted',
       user: user.id,

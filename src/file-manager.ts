@@ -342,7 +342,7 @@ export class FileManager implements RestServer {
       response.status(200);
       response.end(buf, 'binary');
     } catch (err) {
-      console.error("File.handleFetchImageFile: Failure", err);
+      errorManager.error("File.handleFetchImageFile: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

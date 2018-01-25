@@ -163,9 +163,10 @@ export interface NotificationHandler {
 }
 
 export interface ChannelsServerNotification {
-  type: "card-posted" | "mutation";
+  type: "card-posted" | "channel-subscription-changed" | "mutation" | "user-updated";
   user: string;
-  card: string;
+  card?: string;
+  channel?: string;
   mutation?: string;
 }
 
