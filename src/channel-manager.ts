@@ -771,25 +771,28 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       moreAvailable = channelRecords.length > limit;
     }
     if (channelRecords.length === 0) {
-      const channels = await db.findChannelsBySearch(searchString, skip, limit + 1);
-      if (channels.length > 0) {
-        const culledRecords: ChannelRecord[] = [];
-        const max = (channels[0] as any).searchScore as number;
-        for (const channel of channels) {
-          console.log("search result: ", (channel as any).searchScore, channel.handle, channel.name);
-          const score = (channel as any).searchScore as number;
-          if (score > max / 3) {
-            culledRecords.push(channel);
-          } else {
-            break;
+      channelRecords = await db.findChannelsBySearch(searchString, skip, limit + 1);
+      if (channelRecords.length > 0) {
+        if (channelRecords.length > 10) {
+          const culledRecords: ChannelRecord[] = [];
+          const max = (channelRecords[0] as any).searchScore as number;
+          for (const channel of channelRecords) {
+            console.log("search result: ", (channel as any).searchScore, channel.handle, channel.name);
+            const score = (channel as any).searchScore as number;
+            if (score > max / 3) {
+              culledRecords.push(channel);
+            } else {
+              break;
+            }
           }
+          moreAvailable = channelRecords.length === culledRecords.length && channelRecords.length === limit;
+          channelRecords = culledRecords;
         }
-        moreAvailable = channelRecords.length === culledRecords.length;
-        channelRecords = culledRecords;
       }
     }
     if (moreAvailable) {
       result.moreAvailable = true;
+      channelRecords = channelRecords.slice(0, limit);
       result.nextSkip = skip + limit;
     }
     result.channels = await this.getChannelDescriptors(user, channelRecords);

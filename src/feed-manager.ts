@@ -1209,23 +1209,27 @@ export class FeedManager implements Initializable, RestServer {
     if (cardRecords.length === 0) {
       cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
       if (cardRecords.length > 0) {
-        const culledRecords: CardRecord[] = [];
-        const max = (cardRecords[0] as any).searchScore as number;
-        for (const cardRecord of cardRecords) {
-          console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
-          const score = (cardRecord as any).searchScore as number;
-          if (score > max / 3) {
-            culledRecords.push(cardRecord);
-          } else {
-            break;
+        // If lots of results, then cull based on scores, discarding scores that are a lot lower than the max
+        if (cardRecords.length > 10) {
+          let culledRecords: CardRecord[] = [];
+          const max = (cardRecords[0] as any).searchScore as number;
+          for (const cardRecord of cardRecords) {
+            console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
+            const score = (cardRecord as any).searchScore as number;
+            if (score > max / 4) {
+              culledRecords.push(cardRecord);
+            } else {
+              break;
+            }
           }
+          moreAvailable = cardRecords.length === culledRecords.length && cardRecords.length === limit;
+          cardRecords = culledRecords;
         }
-        moreAvailable = cardRecords.length === culledRecords.length;
-        cardRecords = culledRecords;
       }
     }
     if (moreAvailable) {
       result.moreAvailable = true;
+      cardRecords = cardRecords.slice(0, limit);
       result.nextSkip = skip + limit;
     }
     result.cards = await this.populateCards(request, cardRecords, false, user);
