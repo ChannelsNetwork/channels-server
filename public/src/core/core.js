@@ -662,6 +662,17 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  updateAccountSettings(settings) {
+    let details = RestUtils.updateAccountSettingsDetails(this._keys.address, this._fingerprint, settings);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-account-settings";
+    return this.rest.post(url, request).then((profile) => {
+      this._profile = profile;
+      this._fire("channels-profile", this._profile);
+      return profile;
+    });
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
@@ -714,6 +725,13 @@ class CoreService extends Polymer.Element {
 
   get profile() {
     return this._profile;
+  }
+
+  get accountSettings() {
+    if (!this._profile) {
+      return null;
+    }
+    return this._profile.accountSettings;
   }
 
   get address() {

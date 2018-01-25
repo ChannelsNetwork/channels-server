@@ -37,7 +37,7 @@ export interface UserRecord {
   originalReferrer: string;
   originalLandingPage: string;
   notifications?: {
-    disallowAnnouncements?: boolean;
+    disallowPlatformAnnouncements?: boolean;
     disallowContentNotifications?: boolean;
     lastContentNotification?: number;
   };

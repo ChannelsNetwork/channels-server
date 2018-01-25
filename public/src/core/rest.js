@@ -726,4 +726,20 @@ class RestUtils {
     };
   }
 
+  static updateAccountSettingsDetails(address, fingerprint, settings) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      settings: settings
+    };
+  }
+
+  static accountSettings(disallowPlatformNotifications, disallowContentNotifications) {
+    return {
+      disallowPlatformNotifications: disallowPlatformNotifications ? true : false,
+      disallowContentNotifications: disallowContentNotifications ? true : false
+    };
+  }
+
 }

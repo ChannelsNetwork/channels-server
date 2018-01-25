@@ -28,8 +28,8 @@ const MAX_KEYWORDS_PER_CHANNEL = 16;
 export class ChannelManager implements RestServer, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
-  private subscribedChannelIdsByUser = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 5 });
-  private channelIdsByCard = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 5 });
+  private subscribedChannelIdsByUser = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 15 });
+  private channelIdsByCard = LRU<string, string[]>({ max: 10000, maxAge: 1000 * 60 * 15 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     awsManager.registerNotificationHandler(this);

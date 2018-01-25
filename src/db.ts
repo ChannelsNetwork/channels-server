@@ -561,6 +561,10 @@ export class Database {
     await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
   }
 
+  async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformAnnouncements": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications } });
+  }
+
   async findUserById(id: string): Promise<UserRecord> {
     return await this.users.findOne<UserRecord>({ id: id });
   }

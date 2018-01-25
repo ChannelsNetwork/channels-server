@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -127,6 +127,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('update-identity'), (request: Request, response: Response) => {
       void this.handleUpdateIdentity(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('update-account-settings'), (request: Request, response: Response) => {
+      void this.handleUpdateAccountSettings(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('request-recovery-code'), (request: Request, response: Response) => {
       void this.handleRequestRecoveryCode(request, response);
@@ -537,6 +540,38 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleUpdateAccountSettings(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<UpdateAccountSettingsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.settings) {
+        response.status(400).send("Missing settings");
+        return;
+      }
+      console.log("UserManager.update-account-settings", requestBody.detailsObject);
+      await db.updateUserNotificationSettings(user, requestBody.detailsObject.settings.disallowPlatformEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowContentEmailAnnouncements ? true : false);
+      await this.announceUserUpdated(user);
+      const reply: UpdateAccountSettingsResponse = {
+        serverVersion: SERVER_VERSION,
+        name: user.identity ? user.identity.name : null,
+        location: user.identity ? user.identity.location : null,
+        image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
+        handle: user.identity ? user.identity.handle : null,
+        emailAddress: user.identity ? user.identity.emailAddress : null,
+        emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        accountSettings: this.getAccountSettings(user)
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleUpdateAccountSettings: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleRequestRecoveryCode(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RequestRecoveryCodeDetails;
@@ -632,13 +667,22 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
-        encryptedPrivateKey: user.encryptedPrivateKey
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        accountSettings: this.getAccountSettings(user)
       };
       response.json(result);
     } catch (err) {
       errorManager.error("User.handleRecoverUser: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private getAccountSettings(user: UserRecord): AccountSettings {
+    const result: AccountSettings = {
+      disallowPlatformEmailAnnouncements: user.notifications && user.notifications.disallowPlatformAnnouncements ? true : false,
+      disallowContentEmailAnnouncements: user.notifications && user.notifications.disallowContentNotifications ? true : false
+    };
+    return result;
   }
 
   private async handleGetIdentity(request: Request, response: Response): Promise<void> {
@@ -657,7 +701,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
         emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
-        encryptedPrivateKey: user.encryptedPrivateKey
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        accountSettings: this.getAccountSettings(user)
       };
       response.json(reply);
     } catch (err) {

@@ -114,6 +114,12 @@ export interface GetUserIdentityResponse extends RestResponse {
   emailAddress: string;
   emailConfirmed: boolean;
   encryptedPrivateKey: string;
+  accountSettings: AccountSettings;
+}
+
+export interface AccountSettings {
+  disallowPlatformEmailAnnouncements: boolean;
+  disallowContentEmailAnnouncements: boolean;
 }
 
 export interface GetHandleDetails extends CheckHandleDetails { }
@@ -839,3 +845,9 @@ export interface ConfirmEmailResponse extends RestResponse {
   userId: string;
   handle: string;
 }
+
+export interface UpdateAccountSettingsDetails extends Signable {
+  settings: AccountSettings;
+}
+
+export interface UpdateAccountSettingsResponse extends GetUserIdentityResponse { }
