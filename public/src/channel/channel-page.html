@@ -455,7 +455,6 @@
             bgImage = this.channel.bannerImage.url;
           }
           this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
-          console.log(this.channel);
 
           setTimeout(() => {
             this.$.header.measureHeader();
@@ -497,7 +496,6 @@
           } else {
             this.$.noItems.classList.remove("hidden");
           }
-          console.log("cards", this.items, this.promotedItems);
         }).catch(err => {
           console.error(err);
           $app.showError(err);
