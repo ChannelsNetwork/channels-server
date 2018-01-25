@@ -26,8 +26,6 @@ export class RootPageManager implements Initializable {
     this.urlManager = urlManager;
     if (!this.templatesLoaded) {
       this.templates['index'] = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
-      this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
-      this.templates['card'] = fs.readFileSync(path.join(__dirname, '../public/card.html'), 'utf8');
 
       const gaId = configuration.get('google.analytics.id', "UA-52117709-8");
       let globalJsContent = "<script>\nwindow.googleAnalyticsId = \"" + gaId + "\";\n" + fs.readFileSync(path.join(__dirname, '../public/scripts/global.js'), 'utf8') + "\n</script>";
@@ -62,7 +60,6 @@ export class RootPageManager implements Initializable {
   }
 
   async handlePage(type: string, request: Request, response: Response, card?: CardRecord, author?: UserRecord): Promise<void> {
-    // this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
     // this.templates['index'] = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
 
     // analyze user agent
