@@ -110,12 +110,12 @@ export interface CardRecord {
   state: CardActiveState;
   postedAt: number;
   createdById: string;
-  by?: {  // obsolete
-    id: string;
+  by: {
+    id?: string;  // obsolete
     address: string;
     handle: string;
     name: string;
-    imageUrl: string;
+    imageUrl?: string;  // obsolete
   };
   summary: {
     imageId: string;

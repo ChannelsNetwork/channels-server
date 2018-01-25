@@ -847,6 +847,9 @@ export class FeedManager implements Initializable, RestServer {
         coupon = await this.createOpenCoupon(user, cardId, -sample.openPrice, 3);
       }
       const card = await db.insertCard(user.user.id,
+        user.user.address,
+        null,
+        null,
         null,
         null,
         sample.title,
