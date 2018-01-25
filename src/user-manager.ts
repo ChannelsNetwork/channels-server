@@ -169,7 +169,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await this.handleUserUpdatedNotification(notification);
         break;
       default:
-        throw new Error("Unhandled notification type " + notification.type);
+        break;
     }
   }
 
