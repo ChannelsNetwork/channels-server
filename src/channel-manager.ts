@@ -763,25 +763,36 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (limit < 1 || limit > 999) {
       limit = 50;
     }
-    const culledRecords: ChannelRecord[] = [];
-    const channels = await db.findChannelsBySearch(searchString, skip, limit + 1);
-    if (channels.length > 0) {
-      const max = (channels[0] as any).searchScore as number;
-      for (const channel of channels) {
-        console.log("search result: ", (channel as any).searchScore, channel.handle, channel.name);
-        const score = (channel as any).searchScore as number;
-        if (score > max / 2) {
-          culledRecords.push(channel);
-        } else {
-          break;
+    let channelRecords: ChannelRecord[] = [];
+    let moreAvailable = false;
+    if (searchString.indexOf('\"') < 0) {
+      // First try search using the provided string as a phrase
+      channelRecords = await db.findChannelsBySearch('"' + searchString + '"', skip, limit + 1);
+      moreAvailable = channelRecords.length > limit;
+    }
+    if (channelRecords.length === 0) {
+      const channels = await db.findChannelsBySearch(searchString, skip, limit + 1);
+      if (channels.length > 0) {
+        const culledRecords: ChannelRecord[] = [];
+        const max = (channels[0] as any).searchScore as number;
+        for (const channel of channels) {
+          console.log("search result: ", (channel as any).searchScore, channel.handle, channel.name);
+          const score = (channel as any).searchScore as number;
+          if (score > max / 3) {
+            culledRecords.push(channel);
+          } else {
+            break;
+          }
         }
+        moreAvailable = channelRecords.length === culledRecords.length;
+        channelRecords = culledRecords;
       }
     }
-    if (channels.length > limit && culledRecords.length === channels.length) {
+    if (moreAvailable) {
       result.moreAvailable = true;
       result.nextSkip = skip + limit;
     }
-    result.channels = await this.getChannelDescriptors(user, culledRecords);
+    result.channels = await this.getChannelDescriptors(user, channelRecords);
     return result;
   }
 }

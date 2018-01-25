@@ -1196,25 +1196,36 @@ export class FeedManager implements Initializable, RestServer {
     if (limit < 1 || limit > 999) {
       limit = 50;
     }
-    const culledRecords: CardRecord[] = [];
-    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
-    if (cardRecords.length > 0) {
-      const max = (cardRecords[0] as any).searchScore as number;
-      for (const cardRecord of cardRecords) {
-        console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
-        const score = (cardRecord as any).searchScore as number;
-        if (score > max / 2) {
-          culledRecords.push(cardRecord);
-        } else {
-          break;
+    let cardRecords: CardRecord[] = [];
+    let moreAvailable = false;
+    if (searchString.indexOf('\"') < 0) {
+      // First try search using the provided string as a phrase
+      cardRecords = await db.findCardsBySearch('"' + searchString + '"', skip, limit + 1);
+      moreAvailable = cardRecords.length > limit;
+    }
+    if (cardRecords.length === 0) {
+      cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
+      if (cardRecords.length > 0) {
+        const culledRecords: CardRecord[] = [];
+        const max = (cardRecords[0] as any).searchScore as number;
+        for (const cardRecord of cardRecords) {
+          console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
+          const score = (cardRecord as any).searchScore as number;
+          if (score > max / 3) {
+            culledRecords.push(cardRecord);
+          } else {
+            break;
+          }
         }
+        moreAvailable = cardRecords.length === culledRecords.length;
+        cardRecords = culledRecords;
       }
     }
-    if (cardRecords.length > limit && culledRecords.length === cardRecords.length) {
+    if (moreAvailable) {
       result.moreAvailable = true;
       result.nextSkip = skip + limit;
     }
-    result.cards = await this.populateCards(request, culledRecords, false, user);
+    result.cards = await this.populateCards(request, cardRecords, false, user);
     return result;
   }
 

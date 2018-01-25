@@ -1408,7 +1408,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.mutationSemaphore(this.handleMutationNotification(notification)); // this ensures that this won't be called twice concurrently
         break;
       default:
-        throw new Error("Unhandled notification type " + notification.type);
+        break;
     }
   }
 
