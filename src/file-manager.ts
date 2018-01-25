@@ -20,7 +20,9 @@ import { RestHelper } from "./rest-helper";
 import * as AWS from 'aws-sdk';
 import { userManager } from "./user-manager";
 import * as LRU from 'lru-cache';
+import * as Jimp from 'jimp';
 const imageProbe = require('probe-image-size');
+import path = require('path');
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -90,6 +92,9 @@ export class FileManager implements RestServer {
       });
       this.app.get('/:fileId/:fileName', (request: Request, response: Response, next: NextFunction) => {
         void this.handleBypassFetch(request, response, next);
+      });
+      this.app.get('/img/:imgFileId', (request: Request, response: Response) => {
+        void this.handleFetchImageFile(request, response);
       });
       this.app.post(this.urlManager.getDynamicUrl('discard-files'), (request: Request, response: Response) => {
         void this.handleDiscardFiles(request, response);
@@ -294,6 +299,71 @@ export class FileManager implements RestServer {
     }
     console.log("FileManager.handleBypassFetch", request.params.fileId, request.params.fileName);
     await this.handleFetch2(request, response);
+  }
+
+  private async handleFetchImageFile(request: Request, response: Response): Promise<void> {
+    console.log("FileManager.handleFetchImageFile", request.params.imgFileId, request.params.fileName);
+    const fileRecord = await db.findFileById(request.params.imgFileId);
+    if (!fileRecord) {
+      response.status(404).send("No such file");
+      return;
+    }
+    if (!fileRecord.imageInfo) {
+      response.status(404).send("No image information");
+      return;
+    }
+    const width = Number(request.query.w || "0");
+    const height = Number(request.query.h || "0");
+    const diameter = Number(request.query.d || "0");
+    if (!width && !height && !diameter) {
+      response.status(400).send("You must send w and/or h params or d param");
+      return;
+    }
+    console.log("File.handleFetchImageFile: Fetching image file for size adaptation", fileRecord.id, width, height, diameter);
+    try {
+      const image = await Jimp.read(fileRecord.url);
+      image.background(0xffffffff);
+      const mime = Jimp.MIME_JPEG;
+      if (diameter > 0) {
+        const mask = await Jimp.read(path.join(__dirname, '../circularMask.png'));
+        image.cover(512, 512);
+        image.mask(mask, 0, 0);
+        image.resize(diameter, diameter);
+        // mime = Jimp.MIME_PNG;
+      } else if (width === 0 || height === 0) {
+        image.resize(width ? width : Jimp.AUTO, height ? height : Jimp.AUTO);
+      } else {
+        image.cover(width, height);
+      }
+      const buf = await this.getImageBuffer(image, mime);
+      response.contentType(mime);
+      response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 7);
+      response.status(200);
+      response.end(buf, 'binary');
+    } catch (err) {
+      console.error("File.handleFetchImageFile: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async getImageBuffer(image: Jimp, mime: string): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      image.getBuffer(mime, (err, buf) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(buf);
+        }
+      });
+    });
+  }
+
+  getCoverImageUrl(fileId: string, width: number, height: number): string {
+    return this.urlManager.getAbsoluteUrl('/img/' + fileId + "?" + (width ? "w=" + width + "&" : "") + (height ? "h=" + height : ""));
+  }
+
+  getCircularImageUrl(fileId: string, diameter: number): string {
+    return this.urlManager.getAbsoluteUrl('/img/' + fileId + "?d=" + diameter);
   }
 
   private transferHeader(response: Response, headers: { [key: string]: string }, headerName: string): void {
