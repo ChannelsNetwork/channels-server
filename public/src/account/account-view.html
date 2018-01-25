@@ -145,8 +145,6 @@
           this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
           this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
           this.$.emailSettingsPanel.classList.remove("hidden");
-
-          console.log("profile", this.profile);
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
