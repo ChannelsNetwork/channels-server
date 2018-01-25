@@ -693,6 +693,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleConfirmEmail(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<ConfirmEmailDetails>;
+      requestBody.detailsObject = JSON.parse(requestBody.details) as ConfirmEmailDetails;
       const confirmationCode = requestBody.detailsObject ? requestBody.detailsObject.code : null;
       if (!confirmationCode) {
         response.status(400).send("Missing code");

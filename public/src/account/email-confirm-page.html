@@ -1,0 +1,152 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
+
+<dom-module id="email-confirm-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #bar {
+        height: 50px;
+        padding: 0 0 0 16px;
+        box-sizing: border-box;
+        background: var(--bg-dark);
+        color: white;
+      }
+
+      .logo {
+        display: block;
+        height: 36px;
+        width: auto;
+      }
+
+      .content {
+        padding: 40px 16px;
+        text-align: center;
+      }
+
+      #progress {
+        max-width: 600px;
+        margin: auto;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      #errorPanel {
+        max-width: 500px;
+        margin: auto;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+      }
+
+      soso-spinner {
+        margin-bottom: 20px;
+      }
+
+      button {
+        margin-top: 30px;
+      }
+    </style>
+    <soso-app-header>
+      <div id="bar" class="horizontal layout center">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+      </div>
+    </soso-app-header>
+    <div class="content">
+      <div id="progress" class="hidden">
+        <div>
+          <soso-spinner id="spinner"></soso-spinner>
+        </div>
+        <div>Validating confirmation code</div>
+      </div>
+      <div id="errorPanel" class="hidden">
+        <div>[[errorMessage]]</div>
+        <button id="btnAccount" on-click="_gotoAccount">View My Account</button>
+        <button id="btnSignin" on-click="_signin">Sign In</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class EmailConfirmPage extends Polymer.Element {
+      static get is() { return 'email-confirm-page'; }
+      static get properties() {
+        return {
+          errorMessage: String
+        };
+      }
+
+      onActivate() {
+        let code = this._getParameterByName("code");
+        if (code) {
+          this.$.progress.classList.remove("hidden");
+          this.$.errorPanel.classList.add("hidden");
+          this.$.spinner.spinning = true;
+
+          $core.register().then(() => {
+            return $core.confirmEmail(code).then((response) => {
+              $core.signOut().then(() => {
+                this._message("Your email address has been confirmed.", true);
+              }).catch(() => {
+                this._message("Your email address has been confirmed.", true);
+              });
+            });
+          }).catch((err) => {
+            console.error(err);
+            this._message();
+          });
+        } else {
+          this._message();
+        }
+      }
+
+      onDeactivate() {
+        this.$.spinner.spinning = false;
+      }
+
+      _gotoAccount() {
+        $router.goto("/account");
+      }
+
+      _signin() {
+        $router.goto("/signin");
+      }
+
+      _onSignOut() {
+        return $core.signOut().then(() => {
+          window.location.assign("/");
+        }).catch((err) => {
+          console.error(err);
+          window.location.assign("/");
+        })
+      }
+
+      _message(message, signin) {
+        this.$.progress.classList.add("hidden");
+        this.$.errorPanel.classList.remove("hidden");
+        this.$.spinner.spinning = false;
+        this.errorMessage = message || "Sorry we could not validate your confirmation code. Go to your account and request a new one.";
+        if (signin) {
+          this.$.btnSignin.classList.remove("hidden");
+          this.$.btnAccount.classList.add("hidden");
+        } else {
+          this.$.btnSignin.classList.add("hidden");
+          this.$.btnAccount.classList.remove("hidden");
+        }
+      }
+
+      _getParameterByName(name, url) {
+        if (!url) url = window.location.href;
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+          results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+      }
+    }
+    window.customElements.define(EmailConfirmPage.is, EmailConfirmPage);
+  </script>
+</dom-module>
