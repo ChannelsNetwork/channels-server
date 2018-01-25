@@ -158,7 +158,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     await cursor.close();
 
-    cursor = db.getCardsWithBy();
+    cursor = db.getCardsMissingBy();
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      const owner = await userManager.getUser(card.createdById, false);
+      if (owner) {
+        console.log("User.initialize2: Re-adding 'by' address/handle/name to user entry", owner.identity.handle);
+        await db.updateCardBy(card.id, owner.address, owner.identity.handle, owner.identity.name);
+      }
+    }
+
+    cursor = db.getCardsMissingCreatedById();
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       console.log("Card.initialize2: Replacing by.id with createdById", card.id);
@@ -187,6 +197,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     await cursor.close();
+
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
@@ -1173,7 +1184,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, details.imageId, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
+    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.title, details.text, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";

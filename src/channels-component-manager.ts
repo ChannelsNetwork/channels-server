@@ -245,7 +245,7 @@ export class ChannelsComponentManager implements RestServer {
   }
 
   private async _installVersion(pkgToInstall: string, pkg: BowerPackageMeta): Promise<BowerInstallResult> {
-    const nameToInstall = pkgToInstall.split('/').join('___').split('#').join('__').toLowerCase();
+    const nameToInstall = pkgToInstall.split('/').join('___').split('#').join('__').toLowerCase() + "_" + pkg.version;
     const fullPkgName = pkg.name + "#" + pkg.version;
     const cached = this.installedPackageCache.get(nameToInstall);
     if (cached) {

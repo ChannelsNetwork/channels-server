@@ -843,7 +843,7 @@ export class Database {
     return await this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, cardImageId: string, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -855,6 +855,11 @@ export class Database {
       state: "active",
       postedAt: now,
       createdById: byUserId,
+      by: {
+        address: byAddress,
+        handle: byHandle,
+        name: byName
+      },
       summary: {
         imageId: cardImageId,
         linkUrl: linkUrl,
@@ -1022,8 +1027,12 @@ export class Database {
     return this.cards.find<CardRecord>({ searchText: { $exists: false } });
   }
 
-  getCardsWithBy(): Cursor<CardRecord> {
-    return this.cards.find<CardRecord>({ by: { $exists: true } });
+  getCardsMissingBy(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ by: { $exists: false } });
+  }
+
+  getCardsMissingCreatedById(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ createdById: { $exists: false } });
   }
 
   getCardsWithSummaryImageUrl(): Cursor<CardRecord> {
@@ -1033,7 +1042,7 @@ export class Database {
   async replaceCardBy(cardId: string, createdById: string): Promise<void> {
     await this.cards.updateOne({ id: cardId }, {
       $set: { createdById: createdById },
-      $unset: { by: 1 }
+      $unset: { "by.id": 1 }
     });
   }
 
@@ -1055,6 +1064,16 @@ export class Database {
 
   async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
     await this.cards.updateOne({ id: cardId }, { $set: { searchText: searchText } });
+  }
+
+  async updateCardBy(cardId: string, address: string, handle: string, name: string): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, {
+      $set: {
+        "by.address": address,
+        "by.handle": handle,
+        "by.name": name
+      }
+    });
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
