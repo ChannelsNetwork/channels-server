@@ -669,7 +669,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((profile) => {
       this._profile = profile;
       this._fire("channels-profile", this._profile);
-      return profile;
+      return profile.accountSettings;
     });
   }
 
