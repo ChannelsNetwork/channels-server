@@ -91,6 +91,7 @@
       }
     </style>
     <div id="bar" class="horizontal layout center">
+      <soso-icon id="menu" icon="menu" on-click="_showMenu" class="hidden"></soso-icon>
       <a id="logoLink" href="/">
         <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
       </a>
@@ -118,7 +119,11 @@
       static get is() { return 'channels-bar'; }
       static get properties() {
         return {
-          balance: String
+          balance: String,
+          showMenu: {
+            type: Boolean,
+            observer: '_onShowMenuToggle'
+          }
         }
       }
 
@@ -127,6 +132,24 @@
         this._balaceListener = this._updateBalance.bind(this);
         this._profileListener = this._refreshUser.bind(this);
         this.balance = "ℂ0.000";
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._onShowMenuToggle();
+      }
+
+      _onShowMenuToggle() {
+        console.log("showmenu", this.showMenu);
+        if (this.$.menu) {
+          if (this.showMenu) {
+            this.$.bar.style.paddingLeft = "0px";
+            this.$.menu.classList.remove("hidden");
+          } else {
+            this.$.bar.style.paddingLeft = "";
+            this.$.menu.classList.add("hidden");
+          }
+        }
       }
 
       activate() {
@@ -144,6 +167,11 @@
           this._balanceTimer = null;
         }
         this._removeListeners();
+      }
+
+      _showMenu(event) {
+        event.stopPropagation();
+        $app.showMenu();
       }
 
       _removeListeners() {
