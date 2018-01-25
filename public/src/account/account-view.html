@@ -39,19 +39,43 @@
         letter-spacing: 0.05em;
         margin-top: 15px;
       }
+
+      #emailConfirmPanel {
+        padding: 20px 0;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 30px;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+      }
+
+      #emailConfirmPanel button {
+        margin-top: 20px;
+      }
+
+      #codeSent {
+        margin-top: 10px;
+        color: var(--dark-green);
+      }
     </style>
     <soso-app-header collapse-height="50">
       <channels-bar id="cbar"></channels-bar>
       <title-bar text="My Account"></title-bar>
     </soso-app-header>
     <div id="container">
-      <user-image image="[[profile.image]]"></user-image>
+      <user-image image="[[profile.image.url]]"></user-image>
       <h2>[[profile.name]]</h2>
       <div class="handle">([[profile.handle]])</div>
-      <div class="email">[[profile.email]]</div>
+      <div class="email">[[profile.emailAddress]]</div>
       <div class="buttons">
         <button style="margin-right: 10px;" on-click="_onEdit">Edit profile</button>
         <button on-click="_onSignOut">Sign out</button>
+      </div>
+      <div id="emailConfirmPanel" class="hidden">
+        <div>Your email address has not been confirmed. Check your inbox for a confirmation email, or request a new confirmation
+          code.
+        </div>
+        <button on-click="_requestCode">Request new code</button>
+        <div id="codeSent" class="hidden">Request code sent.</div>
       </div>
     </div>
   </template>
@@ -75,28 +99,13 @@
             }, 600);
             return;
           }
-          const profile = {
-            handle: 'No handle',
-            name: 'No name specified',
-            email: 'No email provided',
-            address: $core.address || 'Unknown address'
-          };
-          let p = $core.profile;
-          if (p) {
-            if (p.handle) {
-              profile.handle = p.handle;
-            }
-            if (p.name) {
-              profile.name = p.name;
-            }
-            if (p.emailAddress) {
-              profile.email = p.emailAddress;
-            }
-            if (p.image && p.image.url) {
-              profile.image = p.image.url;
-            }
+          this.profile = $core.profile;
+          this.$.codeSent.classList.add("hidden");
+          if (this.profile.emailConfirmed) {
+            this.$.emailConfirmPanel.classList.add("hidden");
+          } else {
+            this.$.emailConfirmPanel.classList.remove("hidden");
           }
-          this.profile = profile;
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
@@ -120,6 +129,12 @@
           console.error(err);
           window.location.assign("/");
         })
+      }
+
+      _requestCode() {
+        $core.requestEmailConfirmation().then(() => {
+          this.$.codeSent.classList.remove("hidden");
+        });
       }
 
     }
