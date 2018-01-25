@@ -679,7 +679,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
   private getAccountSettings(user: UserRecord): AccountSettings {
     const result: AccountSettings = {
-      disallowPlatformEmailAnnouncements: user.notifications && user.notifications.disallowPlatformAnnouncements ? true : false,
+      disallowPlatformEmailAnnouncements: user.notifications && user.notifications.disallowPlatformNotifications ? true : false,
       disallowContentEmailAnnouncements: user.notifications && user.notifications.disallowContentNotifications ? true : false
     };
     return result;

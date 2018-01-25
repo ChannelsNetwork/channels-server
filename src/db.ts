@@ -562,7 +562,12 @@ export class Database {
   }
 
   async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformAnnouncements": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications } });
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformNotifications": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications } });
+    if (!user.notifications) {
+      user.notifications = {};
+    }
+    user.notifications.disallowPlatformNotifications = disallowPlatformNotifications;
+    user.notifications.disallowContentNotifications = disallowContentNotifications;
   }
 
   async findUserById(id: string): Promise<UserRecord> {
