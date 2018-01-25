@@ -1428,7 +1428,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     const basePrice = await priceRegulator.getBaseCardFee();
     const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
-    const author = await this.getUser(record.by.id, false);
+    const author = record.by && record.by.id ? await this.getUser(record.by.id, false) : null;
     const packageRootUrl = await channelsComponentManager.getPackageRootUrl(request, record.cardType.package);
     if (!packageRootUrl) {
       return null;
