@@ -1,8 +1,7 @@
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
-<link rel="import" href="card-feed.html">
-<link rel="import" href="feed-mixin.html">
+<link rel="import" href="feed-section.html">
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
@@ -10,7 +9,7 @@
 
 <dom-module id="search-view">
   <template>
-    <style is="custom-style" include="app-styles feed-styles">
+    <style is="custom-style" include="app-styles">
       .main {
         max-width: 1264px;
         margin: 0 auto;
@@ -37,8 +36,18 @@
         margin: 50px;
       }
 
+      #noItems {
+        padding: 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
       #feed {
         text-align: left;
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
       }
 
       #searchBar {
@@ -173,8 +182,12 @@
       </dom-repeat>
     </div>
     <div class="main">
-      <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
+      <soso-spinner id="spinner" style="display:none;"></soso-spinner>
       <div id="noItems" style="display:none;">There are no matching cards</div>
+
+      <feed-section id="channelFeed" label="Channels"></feed-section>
+      <feed-section id="cardFeed" label="Cards" cards="[[items]]"></feed-section>
+
       <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
       <div id="buttons" style="display:none;">
         <button id="btnMore" on-click="_onMoreClick">More</button>
@@ -330,10 +343,13 @@
         setTimeout(() => {
           if (!finished) {
             this.$.spinner.style.display = "";
+            this.$.spinner.spinning = true;
           }
         }, 100)
         $core.search(this._searchString, 24, 24).then((searchResponse) => {
+          console.log(searchResponse);
           this.$.spinner.style.display = "none";
+          this.$.spinner.spinning = false;
           finished = true;
           this._skip = searchResponse.cardResults.nextSkip;
           const cards = searchResponse.cardResults.cards;

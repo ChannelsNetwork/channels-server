@@ -1,14 +1,72 @@
+<link rel="import" href="card-feed.html">
+<link rel="import" href="../channel/channel-card.html">
+
 <dom-module id="feed-section">
   <template>
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
+        text-align: left;
+      }
+
+      #cardFeed {
+        text-align: left;
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      #channelFeed {
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
       }
     </style>
+    <h2>[[label]]</h2>
+    <div id="channelFeed" class="hidden horizontal layout center-justified wrap">
+      <dom-repeat items="[[channels]]">
+        <template>
+          <channel-card channel="[[item]]" color-state></channel-card>
+        </template>
+      </dom-repeat>
+    </div>
+    <card-feed id="cardFeed" class="hidden" items="[[cards]]"></card-feed>
   </template>
   <script>
     class FeedSection extends Polymer.Element {
       static get is() { return 'feed-section'; }
+      static get properties() {
+        return {
+          label: String,
+          type: String,
+          collapsed: {
+            type: Boolean,
+            observer: '_onCollapse'
+          },
+          cards: {
+            type: Array,
+            observer: '_refresh'
+          },
+          channels: {
+            type: Array,
+            observer: '_refresh'
+          }
+        }
+      }
+
+      _refresh() {
+        if (this.type === "channels") {
+          this.$.channelFeed.classList.remove("hidden");
+          this.$.cardFeed.classList.add("hidden");
+        } else {
+          this.$.cardFeed.classList.remove("hidden");
+          this.$.channelFeed.classList.remove("hidden");
+        }
+        this._onCollapse();
+      }
+
+      _onCollapse() {
+      }
     }
     window.customElements.define(FeedSection.is, FeedSection);
   </script>
