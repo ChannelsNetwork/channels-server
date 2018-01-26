@@ -39,7 +39,7 @@
           <template is="dom-if" if="{{_isImageAd(item)}}">
             <image-ad-card data="[[item]]" on-impression="_onImpression" on-card-deleted="_onCardDeleted"></image-ad-card>
           </template>
-          <template is="dom-if" if="{{_isAmazonAd(item)}}">
+          <template is="dom-if" if="{{_isIFrameAd(item)}}">
             <amazon-ad-card data="[[item]]" on-impression="_onImpression" on-card-deleted="_onCardDeleted"></amazon-ad-card>
           </template>
           <template is="dom-if" if="{{_isNotAd(item)}}">
