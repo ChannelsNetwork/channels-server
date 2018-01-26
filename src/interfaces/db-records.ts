@@ -123,6 +123,7 @@ export interface CardRecord {
     imageWidth?: number; // obsolete
     imageHeight?: number; // obsolete
     linkUrl: string;
+    iframeUrl: string;
     title: string;
     text: string;
   };

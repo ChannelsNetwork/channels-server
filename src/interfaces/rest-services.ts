@@ -228,10 +228,11 @@ export interface CardDescriptor {
 }
 
 export interface CardSummary {
-  imageURL: string;  // Not included when posting
   imageId: string;
-  imageInfo: ImageInfo;
-  linkUrl: string;
+  imageURL: string;  // Not included when posting
+  imageInfo: ImageInfo;  // Not included with posting
+  linkUrl: string;  // only for ad cards
+  iframeUrl: string;  // only for iframe ad cards
   title: string;
   text: string;
 }
@@ -326,6 +327,7 @@ export interface CardStatDatapoint {
 export interface PostCardDetails extends Signable {
   imageId?: string;
   linkUrl?: string;
+  iframeUrl?: string;
   title?: string;
   text: string;
   keywords: string[];
