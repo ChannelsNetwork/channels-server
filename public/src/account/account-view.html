@@ -134,17 +134,20 @@
             }, 600);
             return;
           }
-          this.profile = $core.profile;
-          this.$.codeSent.classList.add("hidden");
-          if (this.profile.emailConfirmed) {
-            this.$.emailConfirmPanel.classList.add("hidden");
-          } else {
-            this.$.emailConfirmPanel.classList.remove("hidden");
-          }
 
-          this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
-          this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
-          this.$.emailSettingsPanel.classList.remove("hidden");
+          return $core.getUserProfile().then((res) => {
+            this.profile = res || $core.profile;
+            this.$.codeSent.classList.add("hidden");
+            if (this.profile.emailConfirmed) {
+              this.$.emailConfirmPanel.classList.add("hidden");
+            } else {
+              this.$.emailConfirmPanel.classList.remove("hidden");
+            }
+
+            this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
+            this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
+            this.$.emailSettingsPanel.classList.remove("hidden");
+          });
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
