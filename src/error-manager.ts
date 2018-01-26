@@ -32,7 +32,7 @@ export class ErrorManager implements RestServer {
     if (this.rollbar) {
       this.rollbar.warning(message, request, ...more);
     }
-    errorManager.warning(message, request ? (request as any).user : null, ...more);
+    console.warn(message, request ? (request as any).user : null, ...more);
   }
 
   error(message: string, request: Request, ...more: any[]): void {
