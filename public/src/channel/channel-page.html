@@ -316,6 +316,7 @@
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
     <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
     <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
+    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class ChannelPage extends Polymer.Element {
@@ -376,6 +377,7 @@
             }
           }
           if (!fetchNewContent) {
+            this._refreshChannel(true);
             $app.scrollTo(route.context.scrollTop);
             return;
           }
@@ -540,6 +542,11 @@
       }
 
       _onSubscribe() {
+        let channelUrl = "/channel/" + encodeURIComponent(this._handle);
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you subscribe to this channel, you must first register an identity.", returnRoute: { success: channelUrl, cancel: channelUrl } });
+          return;
+        }
         $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
           return this._refreshChannel(true);
         }).catch((err) => {
@@ -595,6 +602,16 @@
             $router.goto("/c/" + encodeURIComponent(card.id), context);
           }
         }
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
       }
 
       _compose() {
