@@ -65,7 +65,7 @@
       <div id="errorPanel" class="hidden">
         <div>[[errorMessage]]</div>
         <button id="btnAccount" on-click="_gotoAccount">View My Account</button>
-        <button id="btnSignin" on-click="_signin">Sign In</button>
+        <button id="btnFeed" on-click="_gotoFeed">Explore Channels</button>
       </div>
     </div>
   </template>
@@ -87,11 +87,7 @@
 
           $core.register().then(() => {
             return $core.confirmEmail(code).then((response) => {
-              $core.signOut().then(() => {
-                this._message("Your email address has been confirmed.", true);
-              }).catch(() => {
-                this._message("Your email address has been confirmed.", true);
-              });
+              this._message("Your email address has been confirmed.", true);
             });
           }).catch((err) => {
             console.error(err);
@@ -110,17 +106,8 @@
         $router.goto("/account");
       }
 
-      _signin() {
-        $router.goto("/signin");
-      }
-
-      _onSignOut() {
-        return $core.signOut().then(() => {
-          window.location.assign("/");
-        }).catch((err) => {
-          console.error(err);
-          window.location.assign("/");
-        })
+      _gotoFeed() {
+        $router.goto("/");
       }
 
       _message(message, signin) {
@@ -129,10 +116,10 @@
         this.$.spinner.spinning = false;
         this.errorMessage = message || "Sorry we could not validate your confirmation code. Go to your account and request a new one.";
         if (signin) {
-          this.$.btnSignin.classList.remove("hidden");
+          this.$.btnFeed.classList.remove("hidden");
           this.$.btnAccount.classList.add("hidden");
         } else {
-          this.$.btnSignin.classList.add("hidden");
+          this.$.btnFeed.classList.add("hidden");
           this.$.btnAccount.classList.remove("hidden");
         }
       }

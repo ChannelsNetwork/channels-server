@@ -125,9 +125,10 @@ class UserManager {
   }
 
   getFallbackUserImage(handle) {
-    if (!this._userImages[handle]) {
-      this._userImages[handle] = ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
-    }
-    return this._userImages[handle];
+    return "/s/images/avatars/av.png";
+    // if (!this._userImages[handle]) {
+    //   this._userImages[handle] = ("/s/images/avatars/av" + Math.round(Math.random()) + ".png");
+    // }
+    // return this._userImages[handle];
   }
 }
