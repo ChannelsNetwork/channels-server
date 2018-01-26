@@ -38,9 +38,13 @@ export class ClientServices implements RestServer {
       try {
         const fetchResponse = await fetch(requestBody.detailsObject.url);
         const xFrameOption = fetchResponse.headers.get('x-frame-options');
-        if (xFrameOption && (xFrameOption.toLowerCase() === 'deny' || xFrameOption.toLowerCase() === 'sameorigin')) {
-          embeddable = false;
-          notEmbeddableReason = "This page does not permit embedding";
+        const xFrameOptions = xFrameOption ? xFrameOption.toLowerCase().split(',') : [];
+        for (const xfo of xFrameOptions) {
+          if (xfo === 'deny' || xfo === 'sameorigin') {
+            embeddable = false;
+            notEmbeddableReason = "This page does not permit embedding";
+            break;
+          }
         }
       } catch (err) {
         embeddable = false;
