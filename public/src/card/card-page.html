@@ -391,6 +391,11 @@
         if (!this.channel) {
           return;
         }
+        let channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you subscribe to this channel, you must first register an identity.", returnRoute: { success: channelUrl, cancel: channelUrl } });
+          return;
+        }
         $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
           this.channel.subscriptionState = "subscribed";
           this._refreshSubscribeButton();
