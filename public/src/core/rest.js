@@ -222,13 +222,14 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, fingerprint, imageId, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       imageId: imageId,
       linkUrl: linkURL,
+      iframeUrl: iframeUrl,
       title: title,
       text: text,
       private: isPrivate,

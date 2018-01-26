@@ -852,6 +852,7 @@ export class FeedManager implements Initializable, RestServer {
         null,
         null,
         null,
+        null,
         sample.title,
         sample.text,
         false,
