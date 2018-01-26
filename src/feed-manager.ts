@@ -433,7 +433,7 @@ export class FeedManager implements Initializable, RestServer {
       cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
       if (!afterCardId) {  // Only include subscribed cards on first page of results
         const userCard = await db.findUserCardInfo(user.id, feedCard.id);
-        if (!userCard.lastOpened) {
+        if (userCard && !userCard.lastOpened) {
           cards.push(feedCard);
         }
       }
