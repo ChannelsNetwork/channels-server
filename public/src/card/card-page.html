@@ -2,6 +2,7 @@
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="card-page">
   <template>
@@ -51,7 +52,8 @@
       #morePanelContent {
         box-sizing: border-box;
         margin: 0 auto;
-        display: inline-block;
+        display: block;
+        max-width: 400px;
       }
 
       a,
@@ -78,9 +80,66 @@
         font-size: 13px;
       }
 
+      #channelCardletPanel {
+        padding-left: 22px;
+        box-sizing: border-box;
+        margin: 20px 0;
+        transition: opacity 0.2s ease;
+      }
+
+      #channelCardlet {
+        position: relative;
+        padding: 10px 0;
+        box-sizing: border-box;
+        text-align: left;
+        border-radius: 3px;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        background-color: #fafafa;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+      }
+
+      #channelCardlet .channelNameCell {
+        padding-left: 28px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #channelCardlet .channelName {
+        background: rgba(250, 250, 250, 0.85);
+        padding: 5px 10px;
+        border-radius: 3px;
+      }
+
+      #channelCardlet button {
+        font-size: 14px;
+        padding: 10px 5px;
+        letter-spacing: initial;
+        font-weight: 400;
+      }
+
+      user-image {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #fafafa;
+        position: absolute;
+        top: 50%;
+        left: -22px;
+        cursor: pointer;
+        margin-top: -22px;
+      }
+
       @media (max-width: 600px) {
+        #morePanel {
+          padding: 30px 8px 30px 5px;
+        }
         #morePanelContent {
           font-size: 14px;
+        }
+        #channelCardlet .channelNameCell {
+          font-size: 15px;
         }
       }
     </style>
@@ -118,8 +177,17 @@
             <div id="ratingTip">[[ratingTip]]</div>
             <div class="flex"></div>
           </div>
-          <div style="margin-bottom: 5px;">
-            <a href$="[[channelUrl]]">View [[data.by.name]]'s channel.</a>
+          <div id="channelCardletPanel">
+            <div id="channelCardlet" class="horizontal layout center">
+              <div class="flex channelNameCell" on-click="_gotoChannel">
+                <span class="channelName">[[channel.name]]'s channel</span>
+              </div>
+              <div style="padding: 0 5px;">
+                <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+                <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+              </div>
+              <user-image image="[[channelImage]]" on-click="_gotoChannel"></user-image>
+            </div>
           </div>
           <div>
             <a href="/feed">View your feed</a> to see recommended cards.</div>
@@ -136,7 +204,9 @@
         return {
           data: Object,
           ratingTip: String,
-          channelUrl: String
+          channelUrl: String,
+          channel: Object,
+          channelImage: String
         };
       }
 
@@ -199,6 +269,10 @@
         this._loadCard();
       }
 
+      _gotoChannel() {
+        $router.goto(this.channelUrl);
+      }
+
       _loadCard() {
         this._cardOpened = false;
         this.$.nocard.classList.add("hidden");
@@ -227,6 +301,11 @@
           this.channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
           this._refreshRating();
           this.paymentInterval = cardData.paymentDelayMsecs || 10000;
+
+          this.$.channelCardletPanel.style.opacity = 0;
+          setTimeout(() => {
+            this._loadChannel();
+          });
 
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
@@ -263,6 +342,74 @@
         }).catch((err) => {
           console.error(err);
           this._onNoCard();
+        });
+      }
+
+      _loadChannel() {
+        if (this._active && this.data) {
+          return $core.getChannelByOwnerHandle(this.data.by.handle).then(response => {
+            if (!this._active) {
+              return;
+            }
+            this.channel = response.channel;
+            this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+            let bgImage = "";
+            if (this.channel.bannerImage) {
+              bgImage = this.channel.bannerImage.url;
+            }
+            this.$.channelCardlet.style.backgroundImage = bgImage ? ('url("' + bgImage + '"') : "";
+            this.$.channelCardletPanel.style.opacity = 1;
+            this._refreshSubscribeButton();
+          });
+        }
+      }
+
+      _refreshSubscribeButton() {
+        this.$.btnU.classList.add("hidden");
+        this.$.btnS.classList.add("hidden");
+        if (this.channel) {
+          let isMe = false;
+          if ($core.profile) {
+            isMe = $core.profile.handle == this.channel.owner.handle;
+          }
+          if (!isMe) {
+            switch (this.channel.subscriptionState) {
+              case "subscribed":
+                this.$.btnU.classList.remove("hidden");
+                break;
+              case "unsubscribed":
+                this.$.btnS.classList.remove("hidden");
+                break;
+              default:
+                break;
+            }
+          }
+        }
+      }
+
+      _onSubscribe() {
+        if (!this.channel) {
+          return;
+        }
+        $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
+          this.channel.subscriptionState = "subscribed";
+          this._refreshSubscribeButton();
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onUnsubscribe() {
+        if (!this.channel) {
+          return;
+        }
+        $core.updateChannelSubscription(this.channel.id, 'unsubscribed').then(() => {
+          this.channel.subscriptionState = "unsubscribed";
+          this._refreshSubscribeButton();
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
         });
       }
 
