@@ -255,7 +255,7 @@ export class ChannelsComponentManager implements RestServer {
       console.log("Bower.install " + nameToInstall + "=" + pkg + "...");
       fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands
-        .install([nameToInstall + "=" + pkgToInstall], { "force-latest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
+        .install([nameToInstall + "=" + pkgToInstall], { "forceLatest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
         .on('end', (installed: { [name: string]: BowerInstallPackageResult }) => {
           let result: BowerInstallResult;
           if (installed && installed[fullPkgName]) {
@@ -291,7 +291,7 @@ export class ChannelsComponentManager implements RestServer {
       throw new ErrorWithStatusCode(400, "This is not a valid package reference for the card type");
     }
     const pkgInfo = await this.install(request, pkg);
-    return await this.processComponent(pkg, pkgInfo);
+    return this.processComponent(pkg, pkgInfo);
   }
 
   private async handleComponent(request: Request, response: Response): Promise<void> {

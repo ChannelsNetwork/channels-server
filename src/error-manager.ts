@@ -13,7 +13,14 @@ export class ErrorManager implements RestServer {
     const rollbarToken = configuration.get('rollbar.token');
     if (rollbarToken) {
       console.log("ErrorManager.initializeRestServices:  Starting Rollbar");
-      this.rollbar = new Rollbar(rollbarToken);
+      this.rollbar = new Rollbar({
+        accessToken: rollbarToken,
+        captureUncaught: true,
+        captureUnhandledRejections: true,
+        payload: {
+          environment: configuration.get('rollbar.environment', "unknown")
+        }
+      });
       app.use(this.rollbar.errorHandler());
       this.rollbar.log("ErrorManager: channels server starting up", configuration.get('serverId'));
     } else {
