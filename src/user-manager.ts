@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -17,12 +17,16 @@ import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
 import { bank } from "./bank";
-import { emailManager } from "./email-manager";
+import { emailManager, EmailButton } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
 import { Utils } from "./utils";
 import fetch from "node-fetch";
 import { fileManager } from "./file-manager";
+import * as LRU from 'lru-cache';
+import { channelManager } from "./channel-manager";
+import { errorManager } from "./error-manager";
+import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -43,10 +47,11 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
-export class UserManager implements RestServer, UserSocketHandler, Initializable {
+export class UserManager implements RestServer, UserSocketHandler, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
+  private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -82,9 +87,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.updateUserGeo(user.id, null, null, null, null);
       }
     }
+    const withoutImageId = await db.findUsersWithoutImageId();
+    const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
+    for (const user of withoutImageId) {
+      const imageUrl = user.identity.imageUrl;
+      if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
+        const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
+        await db.replaceUserImageUrl(user.id, fileId);
+      }
+    }
+
     const withdrawals = await db.listManualWithdrawals(1000);
     for (const withdrawal of withdrawals) {
-      const user = await db.findUserById(withdrawal.userId);
+      const user = await this.getUser(withdrawal.userId, true);
       if (user) {
         if (!user.lastWithdrawal || withdrawal.created > user.lastWithdrawal) {
           console.log("User.initialize2: Updating user last withdrawal", user.id, withdrawal.created);
@@ -113,6 +128,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('update-identity'), (request: Request, response: Response) => {
       void this.handleUpdateIdentity(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('update-account-settings'), (request: Request, response: Response) => {
+      void this.handleUpdateAccountSettings(request, response);
+    });
     this.app.post(this.urlManager.getDynamicUrl('request-recovery-code'), (request: Request, response: Response) => {
       void this.handleRequestRecoveryCode(request, response);
     });
@@ -128,6 +146,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('get-handle'), (request: Request, response: Response) => {
       void this.handleGetHandle(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('request-email-confirmation'), (request: Request, response: Response) => {
+      void this.handleRequestEmailConfirmation(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('confirm-email'), (request: Request, response: Response) => {
+      void this.handleConfirmEmail(request, response);
+    });
     this.app.post(this.urlManager.getDynamicUrl('admin-get-users'), (request: Request, response: Response) => {
       void this.handleAdminGetUsers(request, response);
     });
@@ -137,6 +161,58 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('admin-set-user-curation'), (request: Request, response: Response) => {
       void this.handleAdminSetUserCuration(request, response);
     });
+  }
+
+  async handleNotification(notification: ChannelsServerNotification): Promise<void> {
+    switch (notification.type) {
+      case 'user-updated':
+        await this.handleUserUpdatedNotification(notification);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private async handleUserUpdatedNotification(notification: ChannelsServerNotification): Promise<void> {
+    console.log("UserManager.handleUserUpdatedNotification");
+    this.userCache.del(notification.user);
+  }
+
+  private async announceUserUpdated(user: UserRecord): Promise<void> {
+    const notification: ChannelsServerNotification = {
+      type: 'user-updated',
+      user: user.id
+    };
+    await awsManager.sendSns(notification);
+    this.userCache.del(user.id);
+  }
+
+  async getUser(userId: string, force: boolean): Promise<UserRecord> {
+    let result = this.userCache.get(userId);
+    if (result && !force) {
+      return result;
+    }
+    result = await db.findUserById(userId);
+    if (result) {
+      this.userCache.set(userId, result);
+    }
+    return result;
+  }
+
+  async getUserByAddress(address: string): Promise<UserRecord> {
+    const result = await db.findUserByAddress(address);
+    if (result) {
+      this.userCache.set(result.id, result);
+    }
+    return result;
+  }
+
+  async getUserByHandle(handle: string): Promise<UserRecord> {
+    const result = await db.findUserByHandle(handle);
+    if (result) {
+      this.userCache.set(result.id, result);
+    }
+    return result;
   }
 
   private async handleRegisterUser(request: Request, response: Response): Promise<void> {
@@ -170,7 +246,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
       }
       console.log("UserManager.register-user:", request.headers, ipAddress);
-      let userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
+      let userRecord = await this.getUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
         if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
           await db.addUserIpAddress(userRecord, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null);
@@ -206,7 +282,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(reward, null, true, false);
+          await networkEntity.performBankTransaction(request, reward, null, true, false);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -227,7 +303,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(grant, null, true, false);
+        await networkEntity.performBankTransaction(request, grant, null, true, false);
         userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
@@ -241,13 +317,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(inviteeRewardDetails, null, true, false);
+          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false);
           userRecord.balance += inviteeReward;
         }
       }
       await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
 
-      const userStatus = await this.getUserStatus(userRecord, true);
+      const userStatus = await this.getUserStatus(request, userRecord, true);
       const registerResponse: RegisterUserResponse = {
         serverVersion: SERVER_VERSION,
         status: userStatus,
@@ -264,7 +340,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(registerResponse);
     } catch (err) {
-      console.error("User.handleRegisterUser: Failure", err);
+      errorManager.error("User.handleRegisterUser: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -303,13 +379,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             return await db.insertIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
           }
         } else {
-          console.warn("User.initiateIpAddressUpdate: invalid response from ipapi", json);
+          errorManager.warning("User.initiateIpAddressUpdate: invalid response from ipapi", null, json);
         }
       } else {
-        console.warn("User.initiateIpAddressUpdate: unexpected response from ipapi", fetchResponse);
+        errorManager.warning("User.initiateIpAddressUpdate: unexpected response from ipapi", null, fetchResponse);
       }
     } catch (err) {
-      console.warn("User.initiateIpAddressUpdate: failure fetching IP geo info", err);
+      errorManager.warning("User.initiateIpAddressUpdate: failure fetching IP geo info", null, err);
     }
     return null;
   }
@@ -322,7 +398,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.register-user", requestBody);
-      let user = await db.findUserByHandle(requestBody.handleOrEmailAddress);
+      let user = await this.getUserByHandle(requestBody.handleOrEmailAddress);
       if (!user) {
         user = await db.findUserByEmail(requestBody.handleOrEmailAddress);
       }
@@ -339,7 +415,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleSignIn: Failure", err);
+      errorManager.error("User.handleSignIn: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -368,7 +444,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   //     const reply: RegisterDeviceResponse = { success: true };
   //     response.json(reply);
   //   } catch (err) {
-  //     console.error("User.handleRegisterDevice: Failure", err);
+  //     errorManager.error("User.handleRegisterDevice: Failure", err);
   //     response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
   //   }
   // }
@@ -376,19 +452,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleStatus(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<UserStatusDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
       // console.log("UserManager.status", requestBody.detailsObject.address);
-      const status = await this.getUserStatus(user, false);
+      const status = await this.getUserStatus(request, user, false);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
       };
       response.json(result);
     } catch (err) {
-      console.error("User.handleStatus: Failure", err);
+      errorManager.error("User.handleStatus: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -396,7 +472,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleUpdateIdentity(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<UpdateUserIdentityDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -415,7 +491,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       if (requestBody.detailsObject.handle) {
-        const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+        const existing = await this.getUserByHandle(requestBody.detailsObject.handle);
         if (existing && existing.id !== user.id) {
           response.status(409).send("This handle is not available");
           return;
@@ -429,7 +505,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       console.log("UserManager.update-identity", requestBody.detailsObject);
-      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageUrl, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, requestBody.detailsObject.encryptedPrivateKey);
+      let emailConfirmed: boolean;
+      let sendConfirmation = false;
+      if (requestBody.detailsObject.emailAddress) {
+        if (!user.identity || !user.identity.emailAddress || requestBody.detailsObject.emailAddress !== user.identity.emailAddress) {
+          sendConfirmation = true;
+          emailConfirmed = false;
+        }
+      }
+      await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
+      await channelManager.getUserDefaultChannel(user);
+      if (sendConfirmation) {
+        void this.sendEmailConfirmation(user);
+      }
       if (configuration.get("notifications.userIdentityChange")) {
         let html = "<div>";
         html += "<div>userId: " + user.id + "</div>";
@@ -437,16 +525,49 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         html += "<div>handle: " + requestBody.detailsObject.handle + "</div>";
         html += "<div>email: " + requestBody.detailsObject.emailAddress ? requestBody.detailsObject.emailAddress : "not specified" + "</div>";
         html += "<div>location: " + requestBody.detailsObject.location ? requestBody.detailsObject.location : "not specified" + "</div>";
-        html += "<div>image: " + requestBody.detailsObject.imageUrl ? '<img style="width:100px;height:auto;" src="' + requestBody.detailsObject.imageUrl + '">' : "not specified" + "< /div>";
+        html += "<div>image: " + requestBody.detailsObject.imageId ? '<img style="width:100px;height:auto;" src="' + await fileManager.getFileUrlFromFileId(requestBody.detailsObject.imageId) + '">' : "not specified" + "< /div>";
         html += "</div>";
         void emailManager.sendInternalNotification("User identity added/updated", "A user has added or updated their identity", html);
       }
+      await this.announceUserUpdated(user);
       const reply: UpdateUserIdentityResponse = {
         serverVersion: SERVER_VERSION
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleUpdateIdentity: Failure", err);
+      errorManager.error("User.handleUpdateIdentity: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleUpdateAccountSettings(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<UpdateAccountSettingsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.settings) {
+        response.status(400).send("Missing settings");
+        return;
+      }
+      console.log("UserManager.update-account-settings", requestBody.detailsObject);
+      await db.updateUserNotificationSettings(user, requestBody.detailsObject.settings.disallowPlatformEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowContentEmailAnnouncements ? true : false);
+      await this.announceUserUpdated(user);
+      const reply: UpdateAccountSettingsResponse = {
+        serverVersion: SERVER_VERSION,
+        name: user.identity ? user.identity.name : null,
+        location: user.identity ? user.identity.location : null,
+        image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
+        handle: user.identity ? user.identity.handle : null,
+        emailAddress: user.identity ? user.identity.emailAddress : null,
+        emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        accountSettings: this.getAccountSettings(user)
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleUpdateAccountSettings: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -456,7 +577,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const requestBody = request.body as RequestRecoveryCodeDetails;
       let user: UserRecord;
       if (requestBody.handle) {
-        user = await db.findUserByHandle(requestBody.handle);
+        user = await this.getUserByHandle(requestBody.handle);
       } else if (requestBody.emailAddress) {
         user = await db.findUserByEmail(requestBody.emailAddress);
       } else {
@@ -488,12 +609,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       html += "<li>Handle: " + user.identity.handle + "</li>";
       html += "<p>If you did not request account recovery, you can safely ignore this message.</p>";
       await emailManager.sendNoReplyUserNotification(user.identity.name, user.identity.emailAddress, "Account recovery", text, html);
+      await this.announceUserUpdated(user);
       const reply: RequestRecoveryCodeResponse = {
         serverVersion: SERVER_VERSION
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleRequestRecoveryCode: Failure", err);
+      errorManager.error("User.handleRequestRecoveryCode: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -501,7 +623,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleRecoverUser(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RecoverUserDetails>;
-      const registeredUser = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const registeredUser = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!registeredUser) {
         return;
       }
@@ -533,28 +655,40 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.recover-user", requestBody.detailsObject);
       await db.deleteUser(registeredUser.id);
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
-      const status = await this.getUserStatus(user, true);
+      await this.announceUserUpdated(registeredUser);
+      await this.announceUserUpdated(user);
+      const status = await this.getUserStatus(request, user, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
         status: status,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? user.identity.imageUrl : null,
+        image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
-        encryptedPrivateKey: user.encryptedPrivateKey
+        emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        accountSettings: this.getAccountSettings(user)
       };
       response.json(result);
     } catch (err) {
-      console.error("User.handleRecoverUser: Failure", err);
+      errorManager.error("User.handleRecoverUser: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private getAccountSettings(user: UserRecord): AccountSettings {
+    const result: AccountSettings = {
+      disallowPlatformEmailAnnouncements: user.notifications && user.notifications.disallowPlatformNotifications ? true : false,
+      disallowContentEmailAnnouncements: user.notifications && user.notifications.disallowContentNotifications ? true : false
+    };
+    return result;
   }
 
   private async handleGetIdentity(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetUserIdentityDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -563,14 +697,16 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         name: user.identity ? user.identity.name : null,
         location: user.identity ? user.identity.location : null,
-        imageUrl: user.identity ? fileManager.rewriteFileUrls(user.identity.imageUrl) : null,
+        image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
         handle: user.identity ? user.identity.handle : null,
         emailAddress: user.identity ? user.identity.emailAddress : null,
-        encryptedPrivateKey: user.encryptedPrivateKey
+        emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        accountSettings: this.getAccountSettings(user)
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetIdentity: Failure", err);
+      errorManager.error("User.handleGetIdentity: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -578,7 +714,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleGetHandle(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetHandleDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -588,7 +724,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.get-handle", user.id, requestBody.detailsObject);
-      const found = await db.findUserByHandle(handle);
+      const found = await this.getUserByHandle(handle);
       if (!found) {
         response.status(404).send("Handle not found");
         return;
@@ -597,11 +733,67 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         serverVersion: SERVER_VERSION,
         handle: found.identity ? found.identity.handle : null,
         name: found.identity ? found.identity.name : null,
-        imageUrl: found.identity ? fileManager.rewriteFileUrls(found.identity.imageUrl) : null
+        image: found.identity ? await fileManager.getFileInfo(found.identity.imageId) : null
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetHandle: Failure", err);
+      errorManager.error("User.handleGetHandle: Failure", err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.request-email-confirmation", user.id, requestBody.detailsObject);
+      if (!user.identity || !user.identity.emailAddress) {
+        response.status(409).send("User has no email address to confirm");
+        return;
+      }
+      await this.sendEmailConfirmation(user);
+      const reply: RequestEmailConfirmationResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleRequestEmailConfirmation: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleConfirmEmail(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<ConfirmEmailDetails>;
+      requestBody.detailsObject = JSON.parse(requestBody.details) as ConfirmEmailDetails;
+      const confirmationCode = requestBody.detailsObject ? requestBody.detailsObject.code : null;
+      if (!confirmationCode) {
+        response.status(400).send("Missing code");
+        return;
+      }
+      console.log("UserManager.confirm-email", requestBody.detailsObject);
+      const user = await db.findUserByEmailConfirmationCode(confirmationCode);
+      if (!user) {
+        response.status(404).send("No such user");
+        return;
+      }
+      if (!user.identity || !user.identity.emailAddress) {
+        response.status(409).send("User has no email address to confirm");
+        return;
+      }
+      await db.updateUserEmailConfirmation(user.id);
+      await this.announceUserUpdated(user);
+      const reply: ConfirmEmailResponse = {
+        serverVersion: SERVER_VERSION,
+        userId: user.id,
+        handle: user.identity.handle
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleConfirmEmail: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -609,7 +801,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleAdminGetUsers(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminGetUsersDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -657,7 +849,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminGetUsers: Failure", err);
+      errorManager.error("User.handleAdminGetUsers: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -665,7 +857,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleAdminSetUserMailingList(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminSetUserMailingListDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -673,7 +865,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(403).send("You are not an admin");
         return;
       }
-      const mailingListUser = await db.findUserById(requestBody.detailsObject.userId);
+      const mailingListUser = await this.getUser(requestBody.detailsObject.userId, true);
       if (!mailingListUser) {
         response.status(404).send("No such user");
         return;
@@ -685,7 +877,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminSetUserMailingList: Failure", err);
+      errorManager.error("User.handleAdminSetUserMailingList: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -693,7 +885,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private async handleAdminSetUserCuration(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminSetUserCurationDetails>;
-      const admin = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const admin = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!admin) {
         return;
       }
@@ -701,7 +893,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(403).send("You are not an admin");
         return;
       }
-      const user = await db.findUserById(requestBody.detailsObject.userId);
+      const user = await this.getUser(requestBody.detailsObject.userId, true);
       if (!user) {
         response.status(404).send("No such user");
         return;
@@ -727,28 +919,26 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.updateCardsLastScoredByAuthor(user.id, true);
       }
       await db.updateUserCuration(user.id, requestBody.detailsObject.curation);
+      await this.announceUserUpdated(user);
       const reply: AdminSetUserCurationResponse = {
         serverVersion: SERVER_VERSION
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminSetUserCuration: Failure", err);
+      errorManager.error("User.handleAdminSetUserCuration: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
   private async countUserPaidOpens(user: UserRecord, from: number, to: number): Promise<number> {
-    const cursor = db.findCardsByAuthor(user.id);
+    const cursor = db.getCardsByAuthor(user.id);
     let result = 0;
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       result += await db.countCardPayments(card.id, from, to);
     }
+    await cursor.close();
     return result;
-  }
-
-  async getUserById(id: string): Promise<UserRecord> {
-    return await db.findUserById(id);
   }
 
   private async handleCheckHandle(request: Request, response: Response): Promise<void> {
@@ -756,7 +946,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const requestBody = request.body as RestRequest<CheckHandleDetails>;
       let user: UserRecord;
       if (requestBody.signature) {
-        user = await RestHelper.validateRegisteredRequest(requestBody, response);
+        user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
         if (!user) {
           return;
         }
@@ -778,7 +968,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       reply.valid = true;
       console.log("UserManager.check-handle", requestBody.details);
-      const existing = await db.findUserByHandle(requestBody.detailsObject.handle);
+      const existing = await this.getUserByHandle(requestBody.detailsObject.handle);
       if (existing) {
         if (!user || existing.id !== user.id) {
           reply.inUse = true;
@@ -788,14 +978,14 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       response.json(reply);
     } catch (err) {
-      console.error("User.handleCheckHandle: Failure", err);
+      errorManager.error("User.handleCheckHandle: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
-  async getUserStatus(user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
+  async getUserStatus(request: Request, user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
     if (updateBalance) {
-      await this.updateUserBalance(user);
+      await this.updateUserBalance(request, user);
     }
     const network = await db.getNetwork();
     let timeUntilNextAllowedWithdrawal = 0;
@@ -855,11 +1045,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const now = Date.now();
     const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
     for (const user of users) {
-      await this.updateUserBalance(user);
+      await this.updateUserBalance(null, user);
     }
   }
 
-  async updateUserBalance(user: UserRecord): Promise<void> {
+  async updateUserBalance(request: Request, user: UserRecord): Promise<void> {
     const now = Date.now();
     let subsidy = 0;
     let balanceBelowTarget = false;
@@ -888,7 +1078,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(subsidyDetails, null, false, false);
+        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -911,7 +1101,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(grant, null, true, false);
+        await networkEntity.performBankTransaction(request, grant, null, true, false);
       }
     }
   }
@@ -924,7 +1114,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async onUserSocketMessage(address: string): Promise<UserRecord> {
-    const user = await db.findUserByAddress(address);
+    const user = await this.getUserByAddress(address);
     if (!user) {
       return null;
     }
@@ -942,6 +1132,38 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
     }
     return false;
+  }
+
+  async getUserDescriptor(userId: string, includePublicKey: boolean): Promise<UserDescriptor> {
+    const user = await this.getUser(userId, false);
+    if (!user) {
+      return null;
+    }
+    const result: UserDescriptor = {
+      id: user.id,
+      address: user.address,
+      handle: user.identity ? user.identity.handle : null,
+      publicKey: user.publicKey,
+      name: user.identity ? user.identity.name : null,
+      image: user.identity ? await fileManager.getFileInfo(user.identity.imageId) : null,
+      location: user.identity ? user.identity.location : null
+    };
+    return result;
+  }
+
+  async sendEmailConfirmation(user: UserRecord): Promise<void> {
+    if (!user.identity || !user.identity.emailAddress) {
+      throw new Error("User does not have an email address to confirm.");
+    }
+    const confirmationCode = uuid.v4();
+    await db.updateUserEmailConfirmationCode(user, confirmationCode);
+    const info: any = {};
+    const button: EmailButton = {
+      caption: "Confirm",
+      url: this.urlManager.getAbsoluteUrl('/confirm-email?code=' + encodeURIComponent(confirmationCode))
+    };
+    const buttons: EmailButton[] = [button];
+    await emailManager.sendUsingTemplate("Channel.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "Confirm your identity", "email-confirmation", info, buttons);
   }
 }
 

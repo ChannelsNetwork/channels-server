@@ -3,6 +3,7 @@ import { Signable, RestRequest } from "./interfaces/rest-services";
 import { KeyUtils } from "./key-utils";
 import { db } from "./db";
 import { UserRecord } from "./interfaces/db-records";
+import { userManager } from "./user-manager";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 
@@ -40,15 +41,20 @@ export class RestHelper {
     return true;
   }
 
-  static async validateRegisteredRequest<T extends Signable>(requestBody: RestRequest<T>, response: Response): Promise<UserRecord> {
+  static async validateRegisteredRequest<T extends Signable>(requestBody: RestRequest<T>, request: Request, response: Response): Promise<UserRecord> {
     if (!this.validateBasicRequest(requestBody, response)) {
       return null;
     }
-    const userRecord = await db.findUserByAddress(requestBody.detailsObject.address);
+    const userRecord = await userManager.getUserByAddress(requestBody.detailsObject.address);
     if (!userRecord) {
       response.status(401).send("No such registered users");
       return null;
     }
+    (request as any).user = {
+      id: userRecord.id,
+      handle: userRecord.identity ? userRecord.identity.handle : null,
+      name: userRecord.identity ? userRecord.identity.name : null
+    };
     const publicKey = userRecord.publicKey;
     if (!this.validateRequest(requestBody, publicKey, response)) {
       return null;

@@ -18,6 +18,7 @@ import * as mkdirp from 'mkdirp';
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { SERVER_VERSION } from "./server-version";
 import * as url from 'url';
+import { errorManager } from "./error-manager";
 
 const bower = require('bower');
 
@@ -38,13 +39,13 @@ export class ChannelsComponentManager implements RestServer {
     });
   }
 
-  private async install(pkg: string): Promise<BowerInstallResult> {
+  private async install(request: Request, pkg: string): Promise<BowerInstallResult> {
     // Following code is to help those who might copy a hyperlink to a GitHub project, when bower
     // requires that they point to ".git" for a GitHub project.
     if (pkg.startsWith('https://github.com/') && pkg.lastIndexOf('/') > pkg.lastIndexOf('.')) {
       pkg = pkg + '.git';
     }
-    await this.lockBower("Installing " + pkg);
+    await this.lockBower(request, "Installing " + pkg);
     try {
       await this.ensureInit();
       let versioned: BowerPackageMeta;
@@ -54,12 +55,12 @@ export class ChannelsComponentManager implements RestServer {
       } else {
         versioned = await this._infoVersioned(pkg);
       }
-      if (!versioned || !versioned.name || !versioned.version || !/^\d+\.\d+\.\d+$/.test(versioned.version)) {
-        throw new ErrorWithStatusCode(404, "Cannot install this package because it is not found or doesn't have an available release");
-      }
+      // if (!versioned || !versioned.name || !versioned.version || !/^\d+\.\d+\.\d+$/.test(versioned.version)) {
+      //   throw new ErrorWithStatusCode(404, "Cannot install this package because it is not found or doesn't have an available release");
+      // }
       return await this._installVersion(pkg, versioned);
     } catch (err) {
-      console.error("Bower: install failed", err);
+      errorManager.error("Bower: install failed", err);
       throw (err);
     } finally {
       await this.unlockBower();
@@ -68,12 +69,12 @@ export class ChannelsComponentManager implements RestServer {
 
   async updateAll(): Promise<void> {
     console.log("Bower: updating all packages ...");
-    await this.lockBower("Cleaning...");
+    await this.lockBower(null, "Cleaning...");
     try {
       await this._updateAll();
       console.log("Bower: update complete");
     } catch (err) {
-      console.error("Bower: updated failed", err);
+      errorManager.error("Bower: updated failed", err);
     } finally {
       await this.unlockBower();
     }
@@ -81,12 +82,12 @@ export class ChannelsComponentManager implements RestServer {
 
   async clean(): Promise<void> {
     console.log("Bower: clearing out any existing contents...");
-    await this.lockBower("Cleaning...");
+    await this.lockBower(null, "Cleaning...");
     try {
       await this._clean();
       console.log("Bower: cleaning complete");
     } catch (err) {
-      console.error("Bower: install failed", err);
+      errorManager.error("Bower: install failed", err);
     } finally {
       await this.unlockBower();
     }
@@ -113,7 +114,7 @@ export class ChannelsComponentManager implements RestServer {
     });
   }
 
-  private async lockBower(description: string): Promise<void> {
+  private async lockBower(request: Request, description: string): Promise<void> {
     let count = 0;
     const serverId = configuration.get('serverId');
     let bowerManagement = await db.findBowerManagement('main');
@@ -123,20 +124,20 @@ export class ChannelsComponentManager implements RestServer {
       }
       if (bowerManagement && bowerManagement.status === 'busy') {
         if (Date.now() - bowerManagement.timestamp > 1000 * 60) {
-          console.warn("BowerHelper: encountered stale bower lock.  Forcing.", description);
+          errorManager.warning("BowerHelper: encountered stale bower lock.  Forcing.", request, description);
           if (await db.updateBowerManagement('main', serverId, 'busy', Date.now(), bowerManagement ? bowerManagement.status : null, bowerManagement ? bowerManagement.timestamp : null)) {
             break;
           }
           console.log("BowerHelper: Someone jumped ahead.  Waiting again...", description);
         } else {
-          console.warn("BowerHelper: Busy ... waiting ...", description);
+          errorManager.warning("BowerHelper: Busy ... waiting ...", request, description);
         }
         await Utils.sleep(1000);
       } else {
         if (await db.updateBowerManagement('main', serverId, 'busy', Date.now(), bowerManagement ? bowerManagement.status : null, bowerManagement ? bowerManagement.timestamp : null)) {
           break;
         } else {
-          console.warn("BowerHelper: collision trying to get lock. Waiting then trying again", description);
+          errorManager.warning("BowerHelper: collision trying to get lock. Waiting then trying again", request, description);
           await Utils.sleep(1000);
         }
       }
@@ -172,7 +173,7 @@ export class ChannelsComponentManager implements RestServer {
           resolve();
         })
         .on('error', (err: any) => {
-          console.error("Failure trying to bower init", err);
+          errorManager.error("Failure trying to bower init", err);
           resolve();
         })
         .on('log', (log: any) => {
@@ -188,11 +189,11 @@ export class ChannelsComponentManager implements RestServer {
       bower.commands
         .update([], { json: true, production: true, save: true, "force-latest": true }, { cwd: this.shadowComponentsDirectory })
         .on('end', (installed: any) => {
-          console.error("Bower: Update all completed");
+          errorManager.error("Bower: Update all completed", null);
           resolve();
         })
         .on('error', (err: any) => {
-          console.error("Bower: Failure updating all");
+          errorManager.error("Bower: Failure updating all", null);
           resolve();
         })
         .on('log', (log: any) => {
@@ -243,18 +244,18 @@ export class ChannelsComponentManager implements RestServer {
     });
   }
 
-  private async _installVersion(nameToInstall: string, pkg: BowerPackageMeta): Promise<BowerInstallResult> {
-    nameToInstall = nameToInstall.split('#')[0] + "#" + pkg.version;
-    const fullPkgName = pkg.name + "_" + pkg.version;
-    const cached = this.installedPackageCache.get(fullPkgName);
+  private async _installVersion(pkgToInstall: string, pkg: BowerPackageMeta): Promise<BowerInstallResult> {
+    const nameToInstall = pkgToInstall.split('/').join('___').split('#').join('__').toLowerCase() + "_" + pkg.version;
+    const fullPkgName = pkg.name + "#" + pkg.version;
+    const cached = this.installedPackageCache.get(nameToInstall);
     if (cached) {
       return cached;
     }
     return new Promise<BowerInstallResult>((resolve, reject) => {
-      console.log("Bower.install " + fullPkgName + "...");
+      console.log("Bower.install " + nameToInstall + "=" + pkg + "...");
       fs.existsSync(this.shadowComponentsDirectory + "/data");  // This is to deal with a problem where automount EFS may have timed out and needs to be woken up
       bower.commands
-        .install([fullPkgName + "=" + nameToInstall], { "force-latest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
+        .install([nameToInstall + "=" + pkgToInstall], { "forceLatest": true, save: true, production: true, json: true }, { cwd: this.shadowComponentsDirectory })
         .on('end', (installed: { [name: string]: BowerInstallPackageResult }) => {
           let result: BowerInstallResult;
           if (installed && installed[fullPkgName]) {
@@ -264,15 +265,15 @@ export class ChannelsComponentManager implements RestServer {
             // It must have already been installed, so the pkg information is all we need
             result = {
               endpoint: {
-                name: fullPkgName,
-                source: nameToInstall,
+                name: nameToInstall,
+                source: pkgToInstall,
                 target: pkg.version
               },
               pkgMeta: pkg
             };
             console.log("Bower._installVersion: already installed", result);
           }
-          this.installedPackageCache.set(fullPkgName, result);
+          this.installedPackageCache.set(nameToInstall, result);
           resolve(result);
         })
         .on('error', (err: any) => {
@@ -284,19 +285,19 @@ export class ChannelsComponentManager implements RestServer {
     });
   }
 
-  async ensureComponent(pkg: string): Promise<ChannelComponentResponse> {
+  async ensureComponent(request: Request, pkg: string): Promise<ChannelComponentResponse> {
     console.log("ComponentManager.ensure-component", pkg);
     if (!pkg) {
       throw new ErrorWithStatusCode(400, "This is not a valid package reference for the card type");
     }
-    const pkgInfo = await this.install(pkg);
-    return await this.processComponent(pkg, pkgInfo);
+    const pkgInfo = await this.install(request, pkg);
+    return this.processComponent(pkg, pkgInfo);
   }
 
   private async handleComponent(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<EnsureChannelComponentDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -304,10 +305,10 @@ export class ChannelsComponentManager implements RestServer {
         response.status(400).send("Invalid request:  missing package");
         return;
       }
-      const componentResponse = await this.ensureComponent(requestBody.detailsObject.package);
+      const componentResponse = await this.ensureComponent(request, requestBody.detailsObject.package);
       response.json(componentResponse);
     } catch (err) {
-      console.error("Bower.handleComponent: Failure", err);
+      errorManager.error("Bower.handleComponent: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -344,11 +345,11 @@ export class ChannelsComponentManager implements RestServer {
     return componentResponse;
   }
 
-  async getPackageRootUrl(packageName: string): Promise<string> {
+  async getPackageRootUrl(request: Request, packageName: string): Promise<string> {
     let record = await db.findBowerPackage(packageName);
     if (!record) {
-      await this.ensureComponent(packageName);
-      console.warn("ComponentManager.getPackageRootUrl:  Fixing up missing package", packageName);
+      await this.ensureComponent(request, packageName);
+      errorManager.warning("ComponentManager.getPackageRootUrl:  Fixing up missing package", request, packageName);
       record = await db.findBowerPackage(packageName);
       if (!record) {
         return null;

@@ -1,0 +1,242 @@
+<link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../controls/user-image.html">
+
+<dom-module id="channels-bar">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #bar {
+        height: 50px;
+        padding: 0 0 0 16px;
+        box-sizing: border-box;
+        background: var(--bg-dark);
+        color: white;
+      }
+
+      soso-icon {
+        width: 28px;
+        height: 28px;
+        padding: 10px;
+        cursor: pointer;
+        transition: color 0.15s ease;
+      }
+
+      soso-icon:hover {
+        color: var(--bg-yellow);
+      }
+
+      .logo {
+        display: block;
+        height: 36px;
+        width: auto;
+      }
+
+      a {
+        text-align: center;
+      }
+
+      a:hover {
+        box-shadow: none;
+      }
+
+      #userImage {
+        height: 38px;
+        width: 38px;
+        margin: 0 5px 0 10px;
+        cursor: pointer;
+      }
+
+      button {
+        color: white;
+        font-size: 14px;
+        background: none;
+        font-weight: 400;
+      }
+
+      button:hover {
+        color: var(--bg-yellow);
+      }
+
+      #balancePanel {
+        height: 50px;
+        padding: 0 16px;
+        background: var(--bg-yellow);
+        color: #000;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+
+      .menuDivider {
+        border-top: 1px solid #d8d8d8;
+        margin-top: 5px;
+      }
+
+      soso-dropdown {
+        z-index: 1;
+      }
+
+      @media (max-width: 600px) {
+        #bar {
+          padding: 0 0 0 8px;
+        }
+        #balancePanel {
+          letter-spacing: initial;
+          margin-left: 2px;
+          padding: 0 10px;
+          font-size: 15px;
+        }
+        .logo {
+          height: 26px;
+        }
+      }
+    </style>
+    <div id="bar" class="horizontal layout center">
+      <soso-icon id="menu" icon="menu" on-click="_showMenu" class="hidden"></soso-icon>
+      <a id="logoLink" href="/">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+      </a>
+      <div class="flex"></div>
+      <a id="signInLink" href="/signin" class="hidden">
+        <button id="signin">Sign In</button>
+      </a>
+      <soso-icon icon="search" on-click="_onSearch"></soso-icon>
+      <user-image id="userImage" class="hidden"></user-image>
+      <a href="/balance">
+        <div id="balancePanel" class="horizontal layout center">
+          <span id="balanceLabel" style="opacity: 0;">[[balance]]</span>
+        </div>
+      </a>
+    </div>
+    <soso-dropdown for="userImage" alignment="right" offset="0">
+      <li on-click="_gotoMyChannel">My Channel</li>
+      <li on-click="_gotoAccount">Account</li>
+      <li on-click="_gotoSubscriptions">Subscriptions</li>
+      <li on-click="_signOut" class="menuDivider">Sign Out</li>
+    </soso-dropdown>
+  </template>
+  <script>
+    class ChannelsBar extends Polymer.Element {
+      static get is() { return 'channels-bar'; }
+      static get properties() {
+        return {
+          balance: String,
+          showMenu: {
+            type: Boolean,
+            observer: '_onShowMenuToggle'
+          }
+        }
+      }
+
+      constructor() {
+        super();
+        this._balaceListener = this._updateBalance.bind(this);
+        this._profileListener = this._refreshUser.bind(this);
+        this.balance = "ℂ0.000";
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._onShowMenuToggle();
+      }
+
+      _onShowMenuToggle() {
+        if (this.$.menu) {
+          if (this.showMenu) {
+            this.$.bar.style.paddingLeft = "0px";
+            this.$.menu.classList.remove("hidden");
+          } else {
+            this.$.bar.style.paddingLeft = "";
+            this.$.menu.classList.add("hidden");
+          }
+        }
+      }
+
+      activate() {
+        this._removeListeners();
+        window.addEventListener("channels-registration", this._balaceListener);
+        window.addEventListener("channels-user-status", this._balaceListener);
+        window.addEventListener("channels-profile", this._profileListener);
+        this._updateBalance();
+        this._refreshUser();
+      }
+
+      deactivate() {
+        if (this._balanceTimer) {
+          clearInterval(this._balanceTimer);
+          this._balanceTimer = null;
+        }
+        this._removeListeners();
+      }
+
+      _showMenu(event) {
+        event.stopPropagation();
+        $app.showMenu();
+      }
+
+      _removeListeners() {
+        window.removeEventListener("channels-registration", this._balaceListener);
+        window.removeEventListener("channels-user-status", this._balaceListener);
+        window.removeEventListener("channels-profile", this._profileListener);
+      }
+
+      _updateBalance() {
+        if (!this._balanceTimer) {
+          this._balanceTimer = setInterval(() => {
+            this._refreshBalance();
+          }, 2000);
+        }
+        this._refreshBalance();
+        this.$.balanceLabel.style.opacity = 1;
+      }
+
+      _refreshBalance() {
+        this.balance = "ℂ" + ($core.balance ? (Math.floor($core.balance * 1000) / 1000).toFixed(3) : "0.000");
+      }
+
+      _refreshUser() {
+        if ($core.profile && $core.profile.handle) {
+          this.$.signInLink.classList.add("hidden");
+          this.$.userImage.classList.remove("hidden");
+          if ($core.profile.image && $core.profile.image.url) {
+            this.$.userImage.image = $core.profile.image.url;
+          } else {
+            this.$.userImage.image = $core.userManager.getFallbackUserImage($core.profile.handle);
+          }
+        } else {
+          this.$.signInLink.classList.remove("hidden");
+          this.$.userImage.classList.add("hidden");
+        }
+      }
+
+      _onSearch() {
+        $router.goto("/search");
+      }
+
+      _gotoMyChannel() {
+        $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
+      }
+
+      _gotoAccount() {
+        $router.goto("/account");
+      }
+
+      _gotoSubscriptions() {
+        $router.goto("/subscriptions");
+      }
+
+      _signOut() {
+        $core.signOut().then(() => {
+          window.location.assign("/");
+        }).catch((err) => {
+          console.error(err);
+          window.location.assign("/");
+        });
+      }
+    }
+    window.customElements.define(ChannelsBar.is, ChannelsBar);
+  </script>
+</dom-module>

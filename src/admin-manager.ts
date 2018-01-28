@@ -10,7 +10,7 @@ import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails,
 import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
-
+import { errorManager } from "./error-manager";
 export class AdminManager implements RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -35,7 +35,7 @@ export class AdminManager implements RestServer {
   private async handleGetAdminGoals(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminGetGoalsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -57,7 +57,7 @@ export class AdminManager implements RestServer {
       }
       response.json(reply);
     } catch (err) {
-      console.error("AdminManager.handleGetAdminGoals: Failure", err);
+      errorManager.error("AdminManager.handleGetAdminGoals: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -109,6 +109,7 @@ export class AdminManager implements RestServer {
         }
       }
     }
+    await cursor.close();
     console.log("Admin.computeUserGoals took " + ((Date.now() - starting) / 1000).toFixed(1) + " seconds");
     return result;
   }
@@ -208,7 +209,7 @@ export class AdminManager implements RestServer {
   private async handleGetWithdrawals(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminGetWithdrawalsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -254,7 +255,7 @@ export class AdminManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("AdminManager.handleGetWithdrawals: Failure", err);
+      errorManager.error("AdminManager.handleGetWithdrawals: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -262,7 +263,7 @@ export class AdminManager implements RestServer {
   private async handleUpdateWithdrawal(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminUpdateWithdrawalDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -282,7 +283,7 @@ export class AdminManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("AdminManager.handleUpdateWithdrawal: Failure", err);
+      errorManager.error("AdminManager.handleUpdateWithdrawal: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

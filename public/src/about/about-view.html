@@ -1,3 +1,6 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
 
 <dom-module id="about-view">
@@ -70,6 +73,10 @@
         }
       }
     </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="About Channels"></title-bar>
+    </soso-app-header>
     <section id="whatSection">
       <div class="content">
         <h1>What is Channels?</h1>
@@ -115,7 +122,7 @@
     <section>
       <div class="content">
         <h1>How Does It Work</h1>
-        <p>Each person that comes to Channels automatically has an account set up for them with an initial balance of 5 tokens,
+        <p>Each person that comes to Channels automatically has an account set up for them with an initial balance of 2.5 tokens,
           which we call
           <b>ChannelCoins</b>. We use the symbol, ℂ, to represent these tokens. So ℂ0.25, for example, means one quarter of
           one ChannelCoin token.
@@ -140,11 +147,9 @@
           <a href="/learn-card-development">any kind of content</a> that can be hosted on the web.</p>
         <p>You can sell tokens you have in excess of ℂ5.00. Currently ChannelCoin tokens can be exchanged 1:1 with US dollars.
           Eventually that exchange rate may change.</p>
-        <p>While Channels is in its early stages, we are paying token subsidies to both consumers and authors as a way to provide
-          incentives for good content. Consumer subsidies mean that without consuming any promoted content, the network may
-          pay small subsidies over time until the consumer's balance has been restored. Author subsidies, if available, supplement
-          the amount paid by the consumer for opening a card -- keeping the prices for consumers low, while providing compelling
-          rewards for the best content.</p>
+        <p>While Channels is in its early stages, we are paying token subsidies to authors as a way to provide incentives for
+          good content. We supplement the amount paid by the consumer for opening a card -- keeping the prices for consumers
+          low, while providing compelling rewards for the best content.</p>
         <p>Questions or comments?
           <a href="https://twitter.com/channelscc" target="_blank">Send us a tweet.</a>
         </p>
@@ -169,9 +174,9 @@
         <div class="question">
           <p class="q">Why should I drop my existing system (YouTube, Medium, Vimeo, Patreon, my own site, etc.)?</p>
           <p class="a">You don't have to. We don't require that your content is exclusive. But when telling your followers about where
-            to find your content, we encourage you to point them to your card on Channels. They will appreciate being able
-            to support you financially in a small way. Your content won't have ads in front of it. And you may very well
-            make more money per view than you would have on another platform.</p>
+            to find your content, we encourage you to point them to your content on Channels. They will appreciate being
+            able to support you financially in a small way. Your content won't have ads in front of it. And you may very
+            well make more money per view than you would have on another platform.</p>
         </div>
         <div class="question">
           <p class="q">Can I post any content I want?</p>
@@ -179,6 +184,13 @@
             seriously. You should only post content that you own the rights to use. That includes photos and audio you embed
             in your content. (By searching the web for "free stock photos", you will find sources for content you can use
             without restriction.)
+          </p>
+        </div>
+        <div class="question">
+          <p class="q">As a publisher, do I get a cut of the advertising revenue?</p>
+          <p class="a">Not directly. Your viewers are paid by advertisers (unless they choose to keep their balance above ℂ5) and they
+            use that money to pay you when they open your cards. Unlike Facebook and Google, Channels does not make any money
+            from advertising. All of that money goes to viewers. We do, however, take 10% of the fee when viewers pay publishers.
           </p>
         </div>
       </div>
@@ -238,6 +250,7 @@
         } else {
           this.style.opacity = 0;
           $core.register().then((info) => {
+            this.$.cbar.activate();
             this.style.opacity = 1;
           }).catch((err) => {
             console.error(err);
@@ -246,6 +259,10 @@
             }, 600);
           });
         }
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
       }
     }
     window.customElements.define(AboutView.is, AboutView);

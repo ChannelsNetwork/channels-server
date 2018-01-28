@@ -169,14 +169,14 @@
       _onPublish() {
         this.$.overlay.classList.remove("hidden");
         this.$.spinner.spinning = true;
-        this.wizard.data.summary.imageURL = this.cardData.summary.imageUrl;
+        this.wizard.data.summary.imageId = this.cardData.summary.imageId;
+        this.wizard.data.summary.imageURL = this.cardData.summary.imageURL;
         this.wizard.data.summary.title = this.cardData.summary.title;
         this.wizard.data.summary.text = this.cardData.summary.text;
         this.wizard.data.summary.linkURL = this.cardData.summary.linkURL;
+        this.wizard.data.summary.iframeUrl = this.cardData.summary.iframeUrl;
         this.wizard.data.keywords = this._getKeywords();
-        this._setImageSize().then(() => {
-          this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
-        });
+        this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
       }
 
       onPublishFail(err) {
@@ -187,25 +187,25 @@
         });
       }
 
-      _setImageSize() {
-        return new Promise((resolve, reject) => {
-          const imageUrl = this.cardData.summary.imageUrl;
-          if (imageUrl) {
-            let img = new Image();
-            img.addEventListener('load', () => {
-              this.wizard.data.summary.imageWidth = img.width;
-              this.wizard.data.summary.imageHeight = img.height;
-              resolve();
-            });
-            img.addEventListener('error', () => {
-              resolve();
-            });
-            img.src = imageUrl;
-          } else {
-            resolve();
-          }
-        });
-      }
+      // _setImageSize() {
+      //   return new Promise((resolve, reject) => {
+      //     const imageUrl = this.cardData.summary.imageUrl;
+      //     if (imageUrl) {
+      //       let img = new Image();
+      //       img.addEventListener('load', () => {
+      //         this.wizard.data.summary.imageWidth = img.width;
+      //         this.wizard.data.summary.imageHeight = img.height;
+      //         resolve();
+      //       });
+      //       img.addEventListener('error', () => {
+      //         resolve();
+      //       });
+      //       img.src = imageUrl;
+      //     } else {
+      //       resolve();
+      //     }
+      //   });
+      // }
 
       onTransitioningIn(forward) {
         this.$.overlay.classList.add("hidden");
@@ -213,12 +213,12 @@
         let data = this.wizard.data;
         const cardData = {
           summary: {
-            imageUrl: data.summary.imageURL,
-            imageWidth: data.summary.imageWidth,
-            imageHeight: data.summary.imageHeight,
+            imageId: data.summary.imageId,
+            imageURL: data.summary.imageURL,
             title: data.summary.title,
             text: data.summary.text,
-            linkURL: data.summary.linkURL
+            linkURL: data.summary.linkURL,
+            iframeUrl: data.summary.iframeUrl
           },
           stats: {
             likes: 0,
@@ -235,7 +235,7 @@
           },
           by: {
             name: $core.profile ? $core.profile.name : null,
-            imageUrl: $core.profile ? $core.profile.imageUrl : null
+            image: $core.profile.image
           },
           postedAt: Date.now(),
           postedAtDisplay: "now",
@@ -268,10 +268,12 @@
       _onEdit() {
         this._import('edit-card-summary-dialog.html').then(() => {
           const editSummary = {
-            imageUrl: this.cardData.summary.imageUrl,
+            imageId: this.cardData.summary.imageId,
+            imageURL: this.cardData.summary.imageURL,
             title: this.cardData.summary.title,
             text: this.cardData.summary.text,
             linkURL: this.cardData.summary.linkURL,
+            iframeUrl: this.cardData.summary.iframeUrl,
             keywords: this._getKeywords()
           };
           this.wizard.headerVisible = false;

@@ -123,8 +123,6 @@ class CoreService extends Polymer.Element {
   _generateFingerprint() {
     return new Promise((resolve, reject) => {
       new Fingerprint2().get((result, components) => {
-        console.log("Fingerprint ", result);
-        console.log("Fingerprint components: ", components);
         this._fingerprint = result;
         resolve();
       });
@@ -248,20 +246,20 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  updateUserProfile(name, handle, location, imageUrl, email, password, trust) {
+  updateUserProfile(name, handle, location, imageId, email, password, trust) {
     if (password) {
       return EncryptionUtils.encryptString(this._keys.privateKey, password).then((encryptedPrivateKey) => {
         this.storage.setItem(_CKeys.KEYS, this._keys, trust);
         this.storage.clearItem(_CKeys.BACKUP_KEYS);
-        return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey);
+        return this._completeUserProfileUpdate(name, handle, location, imageId, email, password, encryptedPrivateKey);
       });
     } else {
-      return this._completeUserProfileUpdate(name, handle, location, imageUrl, email, password);
+      return this._completeUserProfileUpdate(name, handle, location, imageId, email, password);
     }
   }
 
-  _completeUserProfileUpdate(name, handle, location, imageUrl, email, password, encryptedPrivateKey) {
-    let details = RestUtils.updateIdentityDetails(this._keys.address, this._fingerprint, name, handle, location, imageUrl, email, encryptedPrivateKey);
+  _completeUserProfileUpdate(name, handle, location, imageId, email, password, encryptedPrivateKey) {
+    let details = RestUtils.updateIdentityDetails(this._keys.address, this._fingerprint, name, handle, location, imageId, email, encryptedPrivateKey);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-identity";
     return this.rest.post(url, request).then(() => {
@@ -343,10 +341,28 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  search(searchString, skip, limit, existingPromotedCardIds) {
-    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit, existingPromotedCardIds);
+  search(searchString, limitCards, limitChannels) {
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, limitCards, limitChannels);
     let request = this._createRequest(details);
     const url = this.restBase + "/search";
+    return this.rest.post(url, request).then((response) => {
+      return response;
+    });
+  }
+
+  searchMoreCards(searchString, skip, limit) {
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/search-more-cards";
+    return this.rest.post(url, request).then((response) => {
+      return response;
+    });
+  }
+
+  searchMoreChannels(searchString, skip, limit) {
+    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/search-more-channels";
     return this.rest.post(url, request).then((response) => {
       return response;
     });
@@ -366,7 +382,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
+  postCard(imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -376,14 +392,14 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
   }
 
-  updateCardSummary(cardId, title, text, linkURL, imageUrl, imageWidth, imageHeight, keywords) {
-    const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight);
+  updateCardSummary(cardId, title, text, linkURL, imageId, imageURL, keywords) {
+    const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageId, imageURL);
     const details = RestUtils.updateCardStateDetails(this._keys.address, this._fingerprint, cardId, cardSummary, null, keywords);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
@@ -589,6 +605,74 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getChannelByOwnerHandle(ownerHandle) {
+    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, ownerHandle, null);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel";
+    return this.rest.post(url, request);
+  }
+
+  getChannelByChannelHandle(channelHandle) {
+    let details = RestUtils.getChannelDetails(this._keys.address, this._fingerprint, null, null, null, channelHandle);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel";
+    return this.rest.post(url, request);
+  }
+
+  // export type ChannelFeedType = "recommended" | "new" | "subscribed" | "blocked";
+  getChannels(feedType, maxCount, nextPageRef) {
+    let details = RestUtils.getChannelsDetails(this._keys.address, this._fingerprint, feedType, maxCount, nextPageRef);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channels";
+    return this.rest.post(url, request);
+  }
+
+  updateChannel(channelId, name, bannerImageFileId, about, link, socialLinks) {
+    let details = RestUtils.updateChannelDetails(this._keys.address, this._fingerprint, channelId, name, bannerImageFileId, about, link, socialLinks);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-channel";
+    return this.rest.post(url, request);
+  }
+
+  updateChannelSubscription(channelId, state) {
+    let details = RestUtils.updateChannelSubscriptionDetails(this._keys.address, this._fingerprint, channelId, state);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-channel-subscription";
+    return this.rest.post(url, request);
+  }
+
+  reportChannelVisit(channelId) {
+    let details = RestUtils.reportChannelVisitDetails(this._keys.address, this._fingerprint, channelId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/report-channel-visit";
+    return this.rest.post(url, request);
+  }
+
+  requestEmailConfirmation() {
+    let details = RestUtils.requestEmailConfirmationDetails(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/request-email-confirmation";
+    return this.rest.post(url, request);
+  }
+
+  confirmEmail(code) {
+    let details = RestUtils.confirmEmailDetails(this._keys.address, this._fingerprint, code);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/confirm-email";
+    return this.rest.post(url, request);
+  }
+
+  updateAccountSettings(settings) {
+    let details = RestUtils.updateAccountSettingsDetails(this._keys.address, this._fingerprint, settings);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-account-settings";
+    return this.rest.post(url, request).then((profile) => {
+      this._profile = profile;
+      this._fire("channels-profile", this._profile);
+      return profile.accountSettings;
+    });
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
@@ -641,6 +725,13 @@ class CoreService extends Polymer.Element {
 
   get profile() {
     return this._profile;
+  }
+
+  get accountSettings() {
+    if (!this._profile) {
+      return null;
+    }
+    return this._profile.accountSettings;
   }
 
   get address() {

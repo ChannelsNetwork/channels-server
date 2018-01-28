@@ -6,9 +6,10 @@ import { UrlManager } from "./url-manager";
 import { Initializable } from "./interfaces/initializable";
 import { configuration } from "./configuration";
 import * as useragent from 'useragent';
-import { CardRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord } from "./interfaces/db-records";
 import * as escapeHtml from 'escape-html';
 import Mustache = require('mustache');
+import { fileManager } from "./file-manager";
 
 export class RootPageManager implements Initializable {
   private urlManager: UrlManager;
@@ -25,8 +26,6 @@ export class RootPageManager implements Initializable {
     this.urlManager = urlManager;
     if (!this.templatesLoaded) {
       this.templates['index'] = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
-      this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
-      this.templates['card'] = fs.readFileSync(path.join(__dirname, '../public/card.html'), 'utf8');
 
       const gaId = configuration.get('google.analytics.id', "UA-52117709-8");
       let globalJsContent = "<script>\nwindow.googleAnalyticsId = \"" + gaId + "\";\n" + fs.readFileSync(path.join(__dirname, '../public/scripts/global.js'), 'utf8') + "\n</script>";
@@ -60,8 +59,8 @@ export class RootPageManager implements Initializable {
     return this.templates[key];
   }
 
-  async handlePage(type: string, request: Request, response: Response, card?: CardRecord): Promise<void> {
-    // this.templates['app'] = fs.readFileSync(path.join(__dirname, '../public/app.html'), 'utf8');
+  async handlePage(type: string, request: Request, response: Response, card?: CardRecord, author?: UserRecord): Promise<void> {
+    // this.templates['index'] = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
 
     // analyze user agent
     const userAgent = (request.headers['user-agent'] || "").toString();
@@ -87,12 +86,15 @@ export class RootPageManager implements Initializable {
       }
       metadata.description = escapeHtml(card.summary.text || "");
       metadata.url = this.urlManager.getAbsoluteUrl('/c/' + card.id);
-      if (card.summary.imageUrl) {
-        metadata.image = card.summary.imageUrl;
-        metadata.imageWidth = card.summary.imageWidth;
-        metadata.imageHeight = card.summary.imageHeight;
+      if (card.summary.imageId) {
+        const imageInfo = await fileManager.getFileInfo(card.summary.imageId);
+        if (imageInfo) {
+          metadata.image = imageInfo.url;
+          metadata.imageWidth = imageInfo.imageInfo ? imageInfo.imageInfo.width : 0;
+          metadata.imageHeight = imageInfo.imageInfo ? imageInfo.imageInfo.height : 0;
+        }
       }
-      metadata.author = card.by.name;
+      metadata.author = author && author.identity ? author.identity.name : null;
       metadata.publishedTime = new Date(card.postedAt).toISOString();
     }
     if (card && card.searchText) {

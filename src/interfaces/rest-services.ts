@@ -1,5 +1,5 @@
 
-import { NewsItemRecord, DeviceTokenRecord, DeviceType, CardLikeState, BankTransactionReason, CardStatistics, UserRecord, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -97,7 +97,7 @@ export interface UpdateUserIdentityDetails extends Signable {
   name?: string;
   handle?: string;
   location?: string;
-  imageUrl?: string;
+  imageId?: string;
   emailAddress?: string;
   encryptedPrivateKey?: string;
 }
@@ -110,9 +110,16 @@ export interface GetUserIdentityResponse extends RestResponse {
   name: string;
   handle: string;
   location: string;
-  imageUrl: string;
+  image: FileInfo;
   emailAddress: string;
+  emailConfirmed: boolean;
   encryptedPrivateKey: string;
+  accountSettings: AccountSettings;
+}
+
+export interface AccountSettings {
+  disallowPlatformEmailAnnouncements: boolean;
+  disallowContentEmailAnnouncements: boolean;
 }
 
 export interface GetHandleDetails extends CheckHandleDetails { }
@@ -120,7 +127,7 @@ export interface GetHandleDetails extends CheckHandleDetails { }
 export interface GetHandleResponse extends RestResponse {
   name: string;
   handle: string;
-  imageUrl: string;
+  image: FileInfo;
 }
 
 export interface CheckHandleDetails extends Signable {
@@ -133,9 +140,15 @@ export interface CheckHandleResponse extends RestResponse {
 }
 
 export interface CardState {
-  mutationId?: string;
   properties: { [name: string]: any };
   collections: { [name: string]: CardCollection };
+  files: { [fileId: string]: FileMetadata };
+}
+
+export interface FileMetadata {
+  key?: string;  // optional when posting
+  url?: string;  // only when CardState is returned
+  image?: ImageInfo;  // only when CardState is returned and file is an image
 }
 
 export interface CardCollection {
@@ -150,6 +163,7 @@ export interface GetFeedsDetails extends Signable {
 }
 
 export interface RequestedFeedDescriptor {
+  channelId?: string;  // if within a specific channel
   type: CardFeedType;
   channelHandle?: string;
   maxCount: number;
@@ -172,29 +186,11 @@ export interface CardFeedSet {
 export interface CardDescriptor {
   id: string;
   postedAt: number;
-  by: {
-    address: string;
-    handle: string;
-    name: string;
-    imageUrl: string;
-    isFollowing: boolean;
-    isBlocked: boolean;
-  };
-  referredBy?: {
-    address: string;
-    handle: string;
-    name: string;
-    imageUrl: string;
-  };
+  by: UserDescriptor;
+  referredBy?: UserDescriptor;
   private: boolean;
-  summary: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
-    linkUrl: string;
-    title: string;
-    text: string;
-  };
+  summary: CardSummary;
+
   keywords: string[];
   cardType: {
     package: string;
@@ -229,6 +225,16 @@ export interface CardDescriptor {
 
   blocked: boolean;
   boost?: number;
+}
+
+export interface CardSummary {
+  imageId: string;
+  imageURL: string;  // Not included when posting
+  imageInfo: ImageInfo;  // Not included with posting
+  linkUrl: string;  // only for ad cards
+  iframeUrl: string;  // only for iframe ad cards
+  title: string;
+  text: string;
 }
 
 export interface CardDescriptorStatistics {
@@ -319,10 +325,9 @@ export interface CardStatDatapoint {
 }
 
 export interface PostCardDetails extends Signable {
-  imageUrl?: string;
-  imageWidth?: number;
-  imageHeight?: number;
+  imageId?: string;
   linkUrl?: string;
+  iframeUrl?: string;
   title?: string;
   text: string;
   keywords: string[];
@@ -341,14 +346,7 @@ export interface PostCardResponse extends RestResponse {
 
 export interface UpdateCardStateDetails extends Signable {
   cardId: string;
-  summary?: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
-    linkUrl: string;
-    title: string;
-    text: string;
-  };
+  summary?: CardSummary;
   state?: CardState;
   keywords?: string[];
 }
@@ -522,75 +520,49 @@ export interface BankGenerateClientTokenResponse extends RestResponse {
   clientToken: string;
 }
 
-export interface BankClientCheckoutDetails extends Signable {
-  amount: number;
-  paymentMethodNonce: string;
-}
-
-export interface BankClientCheckoutResponse extends RestResponseWithUserStatus {
-  transactionResult: BraintreeTransactionResult;
-}
-
-export interface BraintreeTransactionResult {
-  params: any;
-  success: boolean;
-  errors: BraintreeTransactionError[];
-  transaction: {
-    id: string;
-    amount: string;
-    createdAt: string;
-    creditCard: {
-      token: string;
-      bin: string;
-      last4: string;
-      cardType: string;
-      expirationDate: string;
-      expirationMonth: string;
-      expirationYear: string;
-      imageUrl: string;
-      maskedNumber: string;
-    };
-    currencyIsoCode: string;  // "USD"
-    cvvResponseCode: string;
-    merchantAccountId: string;
-    paymentInstrumentType: string;
-    processorAuthorizationCode: string;
-    processorResponseCode: string;
-    processorResponseText: string;
-    processorSettlementResponseCode: string;
-    processorSettlementResponseText: string;
-    status: string;
-    statusHistory: BraintreeTransactionStatusItem[];
-    updatedAt: string;
-  };
-}
-
-export interface BraintreeTransactionStatusItem {
-  timestamp: string;
-  status: string;
-  amount: string;
-  user: string;
-  transactionSource: string;
-}
-
-export interface BraintreeTransactionError {
-  attribute: string;
-  code: string;
-  message: string;
-}
-
 export interface SearchDetails extends Signable {
   searchString: string;
-  skip: number;
-  limit: number;
-  existingPromotedCardIds: string[];
+  limitCards: number;
+  limitChannels: number;
 }
 
 export interface SearchResponse extends RestResponse {
+  cardResults: SearchCardResults;
+  channelResults: SearchChannelResults;
+}
+
+export interface SearchMoreCardsDetails extends Signable {
+  searchString: string;
+  skip: number;
+  limit: number;
+}
+
+export interface SearchMoreCardsResponse extends RestResponse {
+  cardResults: SearchCardResults;
+}
+
+export interface SearchMoreChannelsDetails extends Signable {
+  searchString: string;
+  skip: number;
+  limit: number;
+}
+
+export interface SearchMoreChannelsResponse extends RestResponse {
+  channelResults: SearchChannelResults;
+}
+
+export interface SearchCardResults {
   cards: CardDescriptor[];
   moreAvailable: boolean;
   nextSkip: number;
 }
+
+export interface SearchChannelResults {
+  channels: ChannelDescriptor[];
+  moreAvailable: boolean;
+  nextSkip: number;
+}
+
 export interface DiscardFilesDetails extends Signable {
   fileIds: string[];
 }
@@ -778,3 +750,106 @@ export interface ListTopicsDetails extends Signable { }
 export interface ListTopicsResponse extends RestResponse {
   topics: string[];
 }
+
+export interface GetChannelDetails extends Signable {
+  channelId: string;  // you must provide either channelId, ownerId or handle
+  ownerId: string;
+  ownerHandle: string;
+  channelHandle: string;
+}
+
+export interface GetChannelResponse extends RestResponse {
+  channel: ChannelDescriptor;
+}
+
+export interface ChannelDescriptorWithCards {
+  channel: ChannelDescriptor;
+  cards: CardDescriptor[];
+}
+
+export interface ChannelDescriptor {
+  id: string;
+  name: string;
+  handle: string;
+  bannerImage: FileInfo;
+  owner: UserDescriptor;
+  created: number;
+  about: string;
+  linkUrl: string;
+  socialLinks: SocialLink[];
+  stats: ChannelStats;
+  subscriptionState: ChannelSubscriptionState;
+}
+
+export interface UserDescriptor {
+  id: string;
+  address: string;
+  handle: string;
+  publicKey?: string;
+  name: string;
+  image: FileInfo;
+  location: string;
+}
+
+export interface FileInfo {
+  id: string;
+  url: string;
+  imageInfo: ImageInfo;
+}
+
+export interface GetChannelsDetails extends Signable {
+  type: ChannelFeedType;
+  maxChannels: number;
+  maxCardsPerChannel: number;
+  nextPageReference?: string;   // if provided, used to get next page based on GetChannelsResponse.nextPageReference
+}
+
+export type ChannelFeedType = "recommended" | "new" | "subscribed" | "blocked";
+
+export interface GetChannelsResponse extends RestResponse {
+  channels: ChannelDescriptor[];
+  nextPageReference: string;  // If not-null, more is available; use this in next call
+}
+
+export interface UpdateChannelDetails extends Signable {
+  channelId: string;
+  name?: string;
+  bannerImageFileId?: string;
+  about?: string;
+  link?: string;
+  socialLinks?: SocialLink[];
+}
+
+export interface UpdateChannelResponse extends RestResponse { }
+
+export interface UpdateChannelSubscriptionDetails extends Signable {
+  channelId: string;
+  subscriptionState: ChannelSubscriptionState;
+}
+
+export interface UpdateChannelSubscriptionResponse extends RestResponse { }
+
+export interface ReportChannelVisitDetails extends Signable {
+  channelId: string;
+}
+
+export interface ReportChannelVisitResponse extends RestResponse { }
+
+export interface RequestEmailConfirmationDetails extends Signable { }
+
+export interface RequestEmailConfirmationResponse extends RestResponse { }
+
+export interface ConfirmEmailDetails extends Signable {
+  code: string;
+}
+
+export interface ConfirmEmailResponse extends RestResponse {
+  userId: string;
+  handle: string;
+}
+
+export interface UpdateAccountSettingsDetails extends Signable {
+  settings: AccountSettings;
+}
+
+export interface UpdateAccountSettingsResponse extends GetUserIdentityResponse { }

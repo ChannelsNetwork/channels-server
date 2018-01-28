@@ -255,9 +255,8 @@
         let file = this._file;
         this._setMessage("Uploading image");
         $core.uploadImageFile(file, null, 256).then((fileInfo) => {
-          let url = fileInfo.url;
           this._setMessage("Saving profile");
-          return $core.updateUserProfile(null, null, null, url, null, null, null).then(() => {
+          return $core.updateUserProfile(null, null, null, fileInfo.fileId, null, null, null).then(() => {
             $router.goto(this.returnRoute.success);
           });
         }).catch((err) => {

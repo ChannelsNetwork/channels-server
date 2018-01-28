@@ -1,5 +1,8 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="deposit-dialog.html">
 
 <dom-module id="balance-view">
@@ -184,6 +187,10 @@
         min-width: 120px;
       }
     </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="ChannelCoin Balance"></title-bar>
+    </soso-app-header>
     <div id="fullContent">
       <div class="content">
         <p>
@@ -275,6 +282,7 @@
 
       onActivate() {
         $core.register().then((info) => {
+          this.$.cbar.activate();
           $core.updateBalance().then(() => {
             this.$.balanceCard.style.opacity = 1;
             const at = Date.now();
@@ -336,6 +344,7 @@
       }
 
       onDeactivate() {
+        this.$.cbar.deactivate();
         if (this.balanceTimer) {
           clearInterval(this.balanceTimer);
           this.balanceTimer = null;

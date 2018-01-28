@@ -1,5 +1,5 @@
 
-import { Signable, BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./rest-services";
+import { Signable, BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./rest-services";
 import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
@@ -36,6 +36,11 @@ export interface UserRecord {
   curation?: UserCurationType;
   originalReferrer: string;
   originalLandingPage: string;
+  notifications?: {
+    disallowPlatformNotifications?: boolean;
+    disallowContentNotifications?: boolean;
+    lastContentNotification?: number;
+  };
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -75,21 +80,16 @@ export interface UserAddressHistory {
 
 export type UserAccountType = "normal" | "network" | "networkDeveloper";
 
-export interface DeviceTokenRecord {
-  type: DeviceType;
-  token: string;
-  userAddress: string;
-  added: number;
-}
-
-export type DeviceType = "web" | "ios";
-
 export interface UserIdentity {
   name: string;
   handle: string;
-  imageUrl: string;
+  imageUrl?: string;  // obsolete
+  imageId: string;
   location: string;
   emailAddress: string;
+  emailConfirmed: boolean;
+  emailConfirmationCode: string;
+  emailLastConfirmed: number;
   firstName: string;
   lastName: string;
 }
@@ -109,18 +109,21 @@ export interface CardRecord {
   id: string;
   state: CardActiveState;
   postedAt: number;
+  createdById: string;
   by: {
-    id: string;
+    id?: string;  // obsolete
     address: string;
     handle: string;
     name: string;
-    imageUrl: string;
+    imageUrl?: string;  // obsolete
   };
   summary: {
-    imageUrl: string;
-    imageWidth: number;
-    imageHeight: number;
+    imageId: string;
+    imageUrl?: string;  // obsolete
+    imageWidth?: number; // obsolete
+    imageHeight?: number; // obsolete
     linkUrl: string;
+    iframeUrl: string;
     title: string;
     text: string;
   };
@@ -298,6 +301,14 @@ export interface CardCollectionItemRecord {
   value: any;
 }
 
+export interface CardFileRecord {
+  cardId: string;
+  group: CardStateGroup;
+  user: string;
+  fileId: string;
+  key: string;
+}
+
 export type FileStatus = "started" | "aborted" | "failed" | "uploading" | "complete" | "final" | "deleted";
 
 export interface FileRecord {
@@ -314,20 +325,17 @@ export interface FileRecord {
     key: string;
   };
   url: string;
+  imageInfo: ImageInfo;
+}
+
+export interface ImageInfo {
+  width: number;
+  height: number;
 }
 
 export interface MutationIndexRecord {
   id: string;
   index: number;
-}
-
-export interface NewsItemRecord {
-  id: string;
-  timestamp: number;
-  title: string;
-  text: string;
-  imageUrl: string;
-  linkUrl: string;
 }
 
 export interface SubsidyBalanceRecord {
@@ -459,20 +467,6 @@ export interface ManualWithdrawalRecord {
 
 export type ManualWithdrawalState = "pending" | "canceled" | "paid" | "denied";
 
-export interface BankDepositRecord {
-  id: string;
-  status: BankDepositStatus;
-  at: number;
-  userId: string;
-  amount: number;
-  fees: number;
-  coins: number;
-  paymentMethodNonce: string;
-  lastUpdatedAt: number;
-  result: BraintreeTransactionResult;
-  bankTransactionId: string;
-}
-
 export type BankDepositStatus = "pending" | "failed" | "completed";
 
 export interface BowerPackageRecord {
@@ -543,6 +537,59 @@ export interface IpAddressRecord {
 
 export type IpAddressStatus = "success" | "fail";
 
+export interface ChannelRecord {
+  id: string;
+  state: ChannelStatus;
+  name: string;
+  handle: string;
+  ownerId: string;
+  created: number;
+  bannerImageFileId: string;
+  about: string;
+  linkUrl: string;
+  socialLinks: SocialLink[];
+  stats: ChannelStats;
+  lastStatsSnapshot: number;
+  latestCardPosted: number;
+  keywords: string[];
+}
+
+export type ChannelStatus = "active" | "deleted";
+
+export interface ChannelStats {
+  subscribers: number;
+  cards: number;
+  revenue: number;
+}
+
+export interface SocialLink {
+  network: SocialNetwork;
+  link: string;
+}
+
+export type SocialNetwork = "Facebook" | "Twitter" | "Instagram" | "Snapchat" | "YouTube" | "Twitch" | "WeChat" | "Pinterest" | "LinkedIn";
+
+export interface ChannelUserRecord {
+  channelId: string;
+  userId: string;
+  added: number;
+  lastCardPosted: number;
+  subscriptionState: ChannelSubscriptionState;
+  lastUpdated: number;
+  notificationPending: boolean;
+  lastNotification: number;
+  lastVisited: number;
+}
+
+export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked";
+
+export interface ChannelCardRecord {
+  channelId: string;
+  cardId: string;
+  cardPostedAt: number;
+  added: number;
+}
+
 export interface UserRegistrationRecord {
   userId: string;
   at: number;
@@ -551,4 +598,11 @@ export interface UserRegistrationRecord {
   address: string;
   referrer: string;
   landingPage: string;
+}
+
+export interface ChannelKeywordRecord {
+  channelId: string;
+  keyword: string;
+  cardCount: number;
+  lastUsed: number;
 }

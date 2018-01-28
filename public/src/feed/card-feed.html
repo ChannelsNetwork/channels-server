@@ -1,5 +1,6 @@
 <link rel="import" href="../card/card-view.html">
 <link rel="import" href="../card/ad/amazon-ad-card.html">
+<link rel="import" href="../card/ad/image-ad-card.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/polymer/lib/utils/render-status.html">
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-if.html">
@@ -17,7 +18,8 @@
       }
 
       card-view,
-      amazon-ad-card {
+      amazon-ad-card,
+      image-ad-card {
         height: var(--grid-card-height, 400px);
         box-sizing: border-box;
         -ms-flex: 1 1 0.000000001px;
@@ -34,7 +36,10 @@
     <div id="container" class="horizontal layout center-justified wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <template is="dom-if" if="{{_isAd(item)}}">
+          <template is="dom-if" if="{{_isImageAd(item)}}">
+            <image-ad-card data="[[item]]" on-impression="_onImpression" on-card-deleted="_onCardDeleted"></image-ad-card>
+          </template>
+          <template is="dom-if" if="{{_isIFrameAd(item)}}">
             <amazon-ad-card data="[[item]]" on-impression="_onImpression" on-card-deleted="_onCardDeleted"></amazon-ad-card>
           </template>
           <template is="dom-if" if="{{_isNotAd(item)}}">
@@ -67,12 +72,16 @@
         });
       }
 
-      _isAd(item) {
-        return (item && item.summary && item.summary.linkUrl);
+      _isImageAd(item) {
+        return (item && item.summary && item.summary.imageId && item.summary.linkUrl && !item.summary.iframeUrl);
+      }
+
+      _isIFrameAd(item) {
+        return (item && item.summary && item.summary.iframeUrl);
       }
 
       _isNotAd(item) {
-        return !this._isAd(item);
+        return !this._isImageAd(item) && !this._isIFrameAd(item);
       }
 
       _onImpression(event) {

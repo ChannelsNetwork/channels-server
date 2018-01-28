@@ -8,6 +8,7 @@ import { RestHelper } from "./rest-helper";
 import { SERVER_VERSION } from "./server-version";
 import { RestRequest, QueryPageDetails, QueryPageResponse } from "./interfaces/rest-services";
 import fetch from "node-fetch";
+import { errorManager } from "./error-manager";
 
 export class ClientServices implements RestServer {
   private app: express.Application;
@@ -27,7 +28,7 @@ export class ClientServices implements RestServer {
   private async handleQueryPage(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<QueryPageDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -37,9 +38,13 @@ export class ClientServices implements RestServer {
       try {
         const fetchResponse = await fetch(requestBody.detailsObject.url);
         const xFrameOption = fetchResponse.headers.get('x-frame-options');
-        if (xFrameOption && (xFrameOption.toLowerCase() === 'deny' || xFrameOption.toLowerCase() === 'sameorigin')) {
-          embeddable = false;
-          notEmbeddableReason = "This page does not permit embedding";
+        const xFrameOptions = xFrameOption ? xFrameOption.toLowerCase().split(',') : [];
+        for (const xfo of xFrameOptions) {
+          if (xfo === 'deny' || xfo === 'sameorigin') {
+            embeddable = false;
+            notEmbeddableReason = "This page does not permit embedding";
+            break;
+          }
         }
       } catch (err) {
         embeddable = false;
@@ -52,7 +57,7 @@ export class ClientServices implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("ClientServices.handleQueryPage: Failure", err);
+      errorManager.error("ClientServices.handleQueryPage: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

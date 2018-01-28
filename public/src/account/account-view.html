@@ -1,3 +1,9 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/styles.html">
+<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
 
 <dom-module id="account-view">
@@ -8,70 +14,107 @@
       }
 
       #container {
-        max-width: 400px;
+        max-width: 600px;
         margin: 0 auto;
         padding: 20px 16px;
-      }
-
-      #imagePanel {
-        padding-right: 20px;
-      }
-
-      .header {
-        margin-bottom: 20px;
-      }
-
-      .row {
-        margin-top: 10px;
-      }
-
-      label {
-        font-size: 90%;
-        text-transform: capitalize;
-        padding-right: 10px;
-        letter-spacing: 0.05em;
-        opacity: 0.87;
-        width: 75px;
+        text-align: center;
       }
 
       .buttons {
         padding: 40px 0 10px;
       }
 
-      @media (max-width: 490px) {
-        .row {
-          font-size: 14px;
-        }
-        user-image {
-          width: 70px;
-          height: 70px;
-        }
-        .buttons {
-          text-align: center;
-        }
+      user-image {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 20px;
+      }
+
+      h3 {
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+      }
+
+      .handle {
+        color: #555;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+      }
+
+      .email {
+        color: #555;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        margin-top: 15px;
+      }
+
+      #emailConfirmPanel {
+        padding: 20px 0 0;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 30px;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+        text-align: left;
+      }
+
+      #emailConfirmPanel soso-icon {
+        margin-right: 5px;
+        color: var(--highlight-green);
+      }
+
+      #emailSettingsPanel {
+        padding: 20px 0;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 30px;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+        text-align: left;
+      }
+
+      #emailConfirmPanel button {
+        margin-top: 20px;
+      }
+
+      #codeSent {
+        margin-top: 10px;
+        color: var(--dark-green);
+      }
+
+      soso-checkbox {
+        margin-top: 5px;
+      }
+
+      #chkGeneral {
+        display: none;
       }
     </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="My Account"></title-bar>
+    </soso-app-header>
     <div id="container">
-      <div class="horizontal layout center header">
-        <div id="imagePanel">
-          <user-image image="[[profile.image]]"></user-image>
-        </div>
-        <div class="flex">
-          <h2>[[profile.name]]</h2>
-          <em>[[profile.handle]]</em>
-        </div>
-      </div>
-      <div class="row horizontal layout center">
-        <label>Email: </label>
-        <div class="flex">[[profile.email]]</div>
-      </div>
-      <div class="row horizontal layout center">
-        <label>Address: </label>
-        <div class="flex">[[profile.address]]</div>
-      </div>
+      <user-image image="[[profile.image.url]]"></user-image>
+      <h2>[[profile.name]]</h2>
+      <div class="handle">([[profile.handle]])</div>
+      <div class="email">[[profile.emailAddress]]</div>
       <div class="buttons">
         <button style="margin-right: 10px;" on-click="_onEdit">Edit profile</button>
         <button on-click="_onSignOut">Sign out</button>
+      </div>
+      <div id="emailConfirmPanel" class="hidden">
+        <div>
+          <soso-icon icon="notifications-active"></soso-icon>
+          <span>Your email address has not been confirmed. Check your inbox for a confirmation email, or request a new confirmation
+            code.
+          </span>
+        </div>
+        <button on-click="_requestCode">Request new code</button>
+        <div id="codeSent" class="hidden">Request code sent.</div>
+      </div>
+      <div id="emailSettingsPanel" class="hidden">
+        <h3>Email Settings</h3>
+        <soso-checkbox id="chkGeneral" on-change="_updateSettings" label="Email me about new and interesting updates to Channels"></soso-checkbox>
+        <soso-checkbox id="chkSubscription" on-change="_updateSettings" label="Email me about new content based on my subscriptions"></soso-checkbox>
       </div>
     </div>
   </template>
@@ -87,6 +130,7 @@
       onActivate() {
         this.profile = {};
         $core.register().then((info) => {
+          this.$.cbar.activate();
           if (!$core.profile || !$core.profile.handle) {
             setTimeout(() => {
               $router.goto("");
@@ -94,34 +138,30 @@
             }, 600);
             return;
           }
-          const profile = {
-            handle: 'No handle',
-            name: 'No name specified',
-            email: 'No email provided',
-            address: $core.address || 'Unknown address'
-          };
-          let p = $core.profile;
-          if (p) {
-            if (p.handle) {
-              profile.handle = p.handle;
+
+          return $core.getUserProfile().then((res) => {
+            this.profile = res || $core.profile;
+            this.$.codeSent.classList.add("hidden");
+            if (this.profile.emailConfirmed) {
+              this.$.emailConfirmPanel.classList.add("hidden");
+            } else {
+              this.$.emailConfirmPanel.classList.remove("hidden");
             }
-            if (p.name) {
-              profile.name = p.name;
-            }
-            if (p.emailAddress) {
-              profile.email = p.emailAddress;
-            }
-            if (p.imageUrl) {
-              profile.image = p.imageUrl;
-            }
-          }
-          this.profile = profile;
+
+            this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
+            this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
+            this.$.emailSettingsPanel.classList.remove("hidden");
+          });
         }).catch((err) => {
           console.error(err);
           setTimeout(() => {
             $router.goto("");
           }, 600);
         });
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
       }
 
       _onEdit() {
@@ -135,6 +175,28 @@
           console.error(err);
           window.location.assign("/");
         })
+      }
+
+      _requestCode() {
+        $core.requestEmailConfirmation().then(() => {
+          this.$.codeSent.classList.remove("hidden");
+        });
+      }
+
+      _updateSettings() {
+        if (!this._pendingUpdate) {
+          this._pendingUpdate = true;
+          setTimeout(() => {
+            this._pendingUpdate = false;
+            let settings = this.profile.accountSettings;
+            settings.disallowPlatformEmailAnnouncements = !(this.$.chkGeneral.checked);
+            settings.disallowContentEmailAnnouncements = !(this.$.chkSubscription.checked);
+            $core.updateAccountSettings(settings).catch((err) => {
+              console.error(err);
+              $app.showError(err);
+            });
+          }, 1200);
+        }
       }
 
     }

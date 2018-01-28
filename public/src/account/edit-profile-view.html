@@ -47,10 +47,6 @@
         margin-top: 10px;
       }
 
-      soso-checkbox {
-        margin-top: 20px;
-      }
-
       .bar {
         padding: 10px 16px;
       }
@@ -233,8 +229,8 @@
           } else {
             this.$.name.value = $core.profile.name || "";
             this.$.email.value = $core.profile.emailAddress || "";
-            this.imageUrl = $core.profile.imageUrl;
-            this._profileImage = $core.profile.imageUrl;
+            this.imageUrl = $core.profile.image ? $core.profile.image.url : null;
+            this._profileImage = this.imageUrl;
             this._onInput();
             this.$.container.classList.add("containerShowing");
             requestAnimationFrame(() => {
@@ -341,9 +337,8 @@
         if (this._file) {
           this._setMessage("Uploading image");
           $core.uploadImageFile(this._file, null, 256).then((fileInfo) => {
-            let url = fileInfo.url;
             this._setMessage("Saving profile");
-            this._updateProfile(name, email, url);
+            this._updateProfile(name, email, fileInfo.fileId);
           }).catch((err) => {
             console.error(err);
             this._setError(err || "Oops. Something went wrong.");
@@ -354,8 +349,9 @@
         }
       }
 
-      _updateProfile(name, email, imageUrl) {
-        $core.updateUserProfile(name, null, null, imageUrl, email, null).then(() => {
+      _updateProfile(name, email, imageId) {
+        window.__dirtyFeed = true;
+        $core.updateUserProfile(name, null, null, imageId, email, null).then(() => {
           $router.goto("/account");
         }).catch((err) => {
           console.error(err);

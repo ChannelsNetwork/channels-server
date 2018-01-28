@@ -1,0 +1,207 @@
+<link rel="import" href="../controls/user-image.html">
+
+<dom-module id="nav-bar">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      header {
+        background: var(--bg-dark);
+        color: white;
+        padding: 10px 10px;
+      }
+
+      .logo {
+        display: block;
+        height: 36px;
+        width: auto;
+      }
+
+      #userPanel {
+        padding: 10px 0 2px;
+        font-size: 15px;
+        letter-spacing: 0.03em;
+        word-break: break-word;
+      }
+
+      #userImage {
+        height: 40px;
+        width: 40px;
+        margin: 0 8px 0 0;
+        cursor: pointer;
+      }
+
+      a:hover {
+        box-shadow: none;
+      }
+
+      button:hover {
+        color: var(--bg-yellow);
+      }
+
+      #balancePanel {
+        height: 40px;
+        padding: 0 16px;
+        background: var(--bg-yellow);
+        color: #000;
+        cursor: pointer;
+      }
+
+      section {
+        border-top: 1px solid #e5e5e5;
+        padding: 8px 0;
+      }
+
+      .link {
+        display: block;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 15px;
+        text-transform: capitalize;
+        letter-spacing: 0.03em;
+      }
+
+      .link:hover {
+        background: #f5f5f5;
+      }
+
+      soso-icon {
+        width: 20px;
+        height: 20px;
+        color: #808080;
+      }
+    </style>
+    <header>
+      <a href="/" on-click="_hideBar">
+        <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+      </a>
+      <div id="userPanel" class="horizontal layout center hidden">
+        <user-image id="userImage" on-click="_gotoAccount"></user-image>
+        <a href="/account" on-click="_hideBar">
+          <div class="flex">[[userName]]</div>
+        </a>
+      </div>
+    </header>
+    <div id="balancePanel" class="horizontal layout center" on-click="_gotoBalance">
+      <span style="font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em;">Balance</span>
+      <span id="balanceLabel" class="flex" style="text-align: right; opacity: 0;">[[balance]]</span>
+    </div>
+    <section style="padding: 0;">
+      <a href="/search" on-click="_hideBar">
+        <div class="horizontal layout center link">
+          <span class="flex">Search</span>
+          <soso-icon icon="search"></soso-icon>
+        </div>
+      </a>
+    </section>
+    <section>
+      <a class="link" href="/feed" on-click="_hideBar">Feed</a>
+      <a class="link" href="/feed/new" on-click="_hideBar">New Cards</a>
+      <a class="link" href="/feed/top" on-click="_hideBar">Top cards</a>
+    </section>
+    <section id="mySection" class="hidden">
+      <div id="myChannelLink" class="link" on-click="_gotoMyChannel">My Channel</div>
+      <a class="link" href="/account" on-click="_hideBar">Account</a>
+      <a class="link" href="/subscriptions" on-click="_hideBar">Subscriptions</a>
+    </section>
+    <section>
+      <a class="link" href="/about" on-click="_hideBar">About Channels</a>
+      <a id="btnSignIn" class="link hidden" href="/signin" on-click="_hideBar">Sign in</a>
+      <div id="btnSignOut" class="link hidden" on-click="_signOut">Sign out</div>
+    </section>
+  </template>
+  <script>
+    class NavBar extends Polymer.Element {
+      static get is() { return 'nav-bar'; }
+      static get properties() {
+        return {
+          userName: String
+        };
+      }
+
+      constructor() {
+        super();
+        this._balaceListener = this._updateBalance.bind(this);
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        window.removeEventListener("channels-registration", this._balaceListener);
+        window.removeEventListener("channels-user-status", this._balaceListener);
+        window.addEventListener("channels-profile", () => {
+          this._refreshUser();
+        });
+        if ($core) {
+          this._updateBalance();
+          this._refreshUser();
+        }
+      }
+
+      _updateBalance() {
+        if (!this._balanceTimer) {
+          this._balanceTimer = setInterval(() => {
+            this._refreshBalance();
+          }, 2000);
+        }
+        this._refreshBalance();
+        this.$.balanceLabel.style.opacity = 1;
+      }
+
+      _refreshBalance() {
+        this.balance = "ℂ" + ($core.balance ? (Math.floor($core.balance * 1000) / 1000).toFixed(3) : "0.000");
+      }
+
+      _refreshUser() {
+        if ($core.profile && $core.profile.handle) {
+          this.userName = $core.profile.name || "";
+          if ($core.profile.image && $core.profile.image.url) {
+            this.$.userImage.image = $core.profile.image.url;
+          } else {
+            this.$.userImage.image = $core.userManager.getFallbackUserImage($core.profile.handle);
+          }
+          this.$.userPanel.classList.remove("hidden");
+          this.$.mySection.classList.remove("hidden");
+          this.$.btnSignIn.classList.add("hidden");
+          this.$.btnSignOut.classList.remove("hidden");
+        } else {
+          this.$.userPanel.classList.add("hidden");
+          this.$.mySection.classList.add("hidden");
+          this.$.btnSignIn.classList.remove("hidden");
+          this.$.btnSignOut.classList.add("hidden");
+        }
+      }
+
+      _hideBar() {
+        $app.hideMenu();
+      }
+
+      _gotoAccount() {
+        this._hideBar();
+        $router.goto("/account");
+      }
+
+      _gotoBalance() {
+        this._hideBar();
+        $router.goto("/balance");
+      }
+
+      _gotoMyChannel() {
+        this._hideBar();
+        $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
+      }
+
+      _signOut() {
+        this._hideBar();
+        $core.signOut().then(() => {
+          window.location.assign("/");
+        }).catch((err) => {
+          console.error(err);
+          window.location.assign("/");
+        });
+      }
+    }
+    window.customElements.define(NavBar.is, NavBar);
+  </script>
+</dom-module>

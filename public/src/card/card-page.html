@@ -1,5 +1,8 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
+<link rel="import" href="../controls/user-image.html">
 
 <dom-module id="card-page">
   <template>
@@ -7,18 +10,12 @@
       :host {
         display: block;
         position: relative;
-        padding-top: 60px;
         border-radius: 0 !important;
         box-shadow: none !important;
         background: white;
       }
 
       #header {
-        z-index: 1;
-        position: fixed;
-        top: 60px;
-        left: 0;
-        right: 0;
         opacity: 0;
         transition: opacity 0.25s ease;
       }
@@ -55,7 +52,8 @@
       #morePanelContent {
         box-sizing: border-box;
         margin: 0 auto;
-        display: inline-block;
+        display: block;
+        max-width: 400px;
       }
 
       a,
@@ -82,12 +80,71 @@
         font-size: 13px;
       }
 
+      #channelCardletPanel {
+        padding-left: 22px;
+        box-sizing: border-box;
+        margin: 30px 0 20px;
+        transition: opacity 0.2s ease;
+      }
+
+      #channelCardlet {
+        position: relative;
+        box-sizing: border-box;
+        text-align: left;
+        border-radius: 3px;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        background-color: #fafafa;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+      }
+
+      #channelCardlet .channelNameCell {
+        padding: 10px 0 10px 28px;
+        font-size: 16px;
+        cursor: pointer;
+        background: rgba(40, 60, 65, 0.7);
+        color: white;
+        font-weight: bold;
+        border-radius: 3px 0 0 3px;
+      }
+
+      #channelCardlet button {
+        font-size: 14px;
+        padding: 10px 5px;
+        letter-spacing: initial;
+        font-weight: 400;
+      }
+
+      user-image {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #fafafa;
+        position: absolute;
+        top: 0;
+        left: -22px;
+        cursor: pointer;
+        margin-top: -22px;
+      }
+
       @media (max-width: 600px) {
+        #morePanel {
+          padding: 30px 8px 30px 5px;
+        }
         #morePanelContent {
           font-size: 14px;
         }
+        #channelCardlet .channelNameCell {
+          font-size: 15px;
+        }
       }
     </style>
+    <soso-app-header>
+      <channels-bar id="cbar"></channels-bar>
+      <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
+        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+    </soso-app-header>
     <div id="nocard" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box; padding: 16px;">
         <div style="margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; color: #808080;">No card found</div>
@@ -109,23 +166,31 @@
           <div class="horizontal layout center" style="margin-bottom: 15px;">
             <div class="flex"></div>
             <div>
-              <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+              <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
             </div>
             <div>
-              <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+              <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
             </div>
             <div id="ratingTip">[[ratingTip]]</div>
             <div class="flex"></div>
           </div>
-          <div style="margin-bottom: 5px;">
-            <a href$="[[channelUrl]]">View [[data.by.name]]'s channel.</a>
+          <div id="channelCardletPanel">
+            <div id="channelCardlet" class="horizontal layout">
+              <div class="flex channelNameCell horizontal layout center" on-click="_gotoChannel">
+                <span class="channelName">[[channel.name]]</span>
+              </div>
+              <div style="padding: 10px 5px; background: rgba(40, 60, 65, 0.7); border-radius: 0 3px 3px 0;">
+                <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+                <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+              </div>
+              <user-image image="[[channelImage]]" on-click="_gotoChannel"></user-image>
+            </div>
           </div>
           <div>
             <a href="/feed">View your feed</a> to see recommended cards.</div>
         </div>
       </div>
-      <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
-        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
@@ -136,7 +201,9 @@
         return {
           data: Object,
           ratingTip: String,
-          channelUrl: String
+          channelUrl: String,
+          channel: Object,
+          channelImage: String
         };
       }
 
@@ -151,6 +218,7 @@
         this.data = null;
         this.paymentInterval = 10000;
         $core.register().then(() => {
+          this.$.cbar.activate();
           if (route.segments.length < 2) {
             this._onNoCard();
           } else {
@@ -174,6 +242,7 @@
 
       onDeactivate() {
         this._active = false;
+        this.$.cbar.deactivate();
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
         this.$.header.style.opacity = 0;
@@ -195,6 +264,10 @@
 
       _cardContendUpdated() {
         this._loadCard();
+      }
+
+      _gotoChannel() {
+        $router.goto(this.channelUrl);
       }
 
       _loadCard() {
@@ -225,6 +298,11 @@
           this.channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
           this._refreshRating();
           this.paymentInterval = cardData.paymentDelayMsecs || 10000;
+
+          this.$.channelCardletPanel.style.opacity = 0;
+          setTimeout(() => {
+            this._loadChannel();
+          });
 
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
@@ -261,6 +339,79 @@
         }).catch((err) => {
           console.error(err);
           this._onNoCard();
+        });
+      }
+
+      _loadChannel() {
+        if (this._active && this.data) {
+          return $core.getChannelByOwnerHandle(this.data.by.handle).then(response => {
+            if (!this._active) {
+              return;
+            }
+            this.channel = response.channel;
+            this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+            let bgImage = "";
+            if (this.channel.bannerImage) {
+              bgImage = this.channel.bannerImage.url;
+            }
+            this.$.channelCardlet.style.backgroundImage = bgImage ? ('url("' + bgImage + '"') : "";
+            this.$.channelCardletPanel.style.opacity = 1;
+            this._refreshSubscribeButton();
+          });
+        }
+      }
+
+      _refreshSubscribeButton() {
+        this.$.btnU.classList.add("hidden");
+        this.$.btnS.classList.add("hidden");
+        if (this.channel) {
+          let isMe = false;
+          if ($core.profile) {
+            isMe = $core.profile.handle == this.channel.owner.handle;
+          }
+          if (!isMe) {
+            switch (this.channel.subscriptionState) {
+              case "subscribed":
+                this.$.btnU.classList.remove("hidden");
+                break;
+              case "unsubscribed":
+                this.$.btnS.classList.remove("hidden");
+                break;
+              default:
+                break;
+            }
+          }
+        }
+      }
+
+      _onSubscribe() {
+        if (!this.channel) {
+          return;
+        }
+        let channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you subscribe to this channel, you must first register an identity.", returnRoute: { success: channelUrl, cancel: channelUrl } });
+          return;
+        }
+        $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
+          this.channel.subscriptionState = "subscribed";
+          this._refreshSubscribeButton();
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onUnsubscribe() {
+        if (!this.channel) {
+          return;
+        }
+        $core.updateChannelSubscription(this.channel.id, 'unsubscribed').then(() => {
+          this.channel.subscriptionState = "unsubscribed";
+          this._refreshSubscribeButton();
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
         });
       }
 
@@ -447,6 +598,9 @@
         if (!this.data) {
           return;
         }
+        if (this.data.by.handle === $core.profile.handle) {
+          return;
+        }
         let likeState = this.data.userSpecific.likeState || "none";
         let newState = "like"
         if (likeState === "like") {
@@ -470,6 +624,9 @@
       }
 
       _onDownVote() {
+        if (this.data.by.handle === $core.profile.handle) {
+          return;
+        }
         let likeState = this.data.userSpecific.likeState || "none";
         let newState = "dislike"
         if (likeState === "dislike") {

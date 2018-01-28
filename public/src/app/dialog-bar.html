@@ -1,0 +1,55 @@
+<dom-module id="dialog-bar">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #bar {
+        height: 50px;
+        padding: 0 12px;
+        box-sizing: border-box;
+        background: #293C41;
+        color: white;
+      }
+
+      .title {
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      button.link {
+        color: var(--bg-yellow);
+        font-weight: bold;
+      }
+
+      button.link:hover {
+        box-shadow: none;
+      }
+    </style>
+    <div id="bar" class="horizontal layout center" on-click="_barClick">
+      <div class="title flex">[[text]]</div>
+      <button class="link" on-click="_onCancel">Cancel</button>
+    </div>
+  </template>
+  <script>
+    class DialogBar extends Polymer.Element {
+      static get is() { return 'dialog-bar'; }
+      static get properties() {
+        return {
+          text: String
+        };
+      }
+      _barClick(event) {
+        $app.scrollTo(0);
+      }
+      _onCancel(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('cancel', { bubbles: true, composed: true }));
+      }
+    }
+    window.customElements.define(DialogBar.is, DialogBar);
+  </script>
+</dom-module>

@@ -97,7 +97,7 @@
         this.$.text.value = card.summary.text || "";
         this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
-        this.$.filePicker.image = card.summary.imageUrl;
+        this.$.filePicker.image = card.summary.imageURL;
 
         return this.$.dlg.show();
       }
@@ -125,11 +125,8 @@
         if (file) {
           this.$.dlg.showProgress("Uploading image");
           $core.uploadImageFile(file, null, 500).then((fileInfo) => {
-            let imageUrl = fileInfo.url;
-            return this._getImageSize(imageUrl).then((size) => {
-              return this._updateCard(imageUrl, size).then(() => {
-                return this._onCardUpdate();
-              });
+            return this._updateCard(fileInfo.fileId, fileInfo.url).then(() => {
+              return this._onCardUpdate();
             });
           }).catch((err) => {
             console.error(err);
@@ -163,24 +160,19 @@
         });
       }
 
-      _updateCard(imageUrl, size) {
+      _updateCard(imageId, imageURL) {
         this.$.dlg.showProgress("Saving");
-        let img = this._card.summary.imageUrl;
-        let imgW = this._card.summary.imageWidth;
-        let imgH = this._card.summary.imageHeight;
-        if (imageUrl) {
-          img = imageUrl;
-          if (size) {
-            imgW = size[0];
-            imgH = size[1];
-          }
+        let imgId = this._card.summary.imageId;
+        let imgURL = this._card.summary.imageURL;
+        if (imageId) {
+          imgId = imageId;
+          imgURL = imageURL;
         } else if (this._imageCleared) {
-          img = null;
-          imgW = 0;
-          imgH = 0;
+          imgId = null;
+          imgURL = null;
         }
         let keywords = this._getKeywords();
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, img, imgW, imgH, keywords).then((summary) => {
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, imgId, imgURL, keywords).then((summary) => {
           this._summary = summary;
           this._summary.keywords = keywords;
         });
@@ -208,22 +200,22 @@
         return keywords;
       }
 
-      _getImageSize(imageUrl) {
-        return new Promise((resolve, reject) => {
-          if (imageUrl) {
-            let img = new Image();
-            img.addEventListener('load', () => {
-              resolve([img.width, img.height]);
-            });
-            img.addEventListener('error', () => {
-              resolve(null);
-            });
-            img.src = imageUrl;
-          } else {
-            resolve(null);
-          }
-        });
-      }
+      // _getImageSize(imageUrl) {
+      //   return new Promise((resolve, reject) => {
+      //     if (imageUrl) {
+      //       let img = new Image();
+      //       img.addEventListener('load', () => {
+      //         resolve([img.width, img.height]);
+      //       });
+      //       img.addEventListener('error', () => {
+      //         resolve(null);
+      //       });
+      //       img.src = imageUrl;
+      //     } else {
+      //       resolve(null);
+      //     }
+      //   });
+      // }
     }
     window.customElements.define(EditCardDialog.is, EditCardDialog);
   </script>

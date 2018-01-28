@@ -448,7 +448,7 @@
       _loadImage() {
         if (!this._imageLoaded) {
           this._imageLoaded = true;
-          let img = this.data.summary.imageUrl;
+          let img = this.data.summary.imageURL;
           if (img) {
             this.$.imagePanel.classList.remove("noimage");
             this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
@@ -491,11 +491,10 @@
       }
 
       updateSummary(summary) {
-        this.set('data.summary.imageUrl', summary.imageUrl);
+        this.set('data.summary.imageURL', summary.imageURL);
+        this.set('data.summary.imageId', summary.imageId);
         this.set('data.summary.title', summary.title);
         this.set('data.summary.text', summary.text);
-        this.set('data.summary.imageWidth', summary.imageWidth);
-        this.set('data.summary.imageHeight', summary.imageHeight);
         this._imageLoaded = false;
         this._loadImage();
         setTimeout(() => {

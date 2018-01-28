@@ -2,11 +2,12 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, NewsItemRecord, DeviceTokenRecord, DeviceType, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, BankDepositStatus, BankDepositRecord, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, UserRegistrationRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails, BraintreeTransactionResult, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
+import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
+import { errorManager } from "./error-manager";
 
 const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
 export class Database {
@@ -20,9 +21,8 @@ export class Database {
   private cardProperties: Collection;
   private cardCollections: Collection;
   private cardCollectionItems: Collection;
+  private cardFiles: Collection;
   private files: Collection;
-  private newsItems: Collection;
-  private deviceTokens: Collection;
   private cardOpens: Collection;
   private subsidyBalance: Collection;
   private bowerManagement: Collection;
@@ -32,13 +32,16 @@ export class Database {
   private bankCoupons: Collection;
   private manualWithdrawals: Collection;
   private cardStatsHistory: Collection;
-  private bankDeposits: Collection;
   private bowerPackages: Collection;
   private publisherSubsidyDays: Collection;
   private cardTopics: Collection;
   private networkCardStats: Collection;
   private ipAddresses: Collection;
+  private channels: Collection;
+  private channelUsers: Collection;
+  private channelCards: Collection;
   private userRegistrations: Collection;
+  private channelKeywords: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -53,9 +56,8 @@ export class Database {
     await this.initializeCardProperties();
     await this.initializeCardCollections();
     await this.initializeCardCollectionItems();
+    await this.initializeCardFiles();
     await this.initializeFiles();
-    await this.initializeNewsItems();
-    await this.initializeDeviceTokens();
     await this.initializeCardOpens();
     await this.initializeSubsidyBalance();
     await this.initializeBowerManagement();
@@ -65,13 +67,16 @@ export class Database {
     await this.initializeBankCoupons();
     await this.initializeManualWithdrawals();
     await this.initializeCardStatsHistory();
-    await this.initializeBankDeposits();
     await this.initializeBowerPackages();
     await this.initializePublisherSubsidyDays();
     await this.initializeCardTopics();
     await this.initializeNetworkCardStats();
     await this.initializeIpAddresses();
+    await this.initializeChannels();
+    await this.initializeChannelUsers();
+    await this.initializeChannelCards();
     await this.initializeUserRegistrations();
+    await this.initializeChannelKeywords();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -122,6 +127,7 @@ export class Database {
     await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
     await this.users.createIndex({ added: -1 });
+    await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -184,17 +190,17 @@ export class Database {
     await this.cards.createIndex({ type: 1, postedAt: -1 });  // findCardMostRecentByType
     await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });  // findCardsForScoring, findCardsByTime
     await this.cards.createIndex({ state: 1, "curation.block": 1, "budget.available": 1, private: 1, postedAt: -1 }); // findCardsWithAvailableBudget
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 10, "summary.text": 5, "keywords": 7, "by.name": 5, "by.handle": 5 } }); // findCardsBySearch
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "by.id": 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "by.id": 1, "stats.revenue.value": -1 }); // findCardsByRevenue
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "by.id": 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
+    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 4, "summary.text": 4, "keywords": 4, "by.name": 4, "by.handle": 4 } }); // findCardsBySearch
+    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
+    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "stats.revenue.value": -1 }); // findCardsByRevenue
+    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.a": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.b": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
-    await this.cards.createIndex({ "by.id": 1, postedAt: -1 });
+    await this.cards.createIndex({ createdById: 1, postedAt: -1 });
 
     await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
   }
@@ -236,20 +242,14 @@ export class Database {
     await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, index: 1 }, { unique: true });
   }
 
+  private async initializeCardFiles(): Promise<void> {
+    this.cardFiles = this.db.collection('cardFiles');
+    await this.cardFiles.createIndex({ cardId: 1, group: 1, user: 1, fileId: 1 }, { unique: true });
+  }
+
   private async initializeFiles(): Promise<void> {
     this.files = this.db.collection('files');
     await this.files.createIndex({ id: 1 }, { unique: true });
-  }
-
-  private async initializeNewsItems(): Promise<void> {
-    this.newsItems = this.db.collection('newsItems');
-    await this.newsItems.createIndex({ id: 1 }, { unique: true });
-    await this.newsItems.createIndex({ timestamp: -1 });
-  }
-  private async initializeDeviceTokens(): Promise<void> {
-    this.deviceTokens = this.db.collection('deviceTokens');
-    await this.deviceTokens.createIndex({ type: 1, token: 1 }, { unique: true });
-    await this.deviceTokens.createIndex({ userAddress: 1, type: 1 });
   }
 
   private async initializeCardOpens(): Promise<void> {
@@ -274,7 +274,7 @@ export class Database {
       try {
         await this.subsidyBalance.insertOne(record);
       } catch (err) {
-        console.error("Db.initializeSubsidyBalance: collision adding initial record");
+        errorManager.error("Db.initializeSubsidyBalance: collision adding initial record", null);
       }
     }
   }
@@ -335,12 +335,6 @@ export class Database {
     await this.cardStatsHistory.createIndex({ cardId: 1, statName: 1, at: -1 });
   }
 
-  private async initializeBankDeposits(): Promise<void> {
-    this.bankDeposits = this.db.collection('bankDeposits');
-    await this.bankDeposits.createIndex({ id: 1 }, { unique: true });
-    await this.bankDeposits.createIndex({ status: 1, at: -1 });
-  }
-
   private async initializeBowerPackages(): Promise<void> {
     this.bowerPackages = this.db.collection('bowerPackages');
     await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
@@ -398,14 +392,42 @@ export class Database {
     await this.ipAddresses.createIndex({ ipAddress: 1 }, { unique: true });
   }
 
+  private async initializeChannels(): Promise<void> {
+    this.channels = this.db.collection('channels');
+    await this.channels.createIndex({ id: 1 }, { unique: true });
+    await this.channels.createIndex({ handle: 1 }, { unique: true });
+    await this.channels.createIndex({ ownerId: 1 });
+    await this.channels.createIndex({ state: 1, name: "text", handle: "text", keywords: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 5, handle: 5, keywords: 3, about: 1 } });
+  }
+
+  private async initializeChannelUsers(): Promise<void> {
+    this.channelUsers = this.db.collection('channelUsers');
+    await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
+    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, lastCardPosted: -1 });
+    await this.channelUsers.createIndex({ notificationPending: 1, lastCardPosted: -1 });
+  }
+
+  private async initializeChannelCards(): Promise<void> {
+    this.channelCards = this.db.collection('channelCards');
+    await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
+    await this.channelCards.createIndex({ cardId: 1 });
+    await this.channelCards.createIndex({ channelId: 1, cardLastPosted: -1 });
+  }
+
   private async initializeUserRegistrations(): Promise<void> {
     this.userRegistrations = this.db.collection('userRegistrations');
     await this.userRegistrations.createIndex({ userId: 1, at: -1 });
     await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
   }
 
+  private async initializeChannelKeywords(): Promise<void> {
+    this.channelKeywords = this.db.collection('channelKeywords');
+    await this.channelKeywords.createIndex({ channelId: 1, keyword: 1 }, { unique: true });
+    await this.channelKeywords.createIndex({ channelId: 1, cardCount: -1, lastUsed: -1 });
+  }
+
   async getNetwork(): Promise<NetworkRecord> {
-    return await this.networks.findOne({ id: '1' });
+    return this.networks.findOne({ id: '1' });
   }
 
   async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrPublisherSubsidies: number): Promise<void> {
@@ -437,7 +459,7 @@ export class Database {
   }
 
   async getOldUsers(): Promise<OldUserRecord[]> {
-    return await this.oldUsers.find().toArray();
+    return this.oldUsers.find().toArray();
   }
 
   async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
@@ -535,8 +557,21 @@ export class Database {
     delete user.recoveryCodeExpires;
   }
 
+  async updateUserContentNotification(user: UserRecord): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
+  }
+
+  async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformNotifications": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications } });
+    if (!user.notifications) {
+      user.notifications = {};
+    }
+    user.notifications.disallowPlatformNotifications = disallowPlatformNotifications;
+    user.notifications.disallowContentNotifications = disallowContentNotifications;
+  }
+
   async findUserById(id: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ id: id });
+    return this.users.findOne<UserRecord>({ id: id });
   }
 
   getUsersById(ids: string[]): Cursor<UserRecord> {
@@ -544,62 +579,77 @@ export class Database {
   }
 
   async findUserByAddress(address: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ address: address });
+    return this.users.findOne<UserRecord>({ address: address });
   }
 
   async findUserByHistoricalAddress(address: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ "addressHistory.address": address });
+    return this.users.findOne<UserRecord>({ "addressHistory.address": address });
   }
 
   async findUserByRecoveryCode(code: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ recoveryCode: code });
+    return this.users.findOne<UserRecord>({ recoveryCode: code });
   }
 
   async findUserByInviterCode(code: string): Promise<UserRecord> {
     if (!code) {
       return null;
     }
-    return await this.users.findOne<UserRecord>({ inviterCode: code.toLowerCase() });
+    return this.users.findOne<UserRecord>({ inviterCode: code.toLowerCase() });
   }
 
   async findUsersByType(type: UserAccountType): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ type: type }).toArray();
+    return this.users.find<UserRecord>({ type: type }).toArray();
+  }
+
+  async findUsersWithoutImageId(): Promise<UserRecord[]> {
+    return this.users.find<UserRecord>({ "identity.imageUrl": { $exists: true } }).toArray();
+  }
+
+  getUsersWithIdentity(): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ identity: { $exists: true } });
   }
 
   async findNetworkUser(): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ type: "network" });
+    return this.users.findOne<UserRecord>({ type: "network" });
   }
 
   async findNetworkDeveloperUser(): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ type: "networkDeveloper" });
+    return this.users.findOne<UserRecord>({ type: "networkDeveloper" });
   }
 
   async findUserByHandle(handle: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
+    return this.users.findOne<UserRecord>({ "identity.handle": handle.toLowerCase() });
   }
 
   async findUserByEmail(emailAddress: string): Promise<UserRecord> {
-    return await this.users.findOne<UserRecord>({ "identity.emailAddress": emailAddress.toLowerCase() });
+    return this.users.findOne<UserRecord>({ "identity.emailAddress": emailAddress.toLowerCase() });
   }
 
   async findUsersByIpAddress(ipAddress: string, limit = 25): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ ipAddresses: ipAddress }).sort({ added: -1 }).limit(limit).toArray();
+    return this.users.find<UserRecord>({ ipAddresses: ipAddress }).sort({ added: -1 }).limit(limit).toArray();
   }
 
   async findUsersWithoutCountry(): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ country: { $exists: false } }).toArray();
+    return this.users.find<UserRecord>({ country: { $exists: false } }).toArray();
   }
 
   async findUsersWithIdentity(limit = 500): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ identity: { $exists: true } }).sort({ lastContact: -1 }).limit(limit).toArray();
+    return this.users.find<UserRecord>({ identity: { $exists: true } }).sort({ lastContact: -1 }).limit(limit).toArray();
   }
 
   async findUsersByLastContact(limit = 500): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ type: "normal" }).sort({ lastContact: -1 }).limit(limit).toArray();
+    return this.users.find<UserRecord>({ type: "normal" }).sort({ lastContact: -1 }).limit(limit).toArray();
   }
 
   getUserCursorByLastContact(from: number, to: number, addedBefore: number): Cursor<UserRecord> {
     return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to }, added: { $lte: addedBefore } }).sort({ lastContact: -1 });
+  }
+
+  async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, {
+      $unset: { "identity.imageUrl": 1 },
+      $set: { "identity.imageId": imageId }
+    });
   }
 
   countTotalUsersBefore(before: number, after = 0): Promise<number> {
@@ -627,15 +677,18 @@ export class Database {
     await this.users.deleteOne({ id: id });
   }
 
-  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageUrl: string, location: string, emailAddress: string, encryptedPrivateKey: string): Promise<void> {
+  async updateUserIdentity(userRecord: UserRecord, name: string, firstName: string, lastName: string, handle: string, imageId: string, location: string, emailAddress: string, emailConfirmed: boolean, encryptedPrivateKey: string): Promise<void> {
     const update: any = {};
     if (!userRecord.identity) {
       userRecord.identity = {
         name: null,
         handle: null,
-        imageUrl: null,
+        imageId: null,
         location: null,
         emailAddress: null,
+        emailConfirmed: false,
+        emailConfirmationCode: null,
+        emailLastConfirmed: 0,
         firstName: null,
         lastName: null
       };
@@ -656,9 +709,9 @@ export class Database {
       update["identity.handle"] = handle.toLowerCase();
       userRecord.identity.handle = handle.toLowerCase();
     }
-    if (imageUrl) {
-      update["identity.imageUrl"] = imageUrl;
-      userRecord.identity.imageUrl = imageUrl;
+    if (imageId) {
+      update["identity.imageId"] = imageId;
+      userRecord.identity.imageId = imageId;
     }
     if (location) {
       update["identity.location"] = location;
@@ -667,6 +720,10 @@ export class Database {
     if (emailAddress) {
       update["identity.emailAddress"] = emailAddress.toLowerCase();
       userRecord.identity.emailAddress = emailAddress.toLowerCase();
+    }
+    if (typeof emailConfirmed !== 'undefined') {
+      update["identity.emailConfirmed"] = emailConfirmed;
+      userRecord.identity.emailConfirmed = emailConfirmed;
     }
     if (encryptedPrivateKey) {
       update.encryptedPrivateKey = encryptedPrivateKey;
@@ -702,6 +759,18 @@ export class Database {
     userRecord.marketing.includeInMailingList = mailingList;
   }
 
+  async updateUserEmailConfirmationCode(user: UserRecord, code: string): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "identity.emailConfirmed": false, "identity.emailConfirmationCode": code } });
+  }
+
+  async findUserByEmailConfirmationCode(code: string): Promise<UserRecord> {
+    return this.users.findOne<UserRecord>({ "identity.emailConfirmationCode": code });
+  }
+
+  async updateUserEmailConfirmation(userId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { "identity.emailConfirmed": true, "identity.emailLastConfirmed": Date.now() }, $unset: { "identity.emailConfirmationCode": 1 } });
+  }
+
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
     await this.users.updateOne({ id: user.id }, {
       $inc: {
@@ -723,7 +792,7 @@ export class Database {
   }
 
   async findUsersForBalanceUpdates(before: number): Promise<UserRecord[]> {
-    return await this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
+    return this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
   }
 
   async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
@@ -771,10 +840,10 @@ export class Database {
   }
 
   async countUsersbalanceBelowTarget(): Promise<number> {
-    return await this.users.count({ type: "normal", balanceBelowTarget: true });
+    return this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, byImageUrl: string, cardImageUrl: string, cardImageWidth: number, cardImageHeight: number, linkUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -785,18 +854,16 @@ export class Database {
       id: id ? id : uuid.v4(),
       state: "active",
       postedAt: now,
+      createdById: byUserId,
       by: {
-        id: byUserId,
         address: byAddress,
         handle: byHandle,
-        name: byName,
-        imageUrl: byImageUrl
+        name: byName
       },
       summary: {
-        imageUrl: cardImageUrl,
-        imageWidth: cardImageWidth,
-        imageHeight: cardImageHeight,
+        imageId: cardImageId,
         linkUrl: linkUrl,
+        iframeUrl: iframeUrl,
         title: title,
         text: text,
       },
@@ -873,19 +940,19 @@ export class Database {
   }
 
   async countCards(before: number, after: number): Promise<number> {
-    return await this.cards.count({ postedAt: { $lt: before, $gte: after } });
+    return this.cards.count({ postedAt: { $lt: before, $gte: after } });
   }
 
   async countNonPromotedCards(before: number, after: number): Promise<number> {
-    return await this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
+    return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
   }
 
   async countPromotedCards(before: number, after: number): Promise<number> {
-    return await this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
+    return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
   }
 
   async countAdCards(before: number, after: number): Promise<number> {
-    return await this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openPayment": { $gt: 0 } });
+    return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openPayment": { $gt: 0 } });
   }
 
   async lockCard(cardId: string, timeout: number, serverId: string): Promise<CardRecord> {
@@ -933,14 +1000,14 @@ export class Database {
       query.state = "active";
     }
     if (includeSearchText) {
-      return await this.cards.findOne<CardRecord>(query);
+      return this.cards.findOne<CardRecord>(query);
     } else {
-      return await this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
+      return this.cards.findOne<CardRecord>(query, { fields: { searchText: 0 } });
     }
   }
 
   // async findLastCardByUser(userId: string): Promise<CardRecord> {
-  //   const results = await this.cards.find<CardRecord>({ "by.id": userId }).sort({ postedAt: -1 }).limit(1).toArray();
+  //   const results = await this.cards.find<CardRecord>({ createdById: userId }).sort({ postedAt: -1 }).limit(1).toArray();
   //   if (results.length > 0) {
   //     return results[0];
   //   } else {
@@ -961,6 +1028,36 @@ export class Database {
     return this.cards.find<CardRecord>({ searchText: { $exists: false } });
   }
 
+  getCardsMissingBy(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ by: { $exists: false } });
+  }
+
+  getCardsMissingCreatedById(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ createdById: { $exists: false } });
+  }
+
+  getCardsWithSummaryImageUrl(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ "summary.imageUrl": { $exists: true } });
+  }
+
+  async replaceCardBy(cardId: string, createdById: string): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, {
+      $set: { createdById: createdById },
+      $unset: { "by.id": 1 }
+    });
+  }
+
+  async replaceCardSummaryImageUrl(cardId: string, imageId: string): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, {
+      $unset: {
+        "summary.imageUrl": 1,
+        "summary.imageWidth": 1,
+        "summary.imageHeight": 1
+      },
+      $set: { "summary.imageId": imageId }
+    });
+  }
+
   async countDistinctCardOwners(from: number, to: number): Promise<number> {
     const creators = await this.cards.distinct('by.id', { postedAt: { $gte: from, $lt: to } });
     return creators.length;
@@ -968,6 +1065,16 @@ export class Database {
 
   async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
     await this.cards.updateOne({ id: cardId }, { $set: { searchText: searchText } });
+  }
+
+  async updateCardBy(cardId: string, address: string, handle: string, name: string): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, {
+      $set: {
+        "by.address": address,
+        "by.handle": handle,
+        "by.name": name
+      }
+    });
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
@@ -1019,15 +1126,13 @@ export class Database {
     card.promotionScores = promotionScores;
   }
 
-  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageUrl: string, imageWidth: number, imageHeight: number, keywords: string[]): Promise<void> {
+  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageId: string, keywords: string[]): Promise<void> {
     const update: any = {
       summary: {
         title: title,
         text: text,
         linkUrl: linkUrl,
-        imageUrl: imageUrl,
-        imageWidth: imageWidth,
-        imageHeight: imageHeight
+        imageId: imageId
       }
     };
     if (keywords) {
@@ -1116,33 +1221,33 @@ export class Database {
   }
 
   async updateCardsBlockedByAuthor(userId: string, blocked: boolean): Promise<void> {
-    await this.cards.updateMany({ "by.id": userId }, { $set: { "curation.block": blocked } });
+    await this.cards.updateMany({ createdById: userId }, { $set: { "curation.block": blocked } });
   }
 
   async updateCardsLastScoredByAuthor(userId: string, blocked: boolean): Promise<void> {
-    await this.cards.updateMany({ "by.id": userId }, { $set: { lastScored: 0 } });
+    await this.cards.updateMany({ createdById: userId }, { $set: { lastScored: 0 } });
   }
 
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }, { searchText: 0 }).toArray();
+    return this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }, { searchText: 0 }).toArray();
   }
 
   async findCardsWithAvailableBudget(limit: number): Promise<CardRecord[]> {
-    return await this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
+    return this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findCardsBySearch(searchText: string, skip: number, limit: number, userId: string): Promise<CardRecord[]> {
+  async findCardsBySearch(searchText: string, skip: number, limit: number): Promise<CardRecord[]> {
     const query: any = {
       state: "active",
       "curation.block": false,
       private: false,
       $text: { $search: searchText }
     };
-    return await this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+    return this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
-  findCardsByAuthor(userId: string): Cursor<CardRecord> {
-    return this.cards.find<CardRecord>({ "by.id": userId });
+  getCardsByAuthor(userId: string): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ createdById: userId }, { searchText: 0 });
   }
 
   async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
@@ -1150,7 +1255,7 @@ export class Database {
     if (excludeBlocked) {
       query["curation.block"] = false;
     }
-    query["by.id"] = byUserId;
+    query.createdById = byUserId;
     if (before && after) {
       query.postedAt = { $lt: before, $gt: after };
     } else if (before) {
@@ -1161,12 +1266,12 @@ export class Database {
     if (excludePrivate) {
       query.private = false;
     }
-    return await this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
   }
 
   async findCardsByTime(limit: number): Promise<CardRecord[]> {
     limit = limit || 500;
-    return await this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
+    return this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
   getCardCursorByPostedAt(from: number, to: number): Cursor<CardRecord> {
@@ -1174,7 +1279,7 @@ export class Database {
   }
 
   async findFirstCardByUser(userId: string): Promise<CardRecord> {
-    const result = await this.cards.find<CardRecord>({ state: "active", "by.id": userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
+    const result = await this.cards.find<CardRecord>({ state: "active", createdById: userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
     if (result.length > 0) {
       return result[0];
     }
@@ -1203,19 +1308,23 @@ export class Database {
 
   private addAuthorClause(query: any, userId: string): void {
     query.$or = [
-      { "by.id": userId },
+      { createdById: userId },
       { private: false, "curation.block": false }
     ];
   }
 
   async findCardsByScore(limit: number, userId: string, ads: boolean, scoreLessThan = 0): Promise<CardRecord[]> {
+    return this.getCardsByScore(userId, ads, scoreLessThan).limit(limit).toArray();
+  }
+
+  getCardsByScore(userId: string, ads: boolean, scoreLessThan = 0): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     query["pricing.openFeeUnits"] = ads ? { $lte: 0 } : { $gt: 0 };
     if (scoreLessThan) {
       query.score = { $lt: scoreLessThan };
     }
-    return await this.cards.find(query, { searchText: 0 }).sort({ score: -1 }).limit(limit).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ score: -1 });
   }
 
   async findCardsUsingKeywords(keywords: string[], scoreLessThan: number, limit: number, userId: string): Promise<CardRecord[]> {
@@ -1225,7 +1334,7 @@ export class Database {
     if (scoreLessThan > 0) {
       query.score = { $lt: scoreLessThan };
     }
-    return await this.cards.find<CardRecord>(query).sort({ score: -1 }).limit(limit).toArray();
+    return this.cards.find<CardRecord>(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
   findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
@@ -1235,7 +1344,7 @@ export class Database {
   }
 
   async countCardPostsByUser(userId: string, from: number, to: number): Promise<number> {
-    return await this.cards.count({ "by.id": userId, postedAt: { $gt: from, $lte: to } });
+    return this.cards.count({ createdById: userId, postedAt: { $gt: from, $lte: to } });
   }
 
   async ensureMutationIndex(): Promise<void> {
@@ -1250,7 +1359,7 @@ export class Database {
       };
       await this.mutationIndexes.insert(record);
     } catch (err) {
-      console.warn("Db.ensureMutationIndex: race condition");
+      errorManager.warning("Db.ensureMutationIndex: race condition", null);
     }
   }
 
@@ -1275,7 +1384,7 @@ export class Database {
   }
 
   async findMutationById(mutationId: string): Promise<CardMutationRecord> {
-    return await this.mutations.findOne<CardMutationRecord>({ mutationId: mutationId });
+    return this.mutations.findOne<CardMutationRecord>({ mutationId: mutationId });
   }
 
   async findLastMutation(cardId: string, group: CardStateGroup): Promise<CardMutationRecord> {
@@ -1293,7 +1402,7 @@ export class Database {
   }
 
   async findMutationsAfterIndex(index: number): Promise<CardMutationRecord[]> {
-    return await db.mutations.find<CardMutationRecord>({ index: { $gt: index } }).sort({ index: 1 }).toArray();
+    return db.mutations.find<CardMutationRecord>({ index: { $gt: index } }).sort({ index: 1 }).toArray();
   }
 
   async upsertCardProperty(cardId: string, group: CardStateGroup, user: string, name: string, value: any): Promise<CardPropertyRecord> {
@@ -1310,11 +1419,11 @@ export class Database {
   }
 
   async findCardProperties(cardId: string, group: CardStateGroup, user: string): Promise<CardPropertyRecord[]> {
-    return await this.cardProperties.find<CardPropertyRecord>({ cardId: cardId, group: group, user: user }).sort({ name: 1 }).toArray();
+    return this.cardProperties.find<CardPropertyRecord>({ cardId: cardId, group: group, user: user }).sort({ name: 1 }).toArray();
   }
 
   async findCardProperty(cardId: string, group: CardStateGroup, user: string, name: string): Promise<CardPropertyRecord> {
-    return await this.cardProperties.findOne<CardPropertyRecord>({ cardId: cardId, group: group, user: user, name: name });
+    return this.cardProperties.findOne<CardPropertyRecord>({ cardId: cardId, group: group, user: user, name: name });
   }
 
   async deleteCardProperty(cardId: string, group: CardStateGroup, user: string, name: string): Promise<void> {
@@ -1341,7 +1450,7 @@ export class Database {
   }
 
   async findCardCollections(cardId: string, group: CardStateGroup, user: string): Promise<CardCollectionRecord[]> {
-    return await this.cardCollections.find<CardCollectionRecord>({ cardId: cardId, group: group, user: user }).toArray();
+    return this.cardCollections.find<CardCollectionRecord>({ cardId: cardId, group: group, user: user }).toArray();
   }
 
   async deleteCardCollections(cardId: string): Promise<void> {
@@ -1401,11 +1510,11 @@ export class Database {
     if (!key) {
       return null;
     }
-    return await this.cardCollectionItems.findOne({ cardId: cardId, group: group, user: user, collectionName: collectionName, key: key });
+    return this.cardCollectionItems.findOne({ cardId: cardId, group: group, user: user, collectionName: collectionName, key: key });
   }
 
   async findCardCollectionItems(cardId: string, group: CardStateGroup, user: string, collectionName: string): Promise<CardCollectionItemRecord[]> {
-    return await this.cardCollectionItems.find<CardCollectionItemRecord>({ cardId: cardId, group: group, user: user, collectionName: collectionName }).sort({ index: 1 }).toArray();
+    return this.cardCollectionItems.find<CardCollectionItemRecord>({ cardId: cardId, group: group, user: user, collectionName: collectionName }).sort({ index: 1 }).toArray();
   }
 
   async findFirstCardCollectionItemRecordBeforeIndex(cardId: string, group: CardStateGroup, user: string, collectionName: string, beforeIndex: number): Promise<CardCollectionItemRecord> {
@@ -1441,6 +1550,31 @@ export class Database {
     await this.cardCollectionItems.updateOne({ cardId: cardId, group: group, user: user, collectionName: collectionName, key: key }, { $set: { index: index } });
   }
 
+  async upsertCardFile(cardId: string, group: CardStateGroup, user: string, fileId: string, key: string): Promise<CardFileRecord> {
+    const now = Date.now();
+    const record: CardFileRecord = {
+      cardId: cardId,
+      group: group,
+      user: user,
+      fileId: fileId,
+      key: key
+    };
+    await this.cardFiles.updateOne({ cardId: cardId, group: group, user: user, fileId: fileId }, record, { upsert: true });
+    return record;
+  }
+
+  async findCardFiles(cardId: string, group: CardStateGroup, user: string): Promise<CardFileRecord[]> {
+    return this.cardFiles.find<CardFileRecord>({ cardId: cardId, group: group, user: user }).sort({ fileId: 1 }).toArray();
+  }
+
+  async deleteCardFile(cardId: string, group: CardStateGroup, user: string, fileId: string): Promise<void> {
+    await this.cardFiles.deleteOne({ cardId: cardId, group: group, user: user, fileId: fileId });
+  }
+
+  async deleteCardFiles(cardId: string): Promise<void> {
+    await this.cardFiles.deleteMany({ cardId: cardId });
+  }
+
   async insertFile(status: FileStatus, s3Bucket: string): Promise<FileRecord> {
     const now = Date.now();
     const record: FileRecord = {
@@ -1456,7 +1590,8 @@ export class Database {
         bucket: s3Bucket,
         key: null
       },
-      url: null
+      url: null,
+      imageInfo: null
     };
     await this.files.insert(record);
     return record;
@@ -1468,15 +1603,16 @@ export class Database {
   }
 
   async updateFileProgress(fileRecord: FileRecord, ownerId: string, filename: string, encoding: string, mimetype: string, s3Key: string, status: FileStatus): Promise<void> {
+    const update: any = {
+      ownerId: ownerId,
+      filename: filename,
+      encoding: encoding,
+      mimetype: mimetype,
+      "s3.key": s3Key,
+      status: status
+    };
     await this.files.updateOne({ id: fileRecord.id }, {
-      $set: {
-        ownerId: ownerId,
-        filename: filename,
-        encoding: encoding,
-        mimetype: mimetype,
-        "s3.key": s3Key,
-        status: status
-      }
+      $set: update
     });
     fileRecord.ownerId = ownerId;
     fileRecord.filename = filename;
@@ -1486,59 +1622,34 @@ export class Database {
     fileRecord.status = status;
   }
 
-  async updateFileCompletion(fileRecord: FileRecord, status: FileStatus, size: number, url: string): Promise<void> {
+  async updateFileImageInfo(fileId: string, imageInfo: ImageInfo): Promise<void> {
+    await this.files.updateOne({ id: fileId }, { $set: { imageInfo: imageInfo } });
+  }
+
+  async updateFileCompletion(fileRecord: FileRecord, status: FileStatus, size: number, url: string, imageInfo?: ImageInfo): Promise<void> {
+    const update: any = {
+      status: status,
+      size: size,
+      url: url
+    };
+    if (imageInfo) {
+      update.imageInfo = imageInfo;
+    }
     await this.files.updateOne({ id: fileRecord.id }, {
-      $set: {
-        status: status,
-        size: size,
-        url: url
-      }
+      $set: update
     });
     fileRecord.status = status;
     fileRecord.size = size;
+    if (imageInfo) {
+      fileRecord.imageInfo = imageInfo;
+    }
   }
 
   async findFileById(id: string): Promise<FileRecord> {
     if (!id) {
       return null;
     }
-    return await this.files.findOne<FileRecord>({ id: id });
-  }
-
-  async insertNewsItem(record: NewsItemRecord): Promise<NewsItemRecord> {
-    try {
-      await this.newsItems.insertOne(record);
-    } catch (err) {
-      console.log("Initial news item is already present");
-      // noop:  record may already be there
-    }
-    return await this.newsItems.findOne<NewsItemRecord>({ id: record.id });
-  }
-
-  async findNewsItemById(id: string): Promise<NewsItemRecord> {
-    return await this.newsItems.findOne<NewsItemRecord>({ id: id });
-  }
-
-  async findNewsItems(maxCount: number): Promise<NewsItemRecord[]> {
-    if (!maxCount || maxCount < 0 || maxCount > 200) {
-      maxCount = 200;
-    }
-    return await this.newsItems.find<NewsItemRecord>().sort({ timestamp: -1 }).limit(maxCount).toArray();
-  }
-
-  async insertDeviceToken(type: DeviceType, token: string, userAddress: string): Promise<DeviceTokenRecord> {
-    const record: DeviceTokenRecord = {
-      type: type,
-      token: token,
-      userAddress: userAddress,
-      added: Date.now()
-    };
-    await this.deviceTokens.insertOne(record);
-    return record;
-  }
-
-  async findDeviceToken(type: DeviceType, token: string): Promise<DeviceTokenRecord> {
-    return await this.deviceTokens.findOne<DeviceTokenRecord>({ type: type, token: token });
+    return this.files.findOne<FileRecord>({ id: id });
   }
 
   async insertCardOpens(record: CardOpensRecord): Promise<boolean> {
@@ -1589,7 +1700,7 @@ export class Database {
   }
 
   async getSubsidyBalance(): Promise<SubsidyBalanceRecord> {
-    return await this.subsidyBalance.findOne<SubsidyBalanceRecord>({ id: "1" });
+    return this.subsidyBalance.findOne<SubsidyBalanceRecord>({ id: "1" });
   }
 
   async incrementSubsidyContributions(lastContribution: number, newLastContribution: number, amount: number): Promise<boolean> {
@@ -1634,7 +1745,7 @@ export class Database {
   }
 
   async findBowerManagement(id: string): Promise<BowerManagementRecord> {
-    return await this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
+    return this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
   async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
@@ -1663,7 +1774,7 @@ export class Database {
   }
 
   async findBankTransactionById(id: string): Promise<BankTransactionRecord> {
-    return await this.bankTransactions.findOne<BankTransactionRecord>({ id: id });
+    return this.bankTransactions.findOne<BankTransactionRecord>({ id: id });
   }
 
   async findBankTransactionsByParticipant(participantUserId: string, omitInterest: boolean, limit = 500): Promise<BankTransactionRecord[]> {
@@ -1673,19 +1784,19 @@ export class Database {
     if (omitInterest) {
       query["details.reason"] = { $nin: ["interest", "subsidy"] };
     }
-    return await this.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+    return this.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
   }
 
   async countBankTransactions(): Promise<number> {
-    return await this.bankTransactions.count({});
+    return this.bankTransactions.count({});
   }
 
   async countBankTransactionsByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
-    return await this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after } });
+    return this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after } });
   }
 
   async countBankTransactionsByReasonWithAmount(reason: BankTransactionReason, before: number, after: number, amount: number): Promise<number> {
-    return await this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after }, "details.amount": amount });
+    return this.bankTransactions.count({ "details.reason": reason, "details.timestamp": { $lt: before, $gte: after }, "details.amount": amount });
   }
 
   async totalBankTransactionsAmountByReason(reason: BankTransactionReason, before: number, after: number): Promise<number> {
@@ -1742,7 +1853,7 @@ export class Database {
   }
 
   async findRecentCardActions(userId: string, action: CardActionType, limit = 25): Promise<UserCardActionRecord[]> {
-    return await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: -1 }).limit(limit).toArray();
+    return this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: -1 }).limit(limit).toArray();
   }
 
   getUserCardActionsFromTo(from: number, to: number): Cursor<UserCardActionRecord> {
@@ -1758,31 +1869,31 @@ export class Database {
   }
 
   async countUserCardsOpenedInTimeframe(userId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ userId: userId, action: "open", at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ userId: userId, action: "open", at: { $gt: from, $lte: to } });
   }
 
   async countUserCardsPaid(userId: string): Promise<number> {
-    return await this.userCardActions.count({ userId: userId, action: "pay" });
+    return this.userCardActions.count({ userId: userId, action: "pay" });
   }
 
   async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string, fromFingerprint: string): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
+    return this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ userId: userId, action: "pay", at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ userId: userId, action: "pay", at: { $gt: from, $lte: to } });
   }
 
   async countUserCardActionsInTimeframe(userId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ userId: userId, at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ userId: userId, at: { $gt: from, $lte: to } });
   }
 
   async countCardPayments(cardId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "pay", at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ cardId: cardId, action: "pay", at: { $gt: from, $lte: to } });
   }
 
   async countCardImpressions(cardId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "impression", at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ cardId: cardId, action: "impression", at: { $gt: from, $lte: to } });
   }
 
   async countDistinctUserImpressions(cardId: string, from: number, to: number): Promise<number> {
@@ -1791,7 +1902,7 @@ export class Database {
   }
 
   async countCardClicks(cardId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "click", at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ cardId: cardId, action: "click", at: { $gt: from, $lte: to } });
   }
 
   async countDistinctUserClicks(cardId: string, from: number, to: number): Promise<number> {
@@ -1800,7 +1911,7 @@ export class Database {
   }
 
   async countCardPromotedPayments(cardId: string, from: number, to: number): Promise<number> {
-    return await this.userCardActions.count({ cardId: cardId, action: "redeem-open-payment", at: { $gt: from, $lte: to } });
+    return this.userCardActions.count({ cardId: cardId, action: "redeem-open-payment", at: { $gt: from, $lte: to } });
   }
 
   async countDistinctUserPromotedPayments(cardId: string, from: number, to: number): Promise<number> {
@@ -1809,11 +1920,11 @@ export class Database {
   }
 
   async countUserCardOpens(before: number, after: number): Promise<number> {
-    return await this.userCardActions.count({ action: "open", at: { $lt: before, $gte: after } });
+    return this.userCardActions.count({ action: "open", at: { $lt: before, $gte: after } });
   }
 
   async findDistinctUsersActiveBetween(from: number, to: number): Promise<string[]> {
-    return await this.userCardActions.distinct("userId", { at: { $gte: from, $lt: to } }) as string[];
+    return (await this.userCardActions.distinct("userId", { at: { $gte: from, $lt: to } })) as string[];
   }
 
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
@@ -1844,17 +1955,17 @@ export class Database {
   }
 
   async findUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
-    return await this.userCardInfo.findOne<UserCardInfoRecord>({ userId: userId, cardId: cardId });
+    return this.userCardInfo.findOne<UserCardInfoRecord>({ userId: userId, cardId: cardId });
   }
 
   async findUserCardInfoForUser(userId: string): Promise<UserCardInfoRecord[]> {
-    return await this.userCardInfo.find<UserCardInfoRecord>({ userId: userId }).sort({ cardId: 1 }).toArray();
+    return this.userCardInfo.find<UserCardInfoRecord>({ userId: userId }).sort({ cardId: 1 }).toArray();
   }
 
   async findRecentCardOpens(userId: string, limit = 25, before = 0): Promise<UserCardInfoRecord[]> {
     const query: any = { userId: userId };
     query.lastOpened = before > 0 ? { $lt: before, $gt: 0 } : { $gt: 0 };
-    return await this.userCardInfo.find<UserCardInfoRecord>(query).sort({ lastOpened: -1 }).limit(limit).toArray();
+    return this.userCardInfo.find<UserCardInfoRecord>(query).sort({ lastOpened: -1 }).limit(limit).toArray();
   }
 
   async updateUserCardLastImpression(userId: string, cardId: string, value: number): Promise<void> {
@@ -1923,7 +2034,7 @@ export class Database {
   }
 
   async findBankCouponById(id: string): Promise<BankCouponRecord> {
-    return await this.bankCoupons.findOne<BankCouponRecord>({ id: id });
+    return this.bankCoupons.findOne<BankCouponRecord>({ id: id });
   }
 
   async incrementCouponSpent(couponId: string, amount: number): Promise<void> {
@@ -1950,11 +2061,11 @@ export class Database {
   }
 
   async listManualWithdrawals(limit: number): Promise<ManualWithdrawalRecord[]> {
-    return await this.manualWithdrawals.find<ManualWithdrawalRecord>({}).sort({ created: -1 }).limit(limit ? limit : 100).toArray();
+    return this.manualWithdrawals.find<ManualWithdrawalRecord>({}).sort({ created: -1 }).limit(limit ? limit : 100).toArray();
   }
 
   async findManualWithdrawalById(id: string): Promise<ManualWithdrawalRecord> {
-    return await this.manualWithdrawals.findOne<ManualWithdrawalRecord>({ id: id });
+    return this.manualWithdrawals.findOne<ManualWithdrawalRecord>({ id: id });
   }
 
   async updateManualWithdrawal(id: string, state: ManualWithdrawalState, paymentReferenceId: string, byUserId: string): Promise<void> {
@@ -1981,36 +2092,7 @@ export class Database {
   }
 
   async findCardStatsHistory(cardId: string, statName: string, maxCount: number): Promise<CardStatisticHistoryRecord[]> {
-    return await this.cardStatsHistory.find({ cardId: cardId, statName: statName }).sort({ at: -1 }).limit(maxCount ? maxCount : 50).toArray();
-  }
-
-  async insertBankDeposit(status: BankDepositStatus, at: number, userId: string, amount: number, fees: number, coins: number, paymentMethodNonce: string, lastUpdatedAt: number, result: BraintreeTransactionResult): Promise<BankDepositRecord> {
-    const record: BankDepositRecord = {
-      id: uuid.v4(),
-      status: status,
-      at: at,
-      userId: userId,
-      amount: amount,
-      fees: fees,
-      coins: coins,
-      paymentMethodNonce: paymentMethodNonce,
-      lastUpdatedAt: lastUpdatedAt,
-      result: result,
-      bankTransactionId: null
-    };
-    await this.bankDeposits.insert(record);
-    return record;
-  }
-
-  async updateBankDeposit(id: string, status: BankDepositStatus, lastUpdatedAt: number, result: BraintreeTransactionResult, bankTransactionId: string): Promise<void> {
-    await this.bankDeposits.updateOne({ id: id }, {
-      $set: {
-        status: status,
-        lastUpdatedAt: lastUpdatedAt,
-        result: result,
-        bankTransactionId: bankTransactionId
-      }
-    });
+    return this.cardStatsHistory.find({ cardId: cardId, statName: statName }).sort({ at: -1 }).limit(maxCount ? maxCount : 50).toArray();
   }
 
   async upsertBowerPackage(packageName: string, pkg: BowerInstallResult, channelComponent: ChannelComponentDescriptor): Promise<BowerPackageRecord> {
@@ -2054,11 +2136,11 @@ export class Database {
   }
 
   async listCardTopics(): Promise<CardTopicRecord[]> {
-    return await this.cardTopics.find<CardTopicRecord>({ status: "active" }).sort({ topicWithCase: 1 }).toArray();
+    return this.cardTopics.find<CardTopicRecord>({ status: "active" }).sort({ topicWithCase: 1 }).toArray();
   }
 
   async findCardTopicByName(name: string): Promise<CardTopicRecord> {
-    return await this.cardTopics.findOne<CardTopicRecord>({ topicNoCase: name.toLowerCase() });
+    return this.cardTopics.findOne<CardTopicRecord>({ topicNoCase: name.toLowerCase() });
   }
 
   async insertOriginalNetworkCardStats(stats: NetworkCardStats): Promise<void> {
@@ -2172,7 +2254,7 @@ export class Database {
         return;
       }
     }
-    console.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions");
+    errorManager.error("Db.incrementNetworkCardStatItems: Retries exhausted trying to update network card stats because of collisions", null);
   }
 
   async incrementNetworkCardStatBlockedOpens(periodStarting: number, blockedPaidOpens: number): Promise<void> {
@@ -2210,7 +2292,7 @@ export class Database {
   }
 
   async findIpAddress(ipAddress: string): Promise<IpAddressRecord> {
-    return await this.ipAddresses.findOne<IpAddressRecord>({ ipAddress: ipAddress.toLowerCase() });
+    return this.ipAddresses.findOne<IpAddressRecord>({ ipAddress: ipAddress.toLowerCase() });
   }
 
   async updateIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
@@ -2263,9 +2345,239 @@ export class Database {
       update.message = message;
     }
     await this.ipAddresses.update({ ipAddress: ipAddress.toLowerCase() }, { $set: update });
-    return await this.findIpAddress(ipAddress);
+    return this.findIpAddress(ipAddress);
   }
 
+  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[], latestCardPosted: number): Promise<ChannelRecord> {
+    if (!socialLinks) {
+      socialLinks = [];
+    }
+    const now = Date.now();
+    const record: ChannelRecord = {
+      id: uuid.v4(),
+      state: 'active',
+      handle: handle.toLowerCase(),
+      name: name,
+      ownerId: ownerId,
+      created: now,
+      bannerImageFileId: bannerImageFileId,
+      about: about,
+      linkUrl: linkUrl,
+      socialLinks: socialLinks,
+      stats: {
+        subscribers: 0,
+        cards: 0,
+        revenue: 0
+      },
+      lastStatsSnapshot: 0,
+      latestCardPosted: latestCardPosted,
+      keywords: []
+    };
+    await this.channels.insertOne(record);
+    return record;
+  }
+
+  async findChannelById(id: string): Promise<ChannelRecord> {
+    return this.channels.findOne<ChannelRecord>({ id: id });
+  }
+
+  async findChannelByHandle(handle: string): Promise<ChannelRecord> {
+    return this.channels.findOne<ChannelRecord>({ handle: handle.toLowerCase() });
+  }
+
+  async findChannelsByOwnerId(ownerId: string): Promise<ChannelRecord[]> {
+    return this.channels.find<ChannelRecord>({ ownerId: ownerId }).sort({ created: 1 }).toArray();
+  }
+
+  async findChannelsBySearch(searchText: string, skip: number, limit: number): Promise<ChannelRecord[]> {
+    const query: any = {
+      state: "active",
+      $text: { $search: searchText }
+    };
+    return this.channels.find<ChannelRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+  }
+
+  getChannelsByLastUpdate(lastUpdateLessThan: number): Cursor<ChannelRecord> {
+    const query: any = {};
+    if (lastUpdateLessThan) {
+      query.lastContentUpdate = { $lt: lastUpdateLessThan };
+    }
+    return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
+  }
+
+  async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
+    const update: any = {};
+    if (typeof name !== 'undefined') {
+      update.name = name;
+    }
+    if (typeof bannerImageFileId !== 'undefined') {
+      update.bannerImageFileId = bannerImageFileId;
+    }
+    if (typeof about !== 'undefined') {
+      update.about = about;
+    }
+    if (typeof linkUrl !== 'undefined') {
+      update.linkUrl = linkUrl;
+    }
+    if (typeof socialLinks !== 'undefined') {
+      update.socialLinks = socialLinks;
+    }
+    if (Object.keys(update).length === 0) {
+      return;
+    }
+    await this.channels.updateOne({ id: channelId }, { $set: update });
+  }
+
+  async incrementChannelStat(channelId: string, statName: string, incrementBy: number): Promise<void> {
+    const inc: any = {};
+    inc["stats." + statName] = incrementBy;
+    await this.channels.updateOne({ id: channelId }, { $inc: inc });
+  }
+
+  async updateChannelLatestCardPosted(channelId: string, cardPostedAt: number): Promise<void> {
+    await this.channels.updateOne({ id: channelId }, { $set: { latestCardPosted: cardPostedAt } });
+  }
+
+  async updateChannelWithKeywords(channelId: string, keywords: string[]): Promise<void> {
+    await this.channels.updateOne({ id: channelId }, { $set: { keywords: keywords } });
+  }
+
+  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
+    const now = Date.now();
+    const record: ChannelUserRecord = {
+      channelId: channelId,
+      userId: userId,
+      added: now,
+      lastUpdated: now,
+      lastCardPosted: lastCardPosted,
+      subscriptionState: subscriptionState,
+      notificationPending: false,
+      lastNotification: 0,
+      lastVisited: lastVisited
+    };
+    await this.channelUsers.insertOne(record);
+    return record;
+  }
+
+  async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
+    return this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+  }
+
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
+    const now = Date.now();
+    const record: ChannelUserRecord = {
+      channelId: channelId,
+      userId: userId,
+      added: now,
+      lastCardPosted: lastCardPosted,
+      subscriptionState: subscriptionState,
+      lastUpdated: now,
+      notificationPending: false,
+      lastNotification: 0,
+      lastVisited: lastVisited
+    };
+    await this.channelUsers.update({ channelId: channelId, userId: userId }, record, { upsert: true });
+    return record;
+  }
+
+  async updateChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, channelLatestCard: number, lastVisited: number): Promise<void> {
+    await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, {
+      $set: {
+        subscriptionState: subscriptionState,
+        lastUpdated: Date.now(),
+        channelLatestCard: channelLatestCard,
+        lastVisited: lastVisited
+      }
+    });
+  }
+
+  async updateChannelUsersForLatestUpdate(channelId: string, cardLastPosted: number): Promise<void> {
+    await this.channelUsers.updateMany({ channelId: channelId, channelLastUpdate: { $lt: cardLastPosted } }, { $set: { channelLastUpdate: cardLastPosted, notificationPending: true } });
+  }
+
+  async updateChannelUserLastVisit(channelId: string, userId: string, lastVisited: number): Promise<void> {
+    await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, { $set: { lastVisited: lastVisited } });
+  }
+
+  async updateChannelUserNotificationSent(userId: string, channelIds: string[]) {
+    if (channelIds.length === 0) {
+      return;
+    }
+    await this.channelUsers.updateMany({ channelId: { $in: channelIds }, userId: userId }, { $set: { lastNotification: Date.now(), notificationPending: false } });
+  }
+
+  async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number, latestGreaterThan: number): Promise<ChannelUserRecord[]> {
+    return this.getChannelUserRecords(userId, subscriptionState, latestLessThan, latestGreaterThan).limit(maxCount || 100).toArray();
+  }
+
+  getChannelUserSubscribers(channelId: string): Cursor<ChannelUserRecord> {
+    return this.channelUsers.find<ChannelUserRecord>({ channelId: channelId, subscriptionState: "subscribed" });
+  }
+
+  getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number, latestGreaterThan: number): Cursor<ChannelUserRecord> {
+    const query: any = { userId: userId, subscriptionState: subscriptionState };
+    if (latestLessThan) {
+      query.channelLatestCard = { $lt: latestLessThan, $gt: latestGreaterThan || 0 };
+    } else if (latestGreaterThan) {
+      query.channelLatestCard = { $gt: latestGreaterThan };
+    }
+    return this.channelUsers.find<ChannelUserRecord>(query).sort({ channelLatestCard: -1 });
+  }
+
+  getChannelUserPendingNotifications(): Cursor<ChannelUserRecord> {
+    return this.channelUsers.find<ChannelUserRecord>({ notificationPending: true }).sort({ lastCardPosted: -1 });
+  }
+
+  async upsertChannelCard(channelId: string, cardId: string, cardPostedAt: number): Promise<ChannelCardRecord> {
+    const now = Date.now();
+    const record: ChannelCardRecord = {
+      channelId: channelId,
+      cardId: cardId,
+      added: now,
+      cardPostedAt: cardPostedAt
+    };
+    await this.channelCards.update({ channelId: channelId, cardId: cardId }, record, { upsert: true });
+    return record;
+  }
+
+  async findChannelCard(channelId: string, cardId: string): Promise<ChannelCardRecord> {
+    return this.channelCards.findOne<ChannelCardRecord>({ channelId: channelId, cardId: cardId });
+  }
+
+  async findChannelCardsByCard(cardId: string, maxCount: number): Promise<ChannelCardRecord[]> {
+    if (maxCount === 0) {
+      return [];
+    }
+    return this.getChannelCardsByCard(cardId).limit(maxCount || 100).toArray();
+  }
+
+  getChannelCardsByCard(cardId: string): Cursor<ChannelCardRecord> {
+    const query: any = { cardId: cardId };
+    return this.channelCards.find<ChannelCardRecord>(query);
+  }
+
+  async removeChannelCardsByCard(cardId: string): Promise<void> {
+    await this.channelCards.deleteMany({ cardId: cardId });
+  }
+
+  async findChannelCardsByChannel(channelId: string, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
+    if (maxCount === 0) {
+      return [];
+    }
+    return this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
+  }
+
+  getChannelCardsInChannels(channelIds: string[], since: number): Cursor<ChannelCardRecord> {
+    return this.channelCards.find<ChannelCardRecord>({ channelId: { $in: channelIds }, cardPostedAt: { $gt: since } }).sort({ cardPostedAt: -1 });
+  }
+
+  getChannelCardsByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
+    const query: any = { channelId: channelId };
+    if (since) {
+      query.since = { $gte: since };
+    }
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
+  }
   async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,
@@ -2283,6 +2595,35 @@ export class Database {
   async existsUserRegistration(userId: string, ipAddress: string, fingerprint: string): Promise<boolean> {
     const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, ipAddress: ipAddress.toLowerCase(), fingerprint: fingerprint }).limit(1).toArray();
     return record.length > 0 ? true : false;
+  }
+
+  async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {
+    const record: ChannelKeywordRecord = {
+      channelId: channelId,
+      keyword: keyword.toLowerCase(),
+      cardCount: cardCount,
+      lastUsed: lastUsed
+    };
+    await this.channelKeywords.insertOne(record);
+    return record;
+  }
+
+  async findChannelKeyword(channelId: string, keyword: string): Promise<ChannelKeywordRecord> {
+    return this.channelKeywords.findOne<ChannelKeywordRecord>({ channelId: channelId, keyword: keyword.toLowerCase() });
+  }
+
+  async findChannelKeywords(channelId: string, limit: number): Promise<ChannelKeywordRecord[]> {
+    return this.channelKeywords.find<ChannelKeywordRecord>({ channelId: channelId }).sort({ cardCount: -1, lastUsed: -1 }).limit(limit).toArray();
+  }
+
+  async updateChannelKeyword(channelId: string, keyword: string, incrementCardCountBy: number, lastUsed: number): Promise<void> {
+    const update: any = {
+      $inc: { cardCount: incrementCardCountBy }
+    };
+    if (lastUsed) {
+      update.$set = { lastUsed: lastUsed };
+    }
+    await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
   }
 }
 

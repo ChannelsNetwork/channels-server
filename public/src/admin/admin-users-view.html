@@ -209,7 +209,7 @@
 
       _refresh() {
         this.set('users', []);
-        $core.admin_getUsers(this.$.withIdentityOnly.checked, this.$.withIdentityOnly.checked ? 500 : 1000).then((response) => {
+        $core.admin_getUsers(this.$.withIdentityOnly.checked, this.$.withIdentityOnly.checked ? 250 : 250).then((response) => {
           const users = [];
           for (const userInfo of response.users) {
             const user = userInfo.user;

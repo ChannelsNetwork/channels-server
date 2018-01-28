@@ -79,10 +79,10 @@ class TestClient implements RestServer {
   //             const jsonMsg = JSON.parse(message.utf8Data);
   //             void this.processSocketRxMessage(jsonMsg, conn);
   //           } catch (err) {
-  //             console.error("TestClient: Invalid JSON in string message", message.utf8Data);
+  //             errorManager.error("TestClient: Invalid JSON in string message", message.utf8Data);
   //           }
   //         } else {
-  //           console.error('TestClient: Unexpected binary-type socket message', message);
+  //           errorManager.error('TestClient: Unexpected binary-type socket message', message);
   //         }
   //       });
   //       resolve();
@@ -94,7 +94,7 @@ class TestClient implements RestServer {
 
   // private async processSocketRxMessage(message: any, conn: connection): Promise<void> {
   //   if (!message.type) {
-  //     console.error("TestClient.processSocketRxMessage: type field missing");
+  //     errorManager.error("TestClient.processSocketRxMessage: type field missing");
   //     return;
   //   }
   //   switch (message.type) {
@@ -365,7 +365,7 @@ class TestClient implements RestServer {
 
   private async registerIdentity(name: string, handle: string, location: string): Promise<void> {
     const details: UpdateUserIdentityDetails = {
-      imageUrl: null,
+      imageId: null,
       address: this.keyInfo.address,
       fingerprint: null,
       name: name,
@@ -473,7 +473,8 @@ class TestClient implements RestServer {
       },
       sharedState: {
         properties: { hello: "world" },
-        collections: {}
+        collections: {},
+        files: {}
       },
       fileIds: []
     };

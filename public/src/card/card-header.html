@@ -58,9 +58,9 @@
       }
     </style>
     <div class="horizontal layout center bar">
-      <user-image id="authorImage"></user-image>
+      <user-image id="authorImage" on-click="_openUserChannel"></user-image>
       <div class="flex vertical layout">
-        <div class="authorName">[[data.by.name]]</div>
+        <div class="authorName" on-click="_openUserChannel">[[data.by.name]]</div>
         <div id="timestamp">[[data.postedAtDisplay]]</div>
       </div>
       <div id="revenue">ℂ[[data.stats.revenueDisplay]]</div>
@@ -75,9 +75,9 @@
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
-      <soso-dropdown for="authorImage" alignment="left" offset="5">
+      <!-- <soso-dropdown for="authorImage" alignment="left" offset="5">
         <li on-click="_openUserChannel">More by [[data.by.name]]</li>
-      </soso-dropdown>
+      </soso-dropdown> -->
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
         <li on-click="_facebook">Share on Facebook</li>
@@ -128,7 +128,7 @@
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
           if (this._imagesLoaded) {
-            this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
+            this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
           }
           if (this.data.pricing.openFeeUnits === 0) {
             this.$.revenue.classList.add("hidden");
@@ -149,7 +149,7 @@
       loadImages() {
         if (!this._imagesLoaded) {
           this._imagesLoaded = true;
-          this.$.authorImage.image = this.data.by.imageUrl || $core.userManager.getFallbackUserImage(this.data.by.handle);
+          this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
         }
       }
 

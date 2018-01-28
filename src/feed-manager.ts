@@ -8,7 +8,7 @@ import { db } from "./db";
 import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin, NetworkCardStatsHistoryRecord, NetworkCardStats } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
-import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse } from "./interfaces/rest-services";
+import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse, SearchCardResults } from "./interfaces/rest-services";
 import { cardManager } from "./card-manager";
 import { FeedHandler, socketServer } from "./socket-server";
 import { Initializable } from "./interfaces/initializable";
@@ -25,6 +25,8 @@ import * as fs from 'fs';
 import { Cursor } from "mongodb";
 import { channelsComponentManager } from "./channels-component-manager";
 import { Utils } from "./utils";
+import { channelManager } from "./channel-manager";
+import { errorManager } from "./error-manager";
 
 const POLLING_INTERVAL = 1000 * 15;
 
@@ -56,6 +58,7 @@ const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
+const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
@@ -102,7 +105,7 @@ export class FeedManager implements Initializable, RestServer {
   private async handleGetFeeds(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<GetFeedsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -113,17 +116,17 @@ export class FeedManager implements Initializable, RestServer {
       };
       const promises: Array<Promise<CardFeedSet>> = [];
       for (const requestedFeed of requestBody.detailsObject.feeds) {
-        promises.push(this.getUserFeed(user, requestedFeed, requestBody.detailsObject.startWithCardId, requestBody.detailsObject.existingPromotedCardIds));
+        promises.push(this.getUserFeed(request, user, requestedFeed, requestBody.detailsObject.startWithCardId, requestBody.detailsObject.existingPromotedCardIds));
       }
       reply.feeds = await Promise.all(promises);
       response.json(reply);
     } catch (err) {
-      console.error("User.handleGetFeed: Failure", err);
+      errorManager.error("User.handleGetFeed: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
 
-  async getUserFeed(user: UserRecord, feed: RequestedFeedDescriptor, startWithCardId: string, existingPromotedCardIds: string[]): Promise<CardFeedSet> {
+  async getUserFeed(request: Request, user: UserRecord, feed: RequestedFeedDescriptor, startWithCardId: string, existingPromotedCardIds: string[]): Promise<CardFeedSet> {
     const result: CardFeedSet = {
       type: feed.type,
       cards: [],
@@ -135,22 +138,22 @@ export class FeedManager implements Initializable, RestServer {
     let batch: CardBatch;
     switch (feed.type) {
       case "recommended":
-        batch = await this.getRecommendedFeed(user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecommendedFeed(request, user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'new':
-        batch = await this.getRecentlyAddedFeed(user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecentlyAddedFeed(request, user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'top':
-        batch = await this.getTopFeed(user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getTopFeed(request, user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'mine':
-        batch = await this.getRecentlyPostedFeed(user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecentlyPostedFeed(request, user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'opened':
-        batch = await this.getRecentlyOpenedFeed(user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecentlyOpenedFeed(request, user, feed.maxCount, startWithCardId, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'channel':
-        batch = await this.getChannelFeed(user, feed.maxCount, feed.channelHandle, startWithCardId, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getChannelFeed(request, user, feed.maxCount, feed.channelHandle, startWithCardId, feed.afterCardId, existingPromotedCardIds);
         break;
       default:
         throw new Error("Unhandled feed type " + feed.type);
@@ -163,12 +166,12 @@ export class FeedManager implements Initializable, RestServer {
   private async handleSearchTopic(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<SearchTopicDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
       console.log("FeedManager.search-topic", requestBody.detailsObject);
-      const batch = await this.performSearchTopic(user, requestBody.detailsObject.topic, requestBody.detailsObject.maxCount, requestBody.detailsObject.afterCardId, requestBody.detailsObject.promotedCardIds);
+      const batch = await this.performSearchTopic(request, user, requestBody.detailsObject.topic, requestBody.detailsObject.maxCount, requestBody.detailsObject.afterCardId, requestBody.detailsObject.promotedCardIds);
       const reply: SearchTopicResponse = {
         serverVersion: SERVER_VERSION,
         cards: batch.cards,
@@ -176,7 +179,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleSearchTopic: Failure", err);
+      errorManager.error("User.handleSearchTopic: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -184,7 +187,7 @@ export class FeedManager implements Initializable, RestServer {
   private async handleListTopics(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<ListTopicsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -200,7 +203,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleListTopics: Failure", err);
+      errorManager.error("User.handleListTopics: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -222,7 +225,7 @@ export class FeedManager implements Initializable, RestServer {
     };
   }
 
-  private async mergeWithAdCards(user: UserRecord, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async mergeWithAdCards(request: Request, user: UserRecord, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
     const amalgamated: CardDescriptor[] = [];
     let announcementAddedId: string;
     if (cards.length > 0) {
@@ -232,7 +235,7 @@ export class FeedManager implements Initializable, RestServer {
         // Check to see if the user has already opened this
         const userCardInfo = await db.findUserCardInfo(user.id, announcementCard.id);
         if (!userCardInfo || !userCardInfo.lastOpened) {
-          const announcement = await this.populateCard(announcementCard, true, user);
+          const announcement = await this.populateCard(request, announcementCard, true, user);
           amalgamated.push(announcement);
           announcementAddedId = announcementCard.id;
         }
@@ -258,7 +261,7 @@ export class FeedManager implements Initializable, RestServer {
         if (slotIndex >= nextAdIndex) {
           const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : []);
           if (adCard) {
-            const adDescriptor = await this.populateCard(adCard, true, user);
+            const adDescriptor = await this.populateCard(request, adCard, true, user);
             amalgamated.push(adDescriptor);
             nextAdIndex += adSlots.slotSeparation;
             adCount++;
@@ -314,7 +317,7 @@ export class FeedManager implements Initializable, RestServer {
       if (earnedAdCardIds.indexOf(card.id) >= 0) {
         continue;
       }
-      if (card.by.id === user.id) {
+      if (card.createdById === user.id) {
         continue;
       }
       if (existingAnnouncementId && card.id === existingAnnouncementId) {
@@ -361,6 +364,7 @@ export class FeedManager implements Initializable, RestServer {
         return card;
       }
     }
+    await adCursor.close();
     return null;
   }
 
@@ -396,7 +400,7 @@ export class FeedManager implements Initializable, RestServer {
     return "a";
   }
 
-  private async getRecommendedFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecommendedFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     // The recommended feed consists of cards we think the user will be most interested in.  This can get
     // more sophisticated over time.  For now, it works by using a cached set of the cards that have
     // the highest overall scores (determined independent of any one user).  For each of these cards, we
@@ -409,16 +413,68 @@ export class FeedManager implements Initializable, RestServer {
         scoreLessThan = afterCard.score;
       }
     }
-    const result = await this.getCardsWithHighestScores(user, false, limit + 1, startWithCardId, scoreLessThan);
+    const result = await this.getCardsWithHighestScores(request, user, false, limit + 1, startWithCardId, afterCardId, scoreLessThan);
     // for (const r of result) {
     //   console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
     // }
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async getCardsWithHighestScores(user: UserRecord, ads: boolean, count: number, startWithCardId: string, scoreLessThan: number): Promise<CardDescriptor[]> {
-    const cards = await db.findCardsByScore(count, user.id, ads, scoreLessThan);
-    return await this.populateCards(cards, false, user, startWithCardId);
+  private async getCardsWithHighestScores(request: Request, user: UserRecord, ads: boolean, count: number, startWithCardId: string, afterCardId: string, scoreLessThan: number): Promise<CardDescriptor[]> {
+    if (!count) {
+      count = 24;
+    }
+    // Taking one less than count from feed cards, because we want the last card on the page to always
+    // be based on score for the purpose of getting subsequent cards based on score
+    const feedCards = await this.getCardsInFeed(user, count - 1, Date.now() - RECOMMENDED_FEED_CARD_MAX_AGE);
+    const cards: CardRecord[] = [];
+    const cardIds: string[] = [];
+    for (const feedCard of feedCards) {
+      cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
+      if (!afterCardId) {  // Only include subscribed cards on first page of results
+        const userCard = await db.findUserCardInfo(user.id, feedCard.id);
+        if (!userCard || !userCard.lastOpened) {
+          cards.push(feedCard);
+        }
+      }
+    }
+
+    if (cards.length < count) {
+      const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
+      while (await cursor.hasNext()) {
+        const cardByScore = await cursor.next();
+        if (cardIds.indexOf(cardByScore.id) < 0) {
+          cards.push(cardByScore);
+          cardIds.push(cardByScore.id);
+        }
+        if (cards.length >= count) {
+          break;
+        }
+      }
+      await cursor.close();
+    }
+    return this.populateCards(request, cards, false, user, startWithCardId);
+  }
+
+  private async getCardsInFeed(user: UserRecord, maxCount: number, since: number): Promise<CardRecord[]> {
+    const channelIds = await channelManager.findSubscribedChannelIdsForUser(user, false);
+    if (channelIds.length === 0) {
+      return [];
+    }
+    const cursor = channelManager.getCardsInChannels(channelIds, since);
+    const result: CardRecord[] = [];
+    while (await cursor.hasNext()) {
+      const channelCard = await cursor.next();
+      const card = await db.findCardById(channelCard.cardId, false);
+      if (card) {
+        result.push(card);
+      }
+      if (result.length >= maxCount) {
+        break;
+      }
+    }
+    await cursor.close();
+    return result;
   }
 
   private async scoreCandidateCard(user: UserRecord, candidate: CardWithUserScore): Promise<CardWithUserScore> {
@@ -433,7 +489,7 @@ export class FeedManager implements Initializable, RestServer {
     return candidate;
   }
 
-  private async getRecentlyAddedFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecentlyAddedFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -442,11 +498,11 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const cards = await db.findAccessibleCardsByTime(before || Date.now(), 0, limit + 1, user.id);
-    const result = await this.populateCards(cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    const result = await this.populateCards(request, cards, false, user, startWithCardId);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async getTopFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getTopFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let revenue = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -455,11 +511,11 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const cards = await db.findCardsByRevenue(limit + 1, user.id, revenue);
-    const result = await this.populateCards(cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    const result = await this.populateCards(request, cards, false, user, startWithCardId);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async getRecentlyPostedFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecentlyPostedFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -468,11 +524,14 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false);
-    const result = await this.populateCards(cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    const result = await this.populateCards(request, cards, false, user, startWithCardId);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async getChannelFeed(user: UserRecord, limit: number, channelHandle: string, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getChannelFeed(request: Request, user: UserRecord, limit: number, channelHandle: string, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+    if (!limit) {
+      limit = 24;
+    }
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -480,16 +539,26 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const author = channelHandle ? await db.findUserByHandle(channelHandle) : null;
-    let cards: CardRecord[] = [];
-    if (author) {
-      cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, author.id, true, user.id !== author.id);
+    const cards: CardRecord[] = [];
+    const channel = await db.findChannelByHandle(channelHandle);
+    if (channel && channel.state === 'active') {
+      const cursor = db.getChannelCardsByChannel(channel.id, 0);
+      while (await cursor.hasNext()) {
+        const channelCard = await cursor.next();
+        const card = await db.findCardById(channelCard.cardId, false);
+        if (card && (!card.curation || !card.curation.block)) {
+          cards.push(card);
+        }
+        if (cards.length >= limit) {
+          break;
+        }
+      }
+      await cursor.close();
     }
-    const result = await this.populateCards(cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    const result = await this.populateCards(request, cards, false, user, startWithCardId);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
-
-  private async getRecentlyOpenedFeed(user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecentlyOpenedFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
       const afterCardInfo = await db.findUserCardInfo(user.id, afterCardId);
@@ -502,16 +571,16 @@ export class FeedManager implements Initializable, RestServer {
     for (const info of infos) {
       const card = await db.findCardById(info.cardId, false);
       if (card) {
-        if (card.by.id === user.id || !card.curation || !card.curation.block) {
+        if (card.createdById === user.id || !card.curation || !card.curation.block) {
           cards.push(card);
         }
       }
     }
-    const result = await this.populateCards(cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    const result = await this.populateCards(request, cards, false, user, startWithCardId);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async performSearchTopic(user: UserRecord, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async performSearchTopic(request: Request, user: UserRecord, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let score = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -528,11 +597,11 @@ export class FeedManager implements Initializable, RestServer {
       return emptyResult;
     }
     const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1, user.id);
-    const result = await this.populateCards(cards, false, user);
-    return await this.mergeWithAdCards(user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    const result = await this.populateCards(request, cards, false, user);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
-  private async populateCards(cards: CardRecord[], promoted: boolean, user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
+  private async populateCards(request: Request, cards: CardRecord[], promoted: boolean, user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
     const promises: Array<Promise<CardDescriptor>> = [];
     const orderedCards: CardRecord[] = [];
     let found = false;
@@ -551,7 +620,7 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     for (const card of orderedCards) {
-      promises.push(cardManager.populateCardState(card.id, false, promoted, user));
+      promises.push(cardManager.populateCardState(request, card.id, false, promoted, user));
     }
     const result = await Promise.all(promises);
     const finalResult: CardDescriptor[] = [];
@@ -563,8 +632,8 @@ export class FeedManager implements Initializable, RestServer {
     return finalResult;
   }
 
-  private async populateCard(card: CardRecord, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
-    return await cardManager.populateCardState(card.id, false, promoted, user, includeAdmin);
+  private async populateCard(request: Request, card: CardRecord, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+    return cardManager.populateCardState(request, card.id, false, promoted, user, includeAdmin);
   }
 
   private async poll(): Promise<void> {
@@ -609,7 +678,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async scoreCard(card: CardRecord, currentStats: NetworkCardStats): Promise<number> {
     const networkStats = await db.getNetworkCardStatsAt(card.postedAt);
-    const author = await userManager.getUserById(card.by.id);
+    const author = await userManager.getUser(card.createdById, false);
     if (!author) {
       return 0;
     }
@@ -767,8 +836,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
-    await channelsComponentManager.ensureComponent('ChannelsNetwork/card-hello-world');
-    let index = 0;
+    await channelsComponentManager.ensureComponent(null, 'ChannelsNetwork/card-hello-world');
     for (const sample of cards) {
       const user = users[sample.handle];
       const cardId = uuid.v4();
@@ -778,9 +846,12 @@ export class FeedManager implements Initializable, RestServer {
       } else if (sample.openPrice < 0) {
         coupon = await this.createOpenCoupon(user, cardId, -sample.openPrice, 3);
       }
-      const card = await db.insertCard(user.user.id, user.keyInfo.address, user.user.identity.handle, user.user.identity.name,
-        user.user.identity.imageUrl,
-        this.getPreviewUrl("canned/" + (index++ + 10) + ".jpg"), 0, 0,
+      const card = await db.insertCard(user.user.id,
+        user.user.address,
+        null,
+        null,
+        null,
+        null,
         null,
         sample.title,
         sample.text,
@@ -1078,8 +1149,11 @@ export class FeedManager implements Initializable, RestServer {
     const identity: UserIdentity = {
       name: name,
       handle: handle,
-      imageUrl: imageUrl,
+      imageId: null,
       emailAddress: emailAddress,
+      emailConfirmed: false,
+      emailConfirmationCode: null,
+      emailLastConfirmed: 0,
       location: null,
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
@@ -1101,7 +1175,7 @@ export class FeedManager implements Initializable, RestServer {
       portion: "remainder",
       reason: "grant-recipient"
     });
-    await networkEntity.performBankTransaction(grantDetails, null, true, false);
+    await networkEntity.performBankTransaction(null, grantDetails, null, true, false);
     user.balance += 10;
     user.targetBalance += 10;
     return {
@@ -1114,32 +1188,64 @@ export class FeedManager implements Initializable, RestServer {
     return this.urlManager.getStaticUrl("preview/" + relative, true);
   }
 
-  async search(user: UserRecord, searchString: string, skip: number, limit: number, existingPromotedCardIds: string[]): Promise<CardBatch> {
-    if (!limit || limit < 1 || limit > 999) {
+  async searchCards(request: Request, user: UserRecord, searchString: string, skip: number, limit: number): Promise<SearchCardResults> {
+    const result: SearchCardResults = {
+      cards: [],
+      moreAvailable: false,
+      nextSkip: 0
+    };
+    if (limit === 0) {
+      return result;
+    }
+    if (limit < 1 || limit > 999) {
       limit = 50;
     }
-    const culledRecords: CardRecord[] = [];
-    const cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1, user.id);
-    if (cardRecords.length > 0) {
-      const max = (cardRecords[0] as any).searchScore as number;
-      for (const cardRecord of cardRecords) {
-        console.log("search result: ", (cardRecord as any).searchScore, cardRecord.summary.title);
-        const score = (cardRecord as any).searchScore as number;
-        if (score > max / 2) {
-          culledRecords.push(cardRecord);
-        } else {
-          break;
+    let cardRecords: CardRecord[] = [];
+    let moreAvailable = false;
+    if (searchString.indexOf('\"') < 0) {
+      // First try search using the provided string as a phrase
+      cardRecords = await db.findCardsBySearch('"' + searchString + '"', skip, limit + 1);
+      moreAvailable = cardRecords.length > limit;
+      for (const card of cardRecords) {
+        console.log("Feed.searchCards: phrase-based card score", (card as any).searchScore, card.summary.title, card.id);
+      }
+    }
+    if (cardRecords.length === 0) {
+      cardRecords = await db.findCardsBySearch(searchString, skip, limit + 1);
+      for (const card of cardRecords) {
+        console.log("Feed.searchCards: card score", (card as any).searchScore, card.summary.title, card.id);
+      }
+      if (cardRecords.length > 0) {
+        // If lots of results, then cull based on scores, discarding scores that are a lot lower than the max
+        if (cardRecords.length > 10) {
+          const culledRecords: CardRecord[] = [];
+          const max = (cardRecords[0] as any).searchScore as number;
+          for (const cardRecord of cardRecords) {
+            const score = (cardRecord as any).searchScore as number;
+            if (score > max / 4) {
+              culledRecords.push(cardRecord);
+            } else {
+              break;
+            }
+          }
+          moreAvailable = cardRecords.length === culledRecords.length && cardRecords.length === limit;
+          cardRecords = culledRecords;
         }
       }
     }
-    const cards = await this.populateCards(culledRecords, false, user);
-    return await this.mergeWithAdCards(user, cards, cardRecords.length > limit, limit, existingPromotedCardIds);
+    if (moreAvailable) {
+      result.moreAvailable = true;
+      cardRecords = cardRecords.slice(0, limit);
+      result.nextSkip = skip + limit;
+    }
+    result.cards = await this.populateCards(request, cardRecords, false, user);
+    return result;
   }
 
   private async handleAdminGetCards(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminGetCardsDetails>;
-      const user = await RestHelper.validateRegisteredRequest(requestBody, response);
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
       if (!user) {
         return;
       }
@@ -1148,9 +1254,9 @@ export class FeedManager implements Initializable, RestServer {
       const infos: AdminCardInfo[] = [];
       const currentStats = await db.ensureNetworkCardStats();
       for (const record of cardRecords) {
-        const descriptor = await this.populateCard(record, false, null, true);
+        const descriptor = await this.populateCard(request, record, false, null, true);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
-        const author = await userManager.getUserById(record.by.id);
+        const author = await userManager.getUser(record.createdById, true);
         infos.push({
           descriptor: descriptor,
           scoring: {
@@ -1168,7 +1274,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       response.json(reply);
     } catch (err) {
-      console.error("User.handleAdminGetCards: Failure", err);
+      errorManager.error("User.handleAdminGetCards: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

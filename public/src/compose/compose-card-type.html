@@ -73,6 +73,7 @@
       <soso-radio-group id="group" on-select="_onRadioSelect">
         <soso-radio-button name="story" label="Article: text, photos, and videos"></soso-radio-button>
         <soso-radio-button name="video" label="Video: show a video in a card"></soso-radio-button>
+        <soso-radio-button name="audio" label="Audio: play a song or podcast"></soso-radio-button>
         <soso-radio-button name="embed" label="Webpage: embed a web page in a card"></soso-radio-button>
         <soso-radio-button name="custom" label="Custom: choose any card type hosted on GitHub"></soso-radio-button>
       </soso-radio-group>
@@ -116,6 +117,7 @@
         switch (selected) {
           case "story":
           case "video":
+          case "audio":
           case "embed":
             this.$.github.style.display = "none";
             disabled = false;
@@ -148,6 +150,9 @@
           case "ChannelsNetwork/card-embed":
             this.$.group.selected = "embed";
             break;
+          case "ChannelsNetwork/card-audio":
+            this.$.group.selected = "audio";
+            break;
           case "ChannelsNetwork/card-video":
             this.$.group.selected = "video";
             break;
@@ -174,6 +179,8 @@
             return "ChannelsNetwork/card-embed";
           case "video":
             return "ChannelsNetwork/card-video";
+          case "audio":
+            return "ChannelsNetwork/card-audio";
           case "":
             return null;
           default:

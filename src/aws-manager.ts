@@ -12,6 +12,7 @@ import { message } from "aws-sdk/clients/sns";
 import * as bodyParser from "body-parser";
 import { Utils } from "./utils";
 const SnsMessageValidator = require('sns-validator');
+import { errorManager } from "./error-manager";
 
 const SNS_NOTIFY_OFFSET = 'snsNotify';
 export class AwsManager implements RestServer, Initializable {
@@ -81,7 +82,7 @@ export class AwsManager implements RestServer, Initializable {
         try {
           snsMessage = await this.validateSnsMessage(request.body);
         } catch (err) {
-          console.error("AwsManager.handleSnsNotify: received invalid SNS message", err);
+          errorManager.error("AwsManager.handleSnsNotify: received invalid SNS message", err);
           return;
         }
         switch (type) {
@@ -93,7 +94,7 @@ export class AwsManager implements RestServer, Initializable {
               Token: confirmation.Token
             }, (err: any) => {
               if (err) {
-                console.error("AwsManager.handleSnsNotify: error confirming subscription", err);
+                errorManager.error("AwsManager.handleSnsNotify: error confirming subscription", err);
               } else {
                 this.snsConfirmed = true;
                 console.log("AwsManager.handleSnsNotify: subscription confirmed");
@@ -107,15 +108,15 @@ export class AwsManager implements RestServer, Initializable {
             await this.processNotification(msg);
             break;
           default:
-            console.warn("Received unexpected SNS request type", type);
+            errorManager.warning("Received unexpected SNS request type", request, type);
         }
         response.status(200).end();
       } else {
-        console.warn("Received unexpected SNS request");
+        errorManager.warning("Received unexpected SNS request", request);
         response.status(400).send("Unexpected SNS request");
       }
     } catch (err) {
-      console.error("Aws.handleSnsNotify: Failure", err);
+      errorManager.error("Aws.handleSnsNotify: Failure", err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -147,7 +148,7 @@ export class AwsManager implements RestServer, Initializable {
         Message: JSON.stringify(notification),
       }, (err: any) => {
         if (err) {
-          console.error("Failure publishing SNS notification", err);
+          errorManager.error("Failure publishing SNS notification", err);
         }
       });
     } else {
@@ -162,9 +163,10 @@ export interface NotificationHandler {
 }
 
 export interface ChannelsServerNotification {
-  type: "card-posted" | "mutation";
+  type: "card-posted" | "channel-subscription-changed" | "mutation" | "user-updated";
   user: string;
-  card: string;
+  card?: string;
+  channel?: string;
   mutation?: string;
 }
 

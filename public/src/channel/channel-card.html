@@ -1,0 +1,216 @@
+<link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
+<link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
+
+<dom-module id="channel-card">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .container {
+        position: relative;
+        width: 285px;
+        height: 180px;
+        font-size: 13px;
+        background: #fafafa;
+        border-radius: 3px;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      user-image {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #fafafa;
+        position: absolute;
+        top: -15px;
+        left: -25px;
+        cursor: pointer;
+      }
+
+      #contentPanel {
+        padding: 5px 0 0;
+        height: 100%;
+        box-sizing: border-box
+      }
+
+      .name {
+        font-family: 'Raleway', 'Roboto', sans-serif;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #000;
+        font-size: 18px;
+        padding: 0px 34px 8px 42px;
+        cursor: pointer;
+      }
+
+      #description {
+        padding-left: 42px;
+      }
+
+      #statsBar {
+        padding: 8px 0;
+        border-top: 1px solid #e5e5e5;
+      }
+
+      .statItem {
+        white-space: nowrap;
+        text-align: center;
+      }
+
+      .statLabel {
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.03em;
+        color: #555;
+      }
+
+      .statValue {
+        font-size: 12px;
+        font-weight: bold;
+        color: #777;
+        letter-spacing: 0.05em;
+      }
+
+      .revenueStat .statValue {
+        color: var(--dark-green);
+      }
+
+      soso-icon {
+        color: #888888;
+      }
+
+      soso-icon:hover {
+        color: #000;
+      }
+
+      #moreIcon {
+        float: right;
+        padding: 5px;
+        position: absolute;
+        right: 0;
+        top: 0;
+        cursor: pointer;
+      }
+    </style>
+    <div id="container" class="container">
+      <div id="contentPanel" class="vertical layout">
+        <div class="name" on-click="_gotoChannel">[[channel.name]]</div>
+        <soso-truncated-text id="description" class="flex" text="[[channel.about]]"></soso-truncated-text>
+        <div id="statsBar" class="maxWidth horizontal layout center">
+          <dom-repeat items="[[stats]]">
+            <template>
+              <div class="statItem flex">
+                <div class$="[[item.class]]">
+                  <div class="statLabel">[[item.label]]</div>
+                  <div class="statValue">[[item.value]]</div>
+                </div>
+              </div>
+            </template>
+          </dom-repeat>
+        </div>
+      </div>
+      <user-image image="[[channelImage]]" on-click="_gotoChannel"></user-image>
+      <soso-icon id="moreIcon" icon="expand-more"></soso-icon>
+      <soso-dropdown for="moreIcon" alignment="right" offset="-5">
+        <li on-click="_gotoChannel">Open Channel</li>
+        <li id="btnU" on-click="_unsubscribe" class="hidden">Unsubscribe</li>
+        <li id="btnS" on-click="_subscribe" class="hidden">Subscribe</li>
+      </soso-dropdown>
+    </div>
+  </template>
+  <script>
+    class ChannelCard extends Polymer.Element {
+      static get is() { return 'channel-card'; }
+      static get properties() {
+        return {
+          channel: {
+            type: Object,
+            observer: '_onChannel'
+          },
+          channelImage: String,
+          stats: Array,
+          colorState: Boolean
+        };
+      }
+
+      _onChannel() {
+        if (this.channel) {
+          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+          let stats = [];
+          stats.push({
+            label: "Revenue",
+            value: 'ℂ' + this.channel.stats.revenue.toFixed(2),
+            class: 'revenueStat'
+          });
+          stats.push({
+            label: "Cards",
+            value: this.channel.stats.cards,
+            class: 'cardStat'
+          });
+          stats.push({
+            label: "Subscribers",
+            value: this.channel.stats.subscribers,
+            class: 'subscribersStat'
+          });
+          this.stats = stats;
+        } else {
+          this.stats = [];
+          this.channelImage = "about:blank";
+        }
+        this._refreshMenu();
+      }
+
+      _refreshMenu() {
+        this.$.btnU.classList.add("hidden");
+        this.$.btnS.classList.add("hidden");
+        this.$.container.style.background = "";
+        if (this.channel) {
+          switch (this.channel.subscriptionState) {
+            case "subscribed":
+              this.$.btnU.classList.remove("hidden");
+              break;
+            case "unsubscribed":
+              if (this.colorState) {
+                this.$.container.style.background = "#f5ecec";
+              }
+              this.$.btnS.classList.remove("hidden");
+              break;
+            default:
+              break;
+          }
+        }
+      }
+
+      _gotoChannel() {
+        if (this.channel) {
+          $router.goto("/channel/" + encodeURIComponent(this.channel.owner.handle));
+        }
+      }
+
+      _unsubscribe() {
+        this.channel.subscriptionState = "unsubscribed"
+        $core.updateChannelSubscription(this.channel.id, 'unsubscribed').catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+        this._refreshMenu();
+        window.__dirtyFeed = true;
+      }
+
+      _subscribe() {
+        this.channel.subscriptionState = "subscribed"
+        $core.updateChannelSubscription(this.channel.id, 'subscribed').catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+        this._refreshMenu();
+        window.__dirtyFeed = true;
+      }
+    }
+    window.customElements.define(ChannelCard.is, ChannelCard);
+  </script>
+</dom-module>

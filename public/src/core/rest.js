@@ -131,12 +131,12 @@ class RestUtils {
     };
   }
 
-  static updateIdentityDetails(address, fingerprint, name, handle, location, imageUrl, emailAddress, encryptedPrivateKey) {
+  static updateIdentityDetails(address, fingerprint, name, handle, location, imageId, emailAddress, encryptedPrivateKey) {
     return {
       name: name,
       handle: handle,
       location: location,
-      imageUrl: imageUrl,
+      imageId: imageId,
       emailAddress: emailAddress,
       encryptedPrivateKey: encryptedPrivateKey,
       address: address,
@@ -222,15 +222,14 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, fingerprint, imageUrl, imageWidth, imageHeight, linkURL, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
-      imageUrl: imageUrl,
-      imageWidth: imageWidth,
-      imageHeight: imageHeight,
+      imageId: imageId,
       linkUrl: linkURL,
+      iframeUrl: iframeUrl,
       title: title,
       text: text,
       private: isPrivate,
@@ -274,14 +273,13 @@ class RestUtils {
     return result;
   }
 
-  static cardStateSummary(title, text, linkURL, imageUrl, imageWidth, imageHeight) {
+  static cardStateSummary(title, text, linkURL, imageId, imageURL) {
     return {
       title: title,
       text: text,
       linkUrl: linkURL,
-      imageUrl: imageUrl,
-      imageWidth: imageWidth,
-      imageHeight: imageHeight
+      imageId: imageId,
+      imageURL: imageURL
     };
   }
 
@@ -507,15 +505,36 @@ class RestUtils {
     };
   }
 
-  static search(address, fingerprint, searchString, skip, limit, existingPromotedCardIds) {
+  static search(address, fingerprint, searchString, limitCards, limitChannels) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      searchString: searchString,
+      limitCards: limitCards,
+      limitChannels: limitChannels
+    };
+  }
+
+  static searchMoreCards(address, fingerprint, searchString, skip, limit) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       searchString: searchString,
       skip: skip,
-      limit: limit,
-      existingPromotedCardIds: existingPromotedCardIds
+      limit: limit
+    };
+  }
+
+  static searchMoreChannels(address, fingerprint, searchString, skip, limit) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      searchString: searchString,
+      skip: skip,
+      limit: limit
     };
   }
 
@@ -634,4 +653,94 @@ class RestUtils {
       promotedCardIds: promotedCardIds
     };
   }
+
+  static getChannelDetails(address, fingerprint, channelId, ownerId, ownerHandle, channelHandle) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      ownerId: ownerId,
+      ownerHandle: ownerHandle,
+      channelHandle: channelHandle
+    };
+  }
+
+  static getChannelsDetails(address, fingerprint, type, maxChannels, nextPageRef) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      type: type,
+      maxChannels: maxChannels,
+      nextPageReference: nextPageRef
+    };
+  }
+
+  static updateChannelDetails(address, fingerprint, channelId, name, bannerImageFileId, about, link, socialLinks) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      name: name,
+      bannerImageFileId: bannerImageFileId,
+      about: about,
+      link: link,
+      socialLinks: socialLinks
+    };
+  }
+
+  static updateChannelSubscriptionDetails(address, fingerprint, channelId, state) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      subscriptionState: state
+    };
+  }
+
+  static reportChannelVisitDetails(address, fingerprint, channelId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId
+    };
+  }
+
+  static requestEmailConfirmationDetails(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static confirmEmailDetails(address, fingerprint, code) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      code: code
+    };
+  }
+
+  static updateAccountSettingsDetails(address, fingerprint, settings) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      settings: settings
+    };
+  }
+
+  static accountSettings(disallowPlatformNotifications, disallowContentNotifications) {
+    return {
+      disallowPlatformNotifications: disallowPlatformNotifications ? true : false,
+      disallowContentNotifications: disallowContentNotifications ? true : false
+    };
+  }
+
 }
