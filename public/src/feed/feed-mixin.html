@@ -150,7 +150,7 @@
       _onCardOpenRequest(event) {
         let card = event.detail.item;
         if (card) {
-          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
+          if ($core.balance < card.pricing.openFee && card.by.handle !== $core.profile.handle && card.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
                 if (result && result.page && result.page === "balance") {

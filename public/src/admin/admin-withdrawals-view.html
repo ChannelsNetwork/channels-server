@@ -147,7 +147,7 @@
 
       _refresh() {
         this.set('items', []);
-        $core.admin_getWithdrawals(200).then((response) => {
+        $core.admin_getWithdrawals(100).then((response) => {
           const items = [];
           for (const withdrawal of response.withdrawals) {
             items.push({

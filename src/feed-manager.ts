@@ -417,7 +417,7 @@ export class FeedManager implements Initializable, RestServer {
     // for (const r of result) {
     //   console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
     // }
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
   private async getCardsWithHighestScores(request: Request, user: UserRecord, ads: boolean, count: number, startWithCardId: string, afterCardId: string, scoreLessThan: number): Promise<CardDescriptor[]> {
@@ -453,7 +453,7 @@ export class FeedManager implements Initializable, RestServer {
       }
       await cursor.close();
     }
-    return await this.populateCards(request, cards, false, user, startWithCardId);
+    return this.populateCards(request, cards, false, user, startWithCardId);
   }
 
   private async getCardsInFeed(user: UserRecord, maxCount: number, since: number): Promise<CardRecord[]> {
@@ -499,7 +499,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     const cards = await db.findAccessibleCardsByTime(before || Date.now(), 0, limit + 1, user.id);
     const result = await this.populateCards(request, cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
   private async getTopFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
@@ -512,7 +512,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     const cards = await db.findCardsByRevenue(limit + 1, user.id, revenue);
     const result = await this.populateCards(request, cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
   private async getRecentlyPostedFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
@@ -525,7 +525,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false);
     const result = await this.populateCards(request, cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
   private async getChannelFeed(request: Request, user: UserRecord, limit: number, channelHandle: string, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
@@ -556,7 +556,7 @@ export class FeedManager implements Initializable, RestServer {
       await cursor.close();
     }
     const result = await this.populateCards(request, cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
   private async getRecentlyOpenedFeed(request: Request, user: UserRecord, limit: number, startWithCardId: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
@@ -577,7 +577,7 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const result = await this.populateCards(request, cards, false, user, startWithCardId);
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
   private async performSearchTopic(request: Request, user: UserRecord, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
@@ -598,7 +598,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1, user.id);
     const result = await this.populateCards(request, cards, false, user);
-    return await this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
+    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds);
   }
 
   private async populateCards(request: Request, cards: CardRecord[], promoted: boolean, user?: UserRecord, startWithCardId?: string): Promise<CardDescriptor[]> {
@@ -633,7 +633,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async populateCard(request: Request, card: CardRecord, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
-    return await cardManager.populateCardState(request, card.id, false, promoted, user, includeAdmin);
+    return cardManager.populateCardState(request, card.id, false, promoted, user, includeAdmin);
   }
 
   private async poll(): Promise<void> {
@@ -1218,7 +1218,7 @@ export class FeedManager implements Initializable, RestServer {
       if (cardRecords.length > 0) {
         // If lots of results, then cull based on scores, discarding scores that are a lot lower than the max
         if (cardRecords.length > 10) {
-          let culledRecords: CardRecord[] = [];
+          const culledRecords: CardRecord[] = [];
           const max = (cardRecords[0] as any).searchScore as number;
           for (const cardRecord of cardRecords) {
             const score = (cardRecord as any).searchScore as number;

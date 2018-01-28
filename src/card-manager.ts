@@ -207,6 +207,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.redirect('/');
       return;
     }
+    if (card.curation && card.curation.block) {
+      response.redirect('/');
+      return;
+    }
     const author = await userManager.getUser(card.createdById, false);
     await rootPageManager.handlePage("index", request, response, card, author);
   }
@@ -1157,6 +1161,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.status(404).send("This card is no longer available");
       return null;
     }
+    if (card.curation && card.curation.block && card.by.id !== user.id) {
+      response.status(404).send("This card is not available");
+      return;
+    }
     return card;
   }
 
@@ -1260,7 +1268,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   async lockCard(cardId: string): Promise<CardRecord> {
-    return await db.lockCard(cardId, CARD_LOCK_TIMEOUT, configuration.get('serverId'));
+    return db.lockCard(cardId, CARD_LOCK_TIMEOUT, configuration.get('serverId'));
   }
 
   async unlockCard(card: CardRecord): Promise<void> {

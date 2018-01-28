@@ -458,11 +458,15 @@
       }
 
       _onDownVote() {
-        this.dispatchEvent(new CustomEvent('card-down-vote', { bubbles: true, composed: true }));
+        if (this.data.by.handle !== $core.profile.handle) {
+          this.dispatchEvent(new CustomEvent('card-down-vote', { bubbles: true, composed: true }));
+        }
       }
 
       _onUpVote() {
-        this.dispatchEvent(new CustomEvent('card-up-vote', { bubbles: true, composed: true }));
+        if (this.data.by.handle !== $core.profile.handle) {
+          this.dispatchEvent(new CustomEvent('card-up-vote', { bubbles: true, composed: true }));
+        }
       }
 
       get _shareUrl() {

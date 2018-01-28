@@ -165,7 +165,7 @@
 
       _refresh() {
         this.set('cards', []);
-        $core.admin_getCards(500).then((response) => {
+        $core.admin_getCards(200).then((response) => {
           const cards = [];
           for (const cardInfo of response.cards) {
             const card = cardInfo.descriptor;

@@ -598,6 +598,9 @@
         if (!this.data) {
           return;
         }
+        if (this.data.by.handle === $core.profile.handle) {
+          return;
+        }
         let likeState = this.data.userSpecific.likeState || "none";
         let newState = "like"
         if (likeState === "like") {
@@ -621,6 +624,9 @@
       }
 
       _onDownVote() {
+        if (this.data.by.handle === $core.profile.handle) {
+          return;
+        }
         let likeState = this.data.userSpecific.likeState || "none";
         let newState = "dislike"
         if (likeState === "dislike") {
