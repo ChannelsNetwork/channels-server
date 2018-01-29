@@ -734,7 +734,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   async onChannelCardTransaction(transaction: BankTransactionDetails): Promise<void> {
-    if (transaction.reason !== "card-open-fee") {
+    if (transaction.reason !== "card-open-fee" && transaction.reason !== "publisher-subsidy") {
       return;
     }
     if (!transaction.relatedCardId) {
