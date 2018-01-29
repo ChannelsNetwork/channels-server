@@ -81,7 +81,7 @@ export class RootPageManager implements Initializable {
     };
     let searchText = "";
     if (channnel) {
-      let title = channnel.name || (author && author.identity ? author.identity.name : null);
+      const title = channnel.name || (author && author.identity ? author.identity.name : null);
       if (title) {
         metadata.title = escapeHtml(title + " on Channels");
       }

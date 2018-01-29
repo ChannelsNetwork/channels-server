@@ -309,10 +309,6 @@ export class FileManager implements RestServer {
       response.status(404).send("No such file");
       return;
     }
-    if (!fileRecord.imageInfo) {
-      response.status(404).send("No image information");
-      return;
-    }
     const width = Number(request.query.w || "0");
     const height = Number(request.query.h || "0");
     const diameter = Number(request.query.d || "0");
