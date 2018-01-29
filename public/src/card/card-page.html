@@ -163,7 +163,7 @@
       <div id="cardView" class="hidden"></div>
       <div id="morePanel" class="hidden">
         <div id="morePanelContent">
-          <div class="horizontal layout center" style="margin-bottom: 15px;">
+          <div id="ratingPanel" class="horizontal layout center hidden" style="margin-bottom: 15px;">
             <div class="flex"></div>
             <div>
               <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
@@ -416,6 +416,13 @@
       }
 
       _refreshRating() {
+        // update
+        if (this.data.by.handle === $core.profile.handle) {
+          this.$.ratingPanel.classList.add("hidden");
+        } else {
+          this.$.ratingPanel.classList.remove("hidden");
+        }
+
         let uc = this.data.stats.likes;
         let dc = this.data.stats.dislikes;
         let tc = uc + dc;
@@ -598,9 +605,6 @@
         if (!this.data) {
           return;
         }
-        if (this.data.by.handle === $core.profile.handle) {
-          return;
-        }
         let likeState = this.data.userSpecific.likeState || "none";
         let newState = "like"
         if (likeState === "like") {
@@ -624,7 +628,7 @@
       }
 
       _onDownVote() {
-        if (this.data.by.handle === $core.profile.handle) {
+        if (!this.data) {
           return;
         }
         let likeState = this.data.userSpecific.likeState || "none";

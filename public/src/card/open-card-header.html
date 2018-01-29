@@ -115,11 +115,6 @@
         color: var(--highlight-green);
       }
 
-      #voteItem,
-      #voteItem2 {
-        display: flex !important;
-      }
-
       #actionsIcon {
         display: none;
       }
@@ -195,13 +190,15 @@
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
       <soso-dropdown id="likeDropdown" for="likeRating" offset="0">
-        <li>Your Vote</li>
-        <li id="voteItem" class="horizontal layout center">
-          <div style="padding: 0 5px;">
-            <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
-          </div>
-          <div style="padding: 0 5px;">
-            <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+        <li>[[yourVoteMessage]]</li>
+        <li id="voteItem">
+          <div class="horizontal layout center">
+            <div style="padding: 0 5px;">
+              <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+            </div>
+            <div style="padding: 0 5px;">
+              <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+            </div>
           </div>
         </li>
       </soso-dropdown>
@@ -213,12 +210,14 @@
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
         <li class="menuDivider">[[ratingTip]]</li>
-        <li id="voteItem2" class="horizontal layout center">
-          <div style="padding: 0 5px;">
-            <soso-icon id="downIcon2" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
-          </div>
-          <div style="padding: 0 5px;">
-            <soso-icon id="upIcon2" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+        <li id="voteItem2">
+          <div class="horizontal layout center">
+            <div style="padding: 0 5px;">
+              <soso-icon id="upIcon2" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+            </div>
+            <div style="padding: 0 5px;">
+              <soso-icon id="downIcon2" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+            </div>
           </div>
         </li>
       </soso-dropdown>
@@ -242,7 +241,8 @@
             observer: '_refresh'
           },
           iconMap: Object,
-          ratingTip: String
+          ratingTip: String,
+          yourVoteMessage: String
         };
       }
 
@@ -288,6 +288,15 @@
       }
 
       refreshRating() {
+        if (this.data.by.handle === $core.profile.handle) {
+          this.$.voteItem.classList.add("hidden");
+          this.$.voteItem2.classList.add("hidden");
+          this.yourVoteMessage = "You cannot vote on your own card."
+        } else {
+          this.$.voteItem.classList.remove("hidden");
+          this.$.voteItem2.classList.remove("hidden");
+          this.yourVoteMessage = "Your Vote";
+        }
         let uc = this.data.stats.likes;
         let dc = this.data.stats.dislikes;
         let tc = uc + dc;
