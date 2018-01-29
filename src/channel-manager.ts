@@ -21,6 +21,7 @@ import * as escapeHtml from 'escape-html';
 import { Utils } from './utils';
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
 import { errorManager } from "./error-manager";
+import { rootPageManager } from "./root-page-manager";
 
 const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
 const MAX_KEYWORDS_PER_CHANNEL = 16;
@@ -92,6 +93,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   private registerHandlers(): void {
+    this.app.get('/channel/:channelId', (request: Request, response: Response) => {
+      void this.handleChannelRequest(request, response);
+    });
     this.app.post(this.urlManager.getDynamicUrl('get-channel'), (request: Request, response: Response) => {
       void this.handleGetChannel(request, response);
     });
@@ -107,7 +111,35 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     this.app.post(this.urlManager.getDynamicUrl('report-channel-visit'), (request: Request, response: Response) => {
       void this.handleReportChannelVisit(request, response);
     });
+  }
 
+  private async handleChannelRequest(request: Request, response: Response): Promise<void> {
+    console.log("handleChannelRequest!!");
+    let id = request.params.channelId;
+    let record: ChannelRecord;
+    if (id) {
+      record = await db.findChannelById(id);
+      if (!record) {
+        record = await db.findChannelByHandle(id);
+      }
+      if (!record) {
+        let records = await db.findChannelsByOwnerId(id);
+        if ((!records) || (records.length === 0)) {
+          const owner = await userManager.getUserByHandle(id);
+          if (owner) {
+            records = await db.findChannelsByOwnerId(owner.id);
+          }
+        }
+        if (records && records.length) {
+          record = records[0];
+        }
+      }
+    }
+    let author: UserRecord;
+    if (record) {
+      author = await userManager.getUser(record.ownerId, false);
+    }
+    await rootPageManager.handlePage("index", request, response, null, record, author);
   }
 
   async handleNotification(notification: ChannelsServerNotification): Promise<void> {
