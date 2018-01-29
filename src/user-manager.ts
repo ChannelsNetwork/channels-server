@@ -87,13 +87,18 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.updateUserGeo(user.id, null, null, null, null);
       }
     }
-    const withoutImageId = await db.findUsersWithoutImageId();
-    const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
-    for (const user of withoutImageId) {
+    const withImageUrl = await db.findUsersWithImageUrl();
+    const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
+    for (const user of withImageUrl) {
       const imageUrl = user.identity.imageUrl;
       if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
         const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-        await db.replaceUserImageUrl(user.id, fileId);
+        if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
+          await db.replaceUserImageUrl(user.id, fileId);
+          console.log("User.initialize2: replaced imageUrl with imageId", user.identity.imageUrl, fileId);
+        } else {
+          console.log("User.initialize2: Unable to replace user imageUrl because not in GUID format", user.identity);
+        }
       }
     }
 

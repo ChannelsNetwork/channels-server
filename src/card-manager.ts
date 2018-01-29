@@ -177,21 +177,25 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     await cursor.close();
 
     cursor = db.getCardsWithSummaryImageUrl();
-    const baseFileUrl = this.urlManager.getAbsoluteUrl('/f/');
+    const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       const imageUrl = card.summary.imageUrl;
       if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
         console.log("Card.initialize2: Replacing summary.imageUrl with imageId", card.id);
         const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-        if (card.summary.imageWidth && card.summary.imageHeight) {
-          const imageInfo: ImageInfo = {
-            width: card.summary.imageWidth,
-            height: card.summary.imageHeight
-          };
-          await db.updateFileImageInfo(fileId, imageInfo);
+        if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
+          if (card.summary.imageWidth && card.summary.imageHeight) {
+            const imageInfo: ImageInfo = {
+              width: card.summary.imageWidth,
+              height: card.summary.imageHeight
+            };
+            await db.updateFileImageInfo(fileId, imageInfo);
+          }
+          await db.replaceCardSummaryImageUrl(card.id, fileId);
+        } else {
+          console.log("Card.initialize2: Card imageUrl is not in GUID format so not updated", imageUrl, card.id);
         }
-        await db.replaceCardSummaryImageUrl(card.id, fileId);
       } else {
         console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
       }
