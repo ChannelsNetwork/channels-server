@@ -430,6 +430,9 @@ export class FeedManager implements Initializable, RestServer {
     const cards: CardRecord[] = [];
     const cardIds: string[] = [];
     for (const feedCard of feedCards) {
+      if (feedCard.curation && feedCard.curation.block && feedCard.createdById !== user.id) {
+        continue;
+      }
       cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
       if (!afterCardId) {  // Only include subscribed cards on first page of results
         const userCard = await db.findUserCardInfo(user.id, feedCard.id);
