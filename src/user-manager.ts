@@ -113,6 +113,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
     }
 
+    console.log("User.initialize2:  Checking for unconfirmed users who haven't received confirmation request...");
     const unconfirmedUsers = db.getUnconfirmedUsersWithNoLastNotice();
     while (await unconfirmedUsers.hasNext()) {
       const unconfirmedUser = await unconfirmedUsers.next();
