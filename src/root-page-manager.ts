@@ -6,7 +6,7 @@ import { UrlManager } from "./url-manager";
 import { Initializable } from "./interfaces/initializable";
 import { configuration } from "./configuration";
 import * as useragent from 'useragent';
-import { CardRecord, UserRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, ChannelRecord } from "./interfaces/db-records";
 import * as escapeHtml from 'escape-html';
 import Mustache = require('mustache');
 import { fileManager } from "./file-manager";
@@ -59,7 +59,7 @@ export class RootPageManager implements Initializable {
     return this.templates[key];
   }
 
-  async handlePage(type: string, request: Request, response: Response, card?: CardRecord, author?: UserRecord): Promise<void> {
+  async handlePage(type: string, request: Request, response: Response, card?: CardRecord, channnel?: ChannelRecord, author?: UserRecord): Promise<void> {
     // this.templates['index'] = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
 
     // analyze user agent
@@ -80,10 +80,50 @@ export class RootPageManager implements Initializable {
       publishedTime: ''
     };
     let searchText = "";
+    if (channnel) {
+      let title = channnel.name || (author && author.identity ? author.identity.name : null);
+      if (title) {
+        metadata.title = escapeHtml(title + " on Channels");
+      }
+      if (channnel.about) {
+        metadata.description = escapeHtml(channnel.about);
+      }
+      metadata.url = this.urlManager.getAbsoluteUrl('/channel/' + encodeURIComponent(channnel.handle || author.identity.handle));
+      const fallbackImage = metadata.image;
+      metadata.image = null;
+      if (channnel.bannerImageFileId) {
+        const imageInfo = await fileManager.getFileInfo(channnel.bannerImageFileId);
+        if (imageInfo) {
+          metadata.image = imageInfo.url;
+          metadata.imageWidth = imageInfo.imageInfo ? imageInfo.imageInfo.width : 0;
+          metadata.imageHeight = imageInfo.imageInfo ? imageInfo.imageInfo.height : 0;
+        }
+      }
+      if ((!metadata.image) && author && author.identity) {
+        if (author.identity.imageId) {
+          const imageInfo = await fileManager.getFileInfo(author.identity.imageId);
+          if (imageInfo) {
+            metadata.image = imageInfo.url;
+            metadata.imageWidth = imageInfo.imageInfo ? imageInfo.imageInfo.width : 0;
+            metadata.imageHeight = imageInfo.imageInfo ? imageInfo.imageInfo.height : 0;
+          }
+        } else {
+          metadata.image = author.identity.imageUrl;
+          metadata.imageWidth = null;
+          metadata.imageHeight = null;
+        }
+      }
+      if (!metadata.image) {
+        metadata.image = fallbackImage;
+      }
+      metadata.author = author && author.identity ? author.identity.name : null;
+    }
     if (card && card.summary) {
       if (card.summary.title) {
         metadata.title = escapeHtml(card.summary.title);
       }
+      const fallbackImage = metadata.image;
+      metadata.image = null;
       metadata.description = escapeHtml(card.summary.text || "");
       metadata.url = this.urlManager.getAbsoluteUrl('/c/' + card.id);
       if (card.summary.imageId) {
@@ -100,11 +140,16 @@ export class RootPageManager implements Initializable {
         metadata.imageWidth = card.summary.imageWidth;
         metadata.imageHeight = card.summary.imageHeight;
       }
+      if (!metadata.image) {
+        metadata.image = fallbackImage;
+      }
       metadata.author = author && author.identity ? author.identity.name : null;
       metadata.publishedTime = new Date(card.postedAt).toISOString();
     }
     if (card && card.searchText) {
       searchText = "<p>" + escapeHtml(card.searchText) + "</p>";
+    } else if (channnel) {
+      searchText = "<p>" + escapeHtml(channnel.name || "") + "</p>" + "<p>" + escapeHtml(channnel.about || "") + "</p>";
     }
 
     // Replace in template
