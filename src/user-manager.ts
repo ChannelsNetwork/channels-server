@@ -360,7 +360,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         void this.initiateIpAddressUpdate(ipAddress, null);
         return record;
       } else {
-        return await this.initiateIpAddressUpdate(ipAddress, record);
+        return this.initiateIpAddressUpdate(ipAddress, record);
       }
     }
   }
@@ -374,9 +374,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         if (json.status) {
           console.log("User.initiateIpAddressUpdate", ipAddress, json);
           if (record) {
-            return await db.updateIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
+            return db.updateIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
           } else {
-            return await db.insertIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
+            return db.insertIpAddress(ipAddress, json.status, json.country, json.countryCode, json.region, json.regionName, json.city, json.zip, json.lat, json.lon, json.timezone, json.isp, json.org, json.as, json.query, json.message);
           }
         } else {
           errorManager.warning("User.initiateIpAddressUpdate: invalid response from ipapi", null, json);

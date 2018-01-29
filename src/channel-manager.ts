@@ -24,6 +24,7 @@ import { errorManager } from "./error-manager";
 
 const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
 const MAX_KEYWORDS_PER_CHANNEL = 16;
+const MAX_CARDS_PER_EMAIL_NOTIFICATION = 16;
 
 export class ChannelManager implements RestServer, Initializable, NotificationHandler {
   private app: express.Application;
@@ -625,7 +626,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   private async sendUserContentNotification(user: UserRecord): Promise<void> {
     console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
-    const since = Math.min(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
+    const since = Math.max(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
     const cursor = await db.getChannelCardsInChannels(channelIds, since);
     const cards: CardDescriptor[] = [];
     const sentChannelIds: string[] = [];
@@ -647,7 +648,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           }
         }
       }
-      if (cards.length >= 16) {
+      if (cards.length >= MAX_CARDS_PER_EMAIL_NOTIFICATION) {
         break;
       }
     }

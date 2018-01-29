@@ -58,7 +58,7 @@ export class ChannelsComponentManager implements RestServer {
       // if (!versioned || !versioned.name || !versioned.version || !/^\d+\.\d+\.\d+$/.test(versioned.version)) {
       //   throw new ErrorWithStatusCode(404, "Cannot install this package because it is not found or doesn't have an available release");
       // }
-      return await this._installVersion(pkg, versioned);
+      return this._installVersion(pkg, versioned);
     } catch (err) {
       errorManager.error("Bower: install failed", err);
       throw (err);
