@@ -94,6 +94,12 @@ export class RootPageManager implements Initializable {
           metadata.imageHeight = imageInfo.imageInfo ? imageInfo.imageInfo.height : 0;
         }
       }
+      // Fallback to old image urls in pre-file id cards. 
+      if ((!metadata.image) && card.summary.imageUrl) {
+        metadata.image = card.summary.imageUrl;
+        metadata.imageWidth = card.summary.imageWidth;
+        metadata.imageHeight = card.summary.imageHeight;
+      }
       metadata.author = author && author.identity ? author.identity.name : null;
       metadata.publishedTime = new Date(card.postedAt).toISOString();
     }
