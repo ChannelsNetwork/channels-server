@@ -1161,7 +1161,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.status(404).send("This card is no longer available");
       return null;
     }
-    if (card.curation && card.curation.block && card.by.id !== user.id) {
+    if (card.curation && card.curation.block && card.createdById !== user.id) {
       response.status(404).send("This card is not available");
       return;
     }
