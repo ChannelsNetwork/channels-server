@@ -387,11 +387,11 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
   private async getSubscribedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    return await this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference);
+    return this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference);
   }
 
   private async getBlockedChannels(user: UserRecord, maxChannels: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    return await this.getChannelsByState(user, maxChannels, 0, "blocked", nextPageReference);
+    return this.getChannelsByState(user, maxChannels, 0, "blocked", nextPageReference);
   }
 
   private async getChannelsByState(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, subscriptionState: ChannelSubscriptionState, nextPageReference: string): Promise<ChannelsRecordsInfo> {
@@ -553,7 +553,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (channelUser) {
       return channelUser;
     }
-    return await db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0);
+    return db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0);
   }
 
   async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {
@@ -625,7 +625,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   private async sendUserContentNotification(user: UserRecord): Promise<void> {
     console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
-    const since = Math.min(Date.now() - 1000 * 60 * 60 * 24 * 7, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
+    const since = Math.min(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
     const cursor = await db.getChannelCardsInChannels(channelIds, since);
     const cards: CardDescriptor[] = [];
     const sentChannelIds: string[] = [];
@@ -633,16 +633,21 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       const channelCard = await cursor.next();
       const card = await db.findCardById(channelCard.cardId, false);
       if (card) {
-        const cardUser = await db.findUserCardInfo(user.id, card.id);
-        if (!cardUser || cardUser.lastOpened === 0) {
-          const descriptor = await cardManager.populateCardState(null, card.id, false, false, user);
-          cards.push(descriptor);
-          if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
-            sentChannelIds.push(channelCard.channelId);
+        const channelUser = await db.findChannelUser(channelCard.channelId, user.id);
+        if (channelUser) {
+          if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
+            const cardUser = await db.findUserCardInfo(user.id, card.id);
+            if (!cardUser || cardUser.lastOpened === 0) {
+              const descriptor = await cardManager.populateCardState(null, card.id, false, false, user);
+              cards.push(descriptor);
+              if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
+                sentChannelIds.push(channelCard.channelId);
+              }
+            }
           }
         }
       }
-      if (cards.length >= 10) {
+      if (cards.length >= 16) {
         break;
       }
     }
@@ -687,7 +692,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (!channel) {
       return null;
     }
-    return await this.getChannelDescriptor(user, channel);
+    return this.getChannelDescriptor(user, channel);
   }
 
   private getChannelUrl(channel: ChannelDescriptor): string {
