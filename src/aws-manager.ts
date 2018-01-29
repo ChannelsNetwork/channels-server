@@ -66,7 +66,7 @@ export class AwsManager implements RestServer, Initializable {
           });
           setTimeout(() => {
             if (!this.snsConfirmed) {
-              throw new Error("AwsManager: 45 seconds after subscribing, SNS subscription has not been confirmed");
+              // throw new Error("AwsManager: 45 seconds after subscribing, SNS subscription has not been confirmed");
             }
           }, 45000);  // If not subscribed within 45 seconds, declare failure
         }, 5000); // Waiting 5 seconds after startup before initiating subscription
