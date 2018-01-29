@@ -112,6 +112,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
     }
+
+    const unconfirmedUsers = db.getUnconfirmedUsersWithNoLastNotice();
+    while (await unconfirmedUsers.hasNext()) {
+      const unconfirmedUser = await unconfirmedUsers.next();
+      if (!unconfirmedUser.curation) {
+        await this.sendEmailConfirmation(unconfirmedUser);
+      }
+    }
+
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
@@ -1157,6 +1166,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async sendEmailConfirmation(user: UserRecord): Promise<void> {
+    console.log("User.sendEmailConfirmation", user.identity.handle, user.identity.emailAddress);
     if (!user.identity || !user.identity.emailAddress) {
       throw new Error("User does not have an email address to confirm.");
     }

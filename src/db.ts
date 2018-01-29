@@ -641,6 +641,10 @@ export class Database {
     return this.users.find<UserRecord>({ type: "normal" }).sort({ lastContact: -1 }).limit(limit).toArray();
   }
 
+  getUnconfirmedUsersWithNoLastNotice(): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ "identity.emailAddress": { $exists: true }, "identity.emailConfirmed": { $exists: false }, "identity.emailConfirmationCode": { $exists: false } });
+  }
+
   getUserCursorByLastContact(from: number, to: number, addedBefore: number): Cursor<UserRecord> {
     return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to }, added: { $lte: addedBefore } }).sort({ lastContact: -1 });
   }
