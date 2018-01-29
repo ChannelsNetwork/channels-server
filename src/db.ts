@@ -601,7 +601,7 @@ export class Database {
     return this.users.find<UserRecord>({ type: type }).toArray();
   }
 
-  async findUsersWithoutImageId(): Promise<UserRecord[]> {
+  async findUsersWithImageUrl(): Promise<UserRecord[]> {
     return this.users.find<UserRecord>({ "identity.imageUrl": { $exists: true } }).toArray();
   }
 
@@ -2404,6 +2404,10 @@ export class Database {
     return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
   }
 
+  getChannels(): Cursor<ChannelRecord> {
+    return this.channels.find<ChannelRecord>();
+  }
+
   async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
     const update: any = {};
     if (typeof name !== 'undefined') {
@@ -2655,3 +2659,8 @@ const DEFAULT_CARD_TOPICS = [
   { topic: "Money", keywords: ["money", "currency", "cryptocurrency"] },
   { topic: "Technology", keywords: ["technology", "computers", "computer", "internet", "web"] }
 ];
+
+export interface ChannelStatInfo {
+  revenue: number;
+  cards: number;
+}
