@@ -1042,8 +1042,7 @@ export class Database {
 
   async replaceCardBy(cardId: string, createdById: string): Promise<void> {
     await this.cards.updateOne({ id: cardId }, {
-      $set: { createdById: createdById },
-      $unset: { "by.id": 1 }
+      $set: { createdById: createdById }
     });
   }
 
@@ -1059,7 +1058,7 @@ export class Database {
   }
 
   async countDistinctCardOwners(from: number, to: number): Promise<number> {
-    const creators = await this.cards.distinct('by.id', { postedAt: { $gte: from, $lt: to } });
+    const creators = await this.cards.distinct('createdById', { postedAt: { $gte: from, $lt: to } });
     return creators.length;
   }
 
