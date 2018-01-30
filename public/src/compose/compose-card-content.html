@@ -150,8 +150,20 @@
         if (forward) {
           if (this.composer && this.composer.isReady) {
             this.wizard.data.cardSharedState = this.composer.sharedState || {};
-            this.wizard.data.summary = this.composer.summary || {};
             this.wizard.data.searchText = this.composer.searchText;
+
+            let currentSummary = this.wizard.data.summary;
+            let ignoreImage = false;
+            if (currentSummary && this.wizard.data.imageSetByUser) {
+              if (currentSummary.imageId || currentSummary.imageURL) {
+                ignoreImage = true;
+              }
+            }
+            this.wizard.data.summary = this.composer.summary || {};
+            if (ignoreImage) {
+              this.wizard.data.summary.imageId = currentSummary.imageId;
+              this.wizard.data.summary.imageURL = currentSummary.imageURL;
+            }
           }
         }
         resolve();
