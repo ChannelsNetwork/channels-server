@@ -281,9 +281,15 @@
             this.wizard.headerVisible = true;
             if (result) {
               this.$.cardView.updateSummary(result.summary);
+              this.wizard.data.summary = result.summary;
               this.cardData.summary = result.summary;
               this.$.keywords.value = result.keywords.join(', ');
               this.cardData.keywords = result.keywords;
+              if (result.summary.imageId || result.summary.imageURL) {
+                this.wizard.data.imageSetByUser = true;
+              } else {
+                this.wizard.data.imageSetByUser = false;
+              }
             }
           }).catch((err) => {
             console.error(err);

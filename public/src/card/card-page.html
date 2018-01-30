@@ -295,6 +295,11 @@
             }
           }
           this.data = cardData.card;
+          if (this.data.summary && this.data.summary.title) {
+            document.title = this.data.summary.title + " - Channels";
+          } else {
+            document.title = "Channels";
+          }
           this.channelUrl = "/channel/" + encodeURIComponent(this.data.by.handle);
           this._refreshRating();
           this.paymentInterval = cardData.paymentDelayMsecs || 10000;
