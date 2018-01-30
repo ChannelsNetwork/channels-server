@@ -185,6 +185,7 @@
           } catch (err) { console.error("Error in page deactivate", err); }
         }
         this._lastPage = activePage;
+        this._lastPath = route.path;
 
         // Import the new page
         const pageHref = activePage.dataset.href;
