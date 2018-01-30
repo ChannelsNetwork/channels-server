@@ -379,6 +379,8 @@
           if (!fetchNewContent) {
             this._refreshChannel(true);
             $app.scrollTo(route.context.scrollTop);
+            this.$.header._prevScrollValue = -1;
+            this.$.header._onScroll();
             return;
           }
 
