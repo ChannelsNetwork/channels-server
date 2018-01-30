@@ -379,6 +379,8 @@
           if (!fetchNewContent) {
             this._refreshChannel(true);
             $app.scrollTo(route.context.scrollTop);
+            this.$.header._prevScrollValue = -1;
+            this.$.header._onScroll();
             return;
           }
 
@@ -431,6 +433,7 @@
 
       _onChannel() {
         if (this.channel) {
+          document.title = this.channel.name ? (this.channel.name + " on Channels") : "Channels";
           this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
           this._refreshLinks();
           this._refreshButtons();
