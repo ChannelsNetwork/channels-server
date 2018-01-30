@@ -1246,7 +1246,7 @@ export class Database {
       private: false,
       $text: { $search: searchText }
     };
-    return this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
+    return this.cards.find<CardRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip || 0).limit(limit).toArray();
   }
 
   getCardsByAuthor(userId: string): Cursor<CardRecord> {
