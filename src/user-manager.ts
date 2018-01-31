@@ -355,7 +355,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(registerResponse);
     } catch (err) {
-      errorManager.error("User.handleRegisterUser: Failure", err);
+      errorManager.error("User.handleRegisterUser: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -430,7 +430,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleSignIn: Failure", err);
+      errorManager.error("User.handleSignIn: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -479,7 +479,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(result);
     } catch (err) {
-      errorManager.error("User.handleStatus: Failure", err);
+      errorManager.error("User.handleStatus: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -550,7 +550,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleUpdateIdentity: Failure", err);
+      errorManager.error("User.handleUpdateIdentity: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -630,7 +630,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleRequestRecoveryCode: Failure", err);
+      errorManager.error("User.handleRequestRecoveryCode: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -687,7 +687,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(result);
     } catch (err) {
-      errorManager.error("User.handleRecoverUser: Failure", err);
+      errorManager.error("User.handleRecoverUser: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -721,7 +721,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleGetIdentity: Failure", err);
+      errorManager.error("User.handleGetIdentity: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -752,7 +752,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleGetHandle: Failure", err);
+      errorManager.error("User.handleGetHandle: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -864,7 +864,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleAdminGetUsers: Failure", err);
+      errorManager.error("User.handleAdminGetUsers: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -892,7 +892,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleAdminSetUserMailingList: Failure", err);
+      errorManager.error("User.handleAdminSetUserMailingList: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -940,7 +940,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleAdminSetUserCuration: Failure", err);
+      errorManager.error("User.handleAdminSetUserCuration: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

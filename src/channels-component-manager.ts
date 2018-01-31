@@ -60,7 +60,7 @@ export class ChannelsComponentManager implements RestServer {
       // }
       return this._installVersion(pkg, versioned);
     } catch (err) {
-      errorManager.error("Bower: install failed", err);
+      errorManager.error("Bower: install failed", request, err);
       throw (err);
     } finally {
       await this.unlockBower();
@@ -74,7 +74,7 @@ export class ChannelsComponentManager implements RestServer {
       await this._updateAll();
       console.log("Bower: update complete");
     } catch (err) {
-      errorManager.error("Bower: updated failed", err);
+      errorManager.error("Bower: updated failed", null, err);
     } finally {
       await this.unlockBower();
     }
@@ -87,7 +87,7 @@ export class ChannelsComponentManager implements RestServer {
       await this._clean();
       console.log("Bower: cleaning complete");
     } catch (err) {
-      errorManager.error("Bower: install failed", err);
+      errorManager.error("Bower: install failed", null, err);
     } finally {
       await this.unlockBower();
     }
@@ -173,7 +173,7 @@ export class ChannelsComponentManager implements RestServer {
           resolve();
         })
         .on('error', (err: any) => {
-          errorManager.error("Failure trying to bower init", err);
+          errorManager.error("Failure trying to bower init", null, err);
           resolve();
         })
         .on('log', (log: any) => {
@@ -308,7 +308,7 @@ export class ChannelsComponentManager implements RestServer {
       const componentResponse = await this.ensureComponent(request, requestBody.detailsObject.package);
       response.json(componentResponse);
     } catch (err) {
-      errorManager.error("Bower.handleComponent: Failure", err);
+      errorManager.error("Bower.handleComponent: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

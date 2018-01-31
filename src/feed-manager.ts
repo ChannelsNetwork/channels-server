@@ -121,7 +121,7 @@ export class FeedManager implements Initializable, RestServer {
       reply.feeds = await Promise.all(promises);
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleGetFeed: Failure", err);
+      errorManager.error("User.handleGetFeed: Failure", request, request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -179,7 +179,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleSearchTopic: Failure", err);
+      errorManager.error("User.handleSearchTopic: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -203,7 +203,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleListTopics: Failure", err);
+      errorManager.error("User.handleListTopics: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -1277,7 +1277,7 @@ export class FeedManager implements Initializable, RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleAdminGetCards: Failure", err);
+      errorManager.error("User.handleAdminGetCards: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

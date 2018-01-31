@@ -54,7 +54,6 @@ export class RestHelper {
       id: userRecord.id,
       username: userRecord.identity ? userRecord.identity.handle : null
     };
-    (request as any).user_id = userRecord.id;
     const publicKey = userRecord.publicKey;
     if (!this.validateRequest(requestBody, publicKey, response)) {
       return null;

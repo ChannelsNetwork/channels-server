@@ -182,7 +182,7 @@ class ChannelsNetworkWebClient {
 
     this.server.listen(configuration.get('client.port'), (err: any) => {
       if (err) {
-        errorManager.error("Failure listening", err);
+        errorManager.error("Failure listening", null, err);
         process.exit();
       } else {
         console.log("Listening for client connections on port " + configuration.get('client.port'));
