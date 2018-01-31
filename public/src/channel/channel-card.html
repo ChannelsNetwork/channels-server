@@ -127,17 +127,17 @@
         }
       }
     </style>
-    <div id="container" class="container vertical layout">
+    <div id="container" class="container vertical layout" on-click="_gotoChannel">
       <div id="banner"></div>
       <div class="horizontal layout center" style="position: relative;">
         <div class="flex">
-          <user-image image="[[channelImage]]" on-click="_gotoChannel"></user-image>
+          <user-image image="[[channelImage]]"></user-image>
         </div>
         <button id="btnU" on-click="_unsubscribe" class="hidden">Unsubscribe</button>
         <button id="btnS" on-click="_subscribe" class="hidden">Subscribe</button>
       </div>
       <div id="infoPanel" class="flex vertical layout">
-        <div class="name" on-click="_gotoChannel">[[channel.name]]</div>
+        <div class="name">[[channel.name]]</div>
         <soso-truncated-text id="description" class="flex" text="[[channel.about]]"></soso-truncated-text>
       </div>
       <div id="statsBar" class="horizontal layout center">
@@ -237,7 +237,10 @@
         }
       }
 
-      _unsubscribe() {
+      _unsubscribe(event) {
+        if (event) {
+          event.stopPropagation();
+        }
         this.channel.subscriptionState = "unsubscribed"
         $core.updateChannelSubscription(this.channel.id, 'unsubscribed').catch((err) => {
           console.error(err);
@@ -248,6 +251,9 @@
       }
 
       _subscribe() {
+        if (event) {
+          event.stopPropagation();
+        }
         this.channel.subscriptionState = "subscribed"
         $core.updateChannelSubscription(this.channel.id, 'subscribed').catch((err) => {
           console.error(err);
