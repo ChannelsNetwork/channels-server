@@ -585,6 +585,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("The transaction must be 'transfer' with reason 'card-open-fee'");
         return;
       }
+      if (transaction.amount <= 0) {
+        response.status(400).send("Invalid transaction amount: " + transaction.amount);
+        return;
+      }
       const card = await this.getRequestedCard(user, transaction.relatedCardId, response);
       if (!card) {
         return;
@@ -667,47 +671,48 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number, request: Request): Promise<number> {
-    // if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
-    //   return 0;
+    return 0;
+    // // if (Date.now() - card.postedAt > PUBLISHER_SUBSIDY_MAX_CARD_AGE) {
+    // //   return 0;
+    // // }
+    // // const existingPurchases = await db.countUserCardsPaid(user.id);
+    // // if (existingPurchases <= 1) {
+    // //   return;
+    // // }
+    // const subsidyDay = await networkEntity.getPublisherSubsidies();
+    // // if (!subsidyDay || subsidyDay.remainingToday <= 0) {
+    // //   return 0;
+    // // }
+    // const statsNow = await db.ensureNetworkCardStats();
+    // const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
+    // const totalCardPurchases = (statsNow.stats.paidOpens - (statsNow.stats.blockedPaidOpens || 0)) - (yesterdaysStats.stats.paidOpens - (yesterdaysStats.stats.blockedPaidOpens || 0));
+    // const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen();
+    // await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
+    // const recipient: BankTransactionRecipientDirective = {
+    //   address: author.address,
+    //   portion: "remainder",
+    //   reason: "publisher-subsidy-recipient"
+    // };
+    // const details: BankTransactionDetails = {
+    //   address: null,
+    //   fingerprint: null,
+    //   timestamp: null,
+    //   type: "transfer",
+    //   reason: "publisher-subsidy",
+    //   relatedCardId: card.id,
+    //   relatedCouponId: null,
+    //   amount: amount,
+    //   toRecipients: [recipient]
+    // };
+    // const transactionResult = await networkEntity.performBankTransaction(request, details, card.summary.title, false, true);
+    // await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
+    // const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
+    // if (card.budget && card.budget.available !== newBudgetAvailable) {
+    //   card.budget.available = newBudgetAvailable;
+    //   await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
     // }
-    // const existingPurchases = await db.countUserCardsPaid(user.id);
-    // if (existingPurchases <= 1) {
-    //   return;
-    // }
-    const subsidyDay = await networkEntity.getPublisherSubsidies();
-    // if (!subsidyDay || subsidyDay.remainingToday <= 0) {
-    //   return 0;
-    // }
-    const statsNow = await db.ensureNetworkCardStats();
-    const yesterdaysStats = await db.getNetworkCardStatsAt(Date.now() - 1000 * 60 * 60 * 24);
-    const totalCardPurchases = (statsNow.stats.paidOpens - (statsNow.stats.blockedPaidOpens || 0)) - (yesterdaysStats.stats.paidOpens - (yesterdaysStats.stats.blockedPaidOpens || 0));
-    const amount = await this.calculateCurrentPublisherSubsidiesPerPaidOpen();
-    await db.incrementLatestPublisherSubsidyPaid(subsidyDay.dayStarting, amount);
-    const recipient: BankTransactionRecipientDirective = {
-      address: author.address,
-      portion: "remainder",
-      reason: "publisher-subsidy-recipient"
-    };
-    const details: BankTransactionDetails = {
-      address: null,
-      fingerprint: null,
-      timestamp: null,
-      type: "transfer",
-      reason: "publisher-subsidy",
-      relatedCardId: card.id,
-      relatedCouponId: null,
-      amount: amount,
-      toRecipients: [recipient]
-    };
-    const transactionResult = await networkEntity.performBankTransaction(request, details, card.summary.title, false, true);
-    await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
-    const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
-    if (card.budget && card.budget.available !== newBudgetAvailable) {
-      card.budget.available = newBudgetAvailable;
-      await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
-    }
-    console.log("Card.payPublisherSubsidy: Paying " + amount.toFixed(3) + " based on " + totalCardPurchases + " in last 24 hours");
-    return amount;
+    // console.log("Card.payPublisherSubsidy: Paying " + amount.toFixed(3) + " based on " + totalCardPurchases + " in last 24 hours");
+    // return amount;
   }
 
   async calculateCurrentPublisherSubsidiesPerPaidOpen(): Promise<number> {
