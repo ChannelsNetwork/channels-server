@@ -66,6 +66,12 @@
       .explain:hover {
         color: var(--dark-green);
       }
+
+      #notice {
+        padding: 10px 0;
+        color: #555;
+        letter-spacing: 0.03em;
+      }
     </style>
     <div class="container">
       <h2>Select card type</h2>
@@ -74,7 +80,7 @@
         <soso-radio-button name="story" label="Article: text, photos, and videos"></soso-radio-button>
         <soso-radio-button name="video" label="Video: show a video in a card"></soso-radio-button>
         <soso-radio-button name="audio" label="Audio: play a song or podcast"></soso-radio-button>
-        <soso-radio-button name="embed" label="Webpage: embed a web page in a card"></soso-radio-button>
+        <soso-radio-button name="embed" label="Game: embed an HTML5 game"></soso-radio-button>
         <soso-radio-button name="custom" label="Custom: choose any card type hosted on GitHub"></soso-radio-button>
       </soso-radio-group>
       <div id="github" style="display:none;">
@@ -88,6 +94,9 @@
         <button id="next" disabled on-click="_onNext">Next</button>
       </div>
       <div class="error">[[errorMessage]]</div>
+      <div id="notice">
+        Don't forget, Channels is for original content. Copied content will be removed.
+      </div>
     </div>
     <div id="overlay" class="hidden">
       <soso-spinner id="spinner"></soso-spinner>
@@ -147,7 +156,7 @@
           case "ChannelsNetwork/card-story":
             this.$.group.selected = "story";
             break;
-          case "ChannelsNetwork/card-embed":
+          case "ChannelsNetwork/card-embed-game":
             this.$.group.selected = "embed";
             break;
           case "ChannelsNetwork/card-audio":
@@ -176,7 +185,7 @@
           case "story":
             return "ChannelsNetwork/card-story";
           case "embed":
-            return "ChannelsNetwork/card-embed";
+            return "ChannelsNetwork/card-embed-game";
           case "video":
             return "ChannelsNetwork/card-video";
           case "audio":

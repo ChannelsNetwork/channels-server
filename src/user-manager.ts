@@ -1179,7 +1179,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       url: this.urlManager.getAbsoluteUrl('/confirm-email?code=' + encodeURIComponent(confirmationCode))
     };
     const buttons: EmailButton[] = [button];
-    await emailManager.sendUsingTemplate("Channel.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "Confirm your identity", "email-confirmation", info, buttons);
+    await emailManager.sendUsingTemplate("Channels email verification", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "Confirm your email address", "email-confirmation", info, buttons);
   }
 }
 

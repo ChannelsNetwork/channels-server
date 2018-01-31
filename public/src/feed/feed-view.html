@@ -127,7 +127,7 @@
       }
 
       _refreshPromotionVisibility() {
-        let showPubPanel = (this._feedName === "recommended"); // && $core.publishSubsidiesRemainingToday);
+        let showPubPanel = false; // (this._feedName === "recommended"); // && $core.publishSubsidiesRemainingToday);
         if (showPubPanel) {
           this.$.pubPanel.classList.remove("hidden");
           this.$.pubPanel.refresh();
