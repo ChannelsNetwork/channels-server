@@ -66,6 +66,12 @@
       .explain:hover {
         color: var(--dark-green);
       }
+
+      #notice {
+        padding: 10px 0;
+        color: #555;
+        letter-spacing: 0.03em;
+      }
     </style>
     <div class="container">
       <h2>Select card type</h2>
@@ -88,6 +94,9 @@
         <button id="next" disabled on-click="_onNext">Next</button>
       </div>
       <div class="error">[[errorMessage]]</div>
+      <div id="notice">
+        Don't forget, Channels is for original content. Copied content will be removed.
+      </div>
     </div>
     <div id="overlay" class="hidden">
       <soso-spinner id="spinner"></soso-spinner>
