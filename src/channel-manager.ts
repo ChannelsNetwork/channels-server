@@ -115,7 +115,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
 
   private async handleChannelRequest(request: Request, response: Response): Promise<void> {
     console.log("handleChannelRequest!!");
-    let id = request.params.channelId;
+    const id = request.params.channelId;
     let record: ChannelRecord;
     if (id) {
       record = await db.findChannelById(id);

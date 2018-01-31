@@ -255,7 +255,7 @@ export class AdminManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("AdminManager.handleGetWithdrawals: Failure", err);
+      errorManager.error("AdminManager.handleGetWithdrawals: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -283,7 +283,7 @@ export class AdminManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("AdminManager.handleUpdateWithdrawal: Failure", err);
+      errorManager.error("AdminManager.handleUpdateWithdrawal: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

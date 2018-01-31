@@ -192,7 +192,7 @@ export class Bank implements RestServer, Initializable {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("Bank.handleWithdraw: Failure", err);
+      errorManager.error("Bank.handleWithdraw: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -228,7 +228,7 @@ export class Bank implements RestServer, Initializable {
       }
       response.json(reply);
     } catch (err) {
-      errorManager.error("Bank.handleStatement: Failure", err);
+      errorManager.error("Bank.handleStatement: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -241,7 +241,7 @@ export class Bank implements RestServer, Initializable {
       }
       await this.generateBraintreeToken(response);
     } catch (err) {
-      errorManager.error("Bank.handleClientTokenRequest: Failure", err);
+      errorManager.error("Bank.handleClientTokenRequest: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

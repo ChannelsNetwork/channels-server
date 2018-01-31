@@ -82,7 +82,7 @@ export class AwsManager implements RestServer, Initializable {
         try {
           snsMessage = await this.validateSnsMessage(request.body);
         } catch (err) {
-          errorManager.error("AwsManager.handleSnsNotify: received invalid SNS message", err);
+          errorManager.error("AwsManager.handleSnsNotify: received invalid SNS message", request, err);
           return;
         }
         switch (type) {
@@ -94,7 +94,7 @@ export class AwsManager implements RestServer, Initializable {
               Token: confirmation.Token
             }, (err: any) => {
               if (err) {
-                errorManager.error("AwsManager.handleSnsNotify: error confirming subscription", err);
+                errorManager.error("AwsManager.handleSnsNotify: error confirming subscription", request, err);
               } else {
                 this.snsConfirmed = true;
                 console.log("AwsManager.handleSnsNotify: subscription confirmed");
@@ -116,7 +116,7 @@ export class AwsManager implements RestServer, Initializable {
         response.status(400).send("Unexpected SNS request");
       }
     } catch (err) {
-      errorManager.error("Aws.handleSnsNotify: Failure", err);
+      errorManager.error("Aws.handleSnsNotify: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -148,7 +148,7 @@ export class AwsManager implements RestServer, Initializable {
         Message: JSON.stringify(notification),
       }, (err: any) => {
         if (err) {
-          errorManager.error("Failure publishing SNS notification", err);
+          errorManager.error("Failure publishing SNS notification", null, err);
         }
       });
     } else {

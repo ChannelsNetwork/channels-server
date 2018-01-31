@@ -275,7 +275,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleGetCard: Failure", err);
+      errorManager.error("User.handleGetCard: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -303,7 +303,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handlePostCard: Failure", err);
+      errorManager.error("User.handlePostCard: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -484,7 +484,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardImpression: Failure", err);
+      errorManager.error("User.handleCardImpression: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -531,7 +531,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardOpened: Failure", err);
+      errorManager.error("User.handleCardOpened: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -564,7 +564,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardClicked: Failure", err);
+      errorManager.error("User.handleCardClicked: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -665,7 +665,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardPay: Failure", err);
+      errorManager.error("User.handleCardPay: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -830,7 +830,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleRedeemCardOpen: Failure", err);
+      errorManager.error("User.handleRedeemCardOpen: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -856,7 +856,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardClosed: Failure", err);
+      errorManager.error("User.handleCardClosed: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -931,7 +931,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleUpdateCardLike: Failure", err);
+      errorManager.error("User.handleUpdateCardLike: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -963,7 +963,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleUpdateCardPrivate: Failure", err);
+      errorManager.error("User.handleUpdateCardPrivate: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -991,7 +991,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleDeleteCard: Failure", err);
+      errorManager.error("User.handleDeleteCard: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -1032,7 +1032,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardStatHistory: Failure", err);
+      errorManager.error("User.handleCardStatHistory: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -1080,7 +1080,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardStateUpdate: Failure", err);
+      errorManager.error("User.handleCardStateUpdate: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -1128,7 +1128,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardStateUpdate: Failure", err);
+      errorManager.error("User.handleCardStateUpdate: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -1159,7 +1159,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleAdminUpdateCard: Failure", err);
+      errorManager.error("User.handleAdminUpdateCard: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

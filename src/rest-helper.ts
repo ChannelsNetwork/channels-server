@@ -50,10 +50,9 @@ export class RestHelper {
       response.status(401).send("No such registered users");
       return null;
     }
-    (request as any).user = {
+    (request as any).rollbar_person = {
       id: userRecord.id,
-      handle: userRecord.identity ? userRecord.identity.handle : null,
-      name: userRecord.identity ? userRecord.identity.name : null
+      username: userRecord.identity ? userRecord.identity.handle : null
     };
     const publicKey = userRecord.publicKey;
     if (!this.validateRequest(requestBody, publicKey, response)) {

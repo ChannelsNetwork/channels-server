@@ -57,7 +57,7 @@ export class ClientServices implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("ClientServices.handleQueryPage: Failure", err);
+      errorManager.error("ClientServices.handleQueryPage: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

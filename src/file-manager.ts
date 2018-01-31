@@ -170,7 +170,7 @@ export class FileManager implements RestServer {
       console.log("FileManager.handleUpload uploading to S3", filename);
       await this.uploadS3(file, filename, encoding, mimetype, fileRecord, user, response);
     } catch (err) {
-      errorManager.error("File.handleUploadStart: Failure", err);
+      errorManager.error("File.handleUploadStart: Failure", null, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -410,7 +410,7 @@ export class FileManager implements RestServer {
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("File.handleDiscardFiles: Failure", err);
+      errorManager.error("File.handleDiscardFiles: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
