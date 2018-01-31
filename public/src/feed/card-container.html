@@ -1,0 +1,26 @@
+<dom-module id="card-container">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+  </template>
+  <script>
+    class CardContainer extends Polymer.Element {
+      static get is() { return 'card-container'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_onData'
+          }
+        };
+      }
+
+      _onData() {
+      }
+    }
+    window.customElements.define(CardContainer.is, CardContainer);
+  </script>
+</dom-module>

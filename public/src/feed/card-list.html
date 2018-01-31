@@ -1,0 +1,62 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="card-container.html">
+
+<dom-module id="card-list">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        box-sizing: border-box;
+      }
+
+      #container {
+        width: 100%;
+        box-sizing: border-box;
+      }
+    </style>
+    <h2 id="headline">[[label]]</h2>
+    <div id="container" class="horizontal layout center-justified wrap">
+      <dom-repeat items="[[items]]">
+        <template>
+          <card-container data="[[item]]"></card-container>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class CardList extends Polymer.Element {
+      static get is() { return 'card-list'; }
+      static get properties() {
+        return {
+          label: {
+            type: String,
+            observer: '_refreshLabel'
+          },
+          type: String,
+          items: Array
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._refreshLabel();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _refreshLabel() {
+        if (this._attached) {
+          if (this.label)
+            this.$.headline.classList.remove("hidden");
+          else
+            this.$.headline.classList.add("hidden");
+        }
+      }
+    }
+    window.customElements.define(CardList.is, CardList);
+  </script>
+</dom-module>
