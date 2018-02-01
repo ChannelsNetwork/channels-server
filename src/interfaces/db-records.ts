@@ -103,6 +103,7 @@ export interface NetworkRecord {
   totalDeposits: number;
   totalWithdrawals: number;
   totalPublisherSubsidies: number;
+  maxPayoutPerBaseFeePeriod: number;
 }
 
 export interface CardRecord {
@@ -499,6 +500,7 @@ export interface NetworkCardStatsHistoryRecord {
   periodStarting: number;
   isCurrent: boolean;
   stats: NetworkCardStats;
+  baseCardPrice: number;
 }
 
 export interface NetworkCardStats {
@@ -507,6 +509,7 @@ export interface NetworkCardStats {
   clicks: number;
   uniqueClicks: number;
   paidOpens: number;
+  paidUnits: number;
   likes: number;
   dislikes: number;
   cardRevenue: number;
