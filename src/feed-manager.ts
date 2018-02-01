@@ -549,7 +549,7 @@ export class FeedManager implements Initializable, RestServer {
       while (await cursor.hasNext()) {
         const channelCard = await cursor.next();
         const card = await db.findCardById(channelCard.cardId, false);
-        if (card && (!card.curation || !card.curation.block || card.createdById === user.id)) {
+        if (card && (!card.curation || !card.curation.block || card.createdById === user.id) && (user.id === card.createdById || !card.private)) {
           cards.push(card);
         }
         if (cards.length >= limit) {
