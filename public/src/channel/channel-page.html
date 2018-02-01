@@ -292,7 +292,7 @@
             <div class="name">[[channel.name]]</div>
             <div class="description">[[channel.about]]</div>
             <div id="linkPanel" class="hidden">
-              <a class="channelLink" href$="[[channel.linkUrl]]" target="_blank">[[channel.linkUrl]]</a>
+              <a class="channelLink" href$="[[channelWebsite]]" target="_blank">[[channel.linkUrl]]</a>
             </div>
           </div>
         </div>
@@ -337,7 +337,8 @@
           channelImage: String,
           stats: Array,
           items: Array,
-          promotedItems: Array
+          promotedItems: Array,
+          channelWebsite: String
         };
       }
 
@@ -478,8 +479,14 @@
 
       _refreshLinks() {
         if (this.channel.linkUrl) {
+          let l = this.channel.linkUrl.trim().toLowerCase();
+          if ((l.indexOf("http://") != 0) && (l.indexOf("https://") != 0)) {
+            l = "http://" + l;
+          }
+          this.channelWebsite = l;
           this.$.linkPanel.classList.remove("hidden");
         } else {
+          this.channelWebsite = "";
           this.$.linkPanel.classList.add("hidden");
         }
       }
