@@ -228,8 +228,6 @@
       <!-- Tooltips -->
       <soso-tooltip for="likeRating" position="left" offset="10">[[ratingTip]]</soso-tooltip>
     </div>
-    <card-analytics-dialog id="analyticsDialog"></card-analytics-dialog>
-    <share-link-dialog id="shareDialog"></share-link-dialog>
   </template>
   <script>
     class OpenCardHeader extends Polymer.Element {
@@ -422,7 +420,7 @@
 
       _analytics() {
         this._import("card-analytics-dialog.html").then(() => {
-          this.$.analyticsDialog.show(this.data);
+          $dialogs.open("card-analytics-dialog", this.data);
         });
       }
 
@@ -490,7 +488,7 @@
       _onLink() {
         const cardUrl = this._shareUrl;
         this._import("../dialogs/share-link-dialog.html").then(() => {
-          return this.$.shareDialog.show(cardUrl);
+          $dialogs.open("share-link-dialog", cardUrl);
         });
       }
 
