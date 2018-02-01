@@ -54,7 +54,7 @@ const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
-
+const INITIAL_BASE_CARD_PRICE = 0.05;
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -76,7 +76,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         stats.dislikes += card.stats.dislikes ? card.stats.dislikes.value : 0;
         stats.cardRevenue += card.stats.revenue ? card.stats.revenue.value : 0;
       }
-      await db.insertOriginalNetworkCardStats(stats);
+      await db.insertOriginalNetworkCardStats(stats, INITIAL_BASE_CARD_PRICE);
     }
   }
 
@@ -523,7 +523,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0);
+      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       const reply: CardOpenedResponse = {
@@ -556,7 +556,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 1, uniques, 0);
+      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "click", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
       const reply: CardClickedResponse = {
@@ -647,7 +647,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 1, 0, 0, 0, 0, 0);
+      await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
@@ -916,11 +916,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           const deltaDislikes = newDislikes - existingDislikes;
           if (deltaLikes !== 0) {
             await this.incrementStat(card, "likes", deltaLikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, deltaLikes, 0, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaLikes, 0, 0, 0, 0);
           }
           if (deltaDislikes !== 0) {
             await this.incrementStat(card, "dislikes", deltaDislikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaDislikes, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, deltaDislikes, 0, 0, 0);
           }
           await feedManager.rescoreCard(card, false);
         }
