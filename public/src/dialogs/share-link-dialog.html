@@ -3,6 +3,10 @@
 <dom-module id="share-link-dialog">
   <template>
     <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
       #txt {
         width: 100%;
         box-sizing: border-box;
@@ -93,6 +97,10 @@
         });
       }
 
+      hide() {
+        return this.$.dlg.hide();
+      }
+
       _handleButton(event) {
         switch (event.detail.button.id) {
           case "copy":
@@ -102,7 +110,7 @@
             }
             break;
           default:
-            this.$.dlg.hide();
+            this.hide();
             this._resolve();
             this._resolve = null;
             break;
