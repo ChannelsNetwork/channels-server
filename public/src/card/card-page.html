@@ -3,6 +3,7 @@
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="card-terms-overlay.html">
 
 <dom-module id="card-page">
   <template>
@@ -193,6 +194,7 @@
 
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
+    <card-terms-overlay id="termsOverlay"></card-terms-overlay>
   </template>
   <script>
     class CardPage extends Polymer.Element {
@@ -213,6 +215,7 @@
       }
 
       onActivate(route) {
+        this.$.termsOverlay.show();
         this._active = true;
         this._route = route;
         this.data = null;
