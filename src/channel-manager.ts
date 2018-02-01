@@ -666,6 +666,12 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       const channelCard = await cursor.next();
       const card = await db.findCardById(channelCard.cardId, false);
       if (card) {
+        if (card.curation && card.curation.block) {
+          continue;
+        }
+        if (card.private) {
+          continue;
+        }
         const channelUser = await db.findChannelUser(channelCard.channelId, user.id);
         if (channelUser) {
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
