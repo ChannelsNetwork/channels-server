@@ -43,7 +43,6 @@ export class PriceRegulator implements Initializable {
     await this.contributeSubsidies();
     await this.getBaseCardFee();
     await this.getUserSubsidyRate();
-    console.log("PriceRegulator.initialize2: base card fee, subsidy rate", this.lastBaseCardFee, this.lastSubsidyRate * 1000 * 60);
     setInterval(() => {
       void this.contributeSubsidies();
     }, POLL_INTERVAL);
