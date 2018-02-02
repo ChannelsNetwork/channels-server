@@ -403,9 +403,12 @@ export interface CardOpenedResponse extends RestResponse { }
 
 export interface CardClickedDetails extends Signable {
   cardId: string;
+  transaction?: SignedObject;
 }
 
-export interface CardClickedResponse extends RestResponse { }
+export interface CardClickedResponse extends RestResponseWithUserStatus {
+  transactionId: string;
+}
 
 export interface CardPayDetails extends Signable {
   transaction: SignedObject;
@@ -668,10 +671,12 @@ export interface AdminAdRevenueGoalsInfo {
   totalPromotedOpens: number;
   totalPromotedRevenue: string;
   totalAdRevenue: string;
+  totalClickRevenue: string;
   newImpressions: number;
   newPromotedOpens: number;
   newPromotedRevenue: string;
   newAdRevenue: string;
+  newClickRevenue: string;
 }
 
 export interface AdminSetUserMailingListDetails extends Signable {
