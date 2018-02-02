@@ -385,7 +385,7 @@ class CoreService extends Polymer.Element {
   postCard(imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (linkURL ? "card-click-payment" : "card-open-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
       coupon = {
         objectString: couponDetailsString,
@@ -415,10 +415,10 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateCardPricing(cardId, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent) {
+  updateCardPricing(cardId, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, isClickBased) {
     let coupon;
     if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : "card-open-payment", promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (isClickBased ? "card-open-payment" : "card-click-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
       coupon = {
         objectString: couponDetailsString,
@@ -458,11 +458,22 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  cardClicked(cardId) {
-    let details = RestUtils.cardClickedDetails(this._keys.address, this._fingerprint, cardId);
+  cardClicked(cardId, couponId, amount, authorAddress) {
+    let transactionString = null;
+    let transactionSignature = null;
+    if (couponId && amount && authorAddress) {
+      const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
+      const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-click-payment", cardId, couponId, amount, [recipient]);
+      transactionString = JSON.stringify(transaction);
+      transactionSignature = this._sign(transactionString);
+    }
+    let details = RestUtils.cardClickedDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-clicked";
-    return this.rest.post(url, request);
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
+    });
   }
 
   cardPay(cardId, amount, authorAddress, cardDeveloperAddress, cardDeveloperFraction, referrerAddress) {

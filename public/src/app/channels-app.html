@@ -97,15 +97,6 @@
         this.$.shell.hideMenu();
       }
 
-      scrollTo(value) {
-        if (window.scrollTo) {
-          window.scrollTo(0, value);
-        } else {
-          document.documentElement.scrollTop = value;
-          document.body.scrollTop = value;
-        }
-      }
-
       connectedCallback() {
         super.connectedCallback();
         window.$router = this.$.router;

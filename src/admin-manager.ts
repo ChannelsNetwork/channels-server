@@ -188,20 +188,24 @@ export class AdminManager implements RestServer {
       totalPromotedOpens: 0,
       totalPromotedRevenue: "",
       totalAdRevenue: "",
+      totalClickRevenue: "",
       newImpressions: 0,
       newPromotedOpens: 0,
       newPromotedRevenue: "",
-      newAdRevenue: ""
+      newAdRevenue: "",
+      newClickRevenue: ""
     };
     const starting = Date.now();
     result.totalImpressions = await db.countBankTransactionsByReason("card-promotion", to, 0);
     result.totalPromotedOpens = await db.countBankTransactionsByReason("card-open-payment", to, 0);
     result.totalPromotedRevenue = (await db.totalBankTransactionsAmountByReason("card-promotion", to, 0)).toFixed(2);
     result.totalAdRevenue = (await db.totalBankTransactionsAmountByReason("card-open-payment", to, 0)).toFixed(2);
+    result.totalClickRevenue = (await db.totalBankTransactionsAmountByReason("card-click-payment", to, 0)).toFixed(2);
     result.newImpressions = await db.countBankTransactionsByReason("card-promotion", to, from);
     result.newPromotedOpens = await db.countBankTransactionsByReason("card-open-payment", to, from);
     result.newPromotedRevenue = (await db.totalBankTransactionsAmountByReason("card-promotion", to, from)).toFixed(2);
     result.newAdRevenue = (await db.totalBankTransactionsAmountByReason("card-open-payment", to, from)).toFixed(2);
+    result.newClickRevenue = (await db.totalBankTransactionsAmountByReason("card-click-payment", to, from)).toFixed(2);
     console.log("Admin.computeAdRevenueGoals took " + ((Date.now() - starting) / 1000).toFixed(1) + " seconds");
     return result;
   }
