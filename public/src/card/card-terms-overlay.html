@@ -1,0 +1,257 @@
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+
+<dom-module id="card-terms-overlay">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: none;
+        transition: opacity 1s ease;
+      }
+
+      .container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 2;
+        background: rgba(255, 255, 255, 0.8);
+        transition: background 1s ease;
+      }
+
+      header {
+        background: #293C41;
+        color: white;
+        padding: 16px;
+        font-size: 18px;
+        font-weight: 400;
+        font-family: sans-serif;
+        box-shadow: 0 4px 5px -1px rgba(0, 0, 0, 0.4);
+        transition: opacity 1s ease;
+      }
+
+      footer {
+        background: #fafafa;
+        padding: 16px 0;
+        font-size: 18px;
+        border-top: 1px solid #e5e5e5;
+      }
+
+      .logo {
+        height: 30px;
+        display: block;
+      }
+
+      #logoLink {
+        margin: -5px -15px 5px 5px;
+      }
+
+      #logoLink:hover {
+        box-shadow: none;
+      }
+
+      p {
+        margin: 3px 0;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--bg-yellow);
+        font-weight: bold;
+      }
+
+      .cost {
+        background: var(--bg-yellow);
+        color: #000;
+        padding: 5px;
+        border-radius: 3px;
+        font-size: 17px;
+      }
+
+      .adPanel {
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      #card {
+        max-width: 400px;
+        box-sizing: border-box;
+        margin: 15px auto 0px;
+      }
+
+      #imagePanel {
+        width: 100px;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+        background-image: url("https://channels.cc/45575ecf-68c5-407e-8440-b96de2f00f85/IMG_20180120_105521.jpg");
+      }
+
+      #cardContent {
+        padding: 8px;
+      }
+
+      soso-icon {
+        color: var(--bg-yellow);
+        width: 32px;
+        height: 32px;
+        padding: 5px;
+        margin-left: -5px;
+        cursor: pointer;
+      }
+
+      .spinning {
+        -webkit-animation: load8 1.1s infinite linear;
+        animation: load8 1.1s infinite linear;
+        border-left-color: var(--sosos-spinner-major-color, rgba(0, 0, 0, 1));
+      }
+
+      @-webkit-keyframes load8 {
+        0% {
+          -webkit-transform: rotate(0deg);
+          transform: rotate(0deg);
+        }
+        100% {
+          -webkit-transform: rotate(-360deg);
+          transform: rotate(-360deg);
+        }
+      }
+
+      @keyframes load8 {
+        0% {
+          -webkit-transform: rotate(0deg);
+          transform: rotate(0deg);
+        }
+        100% {
+          -webkit-transform: rotate(-360deg);
+          transform: rotate(-360deg);
+        }
+      }
+
+      #logoPanel {
+        padding-left: 10px;
+      }
+
+      @media (max-width: 600px) {
+        header {
+          font-size: 16px;
+          padding: 16px 10px;
+        }
+        footer {
+          font-size: 14px;
+          padding: 5px 0 10px;
+        }
+        #logoPanel {
+          display: none;
+        }
+        .cost {
+          padding: 3px;
+          border-radius: 1px;
+          font-size: 14px;
+        }
+        #card {
+          margin: 10px auto 0px;
+        }
+        #imagePanel {
+          width: 80px;
+        }
+      }
+    </style>
+    <div id="container" class="container vertical layout">
+      <div class="flex"></div>
+      <header id="header" class="horizontal layout">
+        <div class="flex">
+          <p>
+            Channels is the world's first ad-optional micropayment content market.
+            <a href="/about" target="_blank">Learn more.</a>
+          </p>
+          <div class="horizontal layout">
+            <soso-icon id="check" icon="[[icon]]" on-click="_onCheck"></soso-icon>
+            <div class="flex" style="padding: 7px 0 0 3px;">I am not a robot and I agree to the
+              <a href="/d/terms.html" target="_blank">terms and service</a>.
+            </div>
+          </div>
+        </div>
+        <div id="logoPanel" class="vertical layout">
+          <a id="logoLink" href="/about" target="_blank">
+            <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+          </a>
+        </div>
+      </header>
+      <div class="flex"></div>
+      <!-- <footer>
+        <div class="adPanel">
+          <p style="padding: 0 10px;">This promoted content has increased your balance by
+            <span class="cost">ℂ0.000</span>
+          </p>
+          <div style="padding: 0 5px;">
+            <card-view-mini id="card" data="[[card]]"></card-view-mini>
+          </div>
+        </div>
+      </footer> -->
+    </div>
+  </template>
+  <script>
+    class CardTermsOverlay extends Polymer.Element {
+      static get is() { return 'card-terms-overlay'; }
+      static get properties() {
+        return {
+          icon: String
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.icon = "unchecked-box"
+        this.$.check.classList.remove("spinning");
+      }
+
+      _onCheck() {
+        if (this._spinning) {
+          return;
+        }
+        this._spinning = true;
+        this.icon = "cached"
+        this.$.check.classList.add("spinning");
+        setTimeout(() => {
+          this._spinning = false;
+          this.icon = "check-circle"
+          this.$.check.classList.remove("spinning");
+          setTimeout(() => {
+            this.hide();
+            this.dispatchEvent(new CustomEvent('accept', { bubbles: true, composed: true }));
+          }, 300);
+        }, 1800);
+      }
+
+      hide() {
+        if (this._showing) {
+          this.$.header.style.opacity = 0;
+          this.$.container.style.background = "rgba(255, 255, 255, 0)";
+          this._showing = false;
+          setTimeout(() => {
+            if (!this._showing) {
+              this.style.display = "none";
+              document.body.style.overflow = "";
+            }
+          }, 900);
+        }
+      }
+
+      show() {
+        if (!this._showing) {
+          this._showing = true;
+          this.$.header.style.opacity = 1;
+          this.$.container.style.background = "rgba(255, 255, 255, 0.8)";
+          this.style.display = "block";
+          this.icon = "unchecked-box"
+          this.$.check.classList.remove("spinning");
+          document.body.style.overflow = "hidden";
+        }
+      }
+    }
+    window.customElements.define(CardTermsOverlay.is, CardTermsOverlay);
+  </script>
+</dom-module>

@@ -2189,12 +2189,12 @@ export class Database {
       stats: stats,
       baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)
     };
-    const writeResult = await this.networkCardStats.insert(newRecord);
-    if (writeResult.insertedCount === 1) {
-      if (record) {
-        await this.networkCardStats.updateOne({ periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
-      }
-      return newRecord;
+    try {
+      await this.networkCardStats.insertOne(newRecord);
+      await this.networkCardStats.updateOne({ periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
+    } catch (err) {
+      // May be race condition
+      errorManager.warning("Db.ensureNetworkCardStats: record insert/update failed, ignoring because of probable race condition", null);
     }
     result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
     return result[0];

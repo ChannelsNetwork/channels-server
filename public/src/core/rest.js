@@ -333,12 +333,16 @@ class RestUtils {
     };
   }
 
-  static cardClickedDetails(address, fingerprint, cardId) {
+  static cardClickedDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
-      cardId: cardId
+      cardId: cardId,
+      transaction: {
+        objectString: transactionString,  // serialized bankTransaction
+        signature: transactionSignature
+      }
     };
   }
 

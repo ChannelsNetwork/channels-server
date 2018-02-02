@@ -521,8 +521,8 @@ export class Bank implements RestServer, Initializable {
       if (coupon.budget.plusPercent < 0 || coupon.budget.plusPercent > 99) {
         throw new ErrorWithStatusCode(400, "Coupon budget plusPercent is invalid");
       }
-      if (coupon.reason !== "card-promotion" && coupon.reason !== "card-open-payment") {
-        throw new ErrorWithStatusCode(400, "Coupon budget plusPercent cannot be non-zero except for card-promotion or card-open-payment");
+      if (coupon.reason !== "card-promotion" && coupon.reason !== "card-open-payment" && coupon.reason !== "card-click-payment") {
+        throw new ErrorWithStatusCode(400, "Coupon budget plusPercent cannot be non-zero except for card-promotion or card-open-payment or card-click-payment");
       }
     }
     const record = await db.insertBankCoupon(details, user.id, coupon.address, coupon.timestamp, coupon.amount, coupon.budget.amount, coupon.budget.plusPercent, coupon.reason, cardId);
