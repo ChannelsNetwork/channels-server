@@ -8,8 +8,11 @@ import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor 
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 import { errorManager } from "./error-manager";
+import { priceRegulator } from "./price-regulator";
 
 const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
+const MAX_PAYOUT_PER_BASE_FEE_PERIOD = 500;
+
 export class Database {
   private db: Db;
   private oldUsers: Collection;
@@ -98,7 +101,8 @@ export class Database {
         totalCardDeveloperRevenue: 0,
         totalDeposits: 0,
         totalWithdrawals: 0,
-        totalPublisherSubsidies: 0
+        totalPublisherSubsidies: 0,
+        maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD
       };
       await this.networks.insert(record);
     }
@@ -2146,11 +2150,12 @@ export class Database {
     return this.cardTopics.findOne<CardTopicRecord>({ topicNoCase: name.toLowerCase() });
   }
 
-  async insertOriginalNetworkCardStats(stats: NetworkCardStats): Promise<void> {
+  async insertOriginalNetworkCardStats(stats: NetworkCardStats, baseCardPrice: number): Promise<void> {
     const record: NetworkCardStatsHistoryRecord = {
       periodStarting: 0,
       isCurrent: false,
-      stats: stats
+      stats: stats,
+      baseCardPrice: baseCardPrice
     };
     await this.networkCardStats.insert(record);
   }
@@ -2164,10 +2169,10 @@ export class Database {
     }
   }
 
-  async ensureNetworkCardStats(): Promise<NetworkCardStatsHistoryRecord> {
+  async ensureNetworkCardStats(force = false): Promise<NetworkCardStatsHistoryRecord> {
     let result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
     const now = Date.now();
-    if (result && result.length > 0 && now - result[0].periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
+    if (!force && result && result.length > 0 && now - result[0].periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
       return result[0];
     }
     const record = result[0];
@@ -2175,10 +2180,14 @@ export class Database {
     // 1 minute boundary.  Then if a second process tries to insert, it will get a duplicate error.
     const newPeriodStart = Math.round(now / (1000 * 60)) * (1000 * 60);
     const stats: NetworkCardStats = record && record.stats ? record.stats : this.createEmptyNetworkCardStats();
+    if (!stats.paidUnits) {
+      stats.paidUnits = 0;
+    }
     const newRecord: NetworkCardStatsHistoryRecord = {
       periodStarting: newPeriodStart,
       isCurrent: true,
-      stats: stats
+      stats: stats,
+      baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)
     };
     const writeResult = await this.networkCardStats.insert(newRecord);
     if (writeResult.insertedCount === 1) {
@@ -2198,10 +2207,11 @@ export class Database {
       clicks: 0,
       uniqueClicks: 0,
       paidOpens: 0,
+      paidUnits: 0,
       likes: 0,
       dislikes: 0,
       cardRevenue: 0,
-      blockedPaidOpens: 0
+      blockedPaidOpens: 0,
     };
     return stats;
   }
@@ -2214,16 +2224,17 @@ export class Database {
       return {
         periodStarting: 0,
         isCurrent: false,
-        stats: this.createEmptyNetworkCardStats()
+        stats: this.createEmptyNetworkCardStats(),
+        baseCardPrice: 0
       };
     }
   }
 
   async incrementNetworkCardStats(stats: NetworkCardStats): Promise<void> {
-    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks, stats.blockedPaidOpens);
+    await this.incrementNetworkCardStatItems(stats.opens, stats.uniqueOpens, stats.paidOpens, stats.paidUnits, stats.likes, stats.dislikes, stats.clicks, stats.uniqueClicks, stats.blockedPaidOpens);
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
@@ -2239,6 +2250,9 @@ export class Database {
     }
     if (paidOpens) {
       update["stats.paidOpens"] = paidOpens;
+    }
+    if (paidUnits) {
+      update["stats.paidUnits"] = paidOpens;
     }
     if (likes) {
       update["stats.likes"] = likes;

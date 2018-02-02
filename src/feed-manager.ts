@@ -470,6 +470,12 @@ export class FeedManager implements Initializable, RestServer {
       const channelCard = await cursor.next();
       const card = await db.findCardById(channelCard.cardId, false);
       if (card) {
+        if (card.curation && card.curation.block && user.id !== card.createdById) {
+          continue;
+        }
+        if (card.private && user.id !== card.createdById) {
+          continue;
+        }
         result.push(card);
       }
       if (result.length >= maxCount) {
@@ -549,7 +555,13 @@ export class FeedManager implements Initializable, RestServer {
       while (await cursor.hasNext()) {
         const channelCard = await cursor.next();
         const card = await db.findCardById(channelCard.cardId, false);
-        if (card && (!card.curation || !card.curation.block || card.createdById === user.id) && (user.id === card.createdById || !card.private)) {
+        if (card) {
+          if (card.curation && card.curation.block && card.createdById !== user.id) {
+            continue;
+          }
+          if (card.private && card.createdById !== user.id) {
+            continue;
+          }
           cards.push(card);
         }
         if (cards.length >= limit) {
