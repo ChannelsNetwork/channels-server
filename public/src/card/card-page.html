@@ -215,7 +215,7 @@
       }
 
       onActivate(route) {
-        this.$.termsOverlay.show();
+        this.$.termsOverlay.hide();
         this._active = true;
         this._route = route;
         this.data = null;
@@ -273,6 +273,21 @@
         $router.goto(this.channelUrl);
       }
 
+      _showTermsPanel() {
+        if ($core.profile && $core.profile.handle) {
+          return;
+        }
+        let cost = this.data.pricing.openFee;
+        if (cost < 0) {
+          return;
+        }
+        let paid = (!this.data.userSpecific.isPoster) && ((cost > 0 && this.data.userSpecific.paidToAuthor) || (cost < 0 && this.data.userSpecific.earnedFromAuthor));
+        if (paid) {
+          return;
+        }
+        this.$.termsOverlay.show();
+      }
+
       _loadCard() {
         this._cardOpened = false;
         this.$.nocard.classList.add("hidden");
@@ -298,6 +313,8 @@
             }
           }
           this.data = cardData.card;
+          this._showTermsPanel();
+
           if (this.data.summary && this.data.summary.title) {
             document.title = this.data.summary.title + " - Channels";
           } else {
@@ -311,7 +328,6 @@
           setTimeout(() => {
             this._loadChannel();
           });
-
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
