@@ -297,6 +297,8 @@
       _loadCard() {
         this._cardOpened = false;
         this._cardContentLoaded = false;
+        this._cardNode = null;
+
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
@@ -521,7 +523,9 @@
         cardNode.author = this.data.by;
         cardNode.user = $core.profile;
         cardNode.services = $core.cardManager.cardService;
+        cardNode.active = this._termsAccepted;
         this.$.cardView.appendChild(cardNode);
+        this._cardNode = cardNode;
 
         this.$.morePanel.classList.remove("hidden");
       }
@@ -530,6 +534,9 @@
         this._termsAccepted = true;
         if (this._cardContentLoaded) {
           this._startPaymentTimer();
+        }
+        if (this._cardNode) {
+          this._cardNode.active = true;
         }
       }
 
