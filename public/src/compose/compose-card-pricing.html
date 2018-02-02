@@ -73,7 +73,7 @@
     <div class="container">
       <h2>Price your card</h2>
       <soso-radio-group id="group" on-select="_onRadioSelect">
-        <soso-radio-button name="earn" label="I want to earn money with this card"></soso-radio-button>
+        <soso-radio-button id="earn" name="earn" label="I want to earn money with this card"></soso-radio-button>
         <soso-radio-button name="pay" label="I am willing to pay readers to see this card"></soso-radio-button>
       </soso-radio-group>
 
@@ -187,7 +187,10 @@
         if (this.wizard.data.summary.linkURL) {
           this.$.group.selected = "pay";
           this.$.group2.selected = "impressions";
+          this.$.earn.disabled = true;
           this._onRadioSelect();
+        } else {
+          this.$.earn.disabled = false;
         }
       }
 
