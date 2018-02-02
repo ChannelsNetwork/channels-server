@@ -287,6 +287,9 @@
         if (paid) {
           return;
         }
+        if (this._route && this._route.context && this._route.context.fromApp) {
+          return;
+        }
         this._termsAccepted = false;
         this.$.termsOverlay.show();
       }

@@ -395,6 +395,7 @@
             });
           } else {
             let context = {
+              fromApp: true,
               card: card,
               scrollTop: $app.scrollValue,
               returnPath: "/search/" + encodeURIComponent(this._searchString || "")
