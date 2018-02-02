@@ -221,6 +221,7 @@
           this.$.check.classList.remove("spinning");
           setTimeout(() => {
             this.hide();
+            this.dispatchEvent(new CustomEvent('accept', { bubbles: true, composed: true }));
           }, 300);
         }, 1800);
       }

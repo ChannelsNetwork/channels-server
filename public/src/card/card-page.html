@@ -194,7 +194,7 @@
 
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
-    <card-terms-overlay id="termsOverlay"></card-terms-overlay>
+    <card-terms-overlay id="termsOverlay" on-accept="_onTermsAccept"></card-terms-overlay>
   </template>
   <script>
     class CardPage extends Polymer.Element {
@@ -216,6 +216,7 @@
 
       onActivate(route) {
         this.$.termsOverlay.hide();
+        this._termsAccepted = false;
         this._active = true;
         this._route = route;
         this.data = null;
@@ -274,6 +275,7 @@
       }
 
       _showTermsPanel() {
+        this._termsAccepted = true;
         if ($core.profile && $core.profile.handle) {
           return;
         }
@@ -285,11 +287,13 @@
         if (paid) {
           return;
         }
+        this._termsAccepted = false;
         this.$.termsOverlay.show();
       }
 
       _loadCard() {
         this._cardOpened = false;
+        this._cardContentLoaded = false;
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
@@ -350,11 +354,10 @@
               // Import the card viewer
               return this._import(packageInfo.importHref).then(() => {
                 this._createCardView(packageInfo);
+                this._cardContentLoaded = true;
                 setTimeout(() => {
                   if (this._active) {
                     this._startPaymentTimer();
-                    $core.cardOpened(this.data.id);
-                    this._cardOpened = true;
                   }
                 });
               });
@@ -520,6 +523,13 @@
         this.$.morePanel.classList.remove("hidden");
       }
 
+      _onTermsAccept() {
+        this._termsAccepted = true;
+        if (this._cardContentLoaded) {
+          this._startPaymentTimer();
+        }
+      }
+
       _stopPaymentTimer() {
         if (this._paymentTimer) {
           clearTimeout(this._paymentTimer);
@@ -531,9 +541,18 @@
       }
 
       _startPaymentTimer() {
+        if (!this._termsAccepted) {
+          return;
+        }
         if (this._paymentTimer) {
           return;
         }
+
+        if (!this._cardOpened) {
+          $core.cardOpened(this.data.id);
+          this._cardOpened = true;
+        }
+
         let startTimer = false;
         if (!this.data.userSpecific.isPoster) {
           if ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0) ||
