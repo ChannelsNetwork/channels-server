@@ -1133,6 +1133,10 @@ export class FeedManager implements Initializable, RestServer {
     return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-open-payment");
   }
 
+  private async createClickCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
+    return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-click-payment");
+  }
+
   private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
     const details: BankCouponDetails = {
       address: user.user.address,
