@@ -268,10 +268,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           errorManager.warning("Card.handleGetCard: imposing extra delay penalty", request, delay);
         }
       }
+      let promotedCard: CardDescriptor;
+      if (requestBody.detailsObject.includePromotedCard && !cardState.promoted) {
+        promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, cardState);
+      }
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
         card: cardState,
-        paymentDelayMsecs: delay
+        paymentDelayMsecs: delay,
+        promotedCard: promotedCard
       };
       response.json(reply);
     } catch (err) {

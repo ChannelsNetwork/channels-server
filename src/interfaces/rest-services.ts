@@ -295,11 +295,13 @@ export interface ChannelComponentDescriptor {
 
 export interface GetCardDetails extends Signable {
   cardId: string;
+  includePromotedCard: boolean;
 }
 
 export interface GetCardResponse extends RestResponse {
   card: CardDescriptor;
   paymentDelayMsecs: number;
+  promotedCard: CardDescriptor;
 }
 
 export interface CardStatsHistoryDetails extends Signable {

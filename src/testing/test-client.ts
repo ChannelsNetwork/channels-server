@@ -509,7 +509,8 @@ class TestClient implements RestServer {
       address: this.keyInfo.address,
       fingerprint: null,
       timestamp: Date.now(),
-      cardId: cardId
+      cardId: cardId,
+      includePromotedCard: false
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<GetCardDetails> = {
