@@ -315,9 +315,11 @@ export class FeedManager implements Initializable, RestServer {
         const adDescriptor = await this.populateCard(request, adCard, true, user);
         console.log("FeedManager.getOnePromotedCardIfAppropriate: Populating ad: ", adDescriptor.summary.title, adDescriptor.id, adCard.promotionScores);
         break;
+      } else {
+        break;
       }
     }
-    adCursor.close();
+    await adCursor.close();
     if (adCard) {
       return this.populateCard(request, adCard, true, user);
     } else {

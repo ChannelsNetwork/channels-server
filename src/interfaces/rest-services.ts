@@ -301,7 +301,7 @@ export interface GetCardDetails extends Signable {
 export interface GetCardResponse extends RestResponse {
   card: CardDescriptor;
   paymentDelayMsecs: number;
-  promotedCard: CardDescriptor;
+  promotedCard?: CardDescriptor;
 }
 
 export interface CardStatsHistoryDetails extends Signable {
