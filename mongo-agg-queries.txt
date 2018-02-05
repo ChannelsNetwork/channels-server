@@ -1,0 +1,26 @@
+Find cards with a lot of discounted payments (suggesting fraud)
+
+db.bankTransactions.aggregate([{$match: {"details.reason": "card-open-fee", "details.amount": 0.000001}},{$group: {_id: "$cardId, total: {$sum: 1}}},{$sort: {total: -1}}])
+
+{ "_id" : "a0f129e1-e059-43b6-8b55-93ae117ea8c2", "total" : 81 }
+{ "_id" : "b9323a04-7dac-4243-8546-54a6a7abfc8b", "total" : 75 }
+{ "_id" : "892750f8-a8dc-4101-9d0d-85101f7abfd4", "total" : 56 }
+{ "_id" : "76fb8c25-d4c2-4ac9-9839-8c926945b4d5", "total" : 47 }
+{ "_id" : "43a1bfa6-f559-448b-b6f8-c04cfae4f900", "total" : 43 }
+{ "_id" : "78118df2-f9c5-4026-8e3b-a160ca45561f", "total" : 37 }
+{ "_id" : "3dce21d3-c0a1-4451-9393-f42018807cef", "total" : 34 }
+{ "_id" : "5bac782f-b43c-4d78-8327-3c6117251c79", "total" : 20 }
+{ "_id" : "c3a4d7a3-e8d6-4dcb-ae0c-fc6cd3a785b3", "total" : 20 }
+{ "_id" : "353ade7f-cbb9-4d96-bff6-8c0557d3d337", "total" : 20 }
+{ "_id" : "87e59668-d574-4054-a37b-101062ede94e", "total" : 20 }
+{ "_id" : "ecd09f22-6ffc-4e4f-bbc9-50a68d62747e", "total" : 20 }
+{ "_id" : "241a9902-2f07-482b-81c8-27801082ef46", "total" : 20 }
+{ "_id" : "4f240e54-cc37-471d-a068-28f737f40244", "total" : 20 }
+{ "_id" : "1421fdc1-f67b-4343-8e4e-5ddd2a1386b4", "total" : 19 }
+{ "_id" : "1386db84-98c7-4b7c-92a1-785ca78db0fa", "total" : 19 }
+{ "_id" : "b4d95770-cae8-481f-bedb-3658d5e56305", "total" : 17 }
+{ "_id" : "09b1e46a-443c-41a6-9b25-3565c772e4df", "total" : 16 }
+{ "_id" : "42a78ffb-01c9-42d1-b23e-bdb6270b5b55", "total" : 16 }
+{ "_id" : "e73ec987-d62a-44d5-98f1-cfedbe462049", "total" : 15 }
+{ "_id" : "8edadc16-1360-4291-b36b-2edc09bb6d68", "total" : 15 }
+
