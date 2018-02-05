@@ -115,6 +115,14 @@ class ChannelsNetworkWebClient {
   private async setupExpress(): Promise<void> {
     this.app = express();
 
+    this.app.use((req: Request, res: Response, next: NextFunction) => {
+      if (/^www\./.test(req.headers.host)) {
+        res.redirect(req.protocol + '://' + req.headers.host.replace(/^www\./, '') + req.url, 301);
+      } else {
+        next();
+      }
+    });
+
     // this.app.use(compression());
     this.app.use(bodyParser.json({ strict: false })); // for parsing application/json
     this.app.use(bodyParser.urlencoded({
