@@ -298,6 +298,35 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
+  async getOnePromotedCardIfAppropriate(request: Request, user: UserRecord, card: CardDescriptor): Promise<CardDescriptor> {
+    let earnedAdCardIds = this.userEarnedAdCardIds.get(user.id);
+    if (!earnedAdCardIds) {
+      earnedAdCardIds = [];
+      this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
+    }
+    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
+    let adCard: CardRecord;
+    while (true) {
+      adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, []);
+      if (adCard) {
+        if (adCard.summary.iframeUrl) {
+          continue;
+        }
+        const adDescriptor = await this.populateCard(request, adCard, true, user);
+        console.log("FeedManager.getOnePromotedCardIfAppropriate: Populating ad: ", adDescriptor.summary.title, adDescriptor.id, adCard.promotionScores);
+        break;
+      } else {
+        break;
+      }
+    }
+    await adCursor.close();
+    if (adCard) {
+      return this.populateCard(request, adCard, true, user);
+    } else {
+      return null;
+    }
+  }
+
   private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();

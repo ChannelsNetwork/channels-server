@@ -538,6 +538,7 @@
         if (this._cardNode) {
           this._cardNode.active = true;
         }
+        $core.analytics.event("card", "accept-terms");
       }
 
       _stopPaymentTimer() {
