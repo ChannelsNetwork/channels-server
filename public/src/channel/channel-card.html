@@ -1,4 +1,5 @@
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../card/card-view-helper.html">
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 
@@ -153,19 +154,6 @@
         </dom-repeat>
       </div>
     </div>
-    <!-- <div id="container" class="container">
-      <div id="contentPanel" class="vertical layout">
-        
-        
-      </div>
-      <user-image image="[[channelImage]]" on-click="_gotoChannel"></user-image>
-      <soso-icon id="moreIcon" icon="expand-more"></soso-icon>
-      <soso-dropdown for="moreIcon" alignment="right" offset="-5">
-        <li on-click="_gotoChannel">Open Channel</li>
-        <li id="btnU" on-click="_unsubscribe" class="hidden">Unsubscribe</li>
-        <li id="btnS" on-click="_subscribe" class="hidden">Subscribe</li>
-      </soso-dropdown>
-    </div> -->
   </template>
   <script>
     class ChannelCard extends Polymer.Element {
@@ -181,15 +169,26 @@
         };
       }
 
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._detachIntersectionObservers();
+      }
+
+      _detachIntersectionObservers() {
+        $cardHelper.removeIntersectionObserver(this);
+      }
+
+      _attachIntersectionObservers() {
+        this._detachIntersectionObservers();
+        $cardHelper.addIntersectionObserver(this, (entry) => {
+          if (entry.isIntersecting) {
+            this._loadImage();
+          }
+        });
+      }
+
       _onChannel() {
         if (this.channel) {
-          let bgImage = "";
-          if (this.channel.bannerImage) {
-            bgImage = this.channel.bannerImage.url;
-          }
-          this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
-
-          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
           let stats = [];
           stats.push({
             label: "Revenue",
@@ -207,11 +206,30 @@
             class: 'subscribersStat'
           });
           this.stats = stats;
+          requestAnimationFrame(() => {
+            this._attachIntersectionObservers();
+          });
+          if (this._imageLoaded) {
+            this._imageLoaded = false;
+            this._loadImage();
+          }
         } else {
           this.stats = [];
           this.channelImage = "about:blank";
         }
         this._refreshMenu();
+      }
+
+      _loadImage() {
+        if (this.channel && (!this._imageLoaded)) {
+          this._imageLoaded = true;
+          let bgImage = "";
+          if (this.channel.bannerImage) {
+            bgImage = this.channel.bannerImage.url;
+          }
+          this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
+          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+        }
       }
 
       _refreshMenu() {
