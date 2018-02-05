@@ -393,6 +393,7 @@ export interface UserCardActionRecord {
   cardId: string;
   at: number;
   action: CardActionType;
+  fraudReason?: CardPaymentFraudReason;
   payment?: {
     amount: number;
     transactionId: string;
@@ -408,6 +409,7 @@ export interface UserCardActionRecord {
 }
 
 export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click";
+export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
   userId: string;

@@ -462,6 +462,9 @@ export class FeedManager implements Initializable, RestServer {
       if (feedCard.curation && feedCard.curation.block && feedCard.createdById !== user.id) {
         continue;
       }
+      if (feedCard.pricing.openPayment > 0) {
+        continue;  // exclude cards that pay you appearing in your feed just because you subscribe to that channel
+      }
       cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
       if (!afterCardId) {  // Only include subscribed cards on first page of results
         const userCard = await db.findUserCardInfo(user.id, feedCard.id);
