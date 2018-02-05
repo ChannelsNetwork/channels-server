@@ -116,7 +116,7 @@ class ChannelsNetworkWebClient {
     this.app = express();
 
     this.app.use((req: Request, res: Response, next: NextFunction) => {
-      if (/^www\./.test(req.headers.host)) {
+      if (/^www\./i.test(req.headers.host)) {
         res.redirect(req.protocol + '://' + req.headers.host.replace(/^www\./, '') + req.url, 301);
       } else {
         next();
