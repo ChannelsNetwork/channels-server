@@ -45,6 +45,7 @@ const UNIQUE_OPENS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const CLICKS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const UNIQUE_CLICKS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const OPEN_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const CLICK_FEES_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const LIKE_DISLIKE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const DEFAULT_CARD_PAYMENT_DELAY = 1000 * 10;
 const CARD_PAYMENT_DELAY_PER_LEVEL = 1000 * 5;
@@ -54,7 +55,7 @@ const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
-
+const INITIAL_BASE_CARD_PRICE = 0.05;
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -76,7 +77,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         stats.dislikes += card.stats.dislikes ? card.stats.dislikes.value : 0;
         stats.cardRevenue += card.stats.revenue ? card.stats.revenue.value : 0;
       }
-      await db.insertOriginalNetworkCardStats(stats);
+      await db.insertOriginalNetworkCardStats(stats, INITIAL_BASE_CARD_PRICE);
     }
   }
 
@@ -523,7 +524,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0);
+      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "open", 0, null, 0, null, 0, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       const reply: CardOpenedResponse = {
@@ -547,8 +548,97 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      console.log("CardManager.card-clicked", requestBody.detailsObject);
       const now = Date.now();
+      let transactionResult: BankTransactionResult;
+      if (requestBody.detailsObject.transaction) {
+        if (card.pricing.openPayment <= 0) {
+          response.status(400).send("No open payment on this card");
+          return;
+        }
+        const info = await db.ensureUserCardInfo(user.id, card.id);
+        if (info.earnedFromAuthor > 0) {
+          response.status(400).send("You have already been paid for clicking on this card");
+          return;
+        }
+        const author = await userManager.getUser(card.createdById, true);
+        if (!author) {
+          response.status(404).send("The author no longer has an account.");
+          return;
+        }
+        if (!author.admin && author.balance < card.pricing.openPayment) {
+          response.status(402).send("The author does not have sufficient funds.");
+          return;
+        }
+        if (!requestBody.detailsObject.transaction) {
+          response.status(400).send("Transaction missing");
+          return;
+        }
+        const transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
+        if (!userManager.isUserAddress(author, transaction.address)) {
+          response.status(400).send("The transaction doesn't list the card author as the source.");
+          return;
+        }
+        if (transaction.amount !== card.pricing.openPayment) {
+          response.status(400).send("Transaction amount does not match card click payment.");
+          return;
+        }
+        if (transaction.reason !== "card-click-payment") {
+          response.status(400).send("Transaction reason must be card-click-payment.");
+          return;
+        }
+        if (transaction.relatedCardId !== card.id) {
+          response.status(400).send("Transaction refers to the wrong card");
+          return;
+        }
+        if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+          response.status(400).send("Transaction refers to the wrong coupon");
+          return;
+        }
+        if (transaction.type !== "coupon-redemption") {
+          response.status(400).send("Transaction type must be coupon-redemption");
+          return;
+        }
+        if (!transaction.toRecipients || transaction.toRecipients.length !== 1) {
+          response.status(400).send("Transaction recipients are incorrect.");
+          return;
+        }
+        if (transaction.toRecipients[0].address !== user.address || transaction.toRecipients[0].portion !== 'remainder' || transaction.toRecipients[0].reason !== "coupon-redemption") {
+          response.status(400).send("Transaction recipient is incorrect.");
+          return;
+        }
+        const coupon = await db.findBankCouponById(transaction.relatedCouponId);
+        if (coupon.cardId !== card.id) {
+          response.status(400).send("Invalid coupon: card mismatch");
+          return;
+        }
+        if (!userManager.isUserAddress(author, coupon.byAddress)) {
+          response.status(400).send("Invalid coupon: author mismatch");
+          return;
+        }
+        if (coupon.amount !== card.pricing.openPayment) {
+          response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
+          return;
+        }
+        if (!author.admin && author.balance < card.pricing.openPayment) {
+          response.status(402).send("The author does not have sufficient funds.");
+          return;
+        }
+        if (coupon.reason !== 'card-click-payment') {
+          response.status(400).send("Invalid coupon: invalid type");
+          return;
+        }
+        await userManager.updateUserBalance(request, user);
+        await userManager.updateUserBalance(request, author);
+        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+        await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+        await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
+        const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        card.budget.available = budgetAvailable;
+        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "redeem-click-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id);
+        await this.incrementStat(card, "clickFeesPaid", coupon.amount, now, CLICK_FEES_PAID_SNAPSHOT_INTERVAL);
+      }
+      console.log("CardManager.card-clicked", requestBody.detailsObject);
       const userCard = await db.findUserCardInfo(user.id, card.id);
       let uniques = 0;
       if (!userCard || !userCard.lastClicked) {
@@ -556,11 +646,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 1, uniques, 0);
+      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "click", 0, null, 0, null, 0, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
+      const status = await userManager.getUserStatus(request, user, false);
       const reply: CardClickedResponse = {
-        serverVersion: SERVER_VERSION
+        serverVersion: SERVER_VERSION,
+        status: status,
+        transactionId: transactionResult && transactionResult.record ? transactionResult.record.id : null
       };
       response.json(reply);
     } catch (err) {
@@ -647,7 +740,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "pay", 0, null, 0, null, 0, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 1, 0, 0, 0, 0, 0);
+      await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
@@ -916,11 +1009,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           const deltaDislikes = newDislikes - existingDislikes;
           if (deltaLikes !== 0) {
             await this.incrementStat(card, "likes", deltaLikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, deltaLikes, 0, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaLikes, 0, 0, 0, 0);
           }
           if (deltaDislikes !== 0) {
             await this.incrementStat(card, "dislikes", deltaDislikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaDislikes, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, deltaDislikes, 0, 0, 0);
           }
           await feedManager.rescoreCard(card, false);
         }

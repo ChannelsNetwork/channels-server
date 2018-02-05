@@ -455,6 +455,8 @@
             return originator ? "card impression: payment to reader" : "card impression: payment from author";
           case "card-open-payment":
             return originator ? "card opened: payment to reader" : "card opened: payment from author";
+          case "card-click-payment":
+            return originator ? "card clicked: payment to reader" : "card clicked: payment from author";
           case "card-open-fee":
             return originator ? "card opened: payment to author" : "card opened: payment from reader";
           default:

@@ -103,6 +103,7 @@ export interface NetworkRecord {
   totalDeposits: number;
   totalWithdrawals: number;
   totalPublisherSubsidies: number;
+  maxPayoutPerBaseFeePeriod: number;
 }
 
 export interface CardRecord {
@@ -184,6 +185,7 @@ export interface CardStatistics {
   revenue: CardStatistic;
   promotionsPaid: CardStatistic;
   openFeesPaid: CardStatistic;
+  clickFeesPaid: CardStatistic;
   impressions: CardStatistic;
   uniqueImpressions: CardStatistic;
   opens: CardStatistic;
@@ -405,7 +407,7 @@ export interface UserCardActionRecord {
   };
 }
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "make-private" | "make-public" | "click";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click";
 
 export interface UserCardInfoRecord {
   userId: string;
@@ -441,7 +443,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -499,6 +501,7 @@ export interface NetworkCardStatsHistoryRecord {
   periodStarting: number;
   isCurrent: boolean;
   stats: NetworkCardStats;
+  baseCardPrice: number;
 }
 
 export interface NetworkCardStats {
@@ -507,6 +510,7 @@ export interface NetworkCardStats {
   clicks: number;
   uniqueClicks: number;
   paidOpens: number;
+  paidUnits: number;
   likes: number;
   dislikes: number;
   cardRevenue: number;

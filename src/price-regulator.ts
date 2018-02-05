@@ -1,7 +1,7 @@
 import { Initializable } from "./interfaces/initializable";
 import { UrlManager } from "./url-manager";
 import { db } from "./db";
-import { SubsidyBalanceRecord, CardOpensInfo, CardOpensRecord } from "./interfaces/db-records";
+import { SubsidyBalanceRecord, CardOpensInfo, CardOpensRecord, NetworkCardStatsHistoryRecord } from "./interfaces/db-records";
 import { errorManager } from "./error-manager";
 
 // The PriceRegulator is the entity responsible for determining the base card price and
@@ -20,10 +20,12 @@ const SUBSIDY_CONTRIBUTION_RATE = 100.00 / (1000 * 60 * 60 * 24);  // ℂ100/day
 const SUBSIDY_CACHE_LIFETIME = 1000 * 60 * 60;
 const BASE_CARD_FEE_CACHE_LIFETIME = 1000 * 60 * 60;
 const CARD_OPENED_UPDATE_INTERVAL = 1000 * 60 * 60;
-const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24 * 3;
+const BASE_CARD_FEE_PERIOD = 1000 * 60 * 60 * 24 * 1;
+const MAXIMUM_PAYOUT_PER_FEE_PERIOD = 500;
 const SUBSIDY_PERIOD = 1000 * 60 * 60 * 24;
 const MAXIMUM_BASE_CARD_FEE = 0.05;
 const MINIMUM_BASE_CARD_FEE = 0.001;
+const ESTIMATED_AVERAGE_UNITS_PER_OPEN = 3;
 const MAXIMUM_SUBSIDY_RATE = 5 / (1000 * 60 * 60 * 24 * 3);
 
 export class PriceRegulator implements Initializable {
@@ -41,12 +43,12 @@ export class PriceRegulator implements Initializable {
     await this.contributeSubsidies();
     await this.getBaseCardFee();
     await this.getUserSubsidyRate();
-    console.log("PriceRegulator.initialize2: base card fee, subsidy rate", this.lastBaseCardFee, this.lastSubsidyRate * 1000 * 60);
     setInterval(() => {
       void this.contributeSubsidies();
     }, POLL_INTERVAL);
     await this.onCardOpened(1);
     await this.onUserSubsidyPaid(0.0000000001);
+    await db.ensureNetworkCardStats(true);
   }
 
   private async contributeSubsidies(): Promise<void> {
@@ -80,24 +82,24 @@ export class PriceRegulator implements Initializable {
   }
 
   async getBaseCardFee(): Promise<number> {
-    const now = Date.now();
-    if (now - this.lastBaseCardFeeAt > BASE_CARD_FEE_CACHE_LIFETIME) {
-      await this.ensureCurrentCardOpens();
-      const currentCardOpens = await db.findCurrentCardOpens();
-      if (currentCardOpens) {
-        const pastCardOpens = await db.findFirstCardOpensBefore(now - BASE_CARD_FEE_PERIOD);
-        const previousTotal = pastCardOpens ? pastCardOpens.total.units : 0;
-        const balance = await db.getSubsidyBalance();  // TODO: eventually to include purchased coins, withdrawn coins and withdrawable balance total
-        this.lastBaseCardFee = Math.max(MINIMUM_BASE_CARD_FEE, Math.min(MAXIMUM_BASE_CARD_FEE, balance.balance / (Math.max(1, currentCardOpens.total.units - previousTotal))));
-        this.lastBaseCardFeeAt = now;
-        console.log("PriceRegulator.getBaseCardFee: baseCardFee updated", this.lastBaseCardFee);
-      } else {
-        this.lastBaseCardFee = MINIMUM_BASE_CARD_FEE;
-      }
-    }
-    return this.lastBaseCardFee;
+    const currentStats = await db.ensureNetworkCardStats();
+    return currentStats && currentStats.baseCardPrice ? currentStats.baseCardPrice : MAXIMUM_BASE_CARD_FEE;
   }
 
+  async calculateBaseCardPrice(stats: NetworkCardStatsHistoryRecord): Promise<number> {
+    const oldStats = await db.getNetworkCardStatsAt(Date.now() - BASE_CARD_FEE_PERIOD);
+    const paidUnitCount = stats.stats.paidUnits && oldStats && oldStats.stats.paidUnits ? stats.stats.paidUnits : stats.stats.paidOpens * ESTIMATED_AVERAGE_UNITS_PER_OPEN;
+    let originalPaidUnitCount = 0;
+    if (oldStats) {
+      originalPaidUnitCount = oldStats.stats.paidUnits ? oldStats.stats.paidUnits : oldStats.stats.paidOpens * ESTIMATED_AVERAGE_UNITS_PER_OPEN;
+    }
+    const network = await db.getNetwork();
+    const maxPayout = network && network.maxPayoutPerBaseFeePeriod ? network.maxPayoutPerBaseFeePeriod : MAXIMUM_PAYOUT_PER_FEE_PERIOD;
+    const fee = Number((maxPayout / Math.max(1, paidUnitCount - originalPaidUnitCount)).toFixed(3));
+    const result = Math.min(MAXIMUM_BASE_CARD_FEE, fee);
+    console.log("PriceRegulator.calculateBaseCardPrice: New base price: " + result + " paid units: " + paidUnitCount + " previous: " + originalPaidUnitCount + " maxPayout: " + maxPayout);
+    return result;
+  }
   async onCardOpened(units: number): Promise<void> {
     await this.ensureCurrentCardOpens();
     const additions: CardOpensInfo = {

@@ -74,9 +74,9 @@
           let fetchNewContent = true;
           let parsedRoute = this._parseRoute(route);
           if (!window.__dirtyFeed) {
-            if (this._parsedRoute && this._parsedRouteTimestamp) {
+            if (this._parsedRoute && this._lastFetchTimestamp) {
               if (parsedRoute.path === this._parsedRoute.path) {
-                let timeDiff = (new Date()).getTime() - this._parsedRouteTimestamp;
+                let timeDiff = (new Date()).getTime() - this._lastFetchTimestamp;
                 if (timeDiff < (5 * 60 * 1000)) {
                   fetchNewContent = false;
                 }
@@ -93,7 +93,7 @@
           window.__dirtyFeed = false;
 
           this._parsedRoute = parsedRoute;
-          this._parsedRouteTimestamp = (new Date()).getTime();
+          this._lastFetchTimestamp = (new Date()).getTime();
           this._moreAvailable = false;
           this._onMoreUpdated(this._moreAvailable);
           this._promotedCardIds = [];
@@ -160,6 +160,7 @@
             });
           } else {
             let context = {
+              fromApp: true,
               card: card,
               scrollTop: $app.scrollValue
             };
@@ -203,6 +204,7 @@
 
       _fetchMore() {
         // called by super class when user requests more cards
+        this._lastFetchTimestamp = (new Date()).getTime();
         return $core.getFeed(this._parsedRoute.feedName, this._parsedRoute.count, this._parsedRoute.cardId, this._lastCardId, this._parsedRoute.channel, this._promotedCardIds).then((feed) => {
           const cards = feed.cards;
           this._lastCardId = null;

@@ -81,6 +81,7 @@
         <soso-radio-button name="video" label="Video: show a video in a card"></soso-radio-button>
         <soso-radio-button name="audio" label="Audio: play a song or podcast"></soso-radio-button>
         <soso-radio-button name="embed" label="Game: embed an HTML5 game"></soso-radio-button>
+        <soso-radio-button name="ad" label="Ad: advertise on Channels"></soso-radio-button>
         <soso-radio-button name="custom" label="Custom: choose any card type hosted on GitHub"></soso-radio-button>
       </soso-radio-group>
       <div id="github" style="display:none;">
@@ -128,6 +129,7 @@
           case "video":
           case "audio":
           case "embed":
+          case "ad":
             this.$.github.style.display = "none";
             disabled = false;
             break;
@@ -165,6 +167,9 @@
           case "ChannelsNetwork/card-video":
             this.$.group.selected = "video";
             break;
+          case "ChannelsNetwork/card-image-ad":
+            this.$.group.selected = "ad";
+            break;
           case "":
             this.$.group.selected = null;
           default:
@@ -190,6 +195,8 @@
             return "ChannelsNetwork/card-video";
           case "audio":
             return "ChannelsNetwork/card-audio";
+          case "ad":
+            return "ChannelsNetwork/card-image-ad";
           case "":
             return null;
           default:

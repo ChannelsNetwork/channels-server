@@ -13,7 +13,6 @@ import * as uuid from "uuid";
 import { KeyUtils } from "./key-utils";
 import * as url from 'url';
 import * as streamMeter from "stream-meter";
-import { GetObjectRequest } from "aws-sdk/clients/s3";
 import { DiscardFilesDetails, DiscardFilesResponse, RestRequest, FileInfo } from "./interfaces/rest-services";
 import { SERVER_VERSION } from "./server-version";
 import { RestHelper } from "./rest-helper";
@@ -259,7 +258,7 @@ export class FileManager implements RestServer {
   }
 
   private async handleFetch2(request: Request, response: Response): Promise<void> {
-    const s3Request: GetObjectRequest = {
+    const s3Request: AWS.S3.GetObjectRequest = {
       Bucket: configuration.get('aws.s3.bucket'),
       Key: request.params.fileId + "/" + request.params.fileName
     };
