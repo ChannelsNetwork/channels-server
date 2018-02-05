@@ -87,8 +87,7 @@
       </div>
       <div class="table">
         <div class="headerRow">
-          <div class="headerCell">First</div>
-          <div class="headerCell">Last</div>
+          <div class="headerCell">Name</div>
           <div class="headerCell">Handle</div>
           <div class="headerCell">Address</div>
           <div class="headerCell">Email</div>
@@ -116,8 +115,7 @@
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="row">
-            <div class="cell">[[item.firstName]]</div>
-            <div class="cell">[[item.lastName]]</div>
+            <div class="cell">[[item.name]]</div>
             <div class="cell clickable">
               <a href="[[item.channelUrl]]">[[item.handle]]</a>
             </div>
@@ -149,11 +147,12 @@
       </div>
       <h2>CSV</h2>
       <div class="csv">
-        <div class="csvRow">First, Last, Handle, Address, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage, IP Address,
-          Country, Region, City, Mailing List, Original Referer, Original Landing Page, Curation
+        <div class="csvRow">Name, First, Last, Handle, Address, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage,
+          IP Address, Country, Region, City, Mailing List, Original Referer, Original Landing Page, Curation
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="csvRow">
+            <div class="csvCell">[[item.name]]</div>,
             <div class="csvCell">[[item.firstName]]</div>,
             <div class="csvCell">[[item.lastName]]</div>,
             <div class="csvCell">[[item.handle]]</div>,
@@ -216,6 +215,7 @@
             users.push({
               user: user,
               id: user.id,
+              name: user.identity ? user.identity.name : "",
               firstName: user.identity ? user.identity.firstName : "",
               lastName: user.identity ? user.identity.lastName : "",
               email: user.identity ? user.identity.emailAddress : "",

@@ -218,7 +218,7 @@
         this.set('fees', 'US$' + fees.toFixed(2));
         const proceeds = this._floor2Digits(withdrawal - fees);
         this.set('proceeds', 'US$' + proceeds.toFixed(2));
-        if (!$core.isValidPaypalRecipient(this.$.email.value) || this.$.email.value !== this.$.emailConfirm.value) {
+        if (!$core.isValidPaypalRecipient(this.$.email.value.trim()) || this.$.email.value.trim() !== this.$.emailConfirm.value.trim()) {
           return;
         }
         this.$.btnSave.disabled = false;
@@ -233,7 +233,7 @@
         this.$.btnSave.disabled = true;
         this.$.email.disabled = true;
         this.$.withdrawalAmount.disabled = true;
-        $core.withdraw(Number(this.$.withdrawalAmount.value), this.$.email.value).then(() => {
+        $core.withdraw(Number(this.$.withdrawalAmount.value), this.$.email.value.trim()).then(() => {
           $router.goto("/balance");
         });
       }
