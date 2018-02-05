@@ -297,6 +297,7 @@
             });
           } else {
             let context = {
+              fromApp: true,
               card: card,
               scrollTop: $app.scrollValue,
               returnPath: "/browse/" + encodeURIComponent(this._topic || "")

@@ -1,0 +1,74 @@
+<dom-module id="card-view-mini">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .container {
+        border-radius: 5px;
+        overflow: hidden;
+        font-size: 14px;
+        height: 80px;
+        cursor: pointer;
+        background: white;
+        text-align: left;
+      }
+
+      #imagePanel {
+        width: 100px;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+      }
+
+      #imagePanel.noimage {
+        width: 40px;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          font-size: 13px;
+        }
+        #imagePanel {
+          width: 80px;
+        }
+        #imagePanel.noimage {
+          width: 40px;
+        }
+      }
+    </style>
+    <div class="container horizontal layout shadow1">
+      <div id="imagePanel"></div>
+      <div id="cardContent" class="flex"></div>
+    </div>
+  </template>
+  <script>
+    class CardViewMini extends Polymer.Element {
+      static get is() { return 'card-view-mini'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_refresh'
+          }
+        };
+      }
+
+      _refresh() {
+        if (this.data) {
+          console.log("ad card", this.data);
+          let img = this.data.summary.imageURL;
+          if (img) {
+            this.$.imagePanel.classList.remove("noimage");
+            this.$.imagePanel.style.backgroundImage = 'url("' + img + '")';
+          } else {
+            this.$.imagePanel.classList.add("noimage");
+            this.$.imagePanel.style.backgroundImage = 'url("/s/images/patterns/pattern' + Math.round(Math.random() + 1) + '.jpg")';
+          }
+        }
+      }
+    }
+    window.customElements.define(CardViewMini.is, CardViewMini);
+  </script>
+</dom-module>

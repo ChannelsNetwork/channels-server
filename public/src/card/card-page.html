@@ -3,6 +3,7 @@
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="card-terms-overlay.html">
 
 <dom-module id="card-page">
   <template>
@@ -193,6 +194,7 @@
 
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
+    <card-terms-overlay id="termsOverlay" on-accept="_onTermsAccept"></card-terms-overlay>
   </template>
   <script>
     class CardPage extends Polymer.Element {
@@ -213,6 +215,8 @@
       }
 
       onActivate(route) {
+        this.$.termsOverlay.hide();
+        this._termsAccepted = false;
         this._active = true;
         this._route = route;
         this.data = null;
@@ -270,8 +274,31 @@
         $router.goto(this.channelUrl);
       }
 
+      _showTermsPanel() {
+        this._termsAccepted = true;
+        if ($core.profile && $core.profile.handle) {
+          return;
+        }
+        let cost = this.data.pricing.openFee;
+        if (cost < 0) {
+          return;
+        }
+        let paid = (!this.data.userSpecific.isPoster) && ((cost > 0 && this.data.userSpecific.paidToAuthor) || (cost < 0 && this.data.userSpecific.earnedFromAuthor));
+        if (paid) {
+          return;
+        }
+        if (this._route && this._route.context && this._route.context.fromApp) {
+          return;
+        }
+        this._termsAccepted = false;
+        this.$.termsOverlay.show();
+      }
+
       _loadCard() {
         this._cardOpened = false;
+        this._cardContentLoaded = false;
+        this._cardNode = null;
+
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
@@ -295,6 +322,8 @@
             }
           }
           this.data = cardData.card;
+          this._showTermsPanel();
+
           if (this.data.summary && this.data.summary.title) {
             document.title = this.data.summary.title + " - Channels";
           } else {
@@ -308,7 +337,6 @@
           setTimeout(() => {
             this._loadChannel();
           });
-
           if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
             this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
               return this.$.insufficientFunds.show().then((result) => {
@@ -331,11 +359,10 @@
               // Import the card viewer
               return this._import(packageInfo.importHref).then(() => {
                 this._createCardView(packageInfo);
+                this._cardContentLoaded = true;
                 setTimeout(() => {
                   if (this._active) {
                     this._startPaymentTimer();
-                    $core.cardOpened(this.data.id);
-                    this._cardOpened = true;
                   }
                 });
               });
@@ -496,9 +523,22 @@
         cardNode.author = this.data.by;
         cardNode.user = $core.profile;
         cardNode.services = $core.cardManager.cardService;
+        cardNode.active = this._termsAccepted;
         this.$.cardView.appendChild(cardNode);
+        this._cardNode = cardNode;
 
         this.$.morePanel.classList.remove("hidden");
+      }
+
+      _onTermsAccept() {
+        this._termsAccepted = true;
+        if (this._cardContentLoaded) {
+          this._startPaymentTimer();
+        }
+        if (this._cardNode) {
+          this._cardNode.active = true;
+        }
+        $core.analytics.event("card", "accept-terms");
       }
 
       _stopPaymentTimer() {
@@ -512,9 +552,18 @@
       }
 
       _startPaymentTimer() {
+        if (!this._termsAccepted) {
+          return;
+        }
         if (this._paymentTimer) {
           return;
         }
+
+        if (!this._cardOpened) {
+          $core.cardOpened(this.data.id);
+          this._cardOpened = true;
+        }
+
         let startTimer = false;
         if (!this.data.userSpecific.isPoster) {
           if ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0) ||
