@@ -1,0 +1,66 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+
+<dom-module id="feed-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 20px 0 200px;
+      }
+
+      #noItems {
+        padding: 16px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      @media (max-width: 600px) {
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
+    <div class="container">
+      <div id="noItems" class="hidden">[[emptyMessage]]</div>
+      <p>Card list</p>
+      <!-- <card-list-view items="[[items]]"></card-list-view> -->
+    </div>
+    <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
+  </template>
+  <script>
+    class FeedPage extends Polymer.Element {
+      static get is() { return 'feed-page'; }
+    }
+    window.customElements.define(FeedPage.is, FeedPage);
+  </script>
+</dom-module>
