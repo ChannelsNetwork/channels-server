@@ -279,3 +279,15 @@ db.channelUsers.aggregate([
 { "_id" : ObjectId("5a6fcb9875349f94e3daf424"), "userId" : "e16250f5-bdcb-4f76-b5cc-2cd00cad58e7", "user" : { "balance" : 15.176661101275656, "city" : "Dela Paz Norte", "identity" : { "handle" : "gillianwanders" } } }
 { "_id" : ObjectId("5a72e86675349f94e381cbe7"), "userId" : "ee4e2955-beeb-4fe2-9d73-0caeb4631e2a", "user" : { "balance" : 6.212729483470439, "city" : "Talisay City", "identity" : { "handle" : "reyes_james6000" } } }
 { "_id" : ObjectId("5a70abe775349f94e3442d3d"), "userId" : "fc908765-f371-4166-a451-19cb3b34eff0", "user" : { "balance" : 3.8844996386060253, "city" : "Staten Island", "identity" : { "handle" : "indiebandguru" } } }
+
+
+What are the first-time card purchases?
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay"}},
+  {$group: {_id: "userId", count: {$sum: 1}, firstAt: {$min: "$at"}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
+  {$unwind: "$user"},
+  {$project: {_id: 1, firstAt: 1, count: 1, "user.identity.handle": 1, "user.balance": 1, "user.city": 1}},
+  {$sort: {firstAt: -1}}
+])
