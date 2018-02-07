@@ -93,6 +93,10 @@
           autoLayout: {
             type: Boolean,
             observer: '_refreshLayout'
+          },
+          leftJustified: {
+            type: Boolean,
+            observer: '_refreshJustifciation'
           }
         };
       }
@@ -114,6 +118,7 @@
         this.addEventListener("card-open", this._openListener);
         this.addEventListener("card-deleted", this._deleteListener);
 
+        this._refreshJustifciation();
         this._refreshLayout();
       }
 
@@ -123,6 +128,16 @@
         this.removeEventListener("impression", this._impressionListener);
         this.removeEventListener("card-open", this._openListener);
         this.removeEventListener("card-deleted", this._deleteListener);
+      }
+
+      _refreshJustifciation() {
+        if (this.$.container) {
+          if (this.leftJustified) {
+            this.$.container.classList.remove("center-justified");
+          } else {
+            this.$.container.classList.add("center-justified");
+          }
+        }
       }
 
       _refreshLayout() {

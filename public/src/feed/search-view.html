@@ -31,7 +31,7 @@
         margin: 50px;
       }
 
-      #feed {
+      card-list {
         text-align: left;
       }
 
@@ -134,6 +134,17 @@
         background: var(--bg-yellow);
       }
 
+      #channelList {
+        margin-bottom: 60px;
+      }
+
+      #noItems {
+        padding: 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: left;
+      }
+
       @media (max-width: 600px) {
         h3 {
           font-size: 18px;
@@ -168,8 +179,10 @@
     </div>
     <div class="main">
       <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
+      <card-list id="channelList" auto-layout left-justified items="[[channels]]" more="[[_moreChannelsAvailable]]" on-more="_onMoreChannels"></card-list>
       <div id="noItems" style="display:none;">There are no matching cards</div>
-      <card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
+      <card-list id="cardList" left-justified items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+        on-more="_onMore"></card-list>
     </div>
   </template>
   <script>
@@ -184,7 +197,9 @@
           },
           topics: Array,
           items: Array,
-          _moreAvailable: Boolean
+          _moreAvailable: Boolean,
+          channels: Array,
+          _moreChannelsAvailable: Boolean
         };
       }
 
@@ -218,11 +233,13 @@
           }
 
           this.items = [];
+          this.channels = [];
           this.$.noItems.style.display = "none";
           this._searchString = searchQuery;
           this.$.query.value = searchQuery;
           this.$.btnSearch.disabled = true;
           this._moreAvailable = false;
+          this._moreChannelsAvailable = false;
 
           this.$.query.focus();
           if (searchQuery) {
@@ -290,6 +307,7 @@
 
       _search() {
         this._moreAvailable = false;
+        this._moreChannelsAvailable = false;
         this.$.noItems.style.display = "none";
         let finished = false;
         setTimeout(() => {
@@ -298,19 +316,30 @@
           }
         }, 100)
         $core.search(this._searchString, 24, 24).then((searchResponse) => {
+          finished = true;
           console.log("search", searchResponse);
           this.$.spinner.style.display = "none";
-          finished = true;
-          this._skip = searchResponse.cardResults.nextSkip;
-          const cards = searchResponse.cardResults.cards;
-          this.items = cards;
 
+          // cards
+          this._skip = searchResponse.cardResults.nextSkip;
+          const cards = searchResponse.cardResults.cards || [];
+          this.items = cards;
           if (cards.length === 0) {
             this.$.noItems.style.display = "";
           } else {
             this.$.noItems.style.display = "none";
           }
           this._moreAvailable = searchResponse.cardResults.moreAvailable;
+
+          // channels
+          this._channelSkip = searchResponse.channelResults.nextSkip;
+          const chnls = searchResponse.channelResults.channels || [];
+          this.channels = chnls;
+          this._moreChannelsAvailable = searchResponse.channelResults.moreAvailable;
+        }).catch((err) => {
+          finished - true;
+          console.error(err);
+          $app.showError(err);
         });
       }
 
