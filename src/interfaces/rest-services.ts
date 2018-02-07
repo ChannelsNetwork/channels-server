@@ -693,6 +693,27 @@ export interface AdminAdRevenueGoalsInfo {
   newClickRevenue: string;
 }
 
+export interface AdminGetPublishersDetails extends Signable { }
+
+export interface AdminGetPublishersResponse extends RestResponse {
+  publishers: AdminPublisherInfo[];
+}
+
+export interface AdminPublisherInfo {
+  user: UserRecord;
+  cardsPublished: number;
+  earnings: number;
+  grossRevenue: number;
+  weightedRevenue: number;
+  subscribers: number;
+  cardsPurchased: number;
+  fraudPurchases: number;
+  firstTimePurchases: number;
+  normalPurchases: number;
+  fanPurchases: number;
+  otherPurchases: number;
+}
+
 export interface AdminSetUserMailingListDetails extends Signable {
   userId: string;
   mailingList: boolean;

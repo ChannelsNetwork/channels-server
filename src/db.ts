@@ -127,6 +127,7 @@ export class Database {
     await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
     await this.users.createIndex({ type: 1, lastContact: -1 });
+    await this.users.createIndex({ type: 1, lastPosted: -1 });
     await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
     await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
@@ -665,6 +666,10 @@ export class Database {
     return this.users.find<UserRecord>({ type: "normal", lastContact: { $gt: from, $lte: to }, added: { $lte: addedBefore } }).sort({ lastContact: -1 });
   }
 
+  getUserPublishers(): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ type: "normal", lastPosted: { $gt: 0 } }).sort({ lastPosted: -1 });
+  }
+
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
     await this.users.updateOne({ id: userId }, {
       $unset: { "identity.imageUrl": 1 },
@@ -1081,6 +1086,17 @@ export class Database {
   async countDistinctCardOwners(from: number, to: number): Promise<number> {
     const creators = await this.cards.distinct('createdById', { postedAt: { $gte: from, $lt: to } });
     return creators.length;
+  }
+
+  async aggregateCardRevenueByAuthor(authorId: string): Promise<number> {
+    const result = await this.cards.aggregate([
+      { $match: { createdById: authorId } },
+      { $group: { _id: "1", revenue: { $sum: "$stats.revenue.value" } } }
+    ]).toArray();
+    if (result.length === 0) {
+      return 0;
+    }
+    return result[0].revenue;
   }
 
   async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
@@ -1981,6 +1997,13 @@ export class Database {
     });
   }
 
+  async aggregateUserActionPaymentsForAuthor(authorId: string): Promise<AggregatedUserActionPaymentInfo[]> {
+    return this.userCardActions.aggregate([
+      { $match: { action: "pay", authorId: authorId } },
+      { $group: { _id: "$payment.category", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
+    ]).toArray();
+  }
+
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
     let record = await this.findUserCardInfo(userId, cardId);
     if (!record) {
@@ -2609,6 +2632,14 @@ export class Database {
     return this.channelUsers.find<ChannelUserRecord>({ channelId: channelId, subscriptionState: "subscribed" });
   }
 
+  async countDistinctSubscribersInChannels(channelIds: string[]): Promise<number> {
+    if (channelIds.length === 0) {
+      return 0;
+    }
+    const userIds = await this.channelUsers.distinct("userId", { channelId: { $in: channelIds }, subscriptionState: "subscribed" });
+    return userIds.length;
+  }
+
   getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number, latestGreaterThan: number): Cursor<ChannelUserRecord> {
     const query: any = { userId: userId, subscriptionState: subscriptionState };
     if (latestLessThan) {
@@ -2755,4 +2786,11 @@ const DEFAULT_CARD_TOPICS = [
 export interface ChannelStatInfo {
   revenue: number;
   cards: number;
+}
+
+export interface AggregatedUserActionPaymentInfo {
+  _id: string;
+  purchases: number;
+  grossRevenue: number;
+  weightedRevenue: number;
 }

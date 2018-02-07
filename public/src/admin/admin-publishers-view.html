@@ -1,0 +1,354 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+
+<dom-module id="admin-publishers-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 30px 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+        max-width: 150px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <h1>Channels Publishers</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">Id</div>
+          <div class="headerCell">Name</div>
+          <div class="headerCell">Handle</div>
+          <div class="headerCell">Email</div>
+          <div class="headerCell clickable" on-click="_onRegisteredClick">Registered</div>
+          <div class="headerCell clickable" on-click="_onPostedClick">Last Posted</div>
+          <div class="headerCell clickable" on-click="_onContactClick">Last Contact</div>
+          <div class="headerCell right clickable" on-click="_onEarningsClick">Earnings</div>
+          <div class="headerCell right clickable" on-click="_onBalanceClick">Balance</div>
+          <div class="headerCell right">Posts</div>
+          <div class="headerCell right clickable" on-click="_onRevenueClick">Gross Revenue</div>
+          <div class="headerCell right clickable" on-click="_onWeightedRevenueClick">Weighted Revenue</div>
+          <div class="headerCell right">Subscribers</div>
+          <div class="headerCell right">Total Purchases</div>
+          <div class="headerCell right">Fraud</div>
+          <div class="headerCell right">First-Time</div>
+          <div class="headerCell right">Normal</div>
+          <div class="headerCell right">Fan</div>
+          <div class="headerCell right">Other Purchases</div>
+          <div class="headerCell right">Storage (MB)</div>
+          <div class="headerCell center">IP Address</div>
+          <div class="headerCell">Country</div>
+          <div class="headerCell">Region</div>
+          <div class="headerCell">City</div>
+          <div class="headerCell">Original Referrer</div>
+          <div class="headerCell">Original Landing</div>
+          <div class="headerCell center">Curation</div>
+          <div class="headerCell center"></div>
+          <div class="headerCell center"></div>
+        </div>
+        <template is="dom-repeat" items="[[publishers]]">
+          <div class="row">
+            <div class="cell">[[item.id]]</div>
+            <div class="cell">[[item.name]]</div>
+            <div class="cell clickable">
+              <a href="[[item.channelUrl]]">[[item.handle]]</a>
+            </div>
+            <div class="cell">[[item.email]]</div>
+            <div class="cell">[[item.registered]]</div>
+            <div class="cell">[[item.lastPosted]]</div>
+            <div class="cell">[[item.lastContact]]</div>
+            <div class="cell right">[[item.earnings]]</div>
+            <div class="cell right">[[item.balance]]</div>
+            <div class="cell right">[[item.cardsPosted]]</div>
+            <div class="cell right">[[item.grossRevenue]]</div>
+            <div class="cell right">[[item.weightedRevenue]]</div>
+            <div class="cell right">[[item.subscribers]]</div>
+            <div class="cell right">[[item.purchases]]</div>
+            <div class="cell right">[[item.fraudPurchases]]</div>
+            <div class="cell right">[[item.firstTimePurchases]]</div>
+            <div class="cell right">[[item.normalPurchases]]</div>
+            <div class="cell right">[[item.fanPurchases]]</div>
+            <div class="cell right">[[item.otherPurchases]]</div>
+            <div class="cell right">[[item.storage]]</div>
+            <div class="cell center ipAddress">[[item.ipAddress]]</div>
+            <div class="cell">[[item.country]]</div>
+            <div class="cell">[[item.region]]</div>
+            <div class="cell">[[item.city]]</div>
+            <div class="cell">[[item.referer]]</div>
+            <div class="cell">[[item.landingPage]]</div>
+            <div class="cell">[[item.curation]]</div>
+            <div class="cell center toggle" on-click="_onDiscountActionClick">[[item.discountAction]]</div>
+            <div class="cell center toggle" on-click="_onBlockActionClick">[[item.blockAction]]</div>
+          </div>
+        </template>
+      </div>
+      <h2>CSV</h2>
+      <div class="csv">
+        <div class="csvRow">Id, Name, Handle, Email, Registered, Last Posted, Last Contact, Earnings, Balance, Cards Posted, Gross Revenue, Weighted
+          Revenue, Subscribers, Purchases, Fraud, First-Time, Normal, Fan, Other Purchases, Storage, IP Address, Country,
+          Region, City, Original Referer, Original Landing Page, Curation
+        </div>
+        <template is="dom-repeat" items="[[publishers]]">
+          <div class="csvRow">
+            <div class="csvCell">[[item.id]]</div>,
+            <div class="csvCell">[[item.name]]</div>,
+            <div class="csvCell">[[item.handle]]</div>,
+            <div class="csvCell">[[item.email]]</div>,
+            <div class="csvCell">[[item.registered]]</div>,
+            <div class="csvCell">[[item.lastPosted]]</div>,
+            <div class="csvCell">[[item.lastContact]]</div>,
+            <div class="csvCell">[[item.earnings]]</div>,
+            <div class="csvCell">[[item.balance]]</div>,
+            <div class="csvCell">[[item.cardsPosted]]</div>,
+            <div class="csvCell">[[item.grossRevenue]]</div>,
+            <div class="csvCell">[[item.weightedRevenue]]</div>,
+            <div class="csvCell">[[item.subscribers]]</div>,
+            <div class="csvCell">[[item.purchases]]</div>,
+            <div class="csvCell">[[item.fraudPurchases]]</div>,
+            <div class="csvCell">[[item.firstTimePurchases]]</div>,
+            <div class="csvCell">[[item.normalPurchases]]</div>,
+            <div class="csvCell">[[item.fanPurchases]]</div>,
+            <div class="csvCell">[[item.otherPurchases]]</div>,
+            <div class="csvCell">[[item.storage]]</div>,
+            <div class="csvCell">[[item.ipAddress]]</div>,
+            <div class="csvCell">[[item.country]]</div>,
+            <div class="csvCell">[[item.region]]</div>,
+            <div class="csvCell">[[item.city]]</div>,
+            <div class="csvCell">[[item.referer]]</div>,
+            <div class="csvCell">[[item.landingPage]]</div>,
+            <div class="csvCell">[[item.curation]]</div>,
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminPublishersView extends Polymer.Element {
+      static get is() { return 'admin-publishers-view'; }
+      static get properties() {
+        return {
+          publishers: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('publishers', []);
+        $core.admin_getPublishers().then((response) => {
+          const publishers = [];
+          for (const publisherInfo of response.publishers) {
+            const user = publisherInfo.user;
+            publishers.push({
+              user: user,
+              info: publisherInfo,
+              id: user.id,
+              name: user.identity ? user.identity.name : "",
+              email: user.identity ? user.identity.emailAddress : "",
+              handle: user.identity ? user.identity.handle : "",
+              channelUrl: user.identity ? '/channel/' + user.identity.handle : "",
+              registered: this._displayTimestamp(user.added),
+              lastPosted: this._displayTimestamp(user.lastPosted),
+              lastContact: this._displayTimestamp(user.lastContact),
+              earnings: publisherInfo.earnings.toFixed(2),
+              cardsPosted: publisherInfo.cardsPublished,
+              grossRevenue: publisherInfo.grossRevenue.toFixed(2),
+              weightedRevenue: publisherInfo.weightedRevenue.toFixed(2),
+              subscribers: publisherInfo.subscribers,
+              purchases: publisherInfo.cardsPurchased,
+              fraudPurchases: publisherInfo.fraudPurchases,
+              firstTimePurchases: publisherInfo.firstTimePurchases,
+              normalPurchases: publisherInfo.normalPurchases,
+              fanPurchases: publisherInfo.fanPurchases,
+              otherPurchases: publisherInfo.otherPurchases,
+              storage: (user.storage / 1000000).toFixed(1),
+              ipAddress: user.ipAddresses.length > 0 ? user.ipAddresses[user.ipAddresses.length - 1] : "",
+              country: user.country || "",
+              region: user.region || "",
+              city: user.city || "",
+              referer: user.originalReferrer,
+              landingPage: user.originalLandingPage,
+              curation: user.curation ? user.curation : "",
+              discountAction: user.curation ? "" : "discount",
+              blockAction: user.curation === "blocked" ? "" : "block"
+            });
+          }
+          this.set('publishers', publishers);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onDiscountActionClick(event) {
+        $core.admin_setUserCuration(event.model.item.id, "discounted").then(() => {
+          this._refresh();
+        });
+      }
+
+      _onBlockActionClick(event) {
+        $core.admin_setUserCuration(event.model.item.id, "blocked").then(() => {
+          this._refresh();
+        });
+      }
+
+      _onRegisteredClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.user.added - a.user.added;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onPostedClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.user.lastPosted - a.user.lastPosted;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onContactClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.user.lastContact - a.user.lastContact;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onEarningsClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.info.earnings - a.info.earnings;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onBalanceClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.user.balance - a.user.balance;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onRevenueClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.info.grossRevenue - a.info.grossRevenue;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onWeightedRevenueClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.info.weightedRevenue - a.info.weightedRevenue;
+        });
+        this.set('publishers', newItems);
+      }
+    }
+    window.customElements.define(AdminPublishersView.is, AdminPublishersView);
+  </script>
+</dom-module>
