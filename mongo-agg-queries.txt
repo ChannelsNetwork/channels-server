@@ -109,7 +109,7 @@ db.userRegistrations.aggregate([
 ])
 
 db.userRegistrations.aggregate([
-  {$match: {fingerprint: "0ff7776777e20bc2c2190ffb34691703"}},
+  {$match: {fingerprint: "d751e8a9e77f313d1782bfd14cfa52e9"}},
   {$group: {_id: "$userId", count: {$sum: 1}}},
   {$lookup: {from: "users", localField:"_id", foreignField: "id", as: "user"}}, 
   {$unwind: "$user"},
