@@ -129,4 +129,11 @@ export class Utils {
     }
     return useEllipsis ? value.substr(0, maxLength - 3) + '...' : value.substr(0, maxLength);
   }
+
+  static roundToDecimal(value: number, places: number): number {
+    value *= Math.pow(10, places);
+    value = Math.round(value);
+    value = value / Math.pow(10, places);
+    return value;
+  }
 }
