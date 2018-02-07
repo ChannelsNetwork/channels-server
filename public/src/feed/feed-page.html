@@ -79,6 +79,11 @@
         }
       }
 
+      constructor() {
+        super();
+        this._fetchCount = 24;
+      }
+
       onActivate(route) {
         $core.register().then(() => {
           // parse the route
@@ -121,7 +126,7 @@
           this._lastCardId = null;
 
           // fetch
-          return $core.getFeed(this._feedName, 3, null, null, null, this._promotedCardIds).then((feed) => {
+          return $core.getFeed(this._feedName, this._fetchCount, null, null, null, this._promotedCardIds).then((feed) => {
             const cards = feed.cards;
             for (let i = 0; i < cards.length; i++) {
               if (cards[i].promoted) {
@@ -195,7 +200,7 @@
         }
         this._fetchingMore = true;
         this._lastFetchTimestamp = (new Date()).getTime();
-        $core.getFeed(this._feedName, 24, null, this._lastCardId, null, this._promotedCardIds).then((feed) => {
+        $core.getFeed(this._feedName, this._fetchCount, null, this._lastCardId, null, this._promotedCardIds).then((feed) => {
           this._fetchingMore = false;
           const cards = feed.cards || [];
           this._lastCardId = null;
