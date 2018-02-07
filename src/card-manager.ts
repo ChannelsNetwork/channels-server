@@ -217,6 +217,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             if (priorPurchases === 0) {
               paymentInfo.category = "first";
               firstTimePaidOpens++;
+              paymentInfo.weight = this.getPurchaseWeight(0);
             } else {
               const priorToAuthor = await db.countUserCardPurchasesToAuthor(userCardAction.userId, authorId);
               if (priorToAuthor > 0) {
@@ -848,7 +849,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private getPurchaseWeight(priorPurchases: number): number {
-    if (priorPurchases <= 1) {
+    if (priorPurchases <= 0) {
+      return 0.1;
+    } else if (priorPurchases <= 1) {
       return 0.33;
     } else if (priorPurchases <= 2) {
       return 0.66;
