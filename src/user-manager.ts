@@ -74,53 +74,53 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     //     console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
     //   }
     // }
-    const users = await db.findUsersWithoutCountry();
-    for (const user of users) {
-      if (user.ipAddresses.length > 0) {
-        const result = await this.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1]);
-        if (result) {
-          await db.updateUserGeo(user.id, result.countryCode, result.region, result.city, result.zip);
-        } else {
-          await db.updateUserGeo(user.id, null, null, null, null);
-        }
-      } else {
-        await db.updateUserGeo(user.id, null, null, null, null);
-      }
-    }
-    const withImageUrl = await db.findUsersWithImageUrl();
-    const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
-    for (const user of withImageUrl) {
-      const imageUrl = user.identity.imageUrl;
-      if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
-        const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-        if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
-          await db.replaceUserImageUrl(user.id, fileId);
-          console.log("User.initialize2: replaced imageUrl with imageId", user.identity.imageUrl, fileId);
-        } else {
-          console.log("User.initialize2: Unable to replace user imageUrl because not in GUID format", user.identity);
-        }
-      }
-    }
+    // const users = await db.findUsersWithoutCountry();
+    // for (const user of users) {
+    //   if (user.ipAddresses.length > 0) {
+    //     const result = await this.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1]);
+    //     if (result) {
+    //       await db.updateUserGeo(user.id, result.countryCode, result.region, result.city, result.zip);
+    //     } else {
+    //       await db.updateUserGeo(user.id, null, null, null, null);
+    //     }
+    //   } else {
+    //     await db.updateUserGeo(user.id, null, null, null, null);
+    //   }
+    // }
+    // const withImageUrl = await db.findUsersWithImageUrl();
+    // const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
+    // for (const user of withImageUrl) {
+    //   const imageUrl = user.identity.imageUrl;
+    //   if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
+    //     const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
+    //     if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
+    //       await db.replaceUserImageUrl(user.id, fileId);
+    //       console.log("User.initialize2: replaced imageUrl with imageId", user.identity.imageUrl, fileId);
+    //     } else {
+    //       console.log("User.initialize2: Unable to replace user imageUrl because not in GUID format", user.identity);
+    //     }
+    //   }
+    // }
 
-    const withdrawals = await db.listManualWithdrawals(1000);
-    for (const withdrawal of withdrawals) {
-      const user = await this.getUser(withdrawal.userId, true);
-      if (user) {
-        if (!user.lastWithdrawal || withdrawal.created > user.lastWithdrawal) {
-          console.log("User.initialize2: Updating user last withdrawal", user.id, withdrawal.created);
-          await db.updateUserLastWithdrawal(user, withdrawal.created);
-        }
-      }
-    }
+    // const withdrawals = await db.listManualWithdrawals(1000);
+    // for (const withdrawal of withdrawals) {
+    //   const user = await this.getUser(withdrawal.userId, true);
+    //   if (user) {
+    //     if (!user.lastWithdrawal || withdrawal.created > user.lastWithdrawal) {
+    //       console.log("User.initialize2: Updating user last withdrawal", user.id, withdrawal.created);
+    //       await db.updateUserLastWithdrawal(user, withdrawal.created);
+    //     }
+    //   }
+    // }
 
-    console.log("User.initialize2:  Checking for unconfirmed users who haven't received confirmation request...");
-    const unconfirmedUsers = db.getUnconfirmedUsersWithNoLastNotice();
-    while (await unconfirmedUsers.hasNext()) {
-      const unconfirmedUser = await unconfirmedUsers.next();
-      if (!unconfirmedUser.curation) {
-        await this.sendEmailConfirmation(unconfirmedUser);
-      }
-    }
+    // console.log("User.initialize2:  Checking for unconfirmed users who haven't received confirmation request...");
+    // const unconfirmedUsers = db.getUnconfirmedUsersWithNoLastNotice();
+    // while (await unconfirmedUsers.hasNext()) {
+    //   const unconfirmedUser = await unconfirmedUsers.next();
+    //   if (!unconfirmedUser.curation) {
+    //     await this.sendEmailConfirmation(unconfirmedUser);
+    //   }
+    // }
 
     setInterval(() => {
       void this.updateBalances();

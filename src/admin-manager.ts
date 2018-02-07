@@ -11,6 +11,7 @@ import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
 import { errorManager } from "./error-manager";
+import { Utils } from "./utils";
 export class AdminManager implements RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -134,21 +135,44 @@ export class AdminManager implements RestServer {
       totalNonPromoted: 0,
       totalPromoted: 0,
       totalAds: 0,
+      totalPaidOpens: 0,
+      totalFirstTimePaidOpens: 0,
+      totalFanPaidOpens: 0,
+      totalGrossRevenue: 0,
+      totalWeightedRevenue: 0,
       newCards: 0,
       newNonPromoted: 0,
       newPromoted: 0,
-      newAds: 0
+      newAds: 0,
+      newPaidOpens: 0,
+      newFirstTimePaidOpens: 0,
+      newFanPaidOpens: 0,
+      newGrossRevenue: 0,
+      newWeightedRevenue: 0
     };
     const starting = Date.now();
     result.total = await db.countCards(to, 0);
     result.totalNonPromoted = await db.countNonPromotedCards(to, 0);
     result.totalPromoted = await db.countPromotedCards(to, 0);
     result.totalAds = await db.countAdCards(to, 0);
+    const currentStats = await db.getNetworkCardStatsAt(to, true);
+    result.totalPaidOpens = currentStats.stats.paidOpens;
+    result.totalFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens;
+    result.totalFanPaidOpens = currentStats.stats.fanPaidOpens;
+    result.totalGrossRevenue = Utils.roundToDecimal(currentStats.stats.grossRevenue, 2);
+    result.totalWeightedRevenue = Utils.roundToDecimal(currentStats.stats.weightedRevenue, 2);
+
+    const priorStats = await db.getNetworkCardStatsAt(from);
 
     result.newCards = await db.countCards(to, from);
     result.newNonPromoted = await db.countNonPromotedCards(to, from);
     result.newPromoted = await db.countPromotedCards(to, from);
     result.newAds = await db.countAdCards(to, from);
+    result.newPaidOpens = currentStats.stats.paidOpens - priorStats.stats.paidOpens;
+    result.newFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens - priorStats.stats.firstTimePaidOpens;
+    result.newFanPaidOpens = currentStats.stats.fanPaidOpens - priorStats.stats.fanPaidOpens;
+    result.newGrossRevenue = Utils.roundToDecimal(currentStats.stats.grossRevenue - priorStats.stats.grossRevenue, 2);
+    result.newWeightedRevenue = Utils.roundToDecimal(currentStats.stats.weightedRevenue - priorStats.stats.weightedRevenue, 2);
     console.log("Admin.computeCardGoals took " + ((Date.now() - starting) / 1000).toFixed(1) + " seconds");
     return result;
   }

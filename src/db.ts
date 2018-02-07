@@ -391,7 +391,7 @@ export class Database {
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
     await this.networkCardStats.updateMany({ "stats.blockedPaidOpens": { $exists: false } }, { $set: { "stats.blockedPaidOpens": 0 } });
 
-    await this.networkCardStats.updateMany({ firstTimePaidOpens: { $exists: false } }, {
+    await this.networkCardStats.updateMany({ "stats.firstTimePaidOpens": { $exists: false } }, {
       $set: {
         "stats.firstTimePaidOpens": 0,
         "stats.fanPaidOpens": 0,
@@ -2258,8 +2258,12 @@ export class Database {
     return stats;
   }
 
-  async getNetworkCardStatsAt(timestamp: number): Promise<NetworkCardStatsHistoryRecord> {
-    const result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({ periodStarting: { $lt: timestamp }, isCurrent: false }).sort({ periodStarting: -1 }).limit(1).toArray();
+  async getNetworkCardStatsAt(timestamp: number, allowCurrent = false): Promise<NetworkCardStatsHistoryRecord> {
+    const query: any = { periodStarting: { $lt: timestamp } };
+    if (allowCurrent) {
+      query.isCurrent = false;
+    }
+    const result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>(query).sort({ periodStarting: -1 }).limit(1).toArray();
     if (result && result.length > 0) {
       return result[0];
     } else {
