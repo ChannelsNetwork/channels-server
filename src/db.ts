@@ -312,6 +312,7 @@ export class Database {
     await this.userCardActions.createIndex({ id: 1 }, { unique: true });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
+    await this.userCardActions.createIndex({ userId: 1, action: 1, author: 1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
     await this.userCardActions.createIndex({ action: 1, at: -1 });
     await this.userCardActions.createIndex({ at: -1 });
