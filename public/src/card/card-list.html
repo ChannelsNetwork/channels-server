@@ -89,26 +89,20 @@
           more: {
             type: Boolean,
             observer: '_refreshMore'
+          },
+          autoLayout: {
+            type: Boolean,
+            observer: '_refreshLayout'
           }
         };
       }
 
       constructor() {
         super();
-        // let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 480);
-        // this.updateStyles({
-        //   '--grid-card-height': ht + "px"
-        // });
-        let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 500);
-        let imgHt = ht < 480 ? "170px" : "250px";
-        this.updateStyles({
-          '--grid-card-height': ht + "px",
-          '--card-img-height': imgHt
-        });
-
         this._impressionListener = this._onImpression.bind(this);
         this._openListener = this._onCardOpenRequest.bind(this);
         this._deleteListener = this._onCardDeleted.bind(this);
+        this._refreshLayout();
       }
 
       connectedCallback() {
@@ -119,6 +113,8 @@
         this.addEventListener("impression", this._impressionListener);
         this.addEventListener("card-open", this._openListener);
         this.addEventListener("card-deleted", this._deleteListener);
+
+        this._refreshLayout();
       }
 
       disconnectedCallback() {
@@ -127,6 +123,26 @@
         this.removeEventListener("impression", this._impressionListener);
         this.removeEventListener("card-open", this._openListener);
         this.removeEventListener("card-deleted", this._deleteListener);
+      }
+
+      _refreshLayout() {
+        if (this.autoLayout) {
+          this.updateStyles({
+            '--grid-card-height': "auto"
+          });
+        } else {
+          // let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 480);
+          // this.updateStyles({
+          //   '--grid-card-height': ht + "px"
+          // });
+          let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 500);
+          let imgHt = ht < 480 ? "170px" : "250px";
+          this.updateStyles({
+            '--grid-card-height': ht + "px",
+            '--card-img-height': imgHt
+          });
+        }
+
       }
 
       _refreshMore() {

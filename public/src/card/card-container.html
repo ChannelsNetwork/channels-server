@@ -1,4 +1,5 @@
 <link rel="import" href="card-view.html">
+<link rel="import" href="../channel/channel-card.html">
 <link rel="import" href="ad/image-ad-card.html">
 
 <dom-module id="card-container">
@@ -67,6 +68,9 @@
       }
 
       _insertChannel() {
+        let view = new ChannelCard();
+        view.channel = this.data;
+        this.$.container.appendChild(view);
       }
 
       _clearNode(node) {
