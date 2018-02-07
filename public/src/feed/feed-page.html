@@ -2,10 +2,11 @@
 <link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="../card2/card-list.html">
 
 <dom-module id="feed-page">
   <template>
-    <style is="custom-style" include="app-styles">
+    <style is="custom-style" include="app-styles home-panel-styles">
       :host {
         display: block;
       }
@@ -39,6 +40,12 @@
         background: var(--bg-dark);
       }
 
+      card-list {
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
       @media (max-width: 600px) {
         #composeButton {
           bottom: 24px;
@@ -50,16 +57,144 @@
       <channels-bar id="cbar"></channels-bar>
       <feeds-bar id="fbar"></feeds-bar>
     </soso-app-header>
+    <div id="homePanelContainer" class="hidden"></div>
     <div class="container">
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
-      <p>Card list</p>
-      <!-- <card-list-view items="[[items]]"></card-list-view> -->
+      <card-list items="[[items]]" on-card-open-request="_onCardOpenRequest"></card-list>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
   <script>
     class FeedPage extends Polymer.Element {
       static get is() { return 'feed-page'; }
+
+      static get properties() {
+        return {
+          emptyMessage: {
+            type: String,
+            value: 'There are no matching cards in this category.'
+          },
+          items: Array,
+          _moreAvailable: {
+            type: Boolean,
+            observer: '_onMoreAvailable'
+          }
+        }
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          // parse the route
+          let feedName = "recommended";
+          if (route && route.segments && (route.segments.length > 1)) {
+            feedName = route.segments[1];
+          }
+          this._feedName = feedName;
+          const parsedRoute = '/feed/' + feedName;
+
+          // activate top bars and home page content
+          this.$.cbar.activate();
+          this.$.fbar.selected = feedName;
+          this._refreshHomePanelVisibility();
+
+          // check if route is different since last load
+          let fetchNewContent = true;
+          if (!window.__dirtyFeed) {
+            if (this._parsedRoute && this._lastFetchTimestamp) {
+              if (parsedRoute === this._parsedRoute) {
+                let timeDiff = (new Date()).getTime() - this._lastFetchTimestamp;
+                if (timeDiff < (5 * 60 * 1000)) {
+                  fetchNewContent = false;
+                }
+              }
+            }
+          }
+          if (!fetchNewContent) {
+            $app.scrollTo(route.context.scrollTop);
+            return;
+          }
+
+          // Clear state
+          this.items = [];
+          window.__dirtyFeed = false;
+          this._parsedRoute = parsedRoute;
+          this._lastFetchTimestamp = (new Date()).getTime();
+          this._moreAvailable = false;
+          this._promotedCardIds = [];
+          this._lastCardId = null;
+
+          // fetch
+          return $core.getFeed(this._feedName, 24, null, null, null, this._promotedCardIds).then((feed) => {
+            const cards = feed.cards;
+            for (let i = 0; i < cards.length; i++) {
+              if (cards[i].promoted) {
+                this._promotedCardIds.push(cards[i].id);
+              } else {
+                this._lastCardId = cards[i].id;
+              }
+            }
+            this.items = cards;
+            if (cards && cards.length) {
+              this.$.noItems.classList.add("hidden");
+            } else {
+              this.$.noItems.classList.remove("hidden");
+            }
+            this._moreAvailable = (feed.moreAvailable && this._lastCardId) ? true : false;
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      onDeactivate() {
+      }
+
+      _refreshHomePanelVisibility() {
+        if (!this._homePanelMoved) {
+          let d = document.getElementById('homePanel');
+          if (d) {
+            d.style.display = "block";
+            this.$.homePanelContainer.appendChild(d);
+          }
+          this._homePanelMoved = true;
+        }
+        if (this._feedName === "recommended") {
+          this.$.homePanelContainer.classList.remove("hidden");
+        } else {
+          this.$.homePanelContainer.classList.add("hidden");
+        }
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        $router.goto("/compose");
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          let context = {
+            fromApp: true,
+            card: card,
+            scrollTop: $app.scrollValue
+          };
+          if (this._parsedRoute) {
+            context.returnPath = this._parsedRoute;
+          }
+          $router.updateContext({
+            scrollTop: $app.scrollValue
+          });
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
+        }
+      }
+
+      _onMoreAvailable() {
+        // TODO: 
+      }
     }
     window.customElements.define(FeedPage.is, FeedPage);
   </script>

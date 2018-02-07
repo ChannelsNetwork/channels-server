@@ -216,7 +216,7 @@
               this._impressionTimeout = setTimeout(() => {
                 if (this._impressionStarted && (!this._impressionFired)) {
                   this._impressionFired = true;
-                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true }));
+                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true, detail: { view: this } }));
                 }
                 this._impressionStarted = null;
                 this._impressionTimeout = null;

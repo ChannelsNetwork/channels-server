@@ -13,6 +13,20 @@
         width: 100%;
         box-sizing: border-box;
       }
+
+      card-container {
+        height: var(--grid-card-height, 400px);
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        min-width: 300px;
+        width: 300px;
+        max-width: 300px;
+        margin: 8px;
+      }
     </style>
     <h2 id="headline">[[label]]</h2>
     <div id="container" class="horizontal layout center-justified wrap">
@@ -32,20 +46,44 @@
             type: String,
             observer: '_refreshLabel'
           },
-          type: String,
           items: Array
         };
+      }
+
+      constructor() {
+        super();
+        // let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 480);
+        // this.updateStyles({
+        //   '--grid-card-height': ht + "px"
+        // });
+        let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 500);
+        let imgHt = ht < 480 ? "170px" : "250px";
+        this.updateStyles({
+          '--grid-card-height': ht + "px",
+          '--card-img-height': imgHt
+        });
+
+        this._impressionListener = this._onImpression.bind(this);
+        this._openListener = this._onCardOpenRequest.bind(this);
+        this._deleteListener = this._onCardDeleted.bind(this);
       }
 
       connectedCallback() {
         super.connectedCallback();
         this._attached = true;
         this._refreshLabel();
+
+        this.addEventListener("impression", this._impressionListener);
+        this.addEventListener("card-open", this._openListener);
+        this.addEventListener("card-deleted", this._deleteListener);
       }
 
       disconnectedCallback() {
         super.disconnectedCallback();
         this._attached = false;
+        this.removeEventListener("impression", this._impressionListener);
+        this.removeEventListener("card-open", this._openListener);
+        this.removeEventListener("card-deleted", this._deleteListener);
       }
 
       _refreshLabel() {
@@ -55,6 +93,38 @@
           else
             this.$.headline.classList.add("hidden");
         }
+      }
+
+      _onImpression(event) {
+        event.stopPropagation();
+        if (event.detail && event.detail.view) {
+          let view = event.detail.view;
+          let card = view.data;
+          if (card) {
+            if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
+              $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+              view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+            } else {
+              $core.cardImpression(card.id);
+            }
+          }
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('card-open-request', { bubbles: true, composed: true, detail: { item: event.detail.view.data } }));
+      }
+
+      _onCardDeleted(event) {
+        const newItems = [];
+        const cardId = event.detail.card.id;
+        for (const item of this.items) {
+          if (item.id !== cardId) {
+            newItems.push(item);
+          }
+        }
+        this.set('items', newItems);
       }
     }
     window.customElements.define(CardList.is, CardList);
