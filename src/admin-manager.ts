@@ -137,7 +137,7 @@ export class AdminManager implements RestServer {
       totalAds: 0,
       totalPaidOpens: 0,
       totalFirstTimePaidOpens: 0,
-      totalNormalTimePaidOpens: 0,
+      totalNormalPaidOpens: 0,
       totalFanPaidOpens: 0,
       totalGrossRevenue: 0,
       totalWeightedRevenue: 0,
@@ -160,7 +160,7 @@ export class AdminManager implements RestServer {
     const currentStats = await db.getNetworkCardStatsAt(to, true);
     result.totalPaidOpens = currentStats.stats.paidOpens;
     result.totalFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens;
-    result.totalNormalTimePaidOpens = currentStats.stats.paidOpens - currentStats.stats.firstTimePaidOpens;
+    result.totalNormalPaidOpens = currentStats.stats.paidOpens - currentStats.stats.firstTimePaidOpens;
     result.totalFanPaidOpens = currentStats.stats.fanPaidOpens;
     result.totalGrossRevenue = Utils.roundToDecimal(currentStats.stats.grossRevenue, 2);
     result.totalWeightedRevenue = Utils.roundToDecimal(currentStats.stats.weightedRevenue, 2);

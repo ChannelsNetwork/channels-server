@@ -651,7 +651,7 @@ export interface AdminCardGoalsInfo {
   totalAds: number;
   totalPaidOpens: number;
   totalFirstTimePaidOpens: number;
-  totalNormalTimePaidOpens: number;
+  totalNormalPaidOpens: number;
   totalFanPaidOpens: number;
   totalGrossRevenue: number;
   totalWeightedRevenue: number;
