@@ -925,7 +925,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
         const todayPaidOpens = await this.countUserPaidOpens(user, yesterday, Date.now());
         if (todayPaidOpens) {
-          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens);
+          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0);
         }
       }
       if (requestBody.detailsObject.curation === 'blocked') {
