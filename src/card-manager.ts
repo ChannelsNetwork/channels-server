@@ -230,7 +230,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           const weightedRevenue = grossRevenue * paymentInfo.weight;
           await db.updateUserCardActionWithPaymentInfo(userCardAction.id, authorId, paymentInfo);
           await db.updateNetworkCardStatsForPayment(userCardAction.at, firstTimePaidOpens, fanPaidOpens, grossRevenue, weightedRevenue);
-          console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction, authorId, paymentInfo);
+          console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction.id, paymentInfo.category);
         } else {
           console.warn("CardManager.initialize2: Found userCard pay action with missing transaction", userCardAction);
         }
