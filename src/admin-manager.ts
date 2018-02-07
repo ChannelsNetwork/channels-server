@@ -6,7 +6,7 @@ import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { SERVER_VERSION } from "./server-version";
-import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo } from "./interfaces/rest-services";
+import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo, AdminGetPublishersDetails, AdminGetPublishersResponse, AdminPublisherInfo } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
@@ -25,6 +25,9 @@ export class AdminManager implements RestServer {
   private registerHandlers(): void {
     this.app.post(this.urlManager.getDynamicUrl('admin-goals'), (request: Request, response: Response) => {
       void this.handleGetAdminGoals(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-publishers'), (request: Request, response: Response) => {
+      void this.handleGetAdminPublishers(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-get-withdrawals'), (request: Request, response: Response) => {
       void this.handleGetWithdrawals(request, response);
@@ -319,6 +322,83 @@ export class AdminManager implements RestServer {
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
+
+  private async handleGetAdminPublishers(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetPublishersDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      console.log("AdminManager.admin-publishers", user.id, requestBody.detailsObject);
+      const reply: AdminGetPublishersResponse = {
+        serverVersion: SERVER_VERSION,
+        publishers: []
+      };
+      const cursor = db.getUserPublishers();
+      const now = Date.now();
+      while (await cursor.hasNext()) {
+        const publisherUser = await cursor.next();
+        const publisher: AdminPublisherInfo = {
+          user: publisherUser,
+          cardsPublished: await db.countCardPostsByUser(user.id, 0, now),
+          earnings: await db.aggregateCardRevenueByAuthor(user.id),
+          grossRevenue: 0,
+          weightedRevenue: 0,
+          subscribers: 0,
+          cardsPurchased: 0,
+          fraudPurchases: 0,
+          firstTimePurchases: 0,
+          normalPurchases: 0,
+          fanPurchases: 0,
+          otherPurchases: 0
+        };
+        const channels = await db.findChannelsByOwnerId(user.id);
+        const channelIds: string[] = [];
+        for (const channel of channels) {
+          channelIds.push(channel.id);
+        }
+        publisher.subscribers = await db.countDistinctSubscribersInChannels(channelIds);
+        const payInfoByCategory = await db.aggregateUserActionPaymentsForAuthor(publisherUser.id);
+        for (const payInfo of payInfoByCategory) {
+          publisher.grossRevenue += payInfo.grossRevenue;
+          publisher.weightedRevenue += payInfo.weightedRevenue;
+          publisher.cardsPurchased += payInfo.purchases;
+          switch (payInfo._id) {
+            case "fraud":
+              publisher.fraudPurchases += payInfo.purchases;
+              break;
+            case "normal":
+              publisher.normalPurchases += payInfo.purchases;
+              break;
+            case "first":
+              publisher.firstTimePurchases += payInfo.purchases;
+              break;
+            case "fan":
+              publisher.fanPurchases += payInfo.purchases;
+              break;
+            default:
+              publisher.otherPurchases += payInfo.purchases;
+              break;
+          }
+        }
+        reply.publishers.push(publisher);
+        if (reply.publishers.length >= 250) {
+          break;
+        }
+      }
+      await cursor.close();
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("AdminManager.handleGetAdminPublishers: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
 }
 
 const adminManager = new AdminManager();
