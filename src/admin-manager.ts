@@ -137,6 +137,7 @@ export class AdminManager implements RestServer {
       totalAds: 0,
       totalPaidOpens: 0,
       totalFirstTimePaidOpens: 0,
+      totalNormalTimePaidOpens: 0,
       totalFanPaidOpens: 0,
       totalGrossRevenue: 0,
       totalWeightedRevenue: 0,
@@ -146,6 +147,7 @@ export class AdminManager implements RestServer {
       newAds: 0,
       newPaidOpens: 0,
       newFirstTimePaidOpens: 0,
+      newNormalPaidOpens: 0,
       newFanPaidOpens: 0,
       newGrossRevenue: 0,
       newWeightedRevenue: 0
@@ -158,6 +160,7 @@ export class AdminManager implements RestServer {
     const currentStats = await db.getNetworkCardStatsAt(to, true);
     result.totalPaidOpens = currentStats.stats.paidOpens;
     result.totalFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens;
+    result.totalNormalTimePaidOpens = currentStats.stats.paidOpens - currentStats.stats.firstTimePaidOpens;
     result.totalFanPaidOpens = currentStats.stats.fanPaidOpens;
     result.totalGrossRevenue = Utils.roundToDecimal(currentStats.stats.grossRevenue, 2);
     result.totalWeightedRevenue = Utils.roundToDecimal(currentStats.stats.weightedRevenue, 2);
@@ -170,6 +173,7 @@ export class AdminManager implements RestServer {
     result.newAds = await db.countAdCards(to, from);
     result.newPaidOpens = currentStats.stats.paidOpens - priorStats.stats.paidOpens;
     result.newFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens - priorStats.stats.firstTimePaidOpens;
+    result.newNormalPaidOpens = currentStats.stats.paidOpens - currentStats.stats.firstTimePaidOpens - (priorStats.stats.paidOpens - priorStats.stats.firstTimePaidOpens);
     result.newFanPaidOpens = currentStats.stats.fanPaidOpens - priorStats.stats.fanPaidOpens;
     result.newGrossRevenue = Utils.roundToDecimal(currentStats.stats.grossRevenue - priorStats.stats.grossRevenue, 2);
     result.newWeightedRevenue = Utils.roundToDecimal(currentStats.stats.weightedRevenue - priorStats.stats.weightedRevenue, 2);
