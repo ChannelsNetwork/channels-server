@@ -1888,6 +1888,14 @@ export class Database {
     return this.userCardActions.find<UserCardActionRecord>({ action: "pay", authorId: { $exists: false } }).sort({ at: 1 });
   }
 
+  getWeightedUserActionPayments(): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ action: "pay", "payment.weight": { $ne: 1 } }).sort({ at: 1 });
+  }
+
+  async updateUserActionPaymentWeightedRevenue(id: string, weightedRevenue: number): Promise<void> {
+    await this.userCardActions.updateOne({ id: id }, { $set: { "payment.weightedRevenue": weightedRevenue } });
+  }
+
   async findFirstUserCardActionByUser(userId: string, action: CardActionType): Promise<UserCardActionRecord> {
     const result = await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: 1 }).limit(1).toArray();
     if (result.length > 0) {

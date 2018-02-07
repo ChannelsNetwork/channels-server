@@ -191,50 +191,60 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     // await cursor.close();
 
     // Migration if there are userCardAction records for authorId and "pay" actions that don't have details filled in
-    const paymentCursor = db.getUserCardPayActionsWithoutAuthor();
+    // const paymentCursor = db.getUserCardPayActionsWithoutAuthor();
+    // while (await paymentCursor.hasNext()) {
+    //   const userCardAction = await paymentCursor.next();
+    //   const card = await this.getCardById(userCardAction.cardId, false);
+    //   if (card) {
+    //     const authorId = card.createdById;
+    //     const transaction = await db.findBankTransactionForCardPayment(userCardAction.userId, userCardAction.cardId);
+    //     if (transaction) {
+    //       const paymentInfo: UserCardActionPaymentInfo = {
+    //         amount: transaction.details.amount,
+    //         transactionId: transaction.id,
+    //         category: "normal",
+    //         weight: 1,
+    //         weightedRevenue: transaction.details.amount
+    //       };
+    //       let firstTimePaidOpens = 0;
+    //       let fanPaidOpens = 0;
+    //       const grossRevenue = transaction.details.amount;
+    //       if (transaction.details.amount === 0.000001) {
+    //         paymentInfo.category = "fraud";
+    //         paymentInfo.weight = 0;
+    //       } else {
+    //         const priorPurchases = await db.countUserCardsPaidInTimeframe(userCardAction.userId, 0, userCardAction.at - 1);
+    //         if (priorPurchases === 0) {
+    //           paymentInfo.category = "first";
+    //           firstTimePaidOpens++;
+    //           paymentInfo.weight = this.getPurchaseWeight(0);
+    //         } else {
+    //           const priorToAuthor = await db.countUserCardPurchasesToAuthor(userCardAction.userId, authorId);
+    //           if (priorToAuthor > 0) {
+    //             paymentInfo.category = "fan";
+    //             fanPaidOpens++;
+    //           } else {
+    //             paymentInfo.weight = this.getPurchaseWeight(priorPurchases);
+    //           }
+    //         }
+    //       }
+    //       paymentInfo.weightedRevenue = grossRevenue * paymentInfo.weight;
+    //       await db.updateUserCardActionWithPaymentInfo(userCardAction.id, authorId, paymentInfo);
+    //       await db.updateNetworkCardStatsForPayment(userCardAction.at, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue);
+    //       console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction.id, paymentInfo.category);
+    //     } else {
+    //       console.warn("CardManager.initialize2: Found userCard pay action with missing transaction", userCardAction);
+    //     }
+    //   }
+    // }
+    // await paymentCursor.close();
+
+    const paymentCursor = await db.getWeightedUserActionPayments();
     while (await paymentCursor.hasNext()) {
-      const userCardAction = await paymentCursor.next();
-      const card = await this.getCardById(userCardAction.cardId, false);
-      if (card) {
-        const authorId = card.createdById;
-        const transaction = await db.findBankTransactionForCardPayment(userCardAction.userId, userCardAction.cardId);
-        if (transaction) {
-          const paymentInfo: UserCardActionPaymentInfo = {
-            amount: transaction.details.amount,
-            transactionId: transaction.id,
-            category: "normal",
-            weight: 1,
-            weightedRevenue: transaction.details.amount
-          };
-          let firstTimePaidOpens = 0;
-          let fanPaidOpens = 0;
-          const grossRevenue = transaction.details.amount;
-          if (transaction.details.amount === 0.000001) {
-            paymentInfo.category = "fraud";
-            paymentInfo.weight = 0;
-          } else {
-            const priorPurchases = await db.countUserCardsPaidInTimeframe(userCardAction.userId, 0, userCardAction.at - 1);
-            if (priorPurchases === 0) {
-              paymentInfo.category = "first";
-              firstTimePaidOpens++;
-              paymentInfo.weight = this.getPurchaseWeight(0);
-            } else {
-              const priorToAuthor = await db.countUserCardPurchasesToAuthor(userCardAction.userId, authorId);
-              if (priorToAuthor > 0) {
-                paymentInfo.category = "fan";
-                fanPaidOpens++;
-              } else {
-                paymentInfo.weight = this.getPurchaseWeight(priorPurchases);
-              }
-            }
-          }
-          const weightedRevenue = grossRevenue * paymentInfo.weight;
-          await db.updateUserCardActionWithPaymentInfo(userCardAction.id, authorId, paymentInfo);
-          await db.updateNetworkCardStatsForPayment(userCardAction.at, firstTimePaidOpens, fanPaidOpens, grossRevenue, weightedRevenue);
-          console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction.id, paymentInfo.category);
-        } else {
-          console.warn("CardManager.initialize2: Found userCard pay action with missing transaction", userCardAction);
-        }
+      const userAction = await paymentCursor.next();
+      if (userAction.payment && userAction.payment.weightedRevenue !== userAction.payment.amount * userAction.payment.weight) {
+        await db.updateUserActionPaymentWeightedRevenue(userAction.id, userAction.payment.amount * userAction.payment.weight);
+        console.log("Card.initialize2: Updated user action payment weighted revenue", userAction.id, userAction.payment.amount * userAction.payment.weight);
       }
     }
     await paymentCursor.close();
@@ -810,7 +820,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
       }
       const grossRevenue = amount;
-      const weightedRevenue = amount * weight;
       await userManager.updateUserBalance(request, user);
       const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
@@ -825,7 +834,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, weightedRevenue);
+      await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
