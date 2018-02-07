@@ -1,4 +1,5 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="card-container.html">
 
 <dom-module id="card-list">
@@ -12,6 +13,36 @@
       #container {
         width: 100%;
         box-sizing: border-box;
+      }
+
+      #more {
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        min-width: 300px;
+        width: 300px;
+        max-width: 300px;
+        margin: 8px;
+        padding: 20px 0;
+      }
+
+      #moreButton {
+        background: var(--highlight-green);
+        text-align: center;
+        color: white;
+        width: 90px;
+        height: 90px;
+        cursor: pointer;
+        margin: 0 auto;
+        border-radius: 50%;
+        font-size: 16px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
       }
 
       card-container {
@@ -35,6 +66,14 @@
           <card-container data="[[item]]"></card-container>
         </template>
       </dom-repeat>
+      <div id="more" class="horizontal layout center hidden">
+        <div id="moreButton" class="horizontal layout center" on-click="_onMore">
+          <div style="width: 100%; box-sizing: border-box;">
+            <div>More</div>
+            <soso-icon icon="more-horiz"></soso-icon>
+          </div>
+        </div>
+      </div>
     </div>
   </template>
   <script>
@@ -46,7 +85,11 @@
             type: String,
             observer: '_refreshLabel'
           },
-          items: Array
+          items: Array,
+          more: {
+            type: Boolean,
+            observer: '_refreshMore'
+          }
         };
       }
 
@@ -84,6 +127,14 @@
         this.removeEventListener("impression", this._impressionListener);
         this.removeEventListener("card-open", this._openListener);
         this.removeEventListener("card-deleted", this._deleteListener);
+      }
+
+      _refreshMore() {
+        if (this.more) {
+          this.$.more.classList.remove("hidden");
+        } else {
+          this.$.more.classList.add("hidden");
+        }
       }
 
       _refreshLabel() {
@@ -125,6 +176,11 @@
           }
         }
         this.set('items', newItems);
+      }
+
+      _onMore(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('more', { bubbles: true, composed: true }));
       }
     }
     window.customElements.define(CardList.is, CardList);

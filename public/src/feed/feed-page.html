@@ -60,7 +60,7 @@
     <div id="homePanelContainer" class="hidden"></div>
     <div class="container">
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
-      <card-list items="[[items]]" on-card-open-request="_onCardOpenRequest"></card-list>
+      <card-list items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
@@ -75,10 +75,7 @@
             value: 'There are no matching cards in this category.'
           },
           items: Array,
-          _moreAvailable: {
-            type: Boolean,
-            observer: '_onMoreAvailable'
-          }
+          _moreAvailable: Boolean
         }
       }
 
@@ -124,7 +121,7 @@
           this._lastCardId = null;
 
           // fetch
-          return $core.getFeed(this._feedName, 24, null, null, null, this._promotedCardIds).then((feed) => {
+          return $core.getFeed(this._feedName, 3, null, null, null, this._promotedCardIds).then((feed) => {
             const cards = feed.cards;
             for (let i = 0; i < cards.length; i++) {
               if (cards[i].promoted) {
@@ -192,8 +189,32 @@
         }
       }
 
-      _onMoreAvailable() {
-        // TODO: 
+      _onMore() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        this._lastFetchTimestamp = (new Date()).getTime();
+        $core.getFeed(this._feedName, 24, null, this._lastCardId, null, this._promotedCardIds).then((feed) => {
+          this._fetchingMore = false;
+          const cards = feed.cards || [];
+          this._lastCardId = null;
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].promoted) {
+              this._promotedCardIds.push(cards[i].id);
+            } else {
+              this._lastCardId = cards[i].id;
+            }
+          }
+          this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+          for (let i = 0; i < cards.length; i++) {
+            this.push("items", cards[i]);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
       }
     }
     window.customElements.define(FeedPage.is, FeedPage);
