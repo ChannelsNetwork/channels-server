@@ -239,15 +239,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     // }
     // await paymentCursor.close();
 
-    const paymentCursor = await db.getWeightedUserActionPayments();
-    while (await paymentCursor.hasNext()) {
-      const userAction = await paymentCursor.next();
-      if (userAction.payment && userAction.payment.weightedRevenue !== userAction.payment.amount * userAction.payment.weight) {
-        await db.updateUserActionPaymentWeightedRevenue(userAction.id, userAction.payment.amount * userAction.payment.weight);
-        console.log("Card.initialize2: Updated user action payment weighted revenue", userAction.id, userAction.payment.amount * userAction.payment.weight);
-      }
-    }
-    await paymentCursor.close();
+    // const paymentCursor = await db.getWeightedUserActionPayments();
+    // while (await paymentCursor.hasNext()) {
+    //   const userAction = await paymentCursor.next();
+    //   if (userAction.payment && userAction.payment.weightedRevenue !== userAction.payment.amount * userAction.payment.weight) {
+    //     await db.updateUserActionPaymentWeightedRevenue(userAction.id, userAction.payment.amount * userAction.payment.weight);
+    //     console.log("Card.initialize2: Updated user action payment weighted revenue", userAction.id, userAction.payment.amount * userAction.payment.weight);
+    //   }
+    // }
+    // await paymentCursor.close();
   }
 
   private async getCardById(id: string, force: boolean): Promise<CardRecord> {
