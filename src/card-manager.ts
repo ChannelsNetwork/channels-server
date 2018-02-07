@@ -609,7 +609,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const now = Date.now();
       let transactionResult: BankTransactionResult;
-      if (requestBody.detailsObject.transaction) {
+      if (requestBody.detailsObject.transaction && requestBody.detailsObject.transaction.objectString) {
         if (card.pricing.openPayment <= 0) {
           response.status(400).send("No open payment on this card");
           return;
