@@ -649,10 +649,22 @@ export interface AdminCardGoalsInfo {
   totalNonPromoted: number;
   totalPromoted: number;
   totalAds: number;
+  totalPaidOpens: number;
+  totalFirstTimePaidOpens: number;
+  totalNormalPaidOpens: number;
+  totalFanPaidOpens: number;
+  totalGrossRevenue: number;
+  totalWeightedRevenue: number;
   newCards: number;
   newNonPromoted: number;
   newPromoted: number;
   newAds: number;
+  newPaidOpens: number;
+  newFirstTimePaidOpens: number;
+  newNormalPaidOpens: number;
+  newFanPaidOpens: number;
+  newGrossRevenue: number;
+  newWeightedRevenue: number;
 }
 
 export interface AdminPublisherRevenueGoalsInfo {

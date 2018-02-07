@@ -391,13 +391,11 @@ export interface UserCardActionRecord {
   fromIpAddress: string;
   fromFingerprint: string;
   cardId: string;
+  authorId: string;
   at: number;
   action: CardActionType;
   fraudReason?: CardPaymentFraudReason;
-  payment?: {
-    amount: number;
-    transactionId: string;
-  };
+  payment?: UserCardActionPaymentInfo;
   redeemPromotion?: {
     amount: number;
     transactionId: string;
@@ -407,6 +405,16 @@ export interface UserCardActionRecord {
     transactionId: string;
   };
 }
+
+export interface UserCardActionPaymentInfo {
+  amount: number;
+  transactionId: string;
+  category: CardPaymentCategory;
+  weight: number;
+  weightedRevenue: number;
+}
+
+export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
 export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
@@ -517,6 +525,10 @@ export interface NetworkCardStats {
   dislikes: number;
   cardRevenue: number;
   blockedPaidOpens: number;
+  firstTimePaidOpens: number;
+  fanPaidOpens: number;
+  grossRevenue: number;
+  weightedRevenue: number;
 }
 
 export interface IpAddressRecord {

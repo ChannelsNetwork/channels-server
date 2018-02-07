@@ -1,6 +1,10 @@
 Find cards with a lot of discounted payments (suggesting fraud)
 
-db.bankTransactions.aggregate([{$match: {"details.reason": "card-open-fee", "details.amount": 0.000001}},{$group: {_id: "$cardId, total: {$sum: 1}}},{$sort: {total: -1}}])
+db.bankTransactions.aggregate([
+  {$match: {"details.reason": "card-open-fee", "details.amount": 0.000001}},
+  {$group: {_id: "$cardId, total: {$sum: 1}}},
+  {$sort: {total: -1}}
+])
 
 { "_id" : "a0f129e1-e059-43b6-8b55-93ae117ea8c2", "total" : 81 }
 { "_id" : "b9323a04-7dac-4243-8546-54a6a7abfc8b", "total" : 75 }
@@ -24,3 +28,266 @@ db.bankTransactions.aggregate([{$match: {"details.reason": "card-open-fee", "det
 { "_id" : "e73ec987-d62a-44d5-98f1-cfedbe462049", "total" : 15 }
 { "_id" : "8edadc16-1360-4291-b36b-2edc09bb6d68", "total" : 15 }
 
+
+Users by number of card purchases
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay"}}, 
+  {$group: {_id: "$userId", count: {$sum: 1}}}, 
+  {$lookup: {from: "users", localField:"_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 1, userId: 1, count: 1, "user.identity.handle": 1, "user.balance": 1, "user.city": 1}}, 
+  {$sort: {count: -1}}
+  ])
+
+{ "_id" : "81b62690-81e0-4561-9eba-1b0c84dcc9ab", "count" : 389, "user" : { "balance" : 38.75763170917111, "identity" : { "handle" : "carl" }, "city" : "Palo Alto" } }
+{ "_id" : "bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "count" : 304, "user" : { "balance" : 7.107843907900668, "identity" : { "handle" : "kduffie" }, "city" : "Palo Alto" } }
+{ "_id" : "07079e4d-5b7b-4490-afa4-ac2e4934abed", "count" : 290, "user" : { "balance" : 41.6189923585694, "identity" : { "handle" : "shihn" }, "city" : "Fremont" } }
+{ "_id" : "eea3209f-9bcb-4cd7-ad25-cc165f0c5661", "count" : 110, "user" : { "balance" : 87.77201993733755, "identity" : { "handle" : "patricia" }, "city" : "Montreal" } }
+{ "_id" : "0c4a28fd-6a3b-42ca-adfe-4dfc89cc47e5", "count" : 62, "user" : { "balance" : 13.849659678279505, "identity" : { "handle" : "eric" }, "city" : "Pittsburgh" } }
+{ "_id" : "42d5089c-1a72-49db-89ee-a0c05f7162a8", "count" : 54, "user" : { "balance" : 434.93431544502215, "identity" : { "handle" : "datastories" }, "city" : "San Jose" } }
+{ "_id" : "9f3e9d8f-5913-4e13-b1b2-c48a64fed5b6", "count" : 43, "user" : { "balance" : 2.888722257405604, "city" : "Warren" } }
+{ "_id" : "24037b50-f7a4-465f-92fe-42831ef82ad3", "count" : 41, "user" : { "balance" : 11.042353292647556, "identity" : { "handle" : "flashfanatic" }, "city" : "Johnstown" } }
+{ "_id" : "bb30b0ad-2fae-42e8-8da0-263d0f19f192", "count" : 40, "user" : { "balance" : 1.6053589132183796, "city" : "Lagos" } }
+{ "_id" : "01d0dfa1-eb3c-4131-8b24-b9ca08250161", "count" : 39, "user" : { "balance" : 0.01000460435233928, "city" : "New York" } }
+{ "_id" : "6e6b17ba-55f0-4fdc-a3d7-b3184272f879", "count" : 38, "user" : { "balance" : 8.131419167431154, "city" : "Oke Ila", "identity" : { "handle" : "lizabeth12349" } } }
+{ "_id" : "8d54cc09-d40e-4f85-85ea-d84283947f59", "count" : 35, "user" : { "balance" : 28.074179135937353, "city" : "Palo Alto", "identity" : { "handle" : "lliizz" } } }
+{ "_id" : "4beb6acb-e535-42e7-8f0c-4f3c7fac60fe", "count" : 33, "user" : { "balance" : 3.495300658501894, "city" : "Sterling Heights" } }
+{ "_id" : "46b4ba43-e942-42c0-a8ee-9ec7b94489f2", "count" : 33, "user" : { "balance" : 49.25838904916544, "city" : "Lagos", "identity" : { "handle" : "sosomeyes" } } }
+{ "_id" : "90da14be-7c8c-41b4-99d3-520d6d42eac2", "count" : 32, "user" : { "balance" : 0.16960598245498384, "city" : "Warren" } }
+{ "_id" : "05f05e96-4ba5-4304-b00f-40b64b321b8a", "count" : 32, "user" : { "balance" : 0.8804829782310986, "city" : "New York" } }
+{ "_id" : "d9e89963-f1e1-4c76-be8e-eab7ed28dc55", "count" : 31, "user" : { "balance" : 0.5047830043942011, "city" : "Central Lake", "identity" : { "handle" : "lets_do_this" } } }
+{ "_id" : "14beeef7-d056-4d1c-aab7-25f594b94a5d", "count" : 31, "user" : { "balance" : 0.14907532895637662, "city" : "New York" } }
+{ "_id" : "b52b54d7-a7e3-4620-8a49-be89646b34ce", "count" : 30, "user" : { "balance" : 0.01099589058612099, "city" : "Sterling Heights" } }
+{ "_id" : "762592e8-3024-41d2-9d3c-5d11b2aeb10c", "count" : 30, "user" : { "balance" : 11.117637789993124, "city" : "Belvidere", "identity" : { "handle" : "mighterbump" } } }
+{ "_id" : "17238ec8-1072-4419-a60d-e7cea3fa63da", "count" : 30, "user" : { "balance" : 0.010002029740504681, "city" : "New York" } }
+{ "_id" : "595a2cf8-51fd-42f0-aa81-dc647b2cfe33", "count" : 30, "user" : { "balance" : 0.019012763633084555, "city" : "New York" } }
+{ "_id" : "5cd5dc35-5feb-4f43-861f-d17990e8c7e3", "count" : 30, "user" : { "balance" : 0.6281335791302032, "city" : "Warren" } }
+{ "_id" : "4e7dc4f0-1333-4205-8458-cb9b99894df5", "count" : 30, "user" : { "balance" : 0.14212290340992045, "city" : "New York" } }
+{ "_id" : "52df4483-261d-4af7-b98d-b42fb4ea5d54", "count" : 30, "user" : { "balance" : 0.010006480637714376, "city" : "New York" } }
+{ "_id" : "bc773d16-c1a4-4a14-8087-980b87d6a3e5", "count" : 29, "user" : { "balance" : 0.028999999999999, "city" : "Denver" } }
+{ "_id" : "1a51f8a6-f0be-424e-8697-3b0a468320fb", "count" : 29, "user" : { "balance" : 0.059016925322132624, "city" : "Toronto" } }
+{ "_id" : "a6c3de07-6252-4b11-898d-12544dc6699c", "count" : 29, "user" : { "balance" : 0.020008099535943867, "city" : "South Orange" } }
+{ "_id" : "3c16b0b0-d312-4ac7-87dc-dd37fcb8ab7d", "count" : 29, "user" : { "balance" : 0.5006144783826069, "city" : "New York" } }
+{ "_id" : "146154ce-ad45-45c4-8fe1-d6535470e8e8", "count" : 29, "user" : { "balance" : 0.03802770548013634, "city" : "New York" } }
+{ "_id" : "0d42a92c-4e9a-4171-9628-7760d579d225", "count" : 29, "user" : { "balance" : 0.16516628259943078, "city" : "Warren" } }
+{ "_id" : "80865b31-7b67-4539-a861-bce4e6fd715e", "count" : 29, "user" : { "balance" : 0.09006304719965386, "city" : "New York" } }
+{ "_id" : "615da9a3-0541-475d-b976-d4dd6b80258d", "count" : 29, "user" : { "balance" : 0.1000729106616404, "city" : "South Orange" } }
+{ "_id" : "f21df476-b1cf-4724-89be-25f8605d5358", "count" : 28, "user" : { "balance" : 0.2517156156245563, "city" : "Warren" } }
+{ "_id" : "014c7639-8397-45a5-b863-c66f2725aab7", "count" : 28, "user" : { "balance" : 0.05001319856136919, "city" : "New York" } }
+{ "_id" : "5da85458-b607-4e33-ac9a-36fd06180271", "count" : 28, "user" : { "balance" : 0.5714331202497263, "city" : "New York" } }
+{ "_id" : "d722a6bb-0434-47df-ade5-8ee278680855", "count" : 28, "user" : { "balance" : 0.05005074511858142, "city" : "New York" } }
+{ "_id" : "df337d61-b737-4581-aaa7-c81f5a3fb38d", "count" : 28, "user" : { "balance" : 0.000003156212853718705, "city" : "London" } }
+{ "_id" : "7f40fe79-e8de-458f-afd4-dab253bcaefd", "count" : 28, "user" : { "balance" : 0.014019421199433783, "city" : "New York" } }
+{ "_id" : "1b2899e1-24b3-4e07-9ba5-d0c6dc86cea9", "count" : 28, "user" : { "balance" : 0.06001943819511323, "city" : "New York" } }
+{ "_id" : "0277ee60-62ed-4904-a881-e89a3b3e52e2", "count" : 28, "user" : { "balance" : 0.0490438937976204, "city" : "New York" } }
+{ "_id" : "3d72601d-0daa-41ed-ab43-ecaaffd7fac4", "count" : 28, "user" : { "balance" : 0.16015852890341198, "city" : "New York" } }
+{ "_id" : "8b428be4-a2de-49bc-bc95-bc3c308c160d", "count" : 27, "user" : { "balance" : 0.0110000668975332, "city" : "Sterling Heights" } }
+{ "_id" : "3b8eae85-c098-418a-93a2-0c98773800ad", "count" : 27, "user" : { "balance" : 0.10902648561409917, "city" : "New York" } }
+{ "_id" : "db530b71-7a16-4122-a808-691a8c78c81f", "count" : 27, "user" : { "balance" : 0.010003319907270616, "city" : "Warren" } }
+{ "_id" : "b5a0af2d-9ca9-4d0f-a7a0-955e67796045", "count" : 27, "user" : { "balance" : 0.30321076730323326, "city" : "Ha Tinh", "identity" : { "handle" : "johnnysaigon" } } }
+{ "_id" : "8e51a872-313c-4a0d-9dba-3327dc9d923a", "count" : 27, "user" : { "balance" : 0.07903199373603526, "city" : "Toronto" } }
+{ "_id" : "87c171fd-aa48-4913-9e76-8a78023a5cd9", "count" : 27, "user" : { "balance" : 0.11905070433002558, "city" : "Toronto" } }
+{ "_id" : "a776fc51-e6bd-4c99-82e9-c3ff231bbe7c", "count" : 27, "user" : { "balance" : 61.70412021144898, "identity" : { "handle" : "brad" }, "city" : "Gastonville" } }
+{ "_id" : "8bc0389b-a852-450d-b10c-6b290cdf20fe", "count" : 27, "user" : { "balance" : 0.08910721746107841, "city" : "Toronto" } }
+{ "_id" : "b07e5d97-b911-4eca-b0dc-d4da6097f1f4", "count" : 27, "user" : { "balance" : 2.778287282515796, "city" : "Central Lake" } }
+{ "_id" : "385e9d46-c2cc-4660-9751-1f04c7e464d8", "count" : 27, "user" : { "balance" : 0.13705468545304408, "city" : "Warren" } }
+{ "_id" : "73295cd0-b9ab-4e5b-82f4-6d78c600f8de", "count" : 27, "user" : { "balance" : 2.110128346503502, "city" : "Lagos" } }
+{ "_id" : "a7af9dd2-bb6c-4ae6-a89c-dd528ec59a94", "count" : 27, "user" : { "balance" : 0.06505266019947978, "city" : "New York" } }
+{ "_id" : "61fc56bf-029e-482a-9caa-cb49610bbf23", "count" : 27, "user" : { "balance" : 0.006057536346016397, "city" : "San Jose" } }
+{ "_id" : "27ed87ea-4871-4616-ab71-efa3632b4783", "count" : 27, "user" : { "balance" : 0.10006095027156241, "city" : "New York" } }
+{ "_id" : "6ff43e5d-9d41-421e-b64c-c9698619560b", "count" : 26, "user" : { "balance" : 0.1000567032453994, "city" : "Clinton Township" } }
+{ "_id" : "7e0caf36-fe7d-4841-9c7f-ec9188bdf823", "count" : 26, "user" : { "balance" : 0.08008703498737557, "city" : "Warren" } }
+{ "_id" : "63313a3f-56e4-4267-95d0-d149c7f93a49", "count" : 26, "user" : { "balance" : 19.700954559671175, "identity" : { "handle" : "dcrowe2" }, "city" : "Saint-Hubert-de-Riviere-du-Loup" } }
+{ "_id" : "697009c8-c209-4872-86a1-423d26a7720d", "count" : 26, "user" : { "balance" : 0.390417540651055, "city" : "San Jose" } }
+
+Find user registrations from the same fingerprint
+
+db.userRegistrations.aggregate([
+  {$group: {_id: "$fingerprint", count: {$sum: 1}, userIds: {$push: "$userId"}}},
+  {$sort: {count: -1}}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {fingerprint: "0ff7776777e20bc2c2190ffb34691703"}},
+  {$group: {_id: "$userId", count: {$sum: 1}}},
+  {$lookup: {from: "users", localField:"_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 1, userId: 1, count: 1, "user.identity.handle": 1, "user.balance": 1, "user.city": 1}},
+  {$sort: {count: -1}}
+])
+
+{ "_id" : "a106ea56-903d-4e3e-a3c8-a6db16c779f2", "count" : 18, "user" : { "balance" : 1.250305902148338, "city" : "Amsterdam" } }
+{ "_id" : "b8cbe36e-6874-4b76-a401-ec61ff6e11da", "count" : 11, "user" : { "balance" : 0.2500809939793709, "city" : "Clichy-sous-Bois" } }
+{ "_id" : "f35ab2ea-7ae1-4eb7-8628-02424e599b7b", "count" : 10, "user" : { "balance" : 0.2500809954887105, "city" : "Paris" } }
+{ "_id" : "38c30888-d590-4096-b17a-19752d2304de", "count" : 10, "user" : { "balance" : 1.7505669835160098, "city" : "Bourlens (France)" } }
+{ "_id" : "0f8661d2-fe7d-44e2-8c9e-1ac5c993b696", "count" : 10, "user" : { "balance" : 0.5001619880913949, "city" : "Almere Stad" } }
+{ "_id" : "0cedf602-3291-490a-9b30-5da040d1d3e8", "count" : 10, "user" : { "balance" : 0.5001619945042132, "city" : "Amsterdam" } }
+{ "_id" : "85ce2995-0089-4318-a8cc-5a66360778ee", "count" : 10, "user" : { "balance" : 0.25008099669149475, "city" : "Moscow" } }
+{ "_id" : "5ac0f9d3-6f93-4b7b-9423-56366eb1c250", "count" : 9, "user" : { "balance" : 2.000483926714031, "city" : "Hünenberg" } }
+{ "_id" : "0722b6c9-40bb-4232-a814-1f5ef9b9983d", "count" : 9, "user" : { "balance" : 1.2503037111039716, "city" : "Erfurt (Altstadt)" } }
+{ "_id" : "f291d6a9-b1cd-419c-843d-68f2150c929d", "count" : 9, "user" : { "balance" : 1.0002419884259341, "city" : "Norrtälje" } }
+{ "_id" : "373836a4-5a0b-4537-8f5e-5ba55faa7578", "count" : 9, "user" : { "balance" : 2.50060047022214, "city" : "Paris (8th arrondissement of Paris)" } }
+{ "_id" : "3d1683a4-7e05-4701-a8e9-3013dba884d2", "count" : 9, "user" : { "balance" : 1.500361449270432, "city" : "Paris (8th arrondissement of Paris)" } }
+{ "_id" : "4a557c0d-1429-417b-bdfa-626dc72fcb88", "count" : 9, "user" : { "balance" : 0.25006074187934557, "city" : "Utrecht" } }
+{ "_id" : "a63e1908-c481-45ea-a6b1-eeec8f2e1062", "count" : 9, "user" : { "balance" : 2.500600402302862, "city" : "Amsterdam" } }
+{ "_id" : "361fe713-db93-4783-ad36-2279c38a57ee", "count" : 9, "user" : { "balance" : 1.0002419658580015, "city" : "Amsterdam" } }
+{ "_id" : "43817319-7dc2-4f53-8ac6-84e398b54d13", "count" : 9, "user" : { "balance" : 1.2503037295532162, "city" : "Haarlem (Haarlem-Oost)" } }
+{ "_id" : "9220606b-c33c-453a-aa69-f41975c546d5", "count" : 9, "user" : { "balance" : 1.0003239910436912, "city" : "Paris (8th arrondissement of Paris)" } }
+{ "_id" : "b1f035b7-927b-4b1c-9b82-6896e023a0ca", "count" : 9, "user" : { "balance" : 2.2505406947508, "city" : "Vitry-sur-Seine" } }
+{ "_id" : "6ad71b45-92da-492b-8940-d08c9a1fa002", "count" : 9, "user" : { "balance" : 1.000242965064201, "city" : "Stockholm" } }
+{ "_id" : "fddf0248-e6e7-44e3-9113-4db9d639f965", "count" : 9, "user" : { "balance" : 1.5003614438231991, "city" : "Amsterdam" } }
+
+Find users with zero purchases
+
+db.users.aggregate([
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "userId", as: "cardPayments"}},
+  {$unwind: "$cardPayments"},
+  {$match: {"cardPayments.action": "pay"}},
+  {$project: {_id: "$id", handle: "$identity.handle", city: "$city", cardId: "$cardPayments.cardId"}},
+  {$group: {_id: "$_id", handle: {$first: "$handle"}, city: {$first: "$city"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+{ "_id" : "81b62690-81e0-4561-9eba-1b0c84dcc9ab", "handle" : "carl", "city" : "Palo Alto", "count" : 389 }
+{ "_id" : "bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "handle" : "kduffie", "city" : "Palo Alto", "count" : 304 }
+{ "_id" : "07079e4d-5b7b-4490-afa4-ac2e4934abed", "handle" : "shihn", "city" : "Fremont", "count" : 292 }
+{ "_id" : "eea3209f-9bcb-4cd7-ad25-cc165f0c5661", "handle" : "patricia", "city" : "Montreal", "count" : 110 }
+{ "_id" : "0c4a28fd-6a3b-42ca-adfe-4dfc89cc47e5", "handle" : "eric", "city" : "Pittsburgh", "count" : 62 }
+{ "_id" : "42d5089c-1a72-49db-89ee-a0c05f7162a8", "handle" : "datastories", "city" : "San Jose", "count" : 54 }
+{ "_id" : "9f3e9d8f-5913-4e13-b1b2-c48a64fed5b6", "handle" : null, "city" : "Warren", "count" : 43 }
+{ "_id" : "24037b50-f7a4-465f-92fe-42831ef82ad3", "handle" : "flashfanatic", "city" : "Johnstown", "count" : 41 }
+{ "_id" : "bb30b0ad-2fae-42e8-8da0-263d0f19f192", "handle" : null, "city" : "Lagos", "count" : 40 }
+{ "_id" : "01d0dfa1-eb3c-4131-8b24-b9ca08250161", "handle" : null, "city" : "New York", "count" : 39 }
+{ "_id" : "6e6b17ba-55f0-4fdc-a3d7-b3184272f879", "handle" : "lizabeth12349", "city" : "Oke Ila", "count" : 38 }
+{ "_id" : "8d54cc09-d40e-4f85-85ea-d84283947f59", "handle" : "lliizz", "city" : "Palo Alto", "count" : 35 }
+{ "_id" : "4beb6acb-e535-42e7-8f0c-4f3c7fac60fe", "handle" : null, "city" : "Sterling Heights", "count" : 33 }
+{ "_id" : "46b4ba43-e942-42c0-a8ee-9ec7b94489f2", "handle" : "sosomeyes", "city" : "Lagos", "count" : 33 }
+{ "_id" : "90da14be-7c8c-41b4-99d3-520d6d42eac2", "handle" : null, "city" : "Warren", "count" : 32 }
+{ "_id" : "05f05e96-4ba5-4304-b00f-40b64b321b8a", "handle" : null, "city" : "New York", "count" : 32 }
+{ "_id" : "d9e89963-f1e1-4c76-be8e-eab7ed28dc55", "handle" : "lets_do_this", "city" : "Central Lake", "count" : 31 }
+{ "_id" : "14beeef7-d056-4d1c-aab7-25f594b94a5d", "handle" : null, "city" : "New York", "count" : 31 }
+{ "_id" : "b52b54d7-a7e3-4620-8a49-be89646b34ce", "handle" : null, "city" : "Sterling Heights", "count" : 30 }
+{ "_id" : "17238ec8-1072-4419-a60d-e7cea3fa63da", "handle" : null, "city" : "New York", "count" : 30 }
+
+Find how many users for each number of card purchases
+
+db.users.aggregate([
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "userId", as: "cardPayments"}},
+  {$unwind: "$cardPayments"},
+  {$match: {"cardPayments.action": "pay"}},
+  {$project: {_id: "$id", handle: "$identity.handle", city: "$city", cardId: "$cardPayments.cardId"}},
+  {$group: {_id: "$_id", handle: {$first: "$handle"}, city: {$first: "$city"}, count: {$sum: 1}}},
+  {$group: {_id: "$count", total: {$sum: 1}}},
+  {$sort: {total: -1}}
+])
+
+{ "_id" : 1, "total" : 21125 }
+{ "_id" : 2, "total" : 912 }
+{ "_id" : 3, "total" : 346 }
+{ "_id" : 4, "total" : 211 }
+{ "_id" : 5, "total" : 168 }
+{ "_id" : 9, "total" : 91 }
+{ "_id" : 6, "total" : 76 }
+{ "_id" : 7, "total" : 63 }
+{ "_id" : 8, "total" : 46 }
+{ "_id" : 10, "total" : 40 }
+{ "_id" : 11, "total" : 24 }
+{ "_id" : 20, "total" : 20 }
+{ "_id" : 12, "total" : 18 }
+{ "_id" : 27, "total" : 14 }
+{ "_id" : 17, "total" : 12 }
+{ "_id" : 15, "total" : 12 }
+{ "_id" : 24, "total" : 12 }
+{ "_id" : 13, "total" : 11 }
+{ "_id" : 14, "total" : 10 }
+{ "_id" : 28, "total" : 9 }
+
+How many user have subscribed to at least one channel
+
+db.channelUsers.aggregate([
+  {$match: {subscriptionState: "subscribed"}},
+  {$group: {_id: "$userId", count: {$sum: 1}}},
+  {$sort: {count: -1}},
+  {$group: {_id: "1", count: {$sum: 1}}}
+])
+
+{ "_id" : "1", "count" : 115 }
+
+How many channels have at least one subscriber
+
+db.channelUsers.aggregate([
+  {$match: {subscriptionState: "subscribed"}},
+  {$group: {_id: "$channelId", count: {$sum: 1}}},
+  {$sort: {count: -1}},
+  {$group: {_id: "1", count: {$sum: 1}}}
+])
+
+{ "_id" : "1", "count" : 104 }
+
+How many channels have at least one card
+
+db.channelCards.aggregate([
+  {$group: {_id: "$channelId", count: {$sum: 1}}},
+  {$sort: {count: -1}},
+  {$group: {_id: "1", count: {$sum: 1}}}
+])
+
+{ "_id" : "1", "count" : 365 }
+
+How many different fingerprints bought a given card
+
+db.userCardActions.aggregate([
+  {$match: {cardId: "c8028025-6512-43a0-8f9f-fc01a06df4af", action: "pay"}},
+  {$group: {_id: "$fromFingerprint", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {cardId: "c8028025-6512-43a0-8f9f-fc01a06df4af", action: "pay"}},
+  {$group: {_id: "$fromIpAddress", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+Who are a channel's subscribers?
+
+db.channelUsers.aggregate([
+  {$match: {channelId: "30907d35-8934-48fd-90b7-179f05318bce", subscriptionState: "subscribed"}},
+  {$lookup: {from: "users", localField: "userId", foreignField: "id", as: "user"}},
+  {$unwind: "$user"},
+  {$project: {_id: 1, userId: 1, count: 1, "user.identity.handle": 1, "user.balance": 1, "user.city": 1}}
+])
+
+{ "_id" : ObjectId("5a74e74875349f94e3aaef11"), "userId" : "12c6bb0c-f4d2-402c-9535-cdeae3214bdb", "user" : { "balance" : 1.4441097248479362, "city" : "Melbourne", "identity" : { "handle" : "jjchristie" } } }
+{ "_id" : ObjectId("5a726d1a75349f94e33ef05e"), "userId" : "23f67aa0-a11c-4aa0-acbd-e134dfe46187", "user" : { "balance" : 1.950731004346869, "city" : "Hollywood", "identity" : { "handle" : "spokenwordnawledge" } } }
+{ "_id" : ObjectId("5a6f85c475349f94e3b4b2b2"), "userId" : "4217a6c9-157f-45b3-bc50-fbeada986a59", "user" : { "balance" : 7.271767721388517, "city" : "San Juan", "identity" : { "handle" : "newenx" } } }
+{ "_id" : ObjectId("5a70730875349f94e3289553"), "userId" : "5139e3d2-fc02-4bcd-bfa9-1380eb0badf2", "user" : { "balance" : 2.6742832396274347, "city" : "Vienna", "identity" : { "handle" : "vanderlamp" } } }
+{ "_id" : ObjectId("5a76e70c75349f94e3c45217"), "userId" : "57f30778-7b4f-4fae-a903-3e88f35e3cc0", "user" : { "balance" : 1.3533645628023645, "city" : "High Wycombe", "identity" : { "handle" : "deezee42" } } }
+{ "_id" : ObjectId("5a708bae75349f94e3344882"), "userId" : "60aa908a-61d8-47ec-afd5-1bee492fc487", "user" : { "balance" : 217.99301511749516, "city" : "Sampaloc", "identity" : { "handle" : "nehvolution" } } }
+{ "_id" : ObjectId("5a6f99cd75349f94e3c09ba8"), "userId" : "74a3bba6-b70e-4d2d-8a66-b435093ddc2b", "user" : { "balance" : 1.9064486490139962, "city" : "Legden", "identity" : { "handle" : "bendismuzik" } } }
+{ "_id" : ObjectId("5a705f5e75349f94e31fb1ce"), "userId" : "752d0e5e-c745-4581-a1d6-da80e2300db2", "user" : { "balance" : 2.246256992224452, "city" : "New Malden", "identity" : { "handle" : "legpuppy" } } }
+{ "_id" : ObjectId("5a71dd4375349f94e3e7a969"), "userId" : "8abd23d8-e188-498f-aa34-e2ac1e6c92ca", "user" : { "balance" : 1.8501162252412275, "city" : "Ottawa", "identity" : { "handle" : "fedra" } } }
+{ "_id" : ObjectId("5a6f97d975349f94e3bf37bd"), "userId" : "8b37de35-e4e9-4664-85b4-5ec5d810e7a9", "user" : { "balance" : 10.142047437165065, "city" : "Bradford", "identity" : { "handle" : "dnpq" } } }
+{ "_id" : ObjectId("5a71c6d575349f94e3da56e6"), "userId" : "a73f399d-ae41-4fce-94bf-d86871667f59", "user" : { "balance" : 5.489063453229614, "city" : "Rome", "identity" : { "handle" : "bzur" } } }
+{ "_id" : ObjectId("5a70f58f75349f94e36bfc28"), "userId" : "ab0d8401-5e2d-483c-870c-8ae3ee276d5f", "user" : { "balance" : 1.7577202078474004, "city" : "Toulouse", "identity" : { "handle" : "nemocanfly" } } }
+{ "_id" : ObjectId("5a6f8b3875349f94e3b7cb1f"), "userId" : "af0ed60e-c7d9-499d-b893-b1629abf54e8", "user" : { "balance" : 24.742131811540872, "city" : "Wiesbaden", "identity" : { "handle" : "raven" } } }
+{ "_id" : ObjectId("5a726d6d75349f94e33f1b29"), "userId" : "b5a0af2d-9ca9-4d0f-a7a0-955e67796045", "user" : { "balance" : 0.30321076730323326, "city" : "Ha Tinh", "identity" : { "handle" : "johnnysaigon" } } }
+{ "_id" : ObjectId("5a70376875349f94e30cfd81"), "userId" : "b7fa2a35-5e7c-425d-b6dc-683db3ef0d32", "user" : { "balance" : 4.631378769268231, "city" : "Lawnton", "identity" : { "handle" : "peter" } } }
+{ "_id" : ObjectId("5a6f78a475349f94e3ad71f9"), "userId" : "c4e3bd19-2bac-4a8a-8cee-079b52c7a04a", "user" : { "balance" : 5.944370554995349, "city" : "Marbella", "identity" : { "handle" : "gjart" } } }
+{ "_id" : ObjectId("5a737e4975349f94e3d5e59a"), "userId" : "c8850b61-03fd-4f7b-97e7-893ac00fdc0b", "user" : { "balance" : 17.640253778392093, "city" : "Stockholm", "identity" : { "handle" : "kahsay" } } }
+{ "_id" : ObjectId("5a70f8aa75349f94e36dd8bd"), "userId" : "dd96770a-bc77-4565-8e01-9441b7db979a", "user" : { "balance" : 417.0162178180795, "city" : "London", "identity" : { "handle" : "empireoflights" } } }
+{ "_id" : ObjectId("5a6fcb9875349f94e3daf424"), "userId" : "e16250f5-bdcb-4f76-b5cc-2cd00cad58e7", "user" : { "balance" : 15.176661101275656, "city" : "Dela Paz Norte", "identity" : { "handle" : "gillianwanders" } } }
+{ "_id" : ObjectId("5a72e86675349f94e381cbe7"), "userId" : "ee4e2955-beeb-4fe2-9d73-0caeb4631e2a", "user" : { "balance" : 6.212729483470439, "city" : "Talisay City", "identity" : { "handle" : "reyes_james6000" } } }
+{ "_id" : ObjectId("5a70abe775349f94e3442d3d"), "userId" : "fc908765-f371-4166-a451-19cb3b34eff0", "user" : { "balance" : 3.8844996386060253, "city" : "Staten Island", "identity" : { "handle" : "indiebandguru" } } }
+
+
+What are the first-time card purchases?
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay"}},
+  {$group: {_id: "userId", count: {$sum: 1}, firstAt: {$min: "$at"}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
+  {$unwind: "$user"},
+  {$project: {_id: 1, firstAt: 1, count: 1, "user.identity.handle": 1, "user.balance": 1, "user.city": 1}},
+  {$sort: {firstAt: -1}}
+])

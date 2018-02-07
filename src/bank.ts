@@ -494,7 +494,7 @@ export class Bank implements RestServer, Initializable {
       return coupon.budget.amount > coupon.budget.spent;
     }
     const budget = coupon.budget.amount + authorCardInfo.earnedFromReader * coupon.budget.plusPercent / 100;
-    return budget > coupon.budget.spent + coupon.amount;
+    return budget > coupon.budget.spent;
   }
 
   async registerCoupon(user: UserRecord, cardId: string, details: SignedObject): Promise<BankCouponRecord> {

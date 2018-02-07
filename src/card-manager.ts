@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -31,6 +31,7 @@ import { fileManager } from "./file-manager";
 import { feedManager } from "./feed-manager";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
+import * as LRU from 'lru-cache';
 
 const promiseLimit = require('promise-limit');
 
@@ -61,24 +62,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private urlManager: UrlManager;
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
+  private cardCache = LRU<string, CardRecord>({ max: 1000, maxAge: 1000 * 60 * 5 });
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
-    // To handle migration to new scoring scheme, we need to populate the latest stats
-    const networkCardStats = await db.findLatestNetworkCardStats();
-    if (!networkCardStats) {
-      const stats = db.createEmptyNetworkCardStats();
-      const cards = await db.findCardsByTime(100);
-      for (const card of cards) {
-        stats.opens += card.stats.opens ? card.stats.opens.value : 0;
-        stats.uniqueOpens += card.stats.uniqueOpens ? card.stats.uniqueOpens.value : 0;
-        stats.paidOpens += card.stats.uniqueOpens ? card.stats.uniqueOpens.value : 0;
-        stats.likes += card.stats.likes ? card.stats.likes.value : 0;
-        stats.dislikes += card.stats.dislikes ? card.stats.dislikes.value : 0;
-        stats.cardRevenue += card.stats.revenue ? card.stats.revenue.value : 0;
-      }
-      await db.insertOriginalNetworkCardStats(stats, INITIAL_BASE_CARD_PRICE);
-    }
   }
 
   async initializeRestServices(urlManager: UrlManager, app: express.Application): Promise<void> {
@@ -144,65 +131,132 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       this.lastMutationIndexSent = lastMutation.index;
     }
 
-    let cursor = db.getCardsMissingSearchText();
-    while (await cursor.hasNext()) {
-      const card = await cursor.next();
-      console.log("Card.initialize2: Adding missing searchText field in card", card.id);
-      const state = await this.populateCardState(null, card.id, true, false);
-      let searchText;
-      if (state && state.state.shared) {
-        searchText = this.searchTextFromSharedStateInfo(state.state.shared);
-      } else {
-        errorManager.warning("Card.initialize2: No shared state to use for search text", null);
-      }
-      await db.updateCardSearchText(card.id, searchText);
-    }
-    await cursor.close();
+    // let cursor = db.getCardsMissingSearchText();
+    // while (await cursor.hasNext()) {
+    //   const card = await cursor.next();
+    //   console.log("Card.initialize2: Adding missing searchText field in card", card.id);
+    //   const state = await this.populateCardState(null, card.id, true, false);
+    //   let searchText;
+    //   if (state && state.state.shared) {
+    //     searchText = this.searchTextFromSharedStateInfo(state.state.shared);
+    //   } else {
+    //     errorManager.warning("Card.initialize2: No shared state to use for search text", null);
+    //   }
+    //   await db.updateCardSearchText(card.id, searchText);
+    // }
+    // await cursor.close();
 
-    cursor = db.getCardsMissingBy();
-    while (await cursor.hasNext()) {
-      const card = await cursor.next();
-      const owner = await userManager.getUser(card.createdById, false);
-      if (owner) {
-        console.log("User.initialize2: Re-adding 'by' address/handle/name to user entry", owner.identity.handle);
-        await db.updateCardBy(card.id, owner.address, owner.identity.handle, owner.identity.name);
-      }
-    }
+    // cursor = db.getCardsMissingBy();
+    // while (await cursor.hasNext()) {
+    //   const card = await cursor.next();
+    //   const owner = await userManager.getUser(card.createdById, false);
+    //   if (owner) {
+    //     console.log("User.initialize2: Re-adding 'by' address/handle/name to user entry", owner.identity.handle);
+    //     await db.updateCardBy(card.id, owner.address, owner.identity.handle, owner.identity.name);
+    //   }
+    // }
 
-    cursor = db.getCardsMissingCreatedById();
-    while (await cursor.hasNext()) {
-      const card = await cursor.next();
-      console.log("Card.initialize2: Replacing by.id with createdById", card.id);
-      await db.replaceCardBy(card.id, card.by.id);
-    }
-    await cursor.close();
+    // cursor = db.getCardsMissingCreatedById();
+    // while (await cursor.hasNext()) {
+    //   const card = await cursor.next();
+    //   console.log("Card.initialize2: Replacing by.id with createdById", card.id);
+    //   await db.replaceCardBy(card.id, card.by.id);
+    // }
+    // await cursor.close();
 
-    cursor = db.getCardsWithSummaryImageUrl();
-    const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
-    while (await cursor.hasNext()) {
-      const card = await cursor.next();
-      const imageUrl = card.summary.imageUrl;
-      if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
-        console.log("Card.initialize2: Replacing summary.imageUrl with imageId", card.id);
-        const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-        if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
-          if (card.summary.imageWidth && card.summary.imageHeight) {
-            const imageInfo: ImageInfo = {
-              width: card.summary.imageWidth,
-              height: card.summary.imageHeight
-            };
-            await db.updateFileImageInfo(fileId, imageInfo);
-          }
-          await db.replaceCardSummaryImageUrl(card.id, fileId);
-        } else {
-          console.log("Card.initialize2: Card imageUrl is not in GUID format so not updated", imageUrl, card.id);
-        }
-      } else {
-        console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
-      }
-    }
-    await cursor.close();
+    // cursor = db.getCardsWithSummaryImageUrl();
+    // const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
+    // while (await cursor.hasNext()) {
+    //   const card = await cursor.next();
+    //   const imageUrl = card.summary.imageUrl;
+    //   if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
+    //     console.log("Card.initialize2: Replacing summary.imageUrl with imageId", card.id);
+    //     const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
+    //     if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
+    //       if (card.summary.imageWidth && card.summary.imageHeight) {
+    //         const imageInfo: ImageInfo = {
+    //           width: card.summary.imageWidth,
+    //           height: card.summary.imageHeight
+    //         };
+    //         await db.updateFileImageInfo(fileId, imageInfo);
+    //       }
+    //       await db.replaceCardSummaryImageUrl(card.id, fileId);
+    //     } else {
+    //       console.log("Card.initialize2: Card imageUrl is not in GUID format so not updated", imageUrl, card.id);
+    //     }
+    //   } else {
+    //     console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
+    //   }
+    // }
+    // await cursor.close();
 
+    // Migration if there are userCardAction records for authorId and "pay" actions that don't have details filled in
+    // const paymentCursor = db.getUserCardPayActionsWithoutAuthor();
+    // while (await paymentCursor.hasNext()) {
+    //   const userCardAction = await paymentCursor.next();
+    //   const card = await this.getCardById(userCardAction.cardId, false);
+    //   if (card) {
+    //     const authorId = card.createdById;
+    //     const transaction = await db.findBankTransactionForCardPayment(userCardAction.userId, userCardAction.cardId);
+    //     if (transaction) {
+    //       const paymentInfo: UserCardActionPaymentInfo = {
+    //         amount: transaction.details.amount,
+    //         transactionId: transaction.id,
+    //         category: "normal",
+    //         weight: 1,
+    //         weightedRevenue: transaction.details.amount
+    //       };
+    //       let firstTimePaidOpens = 0;
+    //       let fanPaidOpens = 0;
+    //       const grossRevenue = transaction.details.amount;
+    //       if (transaction.details.amount === 0.000001) {
+    //         paymentInfo.category = "fraud";
+    //         paymentInfo.weight = 0;
+    //       } else {
+    //         const priorPurchases = await db.countUserCardsPaidInTimeframe(userCardAction.userId, 0, userCardAction.at - 1);
+    //         if (priorPurchases === 0) {
+    //           paymentInfo.category = "first";
+    //           firstTimePaidOpens++;
+    //           paymentInfo.weight = this.getPurchaseWeight(0);
+    //         } else {
+    //           const priorToAuthor = await db.countUserCardPurchasesToAuthor(userCardAction.userId, authorId);
+    //           if (priorToAuthor > 0) {
+    //             paymentInfo.category = "fan";
+    //             fanPaidOpens++;
+    //           } else {
+    //             paymentInfo.weight = this.getPurchaseWeight(priorPurchases);
+    //           }
+    //         }
+    //       }
+    //       paymentInfo.weightedRevenue = grossRevenue * paymentInfo.weight;
+    //       await db.updateUserCardActionWithPaymentInfo(userCardAction.id, authorId, paymentInfo);
+    //       await db.updateNetworkCardStatsForPayment(userCardAction.at, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue);
+    //       console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction.id, paymentInfo.category);
+    //     } else {
+    //       console.warn("CardManager.initialize2: Found userCard pay action with missing transaction", userCardAction);
+    //     }
+    //   }
+    // }
+    // await paymentCursor.close();
+
+    // const paymentCursor = await db.getWeightedUserActionPayments();
+    // while (await paymentCursor.hasNext()) {
+    //   const userAction = await paymentCursor.next();
+    //   if (userAction.payment && userAction.payment.weightedRevenue !== userAction.payment.amount * userAction.payment.weight) {
+    //     await db.updateUserActionPaymentWeightedRevenue(userAction.id, userAction.payment.amount * userAction.payment.weight);
+    //     console.log("Card.initialize2: Updated user action payment weighted revenue", userAction.id, userAction.payment.amount * userAction.payment.weight);
+    //   }
+    // }
+    // await paymentCursor.close();
+  }
+
+  private async getCardById(id: string, force: boolean): Promise<CardRecord> {
+    let record = this.cardCache.get(id);
+    if (!record || force) {
+      record = await db.findCardById(id, true, false);
+      this.cardCache.set(id, record);
+    }
+    return record;
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
@@ -467,7 +521,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
       }
       await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "impression", 0, null, 0, null, 0, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "impression", null, 0, null, 0, null, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
       if (transaction && author) {
@@ -479,7 +533,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         card.budget.available = budgetAvailable;
         await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "redeem-promotion", 0, null, transactionResult.record.details.amount, transactionResult.record.id, 0, null, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, 0, null, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
       const userStatus = await userManager.getUserStatus(request, user, false);
@@ -529,8 +583,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "open", 0, null, 0, null, 0, null, null);
+      await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "open", null, 0, null, 0, null, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       const reply: CardOpenedResponse = {
         serverVersion: SERVER_VERSION
@@ -555,7 +609,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const now = Date.now();
       let transactionResult: BankTransactionResult;
-      if (requestBody.detailsObject.transaction) {
+      if (requestBody.detailsObject.transaction && requestBody.detailsObject.transaction.objectString) {
         if (card.pricing.openPayment <= 0) {
           response.status(400).send("No open payment on this card");
           return;
@@ -640,7 +694,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         card.budget.available = budgetAvailable;
         await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "redeem-click-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-click-payment", null, 0, null, coupon.amount, transactionResult.record.id, null);
         await this.incrementStat(card, "clickFeesPaid", coupon.amount, now, CLICK_FEES_PAID_SNAPSHOT_INTERVAL);
       }
       console.log("CardManager.card-clicked", requestBody.detailsObject);
@@ -651,8 +705,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         uniques = 1;
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "click", 0, null, 0, null, 0, null, null);
+      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0, 0, 0, 0, 0);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "click", null, 0, null, 0, null, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
       const status = await userManager.getUserStatus(request, user, false);
       const reply: CardClickedResponse = {
@@ -723,32 +777,64 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const ipAddress = this.getFromIpAddress(request);
       let skipMoneyTransfer = false;
       let discountReason: CardPaymentFraudReason;
+      let paymentCategory: CardPaymentCategory = "normal";
       if (card.curation && card.curation.block) {
         skipMoneyTransfer = true;
+        paymentCategory = "blocked";
       } else if (requestBody.detailsObject.fingerprint) {
         const authorRegistrationFound = await db.existsUserRegistrationByFingerprint(author.id, requestBody.detailsObject.fingerprint);
         if (authorRegistrationFound) {
           discountReason = "author-fingerprint";
-          errorManager.warning("Card.payPay: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
+          errorManager.warning("Card.payCard: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
           skipMoneyTransfer = true;
+          paymentCategory = "fraud";
         } else {
           const alreadyFromThisBrowser = await db.countUserCardsPaidFromFingerprint(card.id, requestBody.detailsObject.fingerprint);
           if (alreadyFromThisBrowser > 1) {
             discountReason = "prior-payor-fingerprint";
-            errorManager.warning("Card.payPay: Silently skipping payment because already purchased from this address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
+            errorManager.warning("Card.payCard: Silently skipping payment because already purchased from this address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
             skipMoneyTransfer = true;
+            paymentCategory = "fraud";
           }
         }
       }
       const amount = skipMoneyTransfer ? 0.000001 : transaction.amount;
+      const cardsPreviouslyPurchased = await db.countUserCardsPaid(user.id);
+      const isFirstUserCardPurchase = cardsPreviouslyPurchased === 0;
+      let firstTimePaidOpens = 0;
+      let fanPaidOpens = 0;
+      let weight = skipMoneyTransfer ? 0 : 1;
+      if (paymentCategory === 'normal') {
+        if (isFirstUserCardPurchase) {
+          paymentCategory = "first";
+          // amount = 0.01;
+          firstTimePaidOpens++;
+        } else {
+          const isFanPurchase = (await db.countUserCardPurchasesToAuthor(user.id, author.id)) > 0;
+          if (isFanPurchase) {
+            paymentCategory = "fan";
+            fanPaidOpens++;
+          } else {
+            weight = this.getPurchaseWeight(cardsPreviouslyPurchased);
+          }
+        }
+      }
+      const grossRevenue = amount;
       await userManager.updateUserBalance(request, user);
       const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "pay", 0, null, 0, null, 0, null, discountReason);
+      const paymentInfo: UserCardActionPaymentInfo = {
+        amount: amount,
+        transactionId: transactionResult.record.id,
+        category: paymentCategory,
+        weight: weight,
+        weightedRevenue: weight * amount
+      };
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
-      await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0);
+      await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
         card.budget.available = newBudgetAvailable;
@@ -769,6 +855,21 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       errorManager.error("User.handleCardPay: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private getPurchaseWeight(priorPurchases: number): number {
+    if (priorPurchases <= 0) {
+      return 0.1;
+    } else if (priorPurchases <= 1) {
+      return 0.33;
+    } else if (priorPurchases <= 2) {
+      return 0.66;
+    } else if (priorPurchases <= 3) {
+      return 0.8;
+    } else if (priorPurchases <= 4) {
+      return 0.9;
+    }
+    return 1;
   }
 
   private async payPublisherSubsidy(user: UserRecord, author: UserRecord, card: CardRecord, cardPayment: number, now: number, request: Request): Promise<number> {
@@ -921,7 +1022,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       card.budget.available = budgetAvailable;
       await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "redeem-open-payment", 0, null, 0, null, coupon.amount, transactionResult.record.id, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, coupon.amount, transactionResult.record.id, null);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: CardRedeemOpenResponse = {
@@ -950,7 +1051,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, "close", 0, null, 0, null, 0, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "close", null, 0, null, 0, null, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {
         serverVersion: SERVER_VERSION
@@ -998,7 +1099,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
           cardInfo.like = requestBody.detailsObject.selection;
-          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, now, action, 0, null, 0, null, 0, null, null);
+          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, action, null, 0, null, 0, null, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -1017,11 +1118,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           const deltaDislikes = newDislikes - existingDislikes;
           if (deltaLikes !== 0) {
             await this.incrementStat(card, "likes", deltaLikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaLikes, 0, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, deltaLikes, 0, 0, 0, 0, 0, 0, 0, 0);
           }
           if (deltaDislikes !== 0) {
             await this.incrementStat(card, "dislikes", deltaDislikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
-            await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, deltaDislikes, 0, 0, 0);
+            await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, deltaDislikes, 0, 0, 0, 0, 0, 0, 0);
           }
           await feedManager.rescoreCard(card, false);
         }
@@ -1056,7 +1157,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (card.private !== requestBody.detailsObject.private) {
         await db.updateCardPrivate(card, requestBody.detailsObject.private);
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", 0, null, 0, null, 0, null, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", null, 0, null, 0, null, null);
       }
       const reply: UpdateCardPrivateResponse = {
         serverVersion: SERVER_VERSION,
