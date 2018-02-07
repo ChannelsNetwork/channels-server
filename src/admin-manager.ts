@@ -345,8 +345,8 @@ export class AdminManager implements RestServer {
         const publisherUser = await cursor.next();
         const publisher: AdminPublisherInfo = {
           user: publisherUser,
-          cardsPublished: await db.countCardPostsByUser(user.id, 0, now),
-          earnings: await db.aggregateCardRevenueByAuthor(user.id),
+          cardsPublished: await db.countCardPostsByUser(publisherUser.id, 0, now),
+          earnings: await db.aggregateCardRevenueByAuthor(publisherUser.id),
           grossRevenue: 0,
           weightedRevenue: 0,
           subscribers: 0,
@@ -357,7 +357,7 @@ export class AdminManager implements RestServer {
           fanPurchases: 0,
           otherPurchases: 0
         };
-        const channels = await db.findChannelsByOwnerId(user.id);
+        const channels = await db.findChannelsByOwnerId(publisherUser.id);
         const channelIds: string[] = [];
         for (const channel of channels) {
           channelIds.push(channel.id);
