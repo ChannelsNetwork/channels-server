@@ -790,7 +790,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           paymentCategory = "fraud";
         } else {
           const alreadyFromThisBrowser = await db.countUserCardsPaidFromFingerprint(card.id, requestBody.detailsObject.fingerprint);
-          if (alreadyFromThisBrowser > 1) {
+          if (alreadyFromThisBrowser > 0) {
             discountReason = "prior-payor-fingerprint";
             errorManager.warning("Card.payCard: Silently skipping payment because already purchased from this address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
             skipMoneyTransfer = true;
