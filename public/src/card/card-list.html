@@ -1,5 +1,4 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
-<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="card-container.html">
 
 <dom-module id="card-list">
@@ -32,18 +31,14 @@
         -webkit-flex-basis: 0.000000001px;
         flex-basis: 0.000000001px;
         min-width: 300px;
-        width: 300px;
-        max-width: 300px;
         margin: 8px;
         padding: 20px 0;
       }
 
       #moreButton {
-        background: var(--highlight-green);
         text-align: center;
-        color: white;
-        width: 90px;
-        height: 90px;
+        width: 85px;
+        height: 85px;
         cursor: pointer;
         margin: 0 auto;
         border-radius: 50%;
@@ -51,7 +46,9 @@
         text-transform: uppercase;
         font-weight: bold;
         letter-spacing: 0.05em;
-        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        color: var(--highlight-green);
+        background: transparent;
+        border: 3px solid;
       }
 
       card-container {
@@ -79,7 +76,6 @@
         <div id="moreButton" class="horizontal layout center" on-click="_onMore">
           <div style="width: 100%; box-sizing: border-box;">
             <div>More</div>
-            <soso-icon icon="more-horiz"></soso-icon>
           </div>
         </div>
       </div>
