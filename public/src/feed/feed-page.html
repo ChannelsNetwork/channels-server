@@ -46,6 +46,10 @@
         box-sizing: border-box;
       }
 
+      #channelList {
+        margin-bottom: 50px;
+      }
+
       @media (max-width: 600px) {
         #composeButton {
           bottom: 24px;
@@ -59,8 +63,11 @@
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
     <div class="container">
+      <card-list auto-layout left-justified label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
+        on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
-      <card-list left-justified items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
+      <card-list left-justified label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+        on-more="_onMore"></card-list>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
@@ -75,7 +82,11 @@
             value: 'There are no matching cards in this category.'
           },
           items: Array,
-          _moreAvailable: Boolean
+          channels: Array,
+          cardsLabel: String,
+          channelsLabel: String,
+          _moreAvailable: Boolean,
+          _moreChannelsAvailable: Boolean
         }
       }
 
@@ -124,6 +135,26 @@
           this._moreAvailable = false;
           this._promotedCardIds = [];
           this._lastCardId = null;
+          this.cardsLabel = (feedName === "new") ? "New cards" : "";
+          this.channelsLabel = (feedName === "new") ? "New channels" : "";
+          if (feedName !== "new") {
+            this.$.channelList.classList.add("hidden");
+          } else {
+            this._nextChannelRef = null;
+            $core.getChannels("new", 3).then((result) => {
+              this._nextChannelRef = result.nextPageReference;
+              this.channels = result.channels || [];
+              this._moreChannelsAvailable = this._nextChannelRef ? true : false;
+              if (this.channels.length) {
+                this.$.channelList.classList.remove("hidden");
+              } else {
+                this.$.channelList.classList.add("hidden");
+              }
+            }).catch((err) => {
+              console.error(err);
+              $app.showError(err);
+            });
+          }
 
           // fetch
           return $core.getFeed(this._feedName, this._fetchCount, null, null, null, this._promotedCardIds).then((feed) => {
@@ -216,6 +247,26 @@
           for (let i = 0; i < cards.length; i++) {
             this.push("items", cards[i]);
           }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMoreChannels() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        $core.getChannels("new", 24, this._nextChannelRef).then((result) => {
+          this._fetchingMore = false;
+          this._nextChannelRef = result.nextPageReference;
+          let list = result.channels || [];
+          for (let i = 0; i < list.length; i++) {
+            this.push("channels", list[i]);
+          }
+          this._moreChannelsAvailable = this._nextChannelRef ? true : false;
         }).catch((err) => {
           this._fetchingMore = false;
           console.error(err);

@@ -64,7 +64,7 @@
       _refresh() {
         this._moreAvailable = false;
         this._nextPageRef = null;
-        $core.getChannels("subscribed", 2).then((result) => {
+        $core.getChannels("subscribed", 100).then((result) => {
           this._nextPageRef = result.nextPageReference;
           this.channels = result.channels || [];
           if (this.channels.length) {
