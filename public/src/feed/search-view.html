@@ -135,7 +135,7 @@
       }
 
       #channelList {
-        margin-bottom: 60px;
+        margin-bottom: 50px;
       }
 
       #noItems {
@@ -179,10 +179,11 @@
     </div>
     <div class="main">
       <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
-      <card-list id="channelList" auto-layout left-justified items="[[channels]]" more="[[_moreChannelsAvailable]]" on-more="_onMoreChannels"></card-list>
+      <card-list auto-layout left-justified label="Matching channels" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
+        on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" style="display:none;">There are no matching cards</div>
-      <card-list id="cardList" left-justified items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
-        on-more="_onMore"></card-list>
+      <card-list label="Matching cards" left-justified id="cardList" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+        on-more="_onMore" class="hidden"></card-list>
     </div>
   </template>
   <script>
@@ -257,6 +258,9 @@
           this.$.btnSearch.style.opacity = 1;
           if (this._searchString) {
             this._search();
+          } else {
+            this.$.channelList.classList.add("hidden");
+            this.$.cardList.classList.add("hidden");
           }
         });
       }
@@ -309,15 +313,16 @@
         this._moreAvailable = false;
         this._moreChannelsAvailable = false;
         this.$.noItems.style.display = "none";
+        this.$.channelList.classList.add("hidden");
+        this.$.cardList.classList.add("hidden");
         let finished = false;
         setTimeout(() => {
           if (!finished) {
             this.$.spinner.style.display = "";
           }
         }, 100)
-        $core.search(this._searchString, 24, 24).then((searchResponse) => {
+        $core.search(this._searchString, 24, 3).then((searchResponse) => {
           finished = true;
-          console.log("search", searchResponse);
           this.$.spinner.style.display = "none";
 
           // cards
@@ -330,12 +335,22 @@
             this.$.noItems.style.display = "none";
           }
           this._moreAvailable = searchResponse.cardResults.moreAvailable;
+          if (this.items.length) {
+            this.$.cardList.classList.remove("hidden");
+          } else {
+            this.$.cardList.classList.add("hidden");
+          }
 
           // channels
           this._channelSkip = searchResponse.channelResults.nextSkip;
           const chnls = searchResponse.channelResults.channels || [];
           this.channels = chnls;
           this._moreChannelsAvailable = searchResponse.channelResults.moreAvailable;
+          if (this.channels.length) {
+            this.$.channelList.classList.remove("hidden");
+          } else {
+            this.$.channelList.classList.add("hidden");
+          }
         }).catch((err) => {
           finished - true;
           console.error(err);
@@ -355,6 +370,26 @@
           this._moreAvailable = searchResponse.cardResults.moreAvailable;
           for (let i = 0; i < cards.length; i++) {
             this.push("items", cards[i]);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMoreChannels() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        $core.searchMoreChannels(this._searchString, this._channelSkip, 24).then((searchResponse) => {
+          this._fetchingMore = false;
+          this._channelSkip = searchResponse.channelResults.nextSkip;
+          const chnls = searchResponse.channelResults.channels || [];
+          this._moreChannelsAvailable = searchResponse.channelResults.moreAvailable;
+          for (let i = 0; i < chnls.length; i++) {
+            this.push("channels", chnls[i]);
           }
         }).catch((err) => {
           this._fetchingMore = false;
