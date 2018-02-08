@@ -393,6 +393,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       records: [],
       nextPageReference: null
     };
+    let waiting = nextPageReference ? true : false;
     const cursor = await db.getChannelsByLastUpdate(lastUpdateLessThan);
     while (await cursor.hasNext()) {
       const channel = await cursor.next();
@@ -400,9 +401,11 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         result.nextPageReference = result.records[result.records.length - 1].id;
         break;
       }
-      const channelUser = await db.findChannelUser(channel.id, user.id);
-      const cards = await this.populateChannelCardsSince(request, user, channel, channelUser ? channelUser.lastVisited : Date.now() - 1000 * 60 * 60 * 24 * 3, maxCardsPerChannel);
-      if (cards.length > 0) {  // Don't list a channel if no cards to show
+      if (waiting) {
+        if (channel.id === nextPageReference) {
+          waiting = false;
+        }
+      } else {
         result.records.push(channel);
       }
     }
@@ -439,12 +442,19 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       records: [],
       nextPageReference: null
     };
+    let waiting = nextPageReference ? true : false;
     const cursor = db.getChannelUserRecords(user.id, subscriptionState, latestLessThan, 0);
     while (await cursor.hasNext()) {
       const channelUser = await cursor.next();
       const channel = await db.findChannelById(channelUser.channelId);
       if (channel) {
-        result.records.push(channel);
+        if (waiting) {
+          if (channel.id === nextPageReference) {
+            waiting = false;
+          }
+        } else {
+          result.records.push(channel);
+        }
         if (result.records.length >= maxChannels) {
           result.nextPageReference = result.records[result.records.length - 1].id;
           break;

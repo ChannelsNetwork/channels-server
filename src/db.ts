@@ -2514,7 +2514,7 @@ export class Database {
   getChannelsByLastUpdate(lastUpdateLessThan: number): Cursor<ChannelRecord> {
     const query: any = {};
     if (lastUpdateLessThan) {
-      query.lastContentUpdate = { $lt: lastUpdateLessThan };
+      query.lastContentUpdate = { $lte: lastUpdateLessThan };
     }
     return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
   }
@@ -2643,7 +2643,7 @@ export class Database {
   getChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, latestLessThan: number, latestGreaterThan: number): Cursor<ChannelUserRecord> {
     const query: any = { userId: userId, subscriptionState: subscriptionState };
     if (latestLessThan) {
-      query.channelLatestCard = { $lt: latestLessThan, $gt: latestGreaterThan || 0 };
+      query.channelLatestCard = { $lte: latestLessThan, $gt: latestGreaterThan || 0 };
     } else if (latestGreaterThan) {
       query.channelLatestCard = { $gt: latestGreaterThan };
     }
