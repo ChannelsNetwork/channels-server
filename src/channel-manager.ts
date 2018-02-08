@@ -382,11 +382,11 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   private async getNewChannels(request: Request, user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    let lastUpdateLessThan: number;
+    let lastCreated: number;
     if (nextPageReference) {
       const afterRecord = await db.findChannelById(nextPageReference);
       if (afterRecord) {
-        lastUpdateLessThan = afterRecord.latestCardPosted;
+        lastCreated = afterRecord.created
       }
     }
     const result: ChannelsRecordsInfo = {
@@ -394,7 +394,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       nextPageReference: null
     };
     let waiting = nextPageReference ? true : false;
-    const cursor = await db.getChannelsByLastUpdate(lastUpdateLessThan);
+    const cursor = await db.getChannelsByCreated(lastCreated);
     while (await cursor.hasNext()) {
       const channel = await cursor.next();
       if (result.records.length >= maxChannels) {
