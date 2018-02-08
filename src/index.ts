@@ -124,8 +124,9 @@ class ChannelsNetworkWebClient {
     });
 
     // this.app.use(compression());
-    this.app.use(bodyParser.json({ strict: false })); // for parsing application/json
+    this.app.use(bodyParser.json({ strict: false, limit: '50mb' })); // for parsing application/json
     this.app.use(bodyParser.urlencoded({
+      limit: '50mb',
       extended: true
     }));
     this.app.use(xFrameOptions());
