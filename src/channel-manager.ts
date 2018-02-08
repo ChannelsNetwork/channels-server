@@ -430,9 +430,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   private async getChannelsByState(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, subscriptionState: ChannelSubscriptionState, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     let latestLessThan: number;
     if (nextPageReference) {
-      const afterRecord = await db.findChannelUser(nextPageReference, user.id);
+      const afterRecord = await db.findChannelById(nextPageReference);
       if (afterRecord) {
-        latestLessThan = afterRecord.lastCardPosted;
+        latestLessThan = afterRecord.latestCardPosted;
       }
     }
     const result: ChannelsRecordsInfo = {
