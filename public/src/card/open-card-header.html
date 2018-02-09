@@ -442,6 +442,12 @@
       }
 
       _editCard() {
+        this._import("../dialogs/refund-dialog.html").then(() => {
+          let dlg = $dialogs.open("refund-dialog", this.data);
+        });
+      }
+
+      _editCard2() {
         this._import("edit/edit-card-dialog.html").then(() => {
           let dlg = $dialogs.open("edit-card-dialog", this.data);
           dlg.addEventListener('summary-updated', (event) => {

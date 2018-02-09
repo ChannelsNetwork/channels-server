@@ -1,0 +1,118 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../controls/text-area.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<dom-module id="refund-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        font-size: 16px;
+      }
+
+      h3 {
+        font-size: 24px;
+      }
+
+      soso-checkbox {
+        display: inline-block;
+        width: 162px;
+        font-size: 15px;
+        padding: 3px 0;
+      }
+
+      text-area {
+        margin: 15px 0 8px;
+        border-bottom: 1px solid;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Request refund</h3>
+      <p>
+        Select the reasons for requesting a refund on this card.
+      </p>
+      <div>
+        <dom-repeat items="[[reasons]]">
+          <template>
+            <soso-checkbox label="[[item]]"></soso-checkbox>
+          </template>
+        </dom-repeat>
+      </div>
+      <text-area id="comment" single-line label="Comment" placeholder="Add a comment"></text-area>
+    </dialog-view>
+  </template>
+  <script>
+    class RefundDialog extends Polymer.Element {
+      static get is() { return 'refund-dialog'; }
+      static get properties() {
+        return {
+          _buttons: {
+            type: Array,
+            value: () => {
+              return [
+                { id: 'cancel', label: "Cancel" },
+                { id: 'refund', label: "Refund" }
+              ];
+            }
+          },
+          reasons: {
+            type: Array,
+            value: () => {
+              return [
+                "Inappropriate",
+                "Offensive",
+                "Plagiarized",
+                "Misleading",
+                "No content",
+                "Not worth my time",
+                "Other"
+              ];
+            }
+          }
+        }
+      }
+
+      show(card) {
+        return this.$.dlg.show();
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "refund":
+            this._doRefund();
+            break;
+          default:
+            $dialogs.hide(this);
+            break;
+        }
+      }
+
+      _doRefund() {
+        let enabled = false;
+        const boxes = this.shadowRoot.querySelectorAll("soso-checkbox");
+        if (boxes && boxes.length) {
+          for (let i = 0; i < boxes.length; i++) {
+            if (boxes[i].checked) {
+              enabled = true;
+              break;
+            }
+          }
+        }
+        if (!enabled) {
+          this.$.dlg.showError("You must provide a reason for refund.");
+        } else {
+          this.$.dlg.showProgress("Applying refund");
+          setTimeout(() => {
+            // TODO: do refund
+            $dialogs.hide(this);
+          }, 2000);
+        }
+      }
+    }
+    window.customElements.define(RefundDialog.is, RefundDialog);
+  </script>
+</dom-module>
