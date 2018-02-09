@@ -2518,7 +2518,7 @@ export class Database {
 
   getChannelsByFirstPosted(firstPostedBefore: number): Cursor<ChannelRecord> {
     const query: any = {};
-    query.firstCardPosted = firstPostedBefore ? { $lte: firstPostedBefore, $gt: 0 } : { $gt: 0 };
+    query.firstCardPosted = firstPostedBefore ? { $lt: firstPostedBefore, $gt: 0 } : { $gt: 0 };
     return this.channels.find<ChannelRecord>(query).sort({ firstCardPosted: -1 });
   }
 
