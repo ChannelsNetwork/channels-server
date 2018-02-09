@@ -1,4 +1,5 @@
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../card/card-view-helper.html">
 <link rel="import" href="../../bower_components/soso-truncated-text/soso-truncated-text.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 
@@ -11,12 +12,33 @@
 
       .container {
         position: relative;
-        width: 285px;
-        height: 180px;
+        width: 300px;
+        height: 260px;
         font-size: 13px;
         background: #fafafa;
-        border-radius: 3px;
+        border-radius: 10px;
+        overflow: hidden;
         box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+      }
+
+      #banner {
+        display: block;
+        box-sizing: border-box;
+        overflow: hidden;
+        background-color: #293C41;
+        background-size: cover;
+        background-origin: border-box;
+        background-position: 50% 50%;
+        height: 80px;
+        position: relative;
+        border-radius: 10px 10px 0 0;
+      }
+
+      button {
+        font-size: 14px;
+        padding: 10px;
+        margin: -19px 8px 0;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2)
       }
 
       user-image {
@@ -25,15 +47,20 @@
         border-radius: 50%;
         background: #fafafa;
         position: absolute;
-        top: -15px;
-        left: -25px;
+        top: -45px;
+        left: 8px;
         cursor: pointer;
+        border: 3px solid #fafafa;
       }
 
       #contentPanel {
         padding: 5px 0 0;
         height: 100%;
         box-sizing: border-box
+      }
+
+      #infoPanel {
+        padding: 10px 10px 8px;
       }
 
       .name {
@@ -43,13 +70,8 @@
         line-height: 1.4;
         color: #000;
         font-size: 18px;
-        padding: 0px 34px 8px 42px;
         cursor: pointer;
-      }
-
-      #description {
-        padding-left: 42px;
-        padding-right: 5px;
+        margin-bottom: 5px;
       }
 
       #statsBar {
@@ -96,31 +118,47 @@
         top: 0;
         cursor: pointer;
       }
+
+      #btnU {
+        background: #fafafa;
+        color: #2E7D32;
+      }
+
+      @media (max-width: 500px) {
+        .container {
+          height: 220px;
+        }
+        #banner {
+          height: 60px;
+        }
+      }
     </style>
-    <div id="container" class="container">
-      <div id="contentPanel" class="vertical layout">
-        <div class="name" on-click="_gotoChannel">[[channel.name]]</div>
-        <soso-truncated-text id="description" class="flex" text="[[channel.about]]"></soso-truncated-text>
-        <div id="statsBar" class="maxWidth horizontal layout center">
-          <dom-repeat items="[[stats]]">
-            <template>
-              <div class="statItem flex">
-                <div class$="[[item.class]]">
-                  <div class="statLabel">[[item.label]]</div>
-                  <div class="statValue">[[item.value]]</div>
-                </div>
-              </div>
-            </template>
-          </dom-repeat>
+    <div id="container" class="container vertical layout" on-click="_gotoChannel">
+      <div id="banner"></div>
+      <div class="horizontal layout center" style="position: relative;">
+        <div class="flex">
+          <user-image image="[[channelImage]]"></user-image>
         </div>
+        <button id="btnU" on-click="_unsubscribe" class="hidden">Unsubscribe</button>
+        <button id="btnS" on-click="_subscribe" class="hidden">Subscribe</button>
+        <button id="btnE" style="opacity: 0; pointer-events: none;" class="hidden">Edit</button>
       </div>
-      <user-image image="[[channelImage]]" on-click="_gotoChannel"></user-image>
-      <soso-icon id="moreIcon" icon="expand-more"></soso-icon>
-      <soso-dropdown for="moreIcon" alignment="right" offset="-5">
-        <li on-click="_gotoChannel">Open Channel</li>
-        <li id="btnU" on-click="_unsubscribe" class="hidden">Unsubscribe</li>
-        <li id="btnS" on-click="_subscribe" class="hidden">Subscribe</li>
-      </soso-dropdown>
+      <div id="infoPanel" class="flex vertical layout">
+        <div class="name">[[channel.name]]</div>
+        <soso-truncated-text id="description" class="flex" text="[[channel.about]]"></soso-truncated-text>
+      </div>
+      <div id="statsBar" class="horizontal layout center">
+        <dom-repeat items="[[stats]]">
+          <template>
+            <div class="statItem flex">
+              <div class$="[[item.class]]">
+                <div class="statLabel">[[item.label]]</div>
+                <div class="statValue">[[item.value]]</div>
+              </div>
+            </div>
+          </template>
+        </dom-repeat>
+      </div>
     </div>
   </template>
   <script>
@@ -133,14 +171,30 @@
             observer: '_onChannel'
           },
           channelImage: String,
-          stats: Array,
-          colorState: Boolean
+          stats: Array
         };
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._detachIntersectionObservers();
+      }
+
+      _detachIntersectionObservers() {
+        $cardHelper.removeIntersectionObserver(this);
+      }
+
+      _attachIntersectionObservers() {
+        this._detachIntersectionObservers();
+        $cardHelper.addIntersectionObserver(this, (entry) => {
+          if (entry.isIntersecting) {
+            this._loadImage();
+          }
+        });
       }
 
       _onChannel() {
         if (this.channel) {
-          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
           let stats = [];
           stats.push({
             label: "Revenue",
@@ -158,6 +212,13 @@
             class: 'subscribersStat'
           });
           this.stats = stats;
+          requestAnimationFrame(() => {
+            this._attachIntersectionObservers();
+          });
+          if (this._imageLoaded) {
+            this._imageLoaded = false;
+            this._loadImage();
+          }
         } else {
           this.stats = [];
           this.channelImage = "about:blank";
@@ -165,23 +226,40 @@
         this._refreshMenu();
       }
 
+      _loadImage() {
+        if (this.channel && (!this._imageLoaded)) {
+          this._imageLoaded = true;
+          let bgImage = "";
+          if (this.channel.bannerImage) {
+            bgImage = this.channel.bannerImage.url;
+          }
+          this.$.banner.style.backgroundImage = 'url("' + bgImage + '"';
+          this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
+        }
+      }
+
       _refreshMenu() {
         this.$.btnU.classList.add("hidden");
         this.$.btnS.classList.add("hidden");
-        this.$.container.style.background = "";
+        this.$.btnE.classList.add("hidden");
         if (this.channel) {
-          switch (this.channel.subscriptionState) {
-            case "subscribed":
-              this.$.btnU.classList.remove("hidden");
-              break;
-            case "unsubscribed":
-              if (this.colorState) {
-                this.$.container.style.background = "#f5ecec";
-              }
-              this.$.btnS.classList.remove("hidden");
-              break;
-            default:
-              break;
+          let isMe = false;
+          if ($core.profile) {
+            isMe = $core.profile.handle == this.channel.owner.handle;
+          }
+          if (isMe) {
+            this.$.btnE.classList.remove("hidden");
+          } else {
+            switch (this.channel.subscriptionState) {
+              case "subscribed":
+                this.$.btnU.classList.remove("hidden");
+                break;
+              case "unsubscribed":
+                this.$.btnS.classList.remove("hidden");
+                break;
+              default:
+                break;
+            }
           }
         }
       }
@@ -192,7 +270,10 @@
         }
       }
 
-      _unsubscribe() {
+      _unsubscribe(event) {
+        if (event) {
+          event.stopPropagation();
+        }
         this.channel.subscriptionState = "unsubscribed"
         $core.updateChannelSubscription(this.channel.id, 'unsubscribed').catch((err) => {
           console.error(err);
@@ -203,6 +284,9 @@
       }
 
       _subscribe() {
+        if (event) {
+          event.stopPropagation();
+        }
         this.channel.subscriptionState = "subscribed"
         $core.updateChannelSubscription(this.channel.id, 'subscribed').catch((err) => {
           console.error(err);

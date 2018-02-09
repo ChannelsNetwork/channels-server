@@ -1,0 +1,84 @@
+<link rel="import" href="card-view.html">
+<link rel="import" href="../channel/channel-card.html">
+<link rel="import" href="ad/image-ad-card.html">
+
+<dom-module id="card-container">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        height: 100%;
+      }
+
+      card-view,
+      image-ad-card {
+        height: 100%;
+      }
+    </style>
+    <div id="container"></div>
+  </template>
+  <script>
+    class CardContainer extends Polymer.Element {
+      static get is() { return 'card-container'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_onData'
+          }
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._onData();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _onData() {
+        if (this._attached) {
+          this._clearNode(this.$.container);
+          if (this.data) {
+            if (this.data.cardType) {
+              this._insertCard();
+            } else {
+              this._insertChannel();
+            }
+          }
+        }
+      }
+
+      _insertCard() {
+        let view = null;
+        if (this.data.summary && this.data.summary.imageId && this.data.summary.linkUrl && !this.data.summary.iframeUrl) {
+          view = new ImageAdCard();
+        } else {
+          view = new CardView();
+        }
+        view.data = this.data;
+        this.$.container.appendChild(view);
+      }
+
+      _insertChannel() {
+        let view = new ChannelCard();
+        view.channel = this.data;
+        this.$.container.appendChild(view);
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+    }
+    window.customElements.define(CardContainer.is, CardContainer);
+  </script>
+</dom-module>

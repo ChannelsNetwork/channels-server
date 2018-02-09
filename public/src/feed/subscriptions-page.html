@@ -2,7 +2,7 @@
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
-<link rel="import" href="../channel/channel-card.html">
+<link rel="import" href="../card/card-list.html">
 
 <dom-module id="subscriptions-page">
   <template>
@@ -18,22 +18,11 @@
         text-align: center;
       }
 
-      #cardsPanel {
+      card-list {
         max-width: 1264px;
         margin: 0 auto;
         box-sizing: border-box;
         padding: 20px 0;
-      }
-
-      channel-card {
-        box-sizing: border-box;
-        margin: 20px 8px 8px 35px;
-      }
-
-      @media (max-width: 600px) {
-        channel-card {
-          margin: 20px 5px 8px 24px;
-        }
       }
     </style>
     <soso-app-header collapse-height="50">
@@ -41,19 +30,21 @@
       <title-bar text="My Subscriptions"></title-bar>
     </soso-app-header>
     <div id="noItems" class="hidden">You're not subscribed to any channels.</div>
-    <div id="cardsPanel" class="hidden horizontal layout center-justified wrap">
-      <dom-repeat items="[[channels]]">
-        <template>
-          <channel-card channel="[[item]]" color-state></channel-card>
-        </template>
-      </dom-repeat>
-    </div>
+    <card-list auto-layout left-justified items="[[channels]]" more="[[_moreAvailable]]" on-more="_onMore"></card-list>
   </template>
   <script>
     class SubscriptionsPage extends Polymer.Element {
       static get is() { return 'subscriptions-page'; }
 
+      static get properties() {
+        return {
+          channels: Array,
+          _moreAvailable: Boolean
+        };
+      }
+
       onActivate() {
+        this._moreAvailable = false;
         $core.register().then((info) => {
           this.$.cbar.activate();
           this.channels = [];
@@ -71,18 +62,38 @@
       }
 
       _refresh() {
+        this._moreAvailable = false;
         this._nextPageRef = null;
-        $core.getChannels("subscribed", 200).then((result) => {
+        $core.getChannels("subscribed", 100).then((result) => {
           this._nextPageRef = result.nextPageReference;
           this.channels = result.channels || [];
           if (this.channels.length) {
-            this.$.cardsPanel.classList.remove("hidden");
             this.$.noItems.classList.add("hidden");
           } else {
-            this.$.cardsPanel.classList.add("hidden");
             this.$.noItems.classList.remove("hidden");
           }
+          this._moreAvailable = this._nextPageRef ? true : false;
         }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMore() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        $core.getChannels("subscribed", 50, this._nextPageRef).then((result) => {
+          this._fetchingMore = false;
+          this._nextPageRef = result.nextPageReference;
+          let list = result.channels || [];
+          for (let i = 0; i < list.length; i++) {
+            this.push("channels", list[i]);
+          }
+          this._moreAvailable = this._nextPageRef ? true : false;
+        }).catch((err) => {
+          this._fetchingMore = false;
           console.error(err);
           $app.showError(err);
         });

@@ -2511,12 +2511,12 @@ export class Database {
     return this.channels.find<ChannelRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
-  getChannelsByLastUpdate(lastUpdateLessThan: number): Cursor<ChannelRecord> {
+  getChannelsByCreated(created: number): Cursor<ChannelRecord> {
     const query: any = {};
-    if (lastUpdateLessThan) {
-      query.lastContentUpdate = { $lte: lastUpdateLessThan };
+    if (created) {
+      query.created = { $lte: created };
     }
-    return this.channels.find<ChannelRecord>(query).sort({ lastContentUpdate: -1 });
+    return this.channels.find<ChannelRecord>(query).sort({ created: -1 });
   }
 
   getChannels(): Cursor<ChannelRecord> {

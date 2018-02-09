@@ -202,6 +202,7 @@
       static get properties() {
         return {
           data: Object,
+          promotedCard: Object,
           ratingTip: String,
           channelUrl: String,
           channel: Object,
@@ -312,7 +313,7 @@
 
         // Fetch the card and then encure card package
         // Then import the viewer and then insert the viewer
-        $core.getCard(this.cardId).then((cardData) => {
+        $core.getCard(this.cardId, true).then((cardData) => {
           // set card data
           // If card was opened from a pomoted card, override that flag
           if (this._route.context) {
@@ -322,6 +323,7 @@
             }
           }
           this.data = cardData.card;
+          this.promotedCard = cardData.promotedCard;
           this._showTermsPanel();
 
           if (this.data.summary && this.data.summary.title) {
