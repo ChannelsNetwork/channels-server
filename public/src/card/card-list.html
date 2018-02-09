@@ -1,0 +1,224 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="card-container.html">
+
+<dom-module id="card-list">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        box-sizing: border-box;
+      }
+
+      #container {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #headline {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 8px;
+      }
+
+      #more {
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        min-width: 300px;
+        margin: 8px;
+        padding: 20px 0;
+      }
+
+      #moreButton {
+        text-align: center;
+        width: 85px;
+        height: 85px;
+        cursor: pointer;
+        margin: 0 auto;
+        border-radius: 50%;
+        font-size: 16px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        color: var(--highlight-green);
+        background: transparent;
+        border: 3px solid;
+      }
+
+      card-container {
+        height: var(--grid-card-height, 400px);
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        min-width: 300px;
+        width: 300px;
+        max-width: 300px;
+        margin: 8px;
+      }
+    </style>
+    <h2 id="headline">[[label]]</h2>
+    <div id="container" class="horizontal layout center-justified wrap">
+      <dom-repeat items="[[items]]">
+        <template>
+          <card-container data="[[item]]"></card-container>
+        </template>
+      </dom-repeat>
+      <div id="more" class="horizontal layout center hidden">
+        <div id="moreButton" class="horizontal layout center" on-click="_onMore">
+          <div style="width: 100%; box-sizing: border-box;">
+            <div>More</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardList extends Polymer.Element {
+      static get is() { return 'card-list'; }
+      static get properties() {
+        return {
+          label: {
+            type: String,
+            observer: '_refreshLabel'
+          },
+          items: Array,
+          more: {
+            type: Boolean,
+            observer: '_refreshMore'
+          },
+          autoLayout: {
+            type: Boolean,
+            observer: '_refreshLayout'
+          },
+          leftJustified: {
+            type: Boolean,
+            observer: '_refreshJustifciation'
+          }
+        };
+      }
+
+      constructor() {
+        super();
+        this._impressionListener = this._onImpression.bind(this);
+        this._openListener = this._onCardOpenRequest.bind(this);
+        this._deleteListener = this._onCardDeleted.bind(this);
+        this._refreshLayout();
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._refreshLabel();
+
+        this.addEventListener("impression", this._impressionListener);
+        this.addEventListener("card-open", this._openListener);
+        this.addEventListener("card-deleted", this._deleteListener);
+
+        this._refreshJustifciation();
+        this._refreshLayout();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+        this.removeEventListener("impression", this._impressionListener);
+        this.removeEventListener("card-open", this._openListener);
+        this.removeEventListener("card-deleted", this._deleteListener);
+      }
+
+      _refreshJustifciation() {
+        if (this.$.container) {
+          if (this.leftJustified) {
+            this.$.container.classList.remove("center-justified");
+          } else {
+            this.$.container.classList.add("center-justified");
+          }
+        }
+      }
+
+      _refreshLayout() {
+        if (this.autoLayout) {
+          this.updateStyles({
+            '--grid-card-height': "auto"
+          });
+        } else {
+          // let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 480);
+          // this.updateStyles({
+          //   '--grid-card-height': ht + "px"
+          // });
+          let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 500);
+          let imgHt = ht < 480 ? "170px" : "250px";
+          this.updateStyles({
+            '--grid-card-height': ht + "px",
+            '--card-img-height': imgHt
+          });
+        }
+
+      }
+
+      _refreshMore() {
+        if (this.more) {
+          this.$.more.classList.remove("hidden");
+        } else {
+          this.$.more.classList.add("hidden");
+        }
+      }
+
+      _refreshLabel() {
+        if (this._attached) {
+          if (this.label)
+            this.$.headline.classList.remove("hidden");
+          else
+            this.$.headline.classList.add("hidden");
+        }
+      }
+
+      _onImpression(event) {
+        event.stopPropagation();
+        if (event.detail && event.detail.view) {
+          let view = event.detail.view;
+          let card = view.data;
+          if (card) {
+            if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
+              $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+              view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+            } else {
+              $core.cardImpression(card.id);
+            }
+          }
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('card-open-request', { bubbles: true, composed: true, detail: { item: event.detail.view.data } }));
+      }
+
+      _onCardDeleted(event) {
+        const newItems = [];
+        const cardId = event.detail.card.id;
+        for (const item of this.items) {
+          if (item.id !== cardId) {
+            newItems.push(item);
+          }
+        }
+        this.set('items', newItems);
+      }
+
+      _onMore(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('more', { bubbles: true, composed: true }));
+      }
+    }
+    window.customElements.define(CardList.is, CardList);
+  </script>
+</dom-module>

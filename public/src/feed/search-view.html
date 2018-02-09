@@ -1,8 +1,7 @@
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
-<link rel="import" href="card-feed.html">
-<link rel="import" href="feed-mixin.html">
+<link rel="import" href="../card/card-list.html">
 <link rel="import" href="../channel-icons.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
@@ -10,7 +9,7 @@
 
 <dom-module id="search-view">
   <template>
-    <style is="custom-style" include="app-styles feed-styles">
+    <style is="custom-style" include="app-styles">
       .main {
         max-width: 1264px;
         margin: 0 auto;
@@ -23,11 +22,6 @@
         background: white !important;
       }
 
-      #buttons {
-        margin: 25px 0;
-        text-align: center;
-      }
-
       .main {
         padding: 15px 0 20px;
         text-align: center;
@@ -37,7 +31,7 @@
         margin: 50px;
       }
 
-      #feed {
+      card-list {
         text-align: left;
       }
 
@@ -140,6 +134,17 @@
         background: var(--bg-yellow);
       }
 
+      #channelList {
+        margin-bottom: 50px;
+      }
+
+      #noItems {
+        padding: 20px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: left;
+      }
+
       @media (max-width: 600px) {
         h3 {
           font-size: 18px;
@@ -174,13 +179,12 @@
     </div>
     <div class="main">
       <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
+      <card-list auto-layout left-justified label="Matching channels" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
+        on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" style="display:none;">There are no matching cards</div>
-      <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
-      <div id="buttons" style="display:none;">
-        <button id="btnMore" on-click="_onMoreClick">More</button>
-      </div>
+      <card-list label="Matching cards" left-justified id="cardList" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+        on-more="_onMore" class="hidden"></card-list>
     </div>
-    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class SearchView extends Polymer.Element {
@@ -192,7 +196,11 @@
             type: String,
             value: "Search"
           },
-          topics: Array
+          topics: Array,
+          items: Array,
+          _moreAvailable: Boolean,
+          channels: Array,
+          _moreChannelsAvailable: Boolean
         };
       }
 
@@ -216,14 +224,6 @@
       onActivate(route) {
         $core.register().then(() => {
           this.$.cbar.activate();
-
-          // register event handlers
-          this._resizeListener = _debounce(() => {
-            this._onResize();
-          }, 350);
-          window.addEventListener("resize", this._resizeListener);
-          this._onResize();
-
           this._refreshTopics();
 
           // if query has not changes, do not search again
@@ -233,12 +233,15 @@
             return;
           }
 
-          this._promotedCardIds = [];
-          this.$.buttons.style.display = "none";
+          this.items = [];
+          this.channels = [];
           this.$.noItems.style.display = "none";
           this._searchString = searchQuery;
           this.$.query.value = searchQuery;
           this.$.btnSearch.disabled = true;
+          this._moreAvailable = false;
+          this._moreChannelsAvailable = false;
+
           this.$.query.focus();
           if (searchQuery) {
             this.searchTitle = '"' + searchQuery + '"';
@@ -251,11 +254,13 @@
             this.$.btnSearch.classList.remove("hidden");
             this.$.topicsPanel.classList.remove("hidden");
           }
-          this.$.btnSearch.style.opacity = 1;
 
-          this._setItems([]);
+          this.$.btnSearch.style.opacity = 1;
           if (this._searchString) {
             this._search();
+          } else {
+            this.$.channelList.classList.add("hidden");
+            this.$.cardList.classList.add("hidden");
           }
         });
       }
@@ -281,16 +286,6 @@
         });
       }
 
-      _setItems(items) {
-        this.set("items", items);
-      }
-
-      _appendItems(items) {
-        for (const item of items) {
-          this.push('items', item);
-        }
-      }
-
       _onInput() {
         this.$.btnSearch.disabled = this.$.query.value.trim().length === 0 ? true : false;
         this.$.btnClear.classList.add("hidden");
@@ -314,123 +309,114 @@
         }
       }
 
-      _onMoreUpdated(value) {
-        this.$.btnMore.disabled = false;
-        if (value) {
-          this.$.buttons.style.display = "";
-        } else {
-          this.$.buttons.style.display = "none";
-        }
-      }
-
       _search() {
-        this.$.buttons.style.display = "none";
+        this._moreAvailable = false;
+        this._moreChannelsAvailable = false;
         this.$.noItems.style.display = "none";
+        this.$.channelList.classList.add("hidden");
+        this.$.cardList.classList.add("hidden");
         let finished = false;
         setTimeout(() => {
           if (!finished) {
             this.$.spinner.style.display = "";
           }
         }, 100)
-        $core.search(this._searchString, 24, 24).then((searchResponse) => {
-          this.$.spinner.style.display = "none";
+        $core.search(this._searchString, 24, 3).then((searchResponse) => {
           finished = true;
+          this.$.spinner.style.display = "none";
+
+          // cards
           this._skip = searchResponse.cardResults.nextSkip;
-          const cards = searchResponse.cardResults.cards;
-          for (const card of cards) {
-            if (card.promoted) {
-              this._promotedCardIds.push(card.id);
-            }
-          }
-          this._setItems(cards);
+          const cards = searchResponse.cardResults.cards || [];
+          this.items = cards;
           if (cards.length === 0) {
             this.$.noItems.style.display = "";
           } else {
             this.$.noItems.style.display = "none";
           }
-          this._onMoreUpdated(searchResponse.cardResults.moreAvailable);
+          this._moreAvailable = searchResponse.cardResults.moreAvailable;
+          if (this.items.length) {
+            this.$.cardList.classList.remove("hidden");
+          } else {
+            this.$.cardList.classList.add("hidden");
+          }
+
+          // channels
+          this._channelSkip = searchResponse.channelResults.nextSkip;
+          const chnls = searchResponse.channelResults.channels || [];
+          this.channels = chnls;
+          this._moreChannelsAvailable = searchResponse.channelResults.moreAvailable;
+          if (this.channels.length) {
+            this.$.channelList.classList.remove("hidden");
+          } else {
+            this.$.channelList.classList.add("hidden");
+          }
+        }).catch((err) => {
+          finished - true;
+          console.error(err);
+          $app.showError(err);
         });
       }
 
-      _onMoreClick() {
-        this.$.btnMore.disabled = true;
+      _onMore() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
         $core.searchMoreCards(this._searchString, this._skip, 24).then((searchResponse) => {
+          this._fetchingMore = false;
           this._skip = searchResponse.cardResults.nextSkip;
-          const cards = searchResponse.cards;
-          for (const card of cards) {
-            if (card.promoted) {
-              this._promotedCardIds.push(card.id);
-            }
+          const cards = searchResponse.cardResults.cards;
+          this._moreAvailable = searchResponse.cardResults.moreAvailable;
+          for (let i = 0; i < cards.length; i++) {
+            this.push("items", cards[i]);
           }
-          this._appendItems(cards);
-          this._onMoreUpdated(searchResponse.moreAvailable);
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMoreChannels() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        $core.searchMoreChannels(this._searchString, this._channelSkip, 24).then((searchResponse) => {
+          this._fetchingMore = false;
+          this._channelSkip = searchResponse.channelResults.nextSkip;
+          const chnls = searchResponse.channelResults.channels || [];
+          this._moreChannelsAvailable = searchResponse.channelResults.moreAvailable;
+          for (let i = 0; i < chnls.length; i++) {
+            this.push("channels", chnls[i]);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
         });
       }
 
       onDeactivate() {
         this.$.cbar.deactivate();
-        if (this._resizeListener) {
-          window.removeEventListener("resize", this._resizeListener);
-          this._resizeListener = null;
-        }
-      }
-
-      _onResize() {
-        this.$.feed.refreshLayout();
-        if (this.$.promotedFeed) {
-          this.$.promotedFeed.refreshLayout();
-        }
       }
 
       _onCardOpenRequest(event) {
         let card = event.detail.item;
         if (card) {
-          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
-            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
-              return this.$.insufficientFunds.show().then((result) => {
-                if (result && result.page && result.page === "balance") {
-                  $router.goto("/balance");
-                }
-              });
-            });
-          } else {
-            let context = {
-              fromApp: true,
-              card: card,
-              scrollTop: $app.scrollValue,
-              returnPath: "/search/" + encodeURIComponent(this._searchString || "")
-            };
-            $router.updateContext({
-              scrollTop: $app.scrollValue
-            });
-            $router.goto("/c/" + encodeURIComponent(card.id), context);
-          }
-        }
-      }
-
-      _onCardImpression(event) {
-        let card = event.detail.card;
-        let view = event.detail.view;
-        if (card && view) {
-          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
-            $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
-            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
-          } else {
-            $core.cardImpression(card.id);
-          }
-        }
-      }
-
-      _import(url) {
-        return new Promise((resolve, reject) => {
-          Polymer.importHref(this.resolveUrl(url), () => {
-            resolve();
-          }, (err) => {
-            reject(err);
+          let context = {
+            fromApp: true,
+            card: card,
+            scrollTop: $app.scrollValue,
+            returnPath: "/search/" + encodeURIComponent(this._searchString || "")
+          };
+          $router.updateContext({
+            scrollTop: $app.scrollValue
           });
-        });
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
+        }
       }
-
     }
     window.customElements.define(SearchView.is, SearchView);
   </script>

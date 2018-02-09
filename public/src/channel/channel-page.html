@@ -3,7 +3,7 @@
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
-<link rel="import" href="../feed/card-feed.html">
+<link rel="import" href="../card/card-list.html">
 
 <dom-module id="channel-page">
   <template>
@@ -320,9 +320,8 @@
       <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
     </soso-app-header>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
-    <card-feed id="feed" items="[[items]]" on-card-open-request="_onCardOpenRequest" on-impression="_onCardImpression"></card-feed>
+    <card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
     <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
-    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
   </template>
   <script>
     class ChannelPage extends Polymer.Element {
@@ -337,6 +336,7 @@
           channelImage: String,
           stats: Array,
           items: Array,
+          _moreAvailable: Boolean,
           promotedItems: Array,
           channelWebsite: String
         };
@@ -370,6 +370,7 @@
           window.removeEventListener("resize", this._resizeListener);
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
+          this._moreAvailable = false;
 
           // fetch only if route is different
           let fetchNewContent = true;
@@ -422,7 +423,6 @@
         setTimeout(() => {
           this.$.header.measureHeader();
         }, 100);
-        this.$.feed.refreshLayout();
       }
 
       _refreshChannel(preventClear) {
@@ -495,8 +495,10 @@
         this.items = [];
         this.promotedItems = [];
         this._promotedCardIds = [];
+        this._moreAvailable = false;
+        this._lastCardId = null;
         this._fetchTimestamp = (new Date()).getTime();
-        return $core.getFeed("channel", 100, null, null, this._handle, []).then((feed) => {
+        return $core.getFeed("channel", 60, null, null, this._handle, []).then((feed) => {
           let list = [];
           let plist = [];
           for (let i = 0; i < feed.cards.length; i++) {
@@ -505,6 +507,7 @@
               this._promotedCardIds.push(feed.cards[i].id);
             } else {
               list.push(feed.cards[i]);
+              this._lastCardId = feed.cards[i].id;
             }
           }
           this.items = list;
@@ -514,7 +517,43 @@
           } else {
             this.$.noItems.classList.remove("hidden");
           }
+          this._moreAvailable = (feed.moreAvailable && this._lastCardId) ? true : false;
         }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMore() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        this._fetchTimestamp = (new Date()).getTime();
+        return $core.getFeed("channel", 24, null, this._lastCardId, this._handle, this._promotedCardIds).then((feed) => {
+          this._fetchingMore = false;
+          const cards = feed.cards || [];
+          this._lastCardId = null;
+          let list = [];
+          let plist = [];
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].promoted) {
+              plist.push(cards[i]);
+              this._promotedCardIds.push(cards[i].id);
+            } else {
+              list.push(cards[i]);
+              this._lastCardId = cards[i].id;
+            }
+          }
+          this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+          for (let i = 0; i < list.length; i++) {
+            this.push("items", list[i]);
+          }
+          for (let i = 0; i < plist.length; i++) {
+            this.push("promotedItems", plist[i]);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
           console.error(err);
           $app.showError(err);
         });
@@ -580,55 +619,22 @@
         });
       }
 
-      _onCardImpression(event) {
-        let card = event.detail.card;
-        let view = event.detail.view;
-        if (card && view) {
-          if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
-            $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
-            view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
-          } else {
-            $core.cardImpression(card.id);
-          }
-        }
-      }
-
       _onCardOpenRequest(event) {
         let card = event.detail.item;
         if (card) {
-          if ($core.balance < card.pricing.openFee && card.userSpecific.paidToAuthor === 0) {
-            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
-              return this.$.insufficientFunds.show().then((result) => {
-                if (result && result.page && result.page === "balance") {
-                  $router.goto("/balance");
-                }
-              });
-            });
-          } else {
-            let context = {
-              fromApp: true,
-              card: card,
-              scrollTop: $app.scrollValue
-            };
-            if (this._handle) {
-              context.returnPath = "/channel/" + encodeURIComponent(this._handle);
-            }
-            $router.updateContext({
-              scrollTop: $app.scrollValue
-            });
-            $router.goto("/c/" + encodeURIComponent(card.id), context);
+          let context = {
+            fromApp: true,
+            card: card,
+            scrollTop: $app.scrollValue
+          };
+          if (this._handle) {
+            context.returnPath = "/channel/" + encodeURIComponent(this._handle);
           }
-        }
-      }
-
-      _import(url) {
-        return new Promise((resolve, reject) => {
-          Polymer.importHref(this.resolveUrl(url), () => {
-            resolve();
-          }, (err) => {
-            reject(err);
+          $router.updateContext({
+            scrollTop: $app.scrollValue
           });
-        });
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
+        }
       }
 
       _compose() {

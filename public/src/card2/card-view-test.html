@@ -1,4 +1,5 @@
 <link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../card/card-view-helper.html">
 
 <dom-module id="card-view">
   <template>
@@ -171,7 +172,6 @@
       <user-image id="authorImage"></user-image>
     </div>
   </template>
-  <script src="../card/card-view-helper.js"></script>
   <script>
     class CardView extends Polymer.Element {
       static get is() { return 'card-view'; }
@@ -216,7 +216,7 @@
               this._impressionTimeout = setTimeout(() => {
                 if (this._impressionStarted && (!this._impressionFired)) {
                   this._impressionFired = true;
-                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true }));
+                  this.dispatchEvent(new CustomEvent('impression', { bubbles: true, composed: true, detail: { view: this } }));
                 }
                 this._impressionStarted = null;
                 this._impressionTimeout = null;

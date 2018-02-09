@@ -351,7 +351,7 @@ class CoreService extends Polymer.Element {
   }
 
   searchMoreCards(searchString, skip, limit) {
-    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit);
+    let details = RestUtils.searchMoreCards(this._keys.address, this._fingerprint, searchString, skip, limit);
     let request = this._createRequest(details);
     const url = this.restBase + "/search-more-cards";
     return this.rest.post(url, request).then((response) => {
@@ -360,7 +360,7 @@ class CoreService extends Polymer.Element {
   }
 
   searchMoreChannels(searchString, skip, limit) {
-    let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, skip, limit);
+    let details = RestUtils.searchMoreChannels(this._keys.address, this._fingerprint, searchString, skip, limit);
     let request = this._createRequest(details);
     const url = this.restBase + "/search-more-channels";
     return this.rest.post(url, request).then((response) => {
