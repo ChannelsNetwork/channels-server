@@ -62,6 +62,17 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       }
     }
     await cursor.close();
+
+    const channelCursor = db.getChannelsWithoutFirstCard();
+    while (await channelCursor.hasNext()) {
+      const channel = await channelCursor.next();
+      const channelCard = await db.findChannelCardFirstByChannel(channel.id);
+      if (channelCard) {
+        await db.updateChannelFirstCardPosted(channel.id, channelCard.cardPostedAt);
+        console.log("Channel.initialize2: Updating channel firstCardPostedAt", channel.id);
+      }
+    }
+    await channelCursor.close();
     setInterval(this.poll.bind(this), 1000 * 60 * 15);
   }
 
@@ -88,7 +99,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
 
   async createChannelForUser(user: UserRecord): Promise<ChannelRecord> {
     console.log("Channel.createChannelForUser: Creating channel for user", user.identity.handle);
-    const channel = await db.insertChannel(user.identity.handle, user.identity.name, user.identity.location, user.id, null, null, null, null, 0);
+    const channel = await db.insertChannel(user.identity.handle, user.identity.name, user.identity.location, user.id, null, null, null, null, 0, 0);
     return channel;
   }
 
@@ -382,32 +393,25 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   private async getNewChannels(request: Request, user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    let lastUpdateLessThan: number;
+    let firstPostedBefore: number;
     if (nextPageReference) {
       const afterRecord = await db.findChannelById(nextPageReference);
       if (afterRecord) {
-        lastUpdateLessThan = afterRecord.latestCardPosted;
+        firstPostedBefore = afterRecord.firstCardPosted;
       }
     }
     const result: ChannelsRecordsInfo = {
       records: [],
       nextPageReference: null
     };
-    let waiting = nextPageReference ? true : false;
-    const cursor = await db.getChannelsByLastUpdate(lastUpdateLessThan);
+    const cursor = await db.getChannelsByFirstPosted(firstPostedBefore);
     while (await cursor.hasNext()) {
       const channel = await cursor.next();
       if (result.records.length >= maxChannels) {
         result.nextPageReference = result.records[result.records.length - 1].id;
         break;
       }
-      if (waiting) {
-        if (channel.id === nextPageReference) {
-          waiting = false;
-        }
-      } else {
-        result.records.push(channel);
-      }
+      result.records.push(channel);
     }
     await cursor.close();
     return result;
@@ -615,6 +619,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       await db.incrementChannelStat(channel.id, "cards", 1);
       if (channel.latestCardPosted < card.postedAt) {
         await db.updateChannelLatestCardPosted(channel.id, card.postedAt);
+      }
+      if (channel.firstCardPosted === 0 || channel.firstCardPosted > card.postedAt) {
+        await db.updateChannelFirstCardPosted(channel.id, card.postedAt);
       }
     }
     await db.updateChannelUsersForLatestUpdate(channel.id, card.postedAt);
