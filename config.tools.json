@@ -1,0 +1,13 @@
+{
+  "domain": "channels.cc",
+  "mongo": {
+    "mongoUrl": "mongodb://localhost:22017/channels-server?readPreference=secondary",
+    "options": {
+      "w": 1,
+      "socketOptions": {
+        "socketTimeoutMS": 300000,
+        "connectTimeoutMS": 300000
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb";
+import { MongoClient, Db, Collection, Cursor, MongoClientOptions, ReadPreference } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
@@ -14,6 +14,7 @@ const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
 const MAX_PAYOUT_PER_BASE_FEE_PERIOD = 500;
 
 export class Database {
+  private primary: boolean;
   private db: Db;
   private oldUsers: Collection;
   private users: Collection;
@@ -46,9 +47,13 @@ export class Database {
   private userRegistrations: Collection;
   private channelKeywords: Collection;
 
-  async initialize(): Promise<void> {
+  async initialize(slaveOk = false): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
     const options: MongoClientOptions = configOptions ? configOptions : { w: 1 };
+    this.primary = !slaveOk;
+    if (slaveOk) {
+      options.readPreference = ReadPreference.SECONDARY;
+    }
     this.db = await MongoClient.connect(configuration.get('mongo.mongoUrl', options));
     await this.initializeNetworks();
     await this.initializeOldUsers();
@@ -84,130 +89,138 @@ export class Database {
 
   private async initializeNetworks(): Promise<void> {
     this.networks = this.db.collection('networks');
-    await this.networks.createIndex({ id: 1 }, { unique: true });
-    const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
-    if (existing) {
-      await this.networks.updateMany({ totalPublisherSubsidies: { $exists: false } }, {
-        $set: {
-          totalPublisherSubsidies: 0
-        }
-      });
-    } else {
-      const record: NetworkRecord = {
-        id: '1',
-        created: Date.now(),
-        mutationIndex: 1,
-        totalPublisherRevenue: 0,
-        totalCardDeveloperRevenue: 0,
-        totalDeposits: 0,
-        totalWithdrawals: 0,
-        totalPublisherSubsidies: 0,
-        maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD
-      };
-      await this.networks.insert(record);
+    if (this.primary) {
+      await this.networks.createIndex({ id: 1 }, { unique: true });
+      const existing = await this.networks.findOne<NetworkRecord>({ id: "1" });
+      if (existing) {
+        await this.networks.updateMany({ totalPublisherSubsidies: { $exists: false } }, {
+          $set: {
+            totalPublisherSubsidies: 0
+          }
+        });
+      } else {
+        const record: NetworkRecord = {
+          id: '1',
+          created: Date.now(),
+          mutationIndex: 1,
+          totalPublisherRevenue: 0,
+          totalCardDeveloperRevenue: 0,
+          totalDeposits: 0,
+          totalWithdrawals: 0,
+          totalPublisherSubsidies: 0,
+          maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD
+        };
+        await this.networks.insert(record);
+      }
     }
   }
 
   private async initializeOldUsers(): Promise<void> {
     this.oldUsers = this.db.collection('users_old');
-    await this.oldUsers.createIndex({ id: 1 }, { unique: true });
+    if (this.primary) {
+      await this.oldUsers.createIndex({ id: 1 }, { unique: true });
+    }
   }
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
-    for (const u of noIds) {
-      await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
-    }
+    if (this.primary) {
+      const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
+      for (const u of noIds) {
+        await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
+      }
 
-    await this.users.createIndex({ id: 1 }, { unique: true });
-    await this.users.createIndex({ address: 1 }, { unique: true });
-    await this.users.createIndex({ inviterCode: 1 }, { unique: true });
-    await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
-    await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
-    await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
-    await this.users.createIndex({ type: 1, lastContact: -1 });
-    await this.users.createIndex({ type: 1, lastPosted: -1 });
-    await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
-    await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
-    await this.users.createIndex({ ipAddresses: 1, added: -1 });
-    await this.users.createIndex({ added: -1 });
-    await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
+      await this.users.createIndex({ id: 1 }, { unique: true });
+      await this.users.createIndex({ address: 1 }, { unique: true });
+      await this.users.createIndex({ inviterCode: 1 }, { unique: true });
+      await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
+      await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
+      await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
+      await this.users.createIndex({ type: 1, lastContact: -1 });
+      await this.users.createIndex({ type: 1, lastPosted: -1 });
+      await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
+      await this.users.createIndex({ recoveryCode: 1 }, { unique: true, sparse: true });
+      await this.users.createIndex({ ipAddresses: 1, added: -1 });
+      await this.users.createIndex({ added: -1 });
+      await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
 
-    await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
-    await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
-    await this.users.updateMany({ balanceBelowTarget: { $exists: false } }, { $set: { balanceBelowTarget: false } });
-    await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
-    await this.users.updateMany({ withdrawableBalance: { $exists: false } }, { $set: { withdrawableBalance: 0 } });
-    await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
+      await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
+      await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
+      await this.users.updateMany({ balanceBelowTarget: { $exists: false } }, { $set: { balanceBelowTarget: false } });
+      await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
+      await this.users.updateMany({ withdrawableBalance: { $exists: false } }, { $set: { withdrawableBalance: 0 } });
+      await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
 
-    const noTarget = await this.users.find<UserRecord>({ type: "normal", targetBalance: 0 }).toArray();
-    for (const u of noTarget) {
-      await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
-    }
+      const noTarget = await this.users.find<UserRecord>({ type: "normal", targetBalance: 0 }).toArray();
+      for (const u of noTarget) {
+        await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
+      }
 
-    const noHistory = await this.users.find<UserRecord>({ addressHistory: { $exists: false } }).toArray();
-    for (const u of noHistory) {
-      await this.users.updateOne({ id: u.id }, { $push: { addressHistory: { address: u.address, publicKey: u.publicKey, added: Date.now() } } });
-    }
+      const noHistory = await this.users.find<UserRecord>({ addressHistory: { $exists: false } }).toArray();
+      for (const u of noHistory) {
+        await this.users.updateOne({ id: u.id }, { $push: { addressHistory: { address: u.address, publicKey: u.publicKey, added: Date.now() } } });
+      }
 
-    await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
+      await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
 
-    await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
+      await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
 
-    const unnamedUsers = await this.users.find<UserRecord>({ identity: { $exists: true }, "identity.firstName": { $exists: false } }).toArray();
-    for (const unnamed of unnamedUsers) {
-      await this.users.updateOne({ id: unnamed.id }, {
-        $set: {
-          "identity.firstName": Utils.getFirstName(unnamed.identity.name),
-          "identity.lastName": Utils.getLastName(unnamed.identity.name)
-        }
-      });
-    }
-
-    const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
-    for (const marketingUser of noMarketing) {
-      const genericUser = marketingUser as any;
-      const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
-      await this.users.updateOne({ id: marketingUser.id }, {
-        $set: {
-          marketing: {
-            includeInMailingList: includeInMailingList
+      const unnamedUsers = await this.users.find<UserRecord>({ identity: { $exists: true }, "identity.firstName": { $exists: false } }).toArray();
+      for (const unnamed of unnamedUsers) {
+        await this.users.updateOne({ id: unnamed.id }, {
+          $set: {
+            "identity.firstName": Utils.getFirstName(unnamed.identity.name),
+            "identity.lastName": Utils.getLastName(unnamed.identity.name)
           }
-        }
-      });
-    }
+        });
+      }
 
-    // const noLastPostedUsers = await this.users.find<UserRecord>({ lastPosted: { $exists: false } }).toArray();
-    // for (const noLastPosted of noLastPostedUsers) {
-    //   const lastCard = await this.findLastCardByUser(noLastPosted.id);
-    //   let lastPosted = 0;
-    //   if (lastCard) {
-    //     lastPosted = lastCard.postedAt;
-    //   }
-    //   await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
-    // }
+      const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
+      for (const marketingUser of noMarketing) {
+        const genericUser = marketingUser as any;
+        const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
+        await this.users.updateOne({ id: marketingUser.id }, {
+          $set: {
+            marketing: {
+              includeInMailingList: includeInMailingList
+            }
+          }
+        });
+      }
+
+      // const noLastPostedUsers = await this.users.find<UserRecord>({ lastPosted: { $exists: false } }).toArray();
+      // for (const noLastPosted of noLastPostedUsers) {
+      //   const lastCard = await this.findLastCardByUser(noLastPosted.id);
+      //   let lastPosted = 0;
+      //   if (lastCard) {
+      //     lastPosted = lastCard.postedAt;
+      //   }
+      //   await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
+      // }
+    }
   }
 
   private async initializeCards(): Promise<void> {
     this.cards = this.db.collection('cards');
-    await this.cards.createIndex({ id: 1 }, { unique: true }); // findCardById
-    await this.cards.createIndex({ type: 1, postedAt: -1 });  // findCardMostRecentByType
-    await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });  // findCardsForScoring, findCardsByTime
-    await this.cards.createIndex({ state: 1, "curation.block": 1, "budget.available": 1, private: 1, postedAt: -1 }); // findCardsWithAvailableBudget
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 4, "summary.text": 4, "keywords": 4, "by.name": 4, "by.handle": 4 } }); // findCardsBySearch
-    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
-    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "stats.revenue.value": -1 }); // findCardsByRevenue
-    await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.a": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.b": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
-    await this.cards.createIndex({ createdById: 1, postedAt: -1 });
+    if (this.primary) {
+      await this.cards.createIndex({ id: 1 }, { unique: true }); // findCardById
+      await this.cards.createIndex({ type: 1, postedAt: -1 });  // findCardMostRecentByType
+      await this.cards.createIndex({ state: 1, postedAt: 1, lastScored: -1 });  // findCardsForScoring, findCardsByTime
+      await this.cards.createIndex({ state: 1, "curation.block": 1, "budget.available": 1, private: 1, postedAt: -1 }); // findCardsWithAvailableBudget
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "by.name": "text", "by.handle": "text", "summary.title": "text", "summary.text": "text", searchText: "text", keywords: "text" }, { name: "textSearch", weights: { "summary.title": 4, "summary.text": 4, "keywords": 4, "by.name": 4, "by.handle": 4 } }); // findCardsBySearch
+      await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, postedAt: -1 }); // findCardsByUserAndTime, findAccessibleCardsByTime
+      await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "stats.revenue.value": -1 }); // findCardsByRevenue
+      await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.a": -1 });
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.b": -1 });
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
+      await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
+      await this.cards.createIndex({ createdById: 1, postedAt: -1 });
 
-    await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
+      await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
+    }
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -220,227 +233,280 @@ export class Database {
 
   private async initializeMutationIndexes(): Promise<void> {
     this.mutationIndexes = this.db.collection('mutationIndexes');
-    await this.mutationIndexes.createIndex({ id: 1 }, { unique: true });
-    await this.ensureMutationIndex();
+    if (this.primary) {
+      await this.mutationIndexes.createIndex({ id: 1 }, { unique: true });
+      await this.ensureMutationIndex();
+    }
   }
 
   private async initializeMutations(): Promise<void> {
     this.mutations = this.db.collection('mutations');
-    await this.mutations.createIndex({ index: 1 }, { unique: true });
-    await this.mutations.createIndex({ id: 1 }, { unique: true });
-    await this.mutations.createIndex({ cardId: 1, group: 1, at: -1 });
+    if (this.primary) {
+      await this.mutations.createIndex({ index: 1 }, { unique: true });
+      await this.mutations.createIndex({ id: 1 }, { unique: true });
+      await this.mutations.createIndex({ cardId: 1, group: 1, at: -1 });
+    }
   }
 
   private async initializeCardProperties(): Promise<void> {
     this.cardProperties = this.db.collection('cardProperties');
-    await this.cardProperties.createIndex({ cardId: 1, group: 1, user: 1, name: 1 }, { unique: true });
+    if (this.primary) {
+      await this.cardProperties.createIndex({ cardId: 1, group: 1, user: 1, name: 1 }, { unique: true });
+    }
   }
 
   private async initializeCardCollections(): Promise<void> {
     this.cardCollections = this.db.collection('cardCollections');
-    await this.cardCollections.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1 }, { unique: true });
+    if (this.primary) {
+      await this.cardCollections.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1 }, { unique: true });
+    }
   }
 
   private async initializeCardCollectionItems(): Promise<void> {
     this.cardCollectionItems = this.db.collection('cardCollectionItems');
-    await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, key: 1 }, { unique: true });
-    await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, index: 1 }, { unique: true });
+    if (this.primary) {
+      await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, key: 1 }, { unique: true });
+      await this.cardCollectionItems.createIndex({ cardId: 1, group: 1, user: 1, collectionName: 1, index: 1 }, { unique: true });
+    }
   }
 
   private async initializeCardFiles(): Promise<void> {
     this.cardFiles = this.db.collection('cardFiles');
-    await this.cardFiles.createIndex({ cardId: 1, group: 1, user: 1, fileId: 1 }, { unique: true });
+    if (this.primary) {
+      await this.cardFiles.createIndex({ cardId: 1, group: 1, user: 1, fileId: 1 }, { unique: true });
+    }
   }
 
   private async initializeFiles(): Promise<void> {
     this.files = this.db.collection('files');
-    await this.files.createIndex({ id: 1 }, { unique: true });
+    if (this.primary) {
+      await this.files.createIndex({ id: 1 }, { unique: true });
+    }
   }
 
   private async initializeCardOpens(): Promise<void> {
     this.cardOpens = this.db.collection('cardOpens');
-    await this.cardOpens.createIndex({ periodStarted: -1 }, { unique: true });
-    await this.cardOpens.createIndex({ periodEnded: -1 }, { unique: true });
+    if (this.primary) {
+      await this.cardOpens.createIndex({ periodStarted: -1 }, { unique: true });
+      await this.cardOpens.createIndex({ periodEnded: -1 }, { unique: true });
+    }
   }
 
   private async initializeSubsidyBalance(): Promise<void> {
     this.subsidyBalance = this.db.collection('subsidyBalance');
-    await this.subsidyBalance.createIndex({ id: 1 }, { unique: true });
-    await this.subsidyBalance.createIndex({ lastContribution: 1 });
-    const count = await this.subsidyBalance.count({});
-    if (count < 1) {
-      const record: SubsidyBalanceRecord = {
-        id: "1",
-        balance: 10,
-        totalContributions: 0,
-        totalPayments: 0,
-        lastContribution: Date.now()
-      };
-      try {
-        await this.subsidyBalance.insertOne(record);
-      } catch (err) {
-        errorManager.error("Db.initializeSubsidyBalance: collision adding initial record", null);
+    if (this.primary) {
+      await this.subsidyBalance.createIndex({ id: 1 }, { unique: true });
+      await this.subsidyBalance.createIndex({ lastContribution: 1 });
+      const count = await this.subsidyBalance.count({});
+      if (count < 1) {
+        const record: SubsidyBalanceRecord = {
+          id: "1",
+          balance: 10,
+          totalContributions: 0,
+          totalPayments: 0,
+          lastContribution: Date.now()
+        };
+        try {
+          await this.subsidyBalance.insertOne(record);
+        } catch (err) {
+          errorManager.error("Db.initializeSubsidyBalance: collision adding initial record", null);
+        }
       }
     }
   }
 
   private async initializeBowerManagement(): Promise<void> {
     this.bowerManagement = this.db.collection('bowerManagement');
-    await this.bowerManagement.createIndex({ id: 1 }, { unique: true });
-    try {
-      const record: BowerManagementRecord = {
-        id: 'main',
-        serverId: null,
-        status: 'available',
-        timestamp: Date.now()
-      };
-      await this.bowerManagement.insert(record);
-    } catch (_) {
-      // noop
+    if (this.primary) {
+      await this.bowerManagement.createIndex({ id: 1 }, { unique: true });
+      try {
+        const record: BowerManagementRecord = {
+          id: 'main',
+          serverId: null,
+          status: 'available',
+          timestamp: Date.now()
+        };
+        await this.bowerManagement.insert(record);
+      } catch (_) {
+        // noop
+      }
     }
   }
 
   private async initializeBankTransactions(): Promise<void> {
     this.bankTransactions = this.db.collection('bankTransactions');
-    await this.bankTransactions.createIndex({ id: 1 }, { unique: true });
-    await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
-    await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
-    await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
+    if (this.primary) {
+      await this.bankTransactions.createIndex({ id: 1 }, { unique: true });
+      await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
+      await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
+      await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
+      await this.bankTransactions.createIndex({ recipientUserIds: 1, "details.timestamp": 1 });
+    }
   }
 
   private async initializeUserCardActions(): Promise<void> {
     this.userCardActions = this.db.collection('userCardActions');
-    await this.userCardActions.createIndex({ id: 1 }, { unique: true });
-    await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
-    await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
-    await this.userCardActions.createIndex({ userId: 1, action: 1, author: 1 });
-    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
-    await this.userCardActions.createIndex({ action: 1, at: -1 });
-    await this.userCardActions.createIndex({ at: -1 });
+    if (this.primary) {
+      await this.userCardActions.createIndex({ id: 1 }, { unique: true });
+      await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
+      await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
+      await this.userCardActions.createIndex({ userId: 1, action: 1, author: 1 });
+      await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
+      await this.userCardActions.createIndex({ action: 1, at: -1 });
+      await this.userCardActions.createIndex({ at: -1 });
+    }
   }
 
   private async initializeUserCardInfo(): Promise<void> {
     this.userCardInfo = this.db.collection('userCardInfo');
-    await this.userCardInfo.createIndex({ userId: 1, cardId: 1 }, { unique: true });
-    await this.userCardInfo.createIndex({ userId: 1, lastOpened: -1 });
+    if (this.primary) {
+      await this.userCardInfo.createIndex({ userId: 1, cardId: 1 }, { unique: true });
+      await this.userCardInfo.createIndex({ userId: 1, lastOpened: -1 });
+    }
   }
 
   private async initializeBankCoupons(): Promise<void> {
     this.bankCoupons = this.db.collection('bankCoupons');
-    await this.bankCoupons.createIndex({ id: 1 }, { unique: true });
-    await this.bankCoupons.createIndex({ cardId: 1 });
+    if (this.primary) {
+      await this.bankCoupons.createIndex({ id: 1 }, { unique: true });
+      await this.bankCoupons.createIndex({ cardId: 1 });
+    }
   }
 
   private async initializeManualWithdrawals(): Promise<void> {
     this.manualWithdrawals = this.db.collection('manualWithdrawals');
-    await this.manualWithdrawals.createIndex({ id: 1 }, { unique: true });
-    await this.manualWithdrawals.createIndex({ state: 1, created: -1 });
+    if (this.primary) {
+      await this.manualWithdrawals.createIndex({ id: 1 }, { unique: true });
+      await this.manualWithdrawals.createIndex({ state: 1, created: -1 });
+    }
   }
 
   private async initializeCardStatsHistory(): Promise<void> {
     this.cardStatsHistory = this.db.collection('cardStatsHistory');
-    await this.cardStatsHistory.createIndex({ cardId: 1, statName: 1, at: -1 });
+    if (this.primary) {
+      await this.cardStatsHistory.createIndex({ cardId: 1, statName: 1, at: -1 });
+    }
   }
 
   private async initializeBowerPackages(): Promise<void> {
     this.bowerPackages = this.db.collection('bowerPackages');
-    await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
+    if (this.primary) {
+      await this.bowerPackages.createIndex({ packageName: 1 }, { unique: true });
+    }
   }
 
   private async initializePublisherSubsidyDays(): Promise<void> {
     this.publisherSubsidyDays = this.db.collection('publisherSubsidyDays');
-    await this.publisherSubsidyDays.createIndex({ starting: -1 }, { unique: true });
+    if (this.primary) {
+      await this.publisherSubsidyDays.createIndex({ starting: -1 }, { unique: true });
+    }
   }
 
   private async initializeCardTopics(): Promise<void> {
     this.cardTopics = this.db.collection('cardTopics');
-    await this.cardTopics.createIndex({ id: 1 }, { unique: true });
-    await this.cardTopics.createIndex({ status: 1, topicWithCase: 1 });
-    await this.cardTopics.createIndex({ topicNoCase: 1 });
+    if (this.primary) {
+      await this.cardTopics.createIndex({ id: 1 }, { unique: true });
+      await this.cardTopics.createIndex({ status: 1, topicWithCase: 1 });
+      await this.cardTopics.createIndex({ topicNoCase: 1 });
 
-    for (const item of DEFAULT_CARD_TOPICS) {
-      const existing = await this.findCardTopicByName(item.topic);
-      let add = false;
-      if (existing) {
-        for (const keyword of item.keywords) {
-          if (existing.keywords.indexOf(keyword) < 0) {
-            add = true;
-            break;
+      for (const item of DEFAULT_CARD_TOPICS) {
+        const existing = await this.findCardTopicByName(item.topic);
+        let add = false;
+        if (existing) {
+          for (const keyword of item.keywords) {
+            if (existing.keywords.indexOf(keyword) < 0) {
+              add = true;
+              break;
+            }
           }
+          if (add) {
+            await this.cardTopics.remove({ id: existing.id });
+          }
+        } else {
+          add = true;
         }
         if (add) {
-          await this.cardTopics.remove({ id: existing.id });
+          const record: CardTopicRecord = {
+            id: uuid.v4(),
+            status: "active",
+            topicNoCase: item.topic.toLowerCase(),
+            topicWithCase: item.topic,
+            keywords: this.cleanKeywords(item.keywords),
+            added: Date.now()
+          };
+          await this.cardTopics.insert(record);
         }
-      } else {
-        add = true;
-      }
-      if (add) {
-        const record: CardTopicRecord = {
-          id: uuid.v4(),
-          status: "active",
-          topicNoCase: item.topic.toLowerCase(),
-          topicWithCase: item.topic,
-          keywords: this.cleanKeywords(item.keywords),
-          added: Date.now()
-        };
-        await this.cardTopics.insert(record);
       }
     }
   }
 
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
-    await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
-    await this.networkCardStats.updateMany({ "stats.blockedPaidOpens": { $exists: false } }, { $set: { "stats.blockedPaidOpens": 0 } });
+    if (this.primary) {
+      await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
+      await this.networkCardStats.updateMany({ "stats.blockedPaidOpens": { $exists: false } }, { $set: { "stats.blockedPaidOpens": 0 } });
 
-    await this.networkCardStats.updateMany({ "stats.firstTimePaidOpens": { $exists: false } }, {
-      $set: {
-        "stats.firstTimePaidOpens": 0,
-        "stats.fanPaidOpens": 0,
-        "stats.grossRevenue": 0,
-        "stats.weightedRevenue": 0
-      }
-    });
+      await this.networkCardStats.updateMany({ "stats.firstTimePaidOpens": { $exists: false } }, {
+        $set: {
+          "stats.firstTimePaidOpens": 0,
+          "stats.fanPaidOpens": 0,
+          "stats.grossRevenue": 0,
+          "stats.weightedRevenue": 0
+        }
+      });
+    }
   }
 
   private async initializeIpAddresses(): Promise<void> {
     this.ipAddresses = this.db.collection('ipAddresses');
-    await this.ipAddresses.createIndex({ ipAddress: 1 }, { unique: true });
+    if (this.primary) {
+      await this.ipAddresses.createIndex({ ipAddress: 1 }, { unique: true });
+    }
   }
 
   private async initializeChannels(): Promise<void> {
     this.channels = this.db.collection('channels');
-    await this.channels.createIndex({ id: 1 }, { unique: true });
-    await this.channels.createIndex({ handle: 1 }, { unique: true });
-    await this.channels.createIndex({ ownerId: 1 });
-    await this.channels.createIndex({ state: 1, name: "text", handle: "text", keywords: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 5, handle: 5, keywords: 3, about: 1 } });
+    if (this.primary) {
+      await this.channels.createIndex({ id: 1 }, { unique: true });
+      await this.channels.createIndex({ handle: 1 }, { unique: true });
+      await this.channels.createIndex({ ownerId: 1 });
+      await this.channels.createIndex({ state: 1, name: "text", handle: "text", keywords: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 5, handle: 5, keywords: 3, about: 1 } });
+    }
   }
 
   private async initializeChannelUsers(): Promise<void> {
     this.channelUsers = this.db.collection('channelUsers');
-    await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
-    await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, lastCardPosted: -1 });
-    await this.channelUsers.createIndex({ notificationPending: 1, lastCardPosted: -1 });
+    if (this.primary) {
+      await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
+      await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, lastCardPosted: -1 });
+      await this.channelUsers.createIndex({ notificationPending: 1, lastCardPosted: -1 });
+    }
   }
 
   private async initializeChannelCards(): Promise<void> {
     this.channelCards = this.db.collection('channelCards');
-    await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
-    await this.channelCards.createIndex({ cardId: 1 });
-    await this.channelCards.createIndex({ channelId: 1, cardLastPosted: -1 });
+    if (this.primary) {
+      await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
+      await this.channelCards.createIndex({ cardId: 1 });
+      await this.channelCards.createIndex({ channelId: 1, cardLastPosted: -1 });
+    }
   }
 
   private async initializeUserRegistrations(): Promise<void> {
     this.userRegistrations = this.db.collection('userRegistrations');
-    await this.userRegistrations.createIndex({ userId: 1, at: -1 });
-    await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
-    await this.userRegistrations.createIndex({ userId: 1, fingerprint: 1 });
+    if (this.primary) {
+      await this.userRegistrations.createIndex({ userId: 1, at: -1 });
+      await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
+      await this.userRegistrations.createIndex({ userId: 1, fingerprint: 1 });
+    }
   }
 
   private async initializeChannelKeywords(): Promise<void> {
     this.channelKeywords = this.db.collection('channelKeywords');
-    await this.channelKeywords.createIndex({ channelId: 1, keyword: 1 }, { unique: true });
-    await this.channelKeywords.createIndex({ channelId: 1, cardCount: -1, lastUsed: -1 });
+    if (this.primary) {
+      await this.channelKeywords.createIndex({ channelId: 1, keyword: 1 }, { unique: true });
+      await this.channelKeywords.createIndex({ channelId: 1, cardCount: -1, lastUsed: -1 });
+    }
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1088,9 +1154,19 @@ export class Database {
     return creators.length;
   }
 
-  async aggregateCardRevenueByAuthor(authorId: string): Promise<number> {
+  async aggregateCardRevenueByAuthor(authorId: string, from = 0, to = 0): Promise<number> {
+    const match: any = { createdById: authorId };
+    if (from > 0) {
+      if (to > 0) {
+        match.at = { $gte: from, $lt: to };
+      } else {
+        match.at = { $gte: from };
+      }
+    } else if (to > 0) {
+      match.at = { $lt: to };
+    }
     const result = await this.cards.aggregate([
-      { $match: { createdById: authorId } },
+      { $match: match },
       { $group: { _id: "1", revenue: { $sum: "$stats.revenue.value" } } }
     ]).toArray();
     if (result.length === 0) {
@@ -1825,6 +1901,14 @@ export class Database {
       query["details.reason"] = { $nin: ["interest", "subsidy"] };
     }
     return this.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+  }
+
+  getBankTransactionsForRecipient(recipientId: string, from: number, to: number): Cursor<BankTransactionRecord> {
+    return this.bankTransactions.find<BankTransactionRecord>({ recipientUserIds: recipientId, at: { $gte: from, $lt: to } }).sort({ at: 1 });
+  }
+
+  getBankTransactionsForOriginator(originatorId: string, from: number, to: number): Cursor<BankTransactionRecord> {
+    return this.bankTransactions.find<BankTransactionRecord>({ originatorUserId: originatorId, at: { $gte: from, $lt: to } }).sort({ at: 1 });
   }
 
   async countBankTransactions(): Promise<number> {
