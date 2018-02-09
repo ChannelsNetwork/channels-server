@@ -336,7 +336,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           userRecord.balance += inviteeReward;
         }
       }
-      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
+      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
 
       const userStatus = await this.getUserStatus(request, userRecord, true);
       const registerResponse: RegisterUserResponse = {
