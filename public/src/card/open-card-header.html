@@ -124,6 +124,12 @@
         margin-top: 5px;
       }
 
+      #refund {
+        text-align: center;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
       @media (max-width: 600px) {
         .bar {
           font-size: 12px;
@@ -158,11 +164,12 @@
     </style>
     <div class="horizontal layout center bar">
       <div id="pricePanel" class="horizontal layout center">
-        <div class="flex" style="text-align: center;">
+        <div id="priceLabel" class="flex" style="text-align: center;">
           <label class="pays">Pays</label>[[price]]
           <soso-icon id="paidCheck" icon="check-circle" icon-map="[[iconMap]]"></soso-icon>
         </div>
         <progress-icon id="payTimerProgress" class="hidden"></progress-icon>
+        <div id="refund" class="hidden" on-click="_onRefund">Refund [[price]]</div>
       </div>
       <user-image id="authorImage" on-click="_openUserChannel"></user-image>
       <div class="flex vertical layout">
@@ -254,6 +261,8 @@
         if (!this.data) {
           return;
         }
+        this.$.priceLabel.classList.remove("hidden");
+        this.$.refund.classList.add("hidden");
         this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
@@ -397,6 +406,11 @@
 
       onPayment() {
         this._refreshPaidCheck();
+        let cost = this.data.pricing.openFee;
+        if (cost > 0) {
+          this.$.priceLabel.classList.add("hidden");
+          this.$.refund.classList.remove("hidden");
+        }
       }
 
       _makePrivate() {
@@ -441,13 +455,13 @@
         });
       }
 
-      _editCard() {
+      _onRefund() {
         this._import("../dialogs/refund-dialog.html").then(() => {
           let dlg = $dialogs.open("refund-dialog", this.data);
         });
       }
 
-      _editCard2() {
+      _editCard() {
         this._import("edit/edit-card-dialog.html").then(() => {
           let dlg = $dialogs.open("edit-card-dialog", this.data);
           dlg.addEventListener('summary-updated', (event) => {
