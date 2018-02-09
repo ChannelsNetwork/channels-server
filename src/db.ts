@@ -414,6 +414,9 @@ export class Database {
     await this.channels.createIndex({ handle: 1 }, { unique: true });
     await this.channels.createIndex({ ownerId: 1 });
     await this.channels.createIndex({ state: 1, name: "text", handle: "text", keywords: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 5, handle: 5, keywords: 3, about: 1 } });
+    await this.channels.createIndex({ firstCardPosted: -1 });
+
+    await this.channels.updateMany({ firstCardPosted: { $exists: false } }, { $set: { firstCardPosted: 0 } });
   }
 
   private async initializeChannelUsers(): Promise<void> {
@@ -428,6 +431,7 @@ export class Database {
     await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
     await this.channelCards.createIndex({ cardId: 1 });
     await this.channelCards.createIndex({ channelId: 1, cardLastPosted: -1 });
+    await this.channelCards.createIndex({ channelId: 1, cardLastPosted: 1 });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
@@ -2462,7 +2466,7 @@ export class Database {
     return this.findIpAddress(ipAddress);
   }
 
-  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[], latestCardPosted: number): Promise<ChannelRecord> {
+  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[], latestCardPosted: number, firstCardPosted: number): Promise<ChannelRecord> {
     if (!socialLinks) {
       socialLinks = [];
     }
@@ -2485,6 +2489,7 @@ export class Database {
       },
       lastStatsSnapshot: 0,
       latestCardPosted: latestCardPosted,
+      firstCardPosted: firstCardPosted,
       keywords: []
     };
     await this.channels.insertOne(record);
@@ -2511,16 +2516,18 @@ export class Database {
     return this.channels.find<ChannelRecord>(query, { searchScore: { $meta: "textScore" }, searchText: 0 }).sort({ searchScore: { $meta: "textScore" } }).skip(skip).limit(limit).toArray();
   }
 
-  getChannelsByCreated(created: number): Cursor<ChannelRecord> {
+  getChannelsByFirstPosted(firstPostedBefore: number): Cursor<ChannelRecord> {
     const query: any = {};
-    if (created) {
-      query.created = { $lte: created };
-    }
-    return this.channels.find<ChannelRecord>(query).sort({ created: -1 });
+    query.firstCardPosted = firstPostedBefore ? { $lt: firstPostedBefore, $gt: 0 } : { $gt: 0 };
+    return this.channels.find<ChannelRecord>(query).sort({ firstCardPosted: -1 });
   }
 
   getChannels(): Cursor<ChannelRecord> {
     return this.channels.find<ChannelRecord>();
+  }
+
+  getChannelsWithoutFirstCard(): Cursor<ChannelRecord> {
+    return this.channels.find<ChannelRecord>({ firstCardPosted: 0 });
   }
 
   async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
@@ -2554,6 +2561,10 @@ export class Database {
 
   async updateChannelLatestCardPosted(channelId: string, cardPostedAt: number): Promise<void> {
     await this.channels.updateOne({ id: channelId }, { $set: { latestCardPosted: cardPostedAt } });
+  }
+
+  async updateChannelFirstCardPosted(channelId: string, cardPostedAt: number): Promise<void> {
+    await this.channels.updateOne({ id: channelId }, { $set: { firstCardPosted: cardPostedAt } });
   }
 
   async updateChannelWithKeywords(channelId: string, keywords: string[]): Promise<void> {
@@ -2668,6 +2679,15 @@ export class Database {
 
   async findChannelCard(channelId: string, cardId: string): Promise<ChannelCardRecord> {
     return this.channelCards.findOne<ChannelCardRecord>({ channelId: channelId, cardId: cardId });
+  }
+
+  async findChannelCardFirstByChannel(channelId: string): Promise<ChannelCardRecord> {
+    const result = await this.channelCards.find<ChannelCardRecord>({ channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
+    if (result.length > 0) {
+      return result[0];
+    } else {
+      return null;
+    }
   }
 
   async findChannelCardsByCard(cardId: string, maxCount: number): Promise<ChannelCardRecord[]> {

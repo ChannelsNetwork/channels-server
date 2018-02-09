@@ -803,7 +803,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const isFirstUserCardPurchase = cardsPreviouslyPurchased === 0;
       let firstTimePaidOpens = 0;
       let fanPaidOpens = 0;
-      let weight = skipMoneyTransfer ? 0 : 1;
+      const weight = skipMoneyTransfer ? 0 : this.getPurchaseWeight(cardsPreviouslyPurchased);
       if (paymentCategory === 'normal') {
         if (isFirstUserCardPurchase) {
           paymentCategory = "first";
@@ -814,8 +814,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           if (isFanPurchase) {
             paymentCategory = "fan";
             fanPaidOpens++;
-          } else {
-            weight = this.getPurchaseWeight(cardsPreviouslyPurchased);
           }
         }
       }

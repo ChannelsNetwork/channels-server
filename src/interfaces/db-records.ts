@@ -569,6 +569,7 @@ export interface ChannelRecord {
   stats: ChannelStats;
   lastStatsSnapshot: number;
   latestCardPosted: number;
+  firstCardPosted: number;
   keywords: string[];
 }
 
