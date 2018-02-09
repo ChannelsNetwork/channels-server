@@ -179,10 +179,10 @@
     </div>
     <div class="main">
       <soso-spinner id="spinner" spinning style="display:none;"></soso-spinner>
-      <card-list auto-layout left-justified label="Matching channels" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
+      <card-list auto-layout label="Matching channels" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
         on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" style="display:none;">There are no matching cards</div>
-      <card-list label="Matching cards" left-justified id="cardList" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+      <card-list label="Matching cards" id="cardList" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
         on-more="_onMore" class="hidden"></card-list>
     </div>
   </template>
