@@ -63,11 +63,10 @@
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
     <div class="container">
-      <card-list auto-layout left-justified label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
+      <card-list auto-layout label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
         on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
-      <card-list left-justified label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
-        on-more="_onMore"></card-list>
+      <card-list label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>

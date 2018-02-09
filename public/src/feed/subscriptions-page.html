@@ -30,7 +30,7 @@
       <title-bar text="My Subscriptions"></title-bar>
     </soso-app-header>
     <div id="noItems" class="hidden">You're not subscribed to any channels.</div>
-    <card-list auto-layout left-justified items="[[channels]]" more="[[_moreAvailable]]" on-more="_onMore"></card-list>
+    <card-list auto-layout items="[[channels]]" more="[[_moreAvailable]]" on-more="_onMore"></card-list>
   </template>
   <script>
     class SubscriptionsPage extends Polymer.Element {
