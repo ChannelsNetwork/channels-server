@@ -2527,7 +2527,7 @@ export class Database {
   }
 
   getChannelsWithoutFirstCard(): Cursor<ChannelRecord> {
-    return this.channels.find<ChannelRecord>({ firstCardPostedAt: 0 });
+    return this.channels.find<ChannelRecord>({ firstCardPosted: 0 });
   }
 
   async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
