@@ -1,5 +1,5 @@
 
-import { Signable, BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./rest-services";
+import { Signable, BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, ReportCardReason } from "./rest-services";
 import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
@@ -383,7 +383,16 @@ export interface BankTransactionRecord {
     status: string;
     error: any;
   };
+  refunded: boolean;
+  refundInfo?: BankTransactionRefundInfo;
 }
+
+export interface BankTransactionRefundInfo {
+  at: number;
+  reason: BankTransactionRefundReason;
+}
+
+export type BankTransactionRefundReason = "user-card-report";
 
 export interface UserCardActionRecord {
   id: string;
@@ -396,6 +405,7 @@ export interface UserCardActionRecord {
   action: CardActionType;
   fraudReason?: CardPaymentFraudReason;
   payment?: UserCardActionPaymentInfo;
+  report?: UserCardActionReportInfo;
   redeemPromotion?: {
     amount: number;
     transactionId: string;
@@ -414,9 +424,17 @@ export interface UserCardActionPaymentInfo {
   weightedRevenue: number;
 }
 
+export interface UserCardActionReportInfo {
+  reasons: ReportCardReason[];
+  comment: string;
+  refundRequested: boolean;
+  refundCompleted: boolean;
+  transactionId: string;
+}
+
 export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
@@ -431,6 +449,7 @@ export interface UserCardInfoRecord {
   paidToReader: number;
   earnedFromAuthor: number;
   earnedFromReader: number;
+  openFeeRefunded: boolean;
   transactionIds: string[];
   like: CardLikeState;
 }

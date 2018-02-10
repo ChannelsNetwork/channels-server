@@ -218,6 +218,7 @@ export interface CardDescriptor {
     paidToReader: number;
     earnedFromAuthor: number;
     earnedFromReader: number;
+    openFeeRefunded: boolean;
   };
   state?: {
     user: CardState;
@@ -894,3 +895,14 @@ export interface UpdateAccountSettingsDetails extends Signable {
 }
 
 export interface UpdateAccountSettingsResponse extends GetUserIdentityResponse { }
+
+export interface ReportCardDetails extends Signable {
+  cardId: string;
+  reasons: ReportCardReason[];
+  comment: string;
+  requestRefund: boolean;
+}
+
+export type ReportCardReason = "inappropriate" | "plagiarism" | "clickbait" | "junk" | "other";
+
+export interface ReportCardResponse extends RestResponseWithUserStatus { }
