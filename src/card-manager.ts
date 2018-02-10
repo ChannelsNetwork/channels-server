@@ -1949,26 +1949,25 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       let refundCompleted = false;
       let transactionId: string;
+      const userCardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (requestBody.detailsObject.requestRefund) {
         if (card.pricing.openFeeUnits === 0) {
           response.status(400).send("This card does not have an open fee so no refund is appropriate.");
           return;
         }
-        const userCardInfo = await db.findUserCardInfo(user.id, card.id);
-        if (userCardInfo) {
-          if (userCardInfo.openFeeRefunded) {
-            response.status(409).send("Previously refunded");
-            return;
-          }
-          if (userCardInfo.paidToAuthor === 0) {
-            response.status(400).send("No payment was ever made that is available for refund.");
-            return;
-          }
+        if (userCardInfo.openFeeRefunded) {
+          response.status(409).send("Previously refunded");
+          return;
+        }
+        if (userCardInfo.paidToAuthor === 0) {
+          response.status(400).send("No payment was ever made that is available for refund.");
+          return;
         }
         const bankTransaction = await db.findBankTransactionForCardPayment(user.id, card.id);
         if (bankTransaction) {
           await bank.refundTransaction(request, bankTransaction, "user-card-report", now);
           transactionId = bankTransaction.id;
+          await db.updateUserCardInfoOpenFeeRefund(user.id, card.id, true);
           refundCompleted = true;
         } else {
           errorManager.error("Bank transaction record for original payment is missing.", request, user.id, card.id);
