@@ -23,6 +23,7 @@ import * as Jimp from 'jimp';
 const imageProbe = require('probe-image-size');
 import path = require('path');
 import { errorManager } from "./error-manager";
+import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 
 const MAX_CLOCK_SKEW = 1000 * 60 * 15;
 export class FileManager implements RestServer {
@@ -318,6 +319,9 @@ export class FileManager implements RestServer {
     console.log("File.handleFetchImageFile: Fetching image file for size adaptation", fileRecord.id, width, height, diameter);
     try {
       const image = await Jimp.read(fileRecord.url);
+      if (!image) {
+        throw new ErrorWithStatusCode(500, "Unable to load file as image");
+      }
       image.background(0xffffffff);
       const mime = Jimp.MIME_JPEG;
       if (diameter > 0) {
