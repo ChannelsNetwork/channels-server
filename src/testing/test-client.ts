@@ -511,7 +511,8 @@ class TestClient implements RestServer {
       fingerprint: null,
       timestamp: Date.now(),
       cardId: cardId,
-      includePromotedCard: false
+      includePromotedCard: false,
+      channelIdContext: null
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<GetCardDetails> = {
@@ -575,7 +576,8 @@ class TestClient implements RestServer {
       address: this.keyInfo.address,
       fingerprint: null,
       timestamp: Date.now(),
-      cardId: cardId
+      cardId: cardId,
+      adSlotId: null
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<CardOpenedDetails> = {

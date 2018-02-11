@@ -162,6 +162,7 @@ export interface CardRecord {
   curation?: {
     block?: boolean;
     boost?: number;
+    promotionBoost?: number;
     boostAt?: number;
   };
   searchText: string;
@@ -626,3 +627,22 @@ export interface ChannelKeywordRecord {
   cardCount: number;
   lastUsed: number;
 }
+
+export interface AdSlotRecord {
+  id: string;
+  userId: string;
+  userBalance: number;
+  channelId: string;
+  cardId: string;
+  created: number;
+  authorId: string;
+  type: AdSlotType;
+  status: AdSlotStatus;
+  redeemed: boolean;
+  statusChanged: number;
+  amount: number;
+}
+
+export type AdSlotType = "impression-ad" | "impression-content" | "open-payment" | "click-payment" | "announcement";
+
+export type AdSlotStatus = "pending" | "impression" | "opened" | "open-paid" | "clicked" | "redemption-failed";
