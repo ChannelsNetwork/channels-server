@@ -439,12 +439,12 @@
       _onContentClick() {
         if (this.data) {
           if (this.data.promoted && this.data.pricing.openFee < 0 && this.data.couponId && this.data.userSpecific.earnedFromAuthor === 0) {
-            $core.cardClicked(this.data.id, this.data.couponId, -this.data.pricing.openFee, this.data.by.address).then(() => {
+            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, -this.data.pricing.openFee, this.data.by.address).then(() => {
               this.data.userSpecific.earnedFromAuthor = -this.data.pricing.openFee;
               this._refreshPaidCheck();
             });
           } else {
-            $core.cardClicked(this.data.id);
+            $core.cardClicked(this.data.id, this.data.adSlotId);
           }
         }
       }

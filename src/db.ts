@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -45,6 +45,7 @@ export class Database {
   private channelCards: Collection;
   private userRegistrations: Collection;
   private channelKeywords: Collection;
+  private adSlots: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -80,6 +81,7 @@ export class Database {
     await this.initializeChannelCards();
     await this.initializeUserRegistrations();
     await this.initializeChannelKeywords();
+    await this.initializeAdSlots();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -445,6 +447,11 @@ export class Database {
     this.channelKeywords = this.db.collection('channelKeywords');
     await this.channelKeywords.createIndex({ channelId: 1, keyword: 1 }, { unique: true });
     await this.channelKeywords.createIndex({ channelId: 1, cardCount: -1, lastUsed: -1 });
+  }
+
+  private async initializeAdSlots(): Promise<void> {
+    this.adSlots = this.db.collection('adSlots');
+    await this.adSlots.createIndex({ id: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1117,10 +1124,11 @@ export class Database {
     });
   }
 
-  async updateCardScore(card: CardRecord, score: number): Promise<void> {
+  async updateCardScore(card: CardRecord, score: number, promotionScores: CardPromotionScores): Promise<void> {
     const now = Date.now();
-    await this.cards.updateOne({ id: card.id }, { $set: { score: score, lastScored: now } });
+    await this.cards.updateOne({ id: card.id }, { $set: { score: score, promotionScores: promotionScores, lastScored: now } });
     card.score = score;
+    card.promotionScores = promotionScores;
     card.lastScored = now;
   }
 
@@ -2771,6 +2779,41 @@ export class Database {
       update.$set = { lastUsed: lastUsed };
     }
     await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
+  }
+
+  async insertAdSlot(userId: string, userBalance: number, channelId: string, cardId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
+    const now = Date.now();
+    const record: AdSlotRecord = {
+      id: uuid.v4(),
+      userId: userId,
+      userBalance: userBalance,
+      channelId: channelId,
+      cardId: cardId,
+      created: now,
+      authorId: authorId,
+      type: type,
+      status: "pending",
+      redeemed: false,
+      statusChanged: now,
+      amount: amount
+    };
+    await this.adSlots.insertOne(record);
+    return record;
+  }
+
+  async findAdSlotById(id: string): Promise<AdSlotRecord> {
+    return this.adSlots.findOne<AdSlotRecord>({ id: id });
+  }
+
+  async updateAdSlot(id: string, status: AdSlotStatus, redeemed: boolean): Promise<void> {
+    const update: any = {
+      status: status,
+      statusChanged: Date.now()
+    };
+    if (redeemed) {
+      update.redeemed = true;
+    }
+    await this.adSlots.updateOne({ id: id }, { $set: update });
   }
 }
 
