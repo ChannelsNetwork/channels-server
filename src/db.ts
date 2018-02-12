@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, UserCardActionReportInfo, BankTransactionRefundInfo } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -1799,7 +1799,8 @@ export class Database {
       recipientUserIds: recipientUserIds,
       signedObject: signedObject,
       deductions: deductions,
-      remainderShares: remainderShares
+      remainderShares: remainderShares,
+      refunded: false
     };
     if (withdrawalType) {
       record.withdrawalInfo = {
@@ -1864,7 +1865,16 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason): Promise<UserCardActionRecord> {
+  async updateBankTransactionRefund(transactionId: string, refunded: boolean, refundInfo: BankTransactionRefundInfo): Promise<void> {
+    await this.bankTransactions.updateOne({ id: transactionId }, {
+      $set: {
+        refunded: refunded,
+        refundInfo: refundInfo
+      }
+    });
+  }
+
+  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
@@ -1892,6 +1902,9 @@ export class Database {
         amount: redeemOpen,
         transactionId: redeemOpenTransactionId
       };
+    }
+    if (reportInfo) {
+      record.report = reportInfo;
     }
     await this.userCardActions.insert(record);
     return record;
@@ -2024,6 +2037,7 @@ export class Database {
           paidToReader: 0,
           earnedFromAuthor: 0,
           earnedFromReader: 0,
+          openFeeRefunded: false,
           transactionIds: [],
           like: "none"
         };
@@ -2092,6 +2106,11 @@ export class Database {
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { like: state } });
+  }
+
+  async updateUserCardInfoOpenFeeRefund(userId: string, cardId: string, openFeeRefunded: boolean): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { openFeeRefunded: openFeeRefunded } });
   }
 
   async insertBankCoupon(signedObject: SignedObject, byUserId: string, byAddress: string, timestamp: number, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason, cardId: string): Promise<BankCouponRecord> {
