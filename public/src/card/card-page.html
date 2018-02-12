@@ -228,6 +228,7 @@
             this._onNoCard();
           } else {
             this.cardId = route.segments[1].trim();
+            this.adSlotId = route && route.context && route.context.card ? route.context.card.adSlotId : null;
             if (!this.cardId) {
               this._onNoCard();
             } else {
@@ -313,7 +314,7 @@
 
         // Fetch the card and then encure card package
         // Then import the viewer and then insert the viewer
-        $core.getCard(this.cardId, true).then((cardData) => {
+        $core.getCard(this.cardId, false).then((cardData) => {
           // set card data
           // If card was opened from a pomoted card, override that flag
           if (this._route.context) {
@@ -562,7 +563,7 @@
         }
 
         if (!this._cardOpened) {
-          $core.cardOpened(this.data.id);
+          $core.cardOpened(this.data.id, this.adSlotId);
           this._cardOpened = true;
         }
 
@@ -619,7 +620,7 @@
             });
           } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
             card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
-            $core.cardOpenPaymentRedeem(card.id, card.couponId, -card.pricing.openFee, card.by.address).then(() => {
+            $core.cardOpenPaymentRedeem(card.id, this.adSlotId, card.couponId, -card.pricing.openFee, card.by.address).then(() => {
               this._onPaymentSuccess();
             }).catch((err) => {
               console.error("Failed to make card payment", err);

@@ -185,10 +185,10 @@
           let card = view.data;
           if (card) {
             if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
-              $core.cardImpression(card.id, card.couponId, card.pricing.promotionFee, card.by.address);
+              $core.cardImpression(card.id, card.adSlotId, card.couponId, card.pricing.promotionFee, card.by.address);
               view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
             } else {
-              $core.cardImpression(card.id);
+              $core.cardImpression(card.id, card.adSlotId);
             }
           }
         }

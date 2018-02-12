@@ -421,7 +421,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
     const result: CardDescriptor[] = [];
     for (const channelCard of channelCards) {
-      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, user);
+      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, user);
       result.push(descriptor);
     }
     return result;
@@ -694,7 +694,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
             const cardUser = await db.findUserCardInfo(user.id, card.id);
             if (!cardUser || cardUser.lastOpened === 0) {
-              const descriptor = await cardManager.populateCardState(null, card.id, false, false, user);
+              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, user);
               cards.push(descriptor);
               if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
                 sentChannelIds.push(channelCard.channelId);
