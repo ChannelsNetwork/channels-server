@@ -214,13 +214,14 @@ class RestUtils {
     };
   }
 
-  static getCardDetails(address, fingerprint, cardId, includePromotedCard) {
+  static getCardDetails(address, fingerprint, cardId, includePromotedCard, channelIdContext) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
-      includePromotedCard: includePromotedCard
+      includePromotedCard: includePromotedCard,
+      channelIdContext: channelIdContext
     };
   }
 
@@ -310,12 +311,13 @@ class RestUtils {
     return result;
   }
 
-  static cardImpressionDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
+  static cardImpressionDetails(address, fingerprint, cardId, adSlotId, transactionString, transactionSignature) {
     const result = {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
+      adSlotId: adSlotId
     };
     if (transactionString && transactionSignature) {
       result.transaction = {
@@ -326,21 +328,23 @@ class RestUtils {
     return result;
   }
 
-  static cardOpenedDetails(address, fingerprint, cardId) {
-    return {
-      address: address,
-      fingerprint: fingerprint,
-      timestamp: RestUtils.now(),
-      cardId: cardId
-    };
-  }
-
-  static cardClickedDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
+  static cardOpenedDetails(address, fingerprint, cardId, adSlotId) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
+      adSlotId: adSlotId
+    };
+  }
+
+  static cardClickedDetails(address, fingerprint, cardId, adSlotId, transactionString, transactionSignature) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      adSlotId: adSlotId,
       transaction: {
         objectString: transactionString,  // serialized bankTransaction
         signature: transactionSignature
@@ -360,12 +364,13 @@ class RestUtils {
     };
   }
 
-  static cardRedeemOpenDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
+  static cardRedeemOpenDetails(address, fingerprint, cardId, adSlotId, transactionString, transactionSignature) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
+      adSlotId: adSlotId,
       transaction: {
         objectString: transactionString,  // serialized bankTransaction
         signature: transactionSignature

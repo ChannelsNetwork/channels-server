@@ -205,6 +205,7 @@ export interface CardDescriptor {
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   promoted: boolean;
+  adSlotId: string;
   couponId: string;
   stats: CardDescriptorStatistics;
   score: number;
@@ -298,6 +299,7 @@ export interface ChannelComponentDescriptor {
 export interface GetCardDetails extends Signable {
   cardId: string;
   includePromotedCard: boolean;
+  channelIdContext: string;
 }
 
 export interface GetCardResponse extends RestResponse {
@@ -392,6 +394,7 @@ export interface DeleteCardResponse extends RestResponse { }
 
 export interface CardImpressionDetails extends Signable {
   cardId: string;
+  adSlotId: string;
   transaction: SignedObject;
 }
 
@@ -401,12 +404,14 @@ export interface CardImpressionResponse extends RestResponseWithUserStatus {
 
 export interface CardOpenedDetails extends Signable {
   cardId: string;
+  adSlotId: string;
 }
 
 export interface CardOpenedResponse extends RestResponse { }
 
 export interface CardClickedDetails extends Signable {
   cardId: string;
+  adSlotId: string;
   transaction?: SignedObject;
 }
 
@@ -425,6 +430,7 @@ export interface CardPayResponse extends RestResponseWithUserStatus {
 
 export interface CardRedeemOpenDetails extends Signable {
   cardId: string;
+  adSlotId: string;
   transaction: SignedObject;
 }
 

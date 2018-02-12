@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, UserCardActionReportInfo } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -299,7 +299,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -328,7 +328,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       let promotedCard: CardDescriptor;
       if (requestBody.detailsObject.includePromotedCard && !cardState.promoted) {
-        promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, cardState);
+        promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, cardState, requestBody.detailsObject.channelIdContext);
       }
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
@@ -539,6 +539,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, 0, null, null, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
+      if (requestBody.detailsObject.adSlotId) {
+        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+        if (adSlot && adSlot.status === "pending") {
+          await db.updateAdSlot(adSlot.id, "impression", transactionResult ? true : false);
+        }
+      }
       const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: CardImpressionResponse = {
         serverVersion: SERVER_VERSION,
@@ -589,6 +595,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "open", null, 0, null, 0, null, null, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
+      if (requestBody.detailsObject.adSlotId) {
+        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+        if (adSlot && (adSlot.status === "pending" || adSlot.status === "impression")) {
+          await db.updateAdSlot(adSlot.id, "opened", false);
+        }
+      }
       const reply: CardOpenedResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -711,6 +723,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0, 0, 0, 0, 0);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "click", null, 0, null, 0, null, null, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
+      if (requestBody.detailsObject.adSlotId) {
+        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+        if (adSlot && adSlot.status !== "clicked") {
+          await db.updateAdSlot(adSlot.id, "clicked", transactionResult ? true : false);
+        }
+      }
       const status = await userManager.getUserStatus(request, user, false);
       const reply: CardClickedResponse = {
         serverVersion: SERVER_VERSION,
@@ -1025,6 +1043,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const now = Date.now();
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, coupon.amount, transactionResult.record.id, null, null);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
+      if (requestBody.detailsObject.adSlotId) {
+        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+        if (adSlot && adSlot.status !== "open-paid") {
+          await db.updateAdSlot(adSlot.id, "open-paid", true);
+        }
+      }
       const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: CardRedeemOpenResponse = {
         serverVersion: SERVER_VERSION,
@@ -1663,7 +1687,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(null, cardId, false, false, user);
+    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -1688,7 +1712,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1735,6 +1759,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
         },
         promoted: promoted,
+        adSlotId: adSlotId,
         couponId: record.couponIds.length > 0 ? record.couponIds[record.couponIds.length - 1] : null,
         stats: {
           revenue: record.stats.revenue.value,
@@ -1878,11 +1903,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
-    await db.updateCardScore(card, score);
+    await db.updateCardScore(card, score, this.getPromotionScores(card));
   }
 
   getPromotionScores(card: CardRecord): CardPromotionScores {
-    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.boost ? card.curation.boost : 0);
+    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.promotionBoost ? card.curation.promotionBoost : 0);
   }
 
   private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): CardPromotionScores {

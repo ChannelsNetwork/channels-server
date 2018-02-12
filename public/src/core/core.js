@@ -376,8 +376,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getCard(cardId, includePromotedCard) {
-    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard);
+  getCard(cardId, includePromotedCard, channelIdContext) {
+    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard, channelIdContext);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card";
     return this.rest.post(url, request);
@@ -431,16 +431,16 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  cardImpression(cardId, couponId, amount, authorAddress) {
+  cardImpression(cardId, adSlotId, couponId, amount, authorAddress) {
     let details;
     if (couponId) {
       const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
       const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
-      details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
+      details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, adSlotId, transactionString, transactionSignature);
     } else {
-      details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId);
+      details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, adSlotId);
     }
     let request = this._createRequest(details);
     const url = this.restBase + "/card-impression";
@@ -452,14 +452,14 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  cardOpened(cardId) {
-    let details = RestUtils.cardOpenedDetails(this._keys.address, this._fingerprint, cardId);
+  cardOpened(cardId, adSlotId) {
+    let details = RestUtils.cardOpenedDetails(this._keys.address, this._fingerprint, cardId, adSlotId);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-opened";
     return this.rest.post(url, request);
   }
 
-  cardClicked(cardId, couponId, amount, authorAddress) {
+  cardClicked(cardId, adSlotId, couponId, amount, authorAddress) {
     let transactionString = null;
     let transactionSignature = null;
     if (couponId && amount && authorAddress) {
@@ -468,7 +468,7 @@ class CoreService extends Polymer.Element {
       transactionString = JSON.stringify(transaction);
       transactionSignature = this._sign(transactionString);
     }
-    let details = RestUtils.cardClickedDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
+    let details = RestUtils.cardClickedDetails(this._keys.address, this._fingerprint, cardId, adSlotId, transactionString, transactionSignature);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-clicked";
     return this.rest.post(url, request).then((response) => {
@@ -505,12 +505,12 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  cardOpenPaymentRedeem(cardId, couponId, amount, authorAddress) {
+  cardOpenPaymentRedeem(cardId, adSlotId, couponId, amount, authorAddress) {
     const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
     const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-open-payment", cardId, couponId, amount, [recipient]);
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
-    const details = RestUtils.cardRedeemOpenDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
+    const details = RestUtils.cardRedeemOpenDetails(this._keys.address, this._fingerprint, cardId, adSlotId, transactionString, transactionSignature);
     const request = this._createRequest(details);
     const url = this.restBase + "/card-redeem-open";
     return this.rest.post(url, request).then((response) => {
