@@ -723,6 +723,12 @@
       _onRefund() {
         this._import("../dialogs/refund-dialog.html").then(() => {
           let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: true });
+          dlg.addEventListener("card-reported", (event) => {
+            let refunded = event.detail.refunded;
+            if (refunded) {
+              this._closeCard();
+            }
+          });
         });
       }
     }

@@ -364,7 +364,7 @@
         this._cardConsumed = showCheck;
       }
 
-      _onCloseCard(event) {
+      _onCloseCard() {
         this.dispatchEvent(new CustomEvent('card-close', { bubbles: true, composed: true }));
       }
 
@@ -435,6 +435,12 @@
       _onReport() {
         this._import("../dialogs/refund-dialog.html").then(() => {
           let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: this._cardPaymentMade });
+          dlg.addEventListener("card-reported", (event) => {
+            let refunded = event.detail.refunded;
+            if (refunded) {
+              this._onCloseCard();
+            }
+          });
         });
       }
 

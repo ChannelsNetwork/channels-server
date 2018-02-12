@@ -16,8 +16,6 @@
       }
 
       soso-checkbox {
-        display: inline-block;
-        width: 162px;
         font-size: 15px;
         padding: 3px 0;
       }
@@ -28,9 +26,7 @@
       }
 
       #chkRefund {
-        width: 100%;
         margin-top: 20px;
-        box-sizing: border-box;
       }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
@@ -38,7 +34,7 @@
       <div>
         <dom-repeat items="[[reasons]]">
           <template>
-            <soso-checkbox label="[[item]]"></soso-checkbox>
+            <soso-checkbox class="reasonCheckbox" data-reason$="[[item.reason]]" label="[[item.label]]"></soso-checkbox>
           </template>
         </dom-repeat>
       </div>
@@ -64,13 +60,11 @@
             type: Array,
             value: () => {
               return [
-                "Inappropriate",
-                "Offensive",
-                "Plagiarized",
-                "Misleading",
-                "No content",
-                "Not worth my time",
-                "Other"
+                { reason: "inappropriate", label: "Inappropriate or offensive content" },
+                { reason: "plagiarism", label: "Plagiarized" },
+                { reason: "clickbait", label: "Clickbait/Misleading" },
+                { reason: "junk", label: "No content or spam" },
+                { reason: "other", label: "Other" }
               ];
             }
           }
@@ -105,24 +99,27 @@
       }
 
       _doRefund() {
-        let enabled = false;
-        const boxes = this.shadowRoot.querySelectorAll("soso-checkbox");
+        let reasons = [];
+        const boxes = this.shadowRoot.querySelectorAll(".reasonCheckbox");
         if (boxes && boxes.length) {
           for (let i = 0; i < boxes.length; i++) {
             if (boxes[i].checked) {
-              enabled = true;
-              break;
+              reasons.push(boxes[i].dataset.reason);
             }
           }
         }
-        if (!enabled) {
+        if (!reasons.length) {
           this.$.dlg.showError("You must provide a reason.");
         } else {
-          this.$.dlg.showProgress("Applying refund");
+          this.$.dlg.showProgress("Reporting card");
           setTimeout(() => {
-            // TODO: do refund
-            $dialogs.hide(this);
-          }, 2000);
+            $core.reportCard(this.card.id, reasons, this.$.comment.value.trim(), this.$.chkRefund.checked).then(() => {
+              $dialogs.hide(this);
+              this.dispatchEvent(new CustomEvent('card-reported', { bubbles: true, composed: true, detail: { reasons: reasons, refunded: this.$.chkRefund.checked } }));
+            }).catch((err) => {
+              this.$.dlg.showError(err);
+            });
+          }, 3500);
         }
       }
     }
