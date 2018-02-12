@@ -115,13 +115,14 @@
         color: var(--highlight-green);
       }
 
-      #actionsIcon {
-        display: none;
-      }
-
       .menuDivider {
         border-top: 1px solid #d8d8d8;
         margin-top: 5px;
+      }
+
+      #ratingTipItem,
+      #voteItem2 {
+        display: none;
       }
 
       @media (max-width: 600px) {
@@ -142,13 +143,12 @@
         #ratingIcon {
           margin-left: -19px;
         }
-        #moreIcon,
-        #shareIcon,
         #ratingPanel {
           display: none;
         }
-        #actionsIcon {
-          display: inline-flex;
+        #ratingTipItem,
+        #voteItem2 {
+          display: block;
         }
         #pricePanel {
           padding: 0 2px;
@@ -173,22 +173,10 @@
         <soso-icon id="ratingIcon" icon="thumbs-up-down" icon-map="[[iconMap]]"></soso-icon>
         <progress-icon id="likeRating" class="novotes"></progress-icon>
       </div>
-      <soso-icon id="shareIcon" icon="share" icon-map="[[iconMap]]"></soso-icon>
-      <soso-icon id="moreIcon" icon="expand-more" icon-map="[[iconMap]]" class="hidden"></soso-icon>
-      <soso-icon id="actionsIcon" icon="expand-more" icon-map="[[iconMap]]"></soso-icon>
-      <soso-icon icon="close" icon-map="[[iconMap]]" on-click="_onCloseCard"></soso-icon>
+      <soso-icon id="actionsIcon" icon="expand-more"></soso-icon>
+      <soso-icon icon="close" on-click="_onCloseCard"></soso-icon>
 
       <!-- Drop downs -->
-      <soso-dropdown for="shareIcon" alignment="right" offset="0">
-        <li on-click="_tweet">Share on Twitter</li>
-        <li on-click="_facebook">Share on Facebook</li>
-        <li on-click="_onLink">Grab card URL</li>
-      </soso-dropdown>
-      <soso-dropdown for="moreIcon" alignment="right" offset="0">
-        <li on-click="_editCard">Edit Card</li>
-        <li on-click="_analytics">Analytics</li>
-        <li on-click="_deleteCard">Delete</li>
-      </soso-dropdown>
       <soso-dropdown id="likeDropdown" for="likeRating" offset="0">
         <li>[[yourVoteMessage]]</li>
         <li id="voteItem">
@@ -206,10 +194,11 @@
         <li on-click="_tweet">Share on Twitter</li>
         <li on-click="_facebook">Share on Facebook</li>
         <li on-click="_onLink">Grab card URL</li>
+        <li id="reportAction" class="menuDivider" on-click="_onReport">Report this card</li>
         <li id="editAction" class="menuDivider" on-click="_editCard">Edit Card</li>
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
-        <li class="menuDivider">[[ratingTip]]</li>
+        <li id="ratingTipItem" class="menuDivider">[[ratingTip]]</li>
         <li id="voteItem2">
           <div class="horizontal layout center">
             <div style="padding: 0 5px;">
@@ -254,6 +243,7 @@
         if (!this.data) {
           return;
         }
+        this._cardPaymentMade = false;
         this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
         if (!this.data.postedAtDisplay) {
           this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
@@ -351,15 +341,15 @@
       _refreshMore() {
         let owner = this.data && (this.data.by.address === $core.address);
         if (owner) {
-          this.$.moreIcon.classList.remove("hidden");
           this.$.analyticsAction.classList.remove("hidden");
           this.$.deleteAction.classList.remove("hidden");
           this.$.editAction.classList.remove("hidden");
+          this.$.reportAction.classList.add("hidden");
         } else {
-          this.$.moreIcon.classList.add("hidden");
           this.$.analyticsAction.classList.add("hidden");
           this.$.deleteAction.classList.add("hidden");
           this.$.editAction.classList.add("hidden");
+          this.$.reportAction.classList.remove("hidden");
         }
       }
 
@@ -397,9 +387,7 @@
 
       onPayment() {
         this._refreshPaidCheck();
-        // let cost = this.data.pricing.openFee;
-        // if (cost > 0) {
-        // }
+        this._cardPaymentMade = true;
       }
 
       _makePrivate() {
@@ -444,9 +432,9 @@
         });
       }
 
-      _onRefund() {
+      _onReport() {
         this._import("../dialogs/refund-dialog.html").then(() => {
-          let dlg = $dialogs.open("refund-dialog", this.data);
+          let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: this._cardPaymentMade });
         });
       }
 

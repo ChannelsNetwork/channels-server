@@ -129,6 +129,10 @@
         margin-top: -22px;
       }
 
+      #refundPanel {
+        padding-bottom: 30px;
+      }
+
       @media (max-width: 600px) {
         #morePanel {
           padding: 30px 8px 30px 5px;
@@ -164,6 +168,9 @@
       <div id="cardView" class="hidden"></div>
       <div id="morePanel" class="hidden">
         <div id="morePanelContent">
+          <div id="refundPanel" class="hidden">
+            <a style="cursor: pointer;" on-click="_onRefund">Refund my card payment</a>
+          </div>
           <div id="ratingPanel" class="horizontal layout center hidden" style="margin-bottom: 15px;">
             <div class="flex"></div>
             <div>
@@ -222,6 +229,7 @@
         this._route = route;
         this.data = null;
         this.paymentInterval = 10000;
+        this.$.refundPanel.classList.add("hidden");
         $core.register().then(() => {
           this.$.cbar.activate();
           if (route.segments.length < 2) {
@@ -304,6 +312,7 @@
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
+        this.$.refundPanel.classList.add("hidden");
         this._clearNode(this.$.cardView);
 
         // show loading spinner
@@ -631,6 +640,7 @@
 
       _onPaymentSuccess() {
         this.$.header.onPayment();
+        this.$.refundPanel.classList.remove("hidden");
         this._fireUpdateCardData();
       }
 
@@ -708,6 +718,12 @@
         this._refreshRating();
         this.$.header.refreshRating();
         window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+      }
+
+      _onRefund() {
+        this._import("../dialogs/refund-dialog.html").then(() => {
+          let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: true });
+        });
       }
     }
     window.customElements.define(CardPage.is, CardPage);
