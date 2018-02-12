@@ -2724,7 +2724,7 @@ export class Database {
     }
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
-  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string): Promise<UserRegistrationRecord> {
+  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,
       at: Date.now(),
@@ -2732,7 +2732,8 @@ export class Database {
       fingerprint: fingerprint,
       address: address,
       referrer: referrer,
-      landingPage: landingPage
+      landingPage: landingPage,
+      userAgent: userAgent
     };
     await this.userRegistrations.insertOne(record);
     return record;

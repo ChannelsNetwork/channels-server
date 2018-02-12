@@ -339,7 +339,7 @@ db.userCardActions.aggregate([
 Fraud detection:  What authors have the most fraudulent purchase activity on their cards?
 
 db.userCardActions.aggregate([
-  {$match: {action: "pay", fromFingerprint: {$exists: true}}},
+  {$match: {action: "pay", fromFingerprint: {$exists: true}, at: {$gt: 1518035200000}}},
   {$group: {_id: {fingerprint: "$fromFingerprint", cardId: "$cardId", authorId: "$authorId"}, count: {$sum: 1}}},
   {$sort: {count: -1}},
   {$match: {count: {$gt: 1}}},
@@ -351,8 +351,137 @@ db.userCardActions.aggregate([
 ])
 
 db.userCardActions.aggregate([
-  {$match: {action: "pay", fromFingerprint: {$exists: true}, fraudReason: {$exists: false}, at: {$gt: 1518001826000}}},
+  {$match: {action: "pay", fromFingerprint: {$exists: true}, fraudReason: {$exists: true}, at: {$gt: 1518035200000}}},
   {$group: {_id: {fingerprint: "$fromFingerprint", cardId: "$cardId"}, count: {$sum: 1}}},
   {$sort: {count: -1}},
   {$match: {count: {$gt: 1}}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1518035200000}, fraudReason: {$exists: true}}},
+  {$group: {_id: "$cardId", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1518035200000}}},
+  {$group: {_id: {fingerprint: "$fromFingerprint", cardId: "$cardId", authorId: "$authorId"}, count: {$sum: 1}}},
+  {$match: {count: {$gt: 1}}},
+
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", authorId: "24de4c67-771f-4f0f-8ffd-ca60bee4922b", at: {$gt: 1518195600000}}},
+  {$group: {_id: {fingerprint: "$fromFingerprint", cardId: "$cardId"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", fraudReason: {$exists: true}, at: {$gt: 1518195600000}}},
+  {$group: {_id: {fingerprint: "$fromFingerprint", cardId: "$cardId", authorId: "$authorId"}, count: {$sum: 1}}},
+  {$group: {_id: "$_id.authorId", total: {$sum: "$count"}}},
+  {$sort: {total: -1}},
+  {$lookup: {from: "users", localField:"_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 1, total: "$total", "user.identity.handle": 1, "user.balance": 1, "user.ipAddress": 1, "user.city": 1}}
+])
+
+24de4c67-771f-4f0f-8ffd-ca60bee4922b
+
+How much money has been spent by category since ...?
+
+db.bankTransactions.aggregate([
+  {$match: {at: {$gt: 1517562817000}}},
+  {$group: {_id: "$details.reason", total: {$sum: "$details.amount"}}}
+])
+
+How many users for each number of card purchases?
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay"}},
+  {$group: {_id: "$userId", count: {$sum: 1}}},
+  {$group: {_id: "$count", users: {$sum: 1}}},
+  {$sort: {_id: 1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", fromFingerprint: {$exists: true}, fraudReason: {$exists: true}}},
+  {$group: {_id: "$fromFingerprint", count: {$sum: 1}}},
+  {$group: {_id: "$count", browsers: {$sum: 1}}},
+  {$sort: {_id: 1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", authorId: "7914d0dc-0d29-4958-bc00-3352ea87f5b0"}},
+  {$group: {_id: {fingerprint: "$fromFingerprint", cardId: "$cardId"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", authorId: "7914d0dc-0d29-4958-bc00-3352ea87f5b0"}},
+  {$group: {_id: {ipAddress: "$fromIpAddress", cardId: "$cardId"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {fingerprint: "5c5d06b9a667d797ba43f306aada7123"}},
+  {$group: {_id: "$ipAddress", count: {$sum: 1}}},
+  {$sort: {count: -1}},
+  {$lookup: {from: "ipAddresses", localField: "_id", foreignField: "ipAddress", as: "ip"}},
+  {$unwind: "$ip"}
+])
+
+db.userCardActions.aggregate([
+  {$match: {cardId: "d319fae8-6adb-4288-af44-e8de26dc9643", action: "pay"}},
+  {$group: {_id: "$fromFingerprint", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {cardId: "d319fae8-6adb-4288-af44-e8de26dc9643", action: "pay"}},
+  {$group: {_id: "$fromIpAddress", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {fromFingerprint: "5c5d06b9a667d797ba43f306aada7123", action: "pay"}},
+  {$group: {_id: "$cardId", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", authorId: "d283d558-053c-4711-a70b-d552d06a3f0b", at: {$gt: 1517677200000}, fraudReason: {$exists: true}}},
+  {$group: {_id: "$cardId", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", fraudReason: {$exists: true}}},
+  {$group: {_id: "$fromFingerprint", count: {$sum: 1}}},
+  {$sort: {count: -1}},
+  {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "fingerprint", as: "registration"}},
+  {$unwind: "$registration"},
+  {$match: {"registration.userAgent": {$exists: true}}},
+  {$project: {count: "$count", ipAddress: "$registration.ipAddress", userId: "$registration.userId", userAgent: "$registration.userAgent"}},
+  {$group: {_id: {fingerprint: "$_id", ua: "$userAgent"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {userAgent: {$exists: true}, fingerprint: "5a1bd9d9edf19bcb4b4dcc02b9bd2803"}},
+  {$group: {_id: {fingerprint: "$fingerprint", ua: "$userAgent"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {userAgent: {$exists: true}}},
+  {$group: {_id: {fingerprint: "$fingerprint", ua: "$userAgent"}, count: {$sum: 1}}},
+  {$group: {_id: "$_id.fingerprint", count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.users.aggregate([
+  {$match: {lastContact: {$gt: 1517158800000}}},
+  {$bucket: {groupBy: "$balance", default: -999, boundaries: [-1, 0, 0.1, 0.5, 1, 1.5, 2, 2.25, 2.5, 2.75, 3, 4, 5, 6, 7.5, 10, 50, 100, 500]}}
 ])

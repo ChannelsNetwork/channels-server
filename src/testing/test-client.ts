@@ -209,7 +209,8 @@ class TestClient implements RestServer {
       publicKey: this.keyInfo.publicKeyPem,
       timestamp: Date.now(),
       referrer: null,
-      landingUrl: null
+      landingUrl: null,
+      userAgent: null
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<RegisterUserDetails> = {

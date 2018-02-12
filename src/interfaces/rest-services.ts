@@ -18,6 +18,7 @@ export interface RegisterUserDetails extends Signable {
   inviteCode?: string;
   referrer: string;
   landingUrl: string;
+  userAgent: string;
 }
 
 export interface Signable {

@@ -617,6 +617,7 @@ export interface UserRegistrationRecord {
   address: string;
   referrer: string;
   landingPage: string;
+  userAgent: string;
 }
 
 export interface ChannelKeywordRecord {
