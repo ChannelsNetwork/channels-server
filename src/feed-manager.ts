@@ -499,6 +499,7 @@ export class FeedManager implements Initializable, RestServer {
     }
 
     if (cards.length < count) {
+      const authorIds: string[] = [];
       const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
       while (await cursor.hasNext()) {
         const cardByScore = await cursor.next();
@@ -509,8 +510,11 @@ export class FeedManager implements Initializable, RestServer {
           continue;  // exclude cards that have been reported and not overridden by an admin
         }
         if (cardIds.indexOf(cardByScore.id) < 0) {
-          cards.push(cardByScore);
-          cardIds.push(cardByScore.id);
+          if (authorIds.indexOf(cardByScore.createdById) < 0) {  // include at most one card from any given author
+            cards.push(cardByScore);
+            cardIds.push(cardByScore.id);
+            authorIds.push(cardByScore.createdById);
+          }
         }
         if (cards.length >= count) {
           break;
