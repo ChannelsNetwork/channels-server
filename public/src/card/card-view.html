@@ -308,7 +308,11 @@
         this._cardDataListener = (event) => {
           if (this.data && event.detail.card) {
             if (this.data.id === event.detail.card.id) {
+              let sameObj = this.data == event.detail.card;
               this.data = event.detail.card;
+              if (sameObj) {
+                this._onData();
+              }
             }
           }
         };
@@ -469,7 +473,7 @@
       }
 
       _refreshPaidCheck() {
-        let showCheck = (!this.data.userSpecific.isPoster) &&
+        let showCheck = (!this.data.userSpecific.isPoster) && (!this.data.userSpecific.openFeeRefunded) &&
           ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
         if (showCheck) {
           this.$.price.classList.add("paid");

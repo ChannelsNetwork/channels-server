@@ -729,7 +729,7 @@
         });
         this._refreshRating();
         this.$.header.refreshRating();
-        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        this._fireUpdateCardData();
       }
 
       _onDownVote() {
@@ -755,7 +755,7 @@
         });
         this._refreshRating();
         this.$.header.refreshRating();
-        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        this._fireUpdateCardData();
       }
 
       _onRefund() {
@@ -763,6 +763,10 @@
           let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: true });
           dlg.addEventListener("close", (event) => {
             if (!event.detail.cancel) {
+              if (event.detail.refunded) {
+                this.data.userSpecific.openFeeRefunded = true;
+                this._fireUpdateCardData();
+              }
               this._closeCard();
             }
           });
