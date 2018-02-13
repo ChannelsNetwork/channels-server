@@ -32,6 +32,7 @@ import { feedManager } from "./feed-manager";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import * as LRU from 'lru-cache';
+import * as escapeHtml from 'escape-html';
 
 const promiseLimit = require('promise-limit');
 
@@ -2034,6 +2035,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       html += "<p>A user has reported a card.</p>";
       html += "<p>Card: <a href='" + this.urlManager.getAbsoluteUrl('/c/' + card.id) + "'>" + card.summary.title + "</a></p>";
       html += "<p>By: " + card.by.handle + "</p>";
+      html += "<p>Reasons: " + requestBody.detailsObject.reasons.join(',') + "</p>";
+      html += "<p>Comment: \"" + escapeHtml(requestBody.detailsObject.comment) + "\"</p>";
+      html += "<p>Refunded: " + (refundCompleted ? "yes" : "no") + "</p>";
       html += "<p>Reported by: " + (user.identity ? user.identity.handle : user.id) + "</p>";
       console.log("Card.handleReportCard:  user reported card", user.id, card.id, card.by.handle, card.summary.title, reportInfo);
       await emailManager.sendInternalNotification("Card report: " + requestBody.detailsObject.reasons.join(','), "Card reported: " + card.id, html);
