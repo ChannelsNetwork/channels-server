@@ -228,6 +228,7 @@ export interface CardDescriptor {
 
   blocked: boolean;
   boost?: number;
+  reasons: ReportCardReason[];
 }
 
 export interface CardSummary {
@@ -250,6 +251,8 @@ export interface CardDescriptorStatistics {
   uniqueOpens: number;
   likes: number;
   dislikes: number;
+  reports: number;
+  refunds: number;
 }
 
 export interface EnsureChannelComponentDetails extends Signable {
@@ -492,6 +495,7 @@ export interface BankTransactionDetailsWithId {
   details: BankTransactionDetails;
   isOriginator: boolean;
   isRecipient: boolean[];
+  refunded: boolean;
 }
 
 export interface BankTransactionDetails extends Signable {

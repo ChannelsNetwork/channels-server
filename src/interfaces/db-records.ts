@@ -164,6 +164,7 @@ export interface CardRecord {
     boost?: number;
     promotionBoost?: number;
     boostAt?: number;
+    overrideReports?: boolean;
   };
   searchText: string;
   type: CardType;
@@ -195,6 +196,8 @@ export interface CardStatistics {
   uniqueClicks: CardStatistic;
   likes: CardStatistic;
   dislikes: CardStatistic;
+  reports: CardStatistic;
+  refunds: CardStatistic;
 }
 
 export interface CardStatistic {
@@ -543,6 +546,8 @@ export interface NetworkCardStats {
   paidUnits: number;
   likes: number;
   dislikes: number;
+  reports: number;
+  refunds: number;
   cardRevenue: number;
   blockedPaidOpens: number;
   firstTimePaidOpens: number;

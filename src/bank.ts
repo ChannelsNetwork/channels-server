@@ -219,7 +219,8 @@ export class Bank implements RestServer, Initializable {
           relatedCardTitle: transaction.relatedCardTitle,
           details: transaction.details,
           isOriginator: transaction.originatorUserId === user.id,
-          isRecipient: []
+          isRecipient: [],
+          refunded: transaction.refunded
         };
         for (const recipientUserId of transaction.recipientUserIds) {
           info.isRecipient.push(user.id === recipientUserId);
