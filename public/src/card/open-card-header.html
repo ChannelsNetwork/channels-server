@@ -354,7 +354,7 @@
       }
 
       _refreshPaidCheck() {
-        let showCheck = (!this.data.userSpecific.isPoster) &&
+        let showCheck = (!this.data.userSpecific.isPoster) && (!this.data.userSpecific.openFeeRefunded) &&
           ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
         if (showCheck) {
           this.$.pricePanel.classList.add("paid");
@@ -437,6 +437,10 @@
           let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: this._cardPaymentMade });
           dlg.addEventListener("close", (event) => {
             if (!event.detail.cancel) {
+              if (event.detail.refunded) {
+                this.data.userSpecific.openFeeRefunded = true;
+                window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+              }
               this._onCloseCard();
             } else {
               this.dispatchEvent(new CustomEvent('report-dialog', { bubbles: true, composed: true, detail: { open: false } }));
