@@ -435,12 +435,14 @@
       _onReport() {
         this._import("../dialogs/refund-dialog.html").then(() => {
           let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: this._cardPaymentMade });
-          dlg.addEventListener("card-reported", (event) => {
-            let refunded = event.detail.refunded;
-            if (refunded) {
+          dlg.addEventListener("close", (event) => {
+            if (!event.detail.cancel) {
               this._onCloseCard();
+            } else {
+              this.dispatchEvent(new CustomEvent('report-dialog', { bubbles: true, composed: true, detail: { open: false } }));
             }
           });
+          this.dispatchEvent(new CustomEvent('report-dialog', { bubbles: true, composed: true, detail: { open: true } }));
         });
       }
 
