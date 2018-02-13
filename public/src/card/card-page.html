@@ -21,6 +21,7 @@
         transition: opacity 0.25s ease;
       }
 
+      #inaccessible,
       #nocard {
         text-align: center;
         box-sizing: border-box;
@@ -158,6 +159,14 @@
         </div>
       </div>
     </div>
+    <div id="inaccessible" class="horizontal layout center hidden">
+      <div style="width: 100%; box-sizing: border-box; padding: 20px 16px;">
+        <div style="margin-bottom: 20px; letter-spacing: 0.05em; color: #808080;">This card is inaccessible to you because you requested and received a refund on this card.</div>
+        <div>
+          <button on-click="_closeCard">Close</button>
+        </div>
+      </div>
+    </div>
     <div id="hasCard">
       <div id="loadingPanel">
         <div>
@@ -265,6 +274,11 @@
         }
       }
 
+      _onInaccessible() {
+        this.$.inaccessible.classList.remove("hidden");
+        this.$.hasCard.classList.add("hidden");
+      }
+
       _onNoCard() {
         this.$.nocard.classList.remove("hidden");
         this.$.hasCard.classList.add("hidden");
@@ -309,6 +323,7 @@
         this._cardContentLoaded = false;
         this._cardNode = null;
 
+        this.$.inaccessible.classList.add("hidden");
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
@@ -334,6 +349,15 @@
           }
           this.data = cardData.card;
           this.promotedCard = cardData.promotedCard;
+
+          // if refund was awarded on this card, do not show
+          if (this.data.userSpecific.openFeeRefunded) {
+            this._clearSpinner();
+            this._onInaccessible();
+            return;
+          }
+
+          // show terms panel if needed
           this._showTermsPanel();
 
           if (this.data.summary && this.data.summary.title) {
@@ -520,12 +544,16 @@
         });
       }
 
-      _createCardView(packageInfo) {
-        // hide loading spinner
+      _clearSpinner() {
         this.$.cardView.classList.remove("hidden");
         this.$.header.classList.remove("disabled");
         this.$.spinner.spinning = false;
         this.$.loadingPanel.classList.add("hidden");
+      }
+
+      _createCardView(packageInfo) {
+        // hide loading spinner
+        this._clearSpinner();
 
         // create and insert viewer
         let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
