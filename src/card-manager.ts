@@ -2017,6 +2017,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           await this.incrementStat(card, "revenue", -bankTransaction.details.amount, now, REVENUE_SNAPSHOT_INTERVAL);
           refundCompleted = true;
           refunds = 1;
+          user.balance += bankTransaction.details.amount;
         } else {
           errorManager.error("Bank transaction record for original payment is missing.", request, user.id, card.id);
         }
@@ -2041,7 +2042,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       html += "<p>Reported by: " + (user.identity ? user.identity.handle : user.id) + "</p>";
       console.log("Card.handleReportCard:  user reported card", user.id, card.id, card.by.handle, card.summary.title, reportInfo);
       await emailManager.sendInternalNotification("Card report: " + requestBody.detailsObject.reasons.join(','), "Card reported: " + card.id, html);
-      const userStatus = await userManager.getUserStatus(request, user, true);
+      const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: ReportCardResponse = {
         serverVersion: SERVER_VERSION,
         status: userStatus
