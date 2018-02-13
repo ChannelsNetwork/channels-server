@@ -1858,7 +1858,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
         }
       }
-      if (includeState) {
+      if (includeState && !card.userSpecific.openFeeRefunded) {
         const sharedProperties = await db.findCardProperties(card.id, "shared", '');
         for (const property of sharedProperties) {
           let value = property.value;
