@@ -149,7 +149,7 @@
     <soso-app-header>
       <channels-bar id="cbar"></channels-bar>
       <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
-        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated" on-report-dialog="_onReportDialog"></open-card-header>
     </soso-app-header>
     <div id="nocard" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box; padding: 16px;">
@@ -581,6 +581,16 @@
         $core.analytics.event("card", "accept-terms");
       }
 
+      _onReportDialog(event) {
+        if (event.detail) {
+          if (event.detail.open) {
+            this._stopPaymentTimer();
+          } else {
+            this._startPaymentTimer();
+          }
+        }
+      }
+
       _stopPaymentTimer() {
         if (this._paymentTimer) {
           clearTimeout(this._paymentTimer);
@@ -751,9 +761,8 @@
       _onRefund() {
         this._import("../dialogs/refund-dialog.html").then(() => {
           let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: true });
-          dlg.addEventListener("card-reported", (event) => {
-            let refunded = event.detail.refunded;
-            if (refunded) {
+          dlg.addEventListener("close", (event) => {
+            if (!event.detail.cancel) {
               this._closeCard();
             }
           });

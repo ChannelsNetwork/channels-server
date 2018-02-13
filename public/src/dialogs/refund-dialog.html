@@ -94,6 +94,7 @@
             break;
           default:
             $dialogs.hide(this);
+            this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true, detail: { cancel: true } }));
             break;
         }
       }
@@ -115,7 +116,7 @@
           setTimeout(() => {
             $core.reportCard(this.card.id, reasons, this.$.comment.value.trim(), this.$.chkRefund.checked).then(() => {
               $dialogs.hide(this);
-              this.dispatchEvent(new CustomEvent('card-reported', { bubbles: true, composed: true, detail: { reasons: reasons, refunded: this.$.chkRefund.checked } }));
+              this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true, detail: { cancel: false, reasons: reasons, refunded: this.$.chkRefund.checked } }));
             }).catch((err) => {
               this.$.dlg.showError(err);
             });
