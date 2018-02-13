@@ -1,0 +1,129 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../controls/text-area.html">
+<link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<dom-module id="refund-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        font-size: 16px;
+      }
+
+      h3 {
+        font-size: 20px;
+        margin-bottom: 15px;
+      }
+
+      soso-checkbox {
+        font-size: 15px;
+        padding: 3px 0;
+      }
+
+      text-area {
+        margin: 15px 0 8px;
+        border-bottom: 1px solid;
+      }
+
+      #chkRefund {
+        margin-top: 20px;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Select reasons for reporting this card.</h3>
+      <div>
+        <dom-repeat items="[[reasons]]">
+          <template>
+            <soso-checkbox class="reasonCheckbox" data-reason$="[[item.reason]]" label="[[item.label]]"></soso-checkbox>
+          </template>
+        </dom-repeat>
+      </div>
+      <text-area id="comment" single-line label="Comment" placeholder="Add a comment"></text-area>
+      <soso-checkbox id="chkRefund" label="I'd like a refund of my card purchase"></soso-checkbox>
+    </dialog-view>
+  </template>
+  <script>
+    class RefundDialog extends Polymer.Element {
+      static get is() { return 'refund-dialog'; }
+      static get properties() {
+        return {
+          _buttons: {
+            type: Array,
+            value: () => {
+              return [
+                { id: 'cancel', label: "Cancel" },
+                { id: 'refund', label: "Report" }
+              ];
+            }
+          },
+          reasons: {
+            type: Array,
+            value: () => {
+              return [
+                { reason: "inappropriate", label: "Inappropriate or offensive content" },
+                { reason: "plagiarism", label: "Plagiarized" },
+                { reason: "clickbait", label: "Clickbait/Misleading" },
+                { reason: "junk", label: "No content or spam" },
+                { reason: "other", label: "Other" }
+              ];
+            }
+          }
+        }
+      }
+
+      show(data) {
+        this.card = data.card;
+        if (data.refund) {
+          this.$.chkRefund.checked = true;
+          this.$.chkRefund.classList.remove("hidden");
+        } else {
+          this.$.chkRefund.checked = false;
+          this.$.chkRefund.classList.add("hidden");
+        }
+        return this.$.dlg.show();
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "refund":
+            this._doRefund();
+            break;
+          default:
+            $dialogs.hide(this);
+            this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true, detail: { cancel: true } }));
+            break;
+        }
+      }
+
+      _doRefund() {
+        let reasons = [];
+        const boxes = this.shadowRoot.querySelectorAll(".reasonCheckbox");
+        if (boxes && boxes.length) {
+          for (let i = 0; i < boxes.length; i++) {
+            if (boxes[i].checked) {
+              reasons.push(boxes[i].dataset.reason);
+            }
+          }
+        }
+        if (!reasons.length) {
+          this.$.dlg.showError("You must provide a reason.");
+        } else {
+          this.$.dlg.showProgress("Reporting card");
+          setTimeout(() => {
+            $core.reportCard(this.card.id, reasons, this.$.comment.value.trim(), this.$.chkRefund.checked).then(() => {
+              $dialogs.hide(this);
+              this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true, detail: { cancel: false, reasons: reasons, refunded: this.$.chkRefund.checked } }));
+            }).catch((err) => {
+              this.$.dlg.showError(err);
+            });
+          }, 3500);
+        }
+      }
+    }
+    window.customElements.define(RefundDialog.is, RefundDialog);
+  </script>
+</dom-module>

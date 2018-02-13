@@ -762,4 +762,16 @@ class RestUtils {
     };
   }
 
+  static reportCardDetails(address, fingerprint, cardId, reasons, comment, requestRefund) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      reasons: reasons,
+      comment: comment,
+      requestRefund: requestRefund
+    };
+  }
+
 }

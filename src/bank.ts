@@ -2,7 +2,7 @@ import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
 import { UrlManager } from "./url-manager";
-import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails } from "./interfaces/db-records";
+import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails, BankTransactionRefundReason, BankTransactionRefundInfo } from "./interfaces/db-records";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
@@ -219,7 +219,8 @@ export class Bank implements RestServer, Initializable {
           relatedCardTitle: transaction.relatedCardTitle,
           details: transaction.details,
           isOriginator: transaction.originatorUserId === user.id,
-          isRecipient: []
+          isRecipient: [],
+          refunded: transaction.refunded
         };
         for (const recipientUserId of transaction.recipientUserIds) {
           info.isRecipient.push(user.id === recipientUserId);
@@ -576,6 +577,47 @@ export class Bank implements RestServer, Initializable {
 
   private async updateWithdrawalStatus(transaction: BankTransactionRecord, referenceId: string, status: string, err: any): Promise<void> {
     await db.updateBankTransactionWithdrawalStatus(transaction.id, referenceId, status, err);
+  }
+
+  async refundTransaction(request: Request, transaction: BankTransactionRecord, reason: BankTransactionRefundReason, now: number): Promise<void> {
+    for (const recipient of transaction.details.toRecipients) {
+      let refundAmount = 0;
+      switch (recipient.portion) {
+        case "remainder":
+          refundAmount = transaction.details.amount - transaction.deductions;
+          break;
+        case "fraction":
+          refundAmount = transaction.details.amount * recipient.amount;
+          break;
+        case "absolute":
+          refundAmount = recipient.amount;
+          break;
+        default:
+          errorManager.error("Unhandled recipient.portion case " + recipient.portion, request);
+          break;
+      }
+      if (refundAmount > 0) {
+        const recipientUser = await db.findUserByHistoricalAddress(recipient.address);
+        if (recipientUser) {
+          await db.incrementUserBalance(recipientUser, -refundAmount, recipientUser.balance - refundAmount < recipientUser.targetBalance, now);
+          console.log("Bank.refundTransaction: recipient refund deducted", refundAmount, recipientUser.id, transaction.id);
+        } else {
+          errorManager.error("Failed to find recipient user for refund", request, transaction.id, recipient);
+        }
+      }
+    }
+    const originatorUser = await db.findUserById(transaction.originatorUserId);
+    if (originatorUser) {
+      await db.incrementUserBalance(originatorUser, transaction.details.amount, originatorUser.balance + transaction.details.amount < originatorUser.targetBalance, now);
+      console.log("Bank.refundTransaction: originator refund deducted", transaction.details.amount, originatorUser.id, transaction.id);
+    } else {
+      errorManager.error("Failed to find originator user for refund", request, transaction.id, transaction.originatorUserId);
+    }
+    const refundInfo: BankTransactionRefundInfo = {
+      at: now,
+      reason: reason
+    };
+    await db.updateBankTransactionRefund(transaction.id, true, refundInfo);
   }
 }
 

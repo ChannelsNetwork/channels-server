@@ -486,6 +486,9 @@ export class FeedManager implements Initializable, RestServer {
       if (feedCard.pricing.openPayment > 0 || (feedCard.pricing.promotionFee > 0 && feedCard.pricing.openFeeUnits === 0)) {
         continue;  // exclude cards that pay you appearing in your feed just because you subscribe to that channel
       }
+      if (feedCard.stats && feedCard.stats.reports && feedCard.stats.reports.value > 0 && (!feedCard.curation || !feedCard.curation.overrideReports)) {
+        continue;  // exclude cards that have been reported and not overridden by an admin
+      }
       cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
       if (!afterCardId) {  // Only include subscribed cards on first page of results
         const userCard = await db.findUserCardInfo(user.id, feedCard.id);
@@ -496,15 +499,22 @@ export class FeedManager implements Initializable, RestServer {
     }
 
     if (cards.length < count) {
+      const authorIds: string[] = [];
       const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
       while (await cursor.hasNext()) {
         const cardByScore = await cursor.next();
         if (cardByScore.score <= 0) {
           break;
         }
+        if (cardByScore.stats && cardByScore.stats.reports && cardByScore.stats.reports.value > 0 && (!cardByScore.curation || !cardByScore.curation.overrideReports)) {
+          continue;  // exclude cards that have been reported and not overridden by an admin
+        }
         if (cardIds.indexOf(cardByScore.id) < 0) {
-          cards.push(cardByScore);
-          cardIds.push(cardByScore.id);
+          if (authorIds.indexOf(cardByScore.createdById) < 0) {  // include at most one card from any given author
+            cards.push(cardByScore);
+            cardIds.push(cardByScore.id);
+            authorIds.push(cardByScore.createdById);
+          }
         }
         if (cards.length >= count) {
           break;
@@ -758,6 +768,9 @@ export class FeedManager implements Initializable, RestServer {
 
   private getTotalCardScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats, author: UserRecord): number {
     let score = 0;
+    if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
+      return 0;
+    }
     score += this.getCardAgeScore(card, author);
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);

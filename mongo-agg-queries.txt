@@ -855,3 +855,9 @@ db.users.count({"identity.handle": {$exists: true}, id: {$nin: ["5139e3d2-fc02-4
     {$lookup: {from: "users", localField: "_id.userId", foreignField: "id", as: "user"}},
     {$unwind: "$user"}
   ])
+
+  db.adSlots.aggregate([
+    {$match: {status: {$ne: "pending"}, redeemed: true}},
+    {$group: {_id: "$userId", count: {$sum: 1}}},
+    {$group: {_id: "count", totalUsers: {$sum: 1}}}
+  ])

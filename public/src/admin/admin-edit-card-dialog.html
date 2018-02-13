@@ -18,12 +18,27 @@
         margin-top: 25px;
         color: #555;
       }
+
+      .reports {
+        white-space: nowrap;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #overrideReports {
+        margin-top: 10px;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <h3>Admin Edit Card</h3>
       <soso-text-input id="keywords" label="Keywords" placeholder="Keywords"></soso-text-input>
       <soso-checkbox id="blocked" label="Blocked"></soso-checkbox>
       <soso-text-input id="boost" label="Boost (-10 to 10)" placeholder="Boost"></soso-text-input>
+      <div class="reports">Reports:
+        <span>[[_reports]]</span>
+      </div>
+      <soso-checkbox id="overrideReports" label="Override Reports"></soso-checkbox>
     </dialog-view>
   </template>
   <script>
@@ -31,7 +46,8 @@
       static get is() { return 'admin-edit-card-dialog'; }
       static get properties() {
         return {
-          _buttons: Array
+          _buttons: Array,
+          _reports: String
         };
       }
 
@@ -54,6 +70,11 @@
             this.$.keywords.value = this.card.keywords ? this.card.keywords.join(', ') : '';
             this.$.blocked.checked = this.card.blocked || false;
             this.$.boost.value = this.card.boost ? this.card.boost.toFixed(1) : 0;
+            if (this.card.stats && this.card.stats.reports && this.card.stats.reports > 0) {
+              this.set('_reports', this.card.stats.reports + " (" + this.card.reasons.join(', ') + ")");
+            } else {
+              this.set('_reports', '0');
+            }
             this.$.dlg.show();
           });
         });

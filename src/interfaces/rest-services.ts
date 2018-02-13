@@ -219,6 +219,7 @@ export interface CardDescriptor {
     paidToReader: number;
     earnedFromAuthor: number;
     earnedFromReader: number;
+    openFeeRefunded: boolean;
   };
   state?: {
     user: CardState;
@@ -227,6 +228,7 @@ export interface CardDescriptor {
 
   blocked: boolean;
   boost?: number;
+  reasons: ReportCardReason[];
 }
 
 export interface CardSummary {
@@ -249,6 +251,8 @@ export interface CardDescriptorStatistics {
   uniqueOpens: number;
   likes: number;
   dislikes: number;
+  reports: number;
+  refunds: number;
 }
 
 export interface EnsureChannelComponentDetails extends Signable {
@@ -491,6 +495,7 @@ export interface BankTransactionDetailsWithId {
   details: BankTransactionDetails;
   isOriginator: boolean;
   isRecipient: boolean[];
+  refunded: boolean;
 }
 
 export interface BankTransactionDetails extends Signable {
@@ -900,3 +905,14 @@ export interface UpdateAccountSettingsDetails extends Signable {
 }
 
 export interface UpdateAccountSettingsResponse extends GetUserIdentityResponse { }
+
+export interface ReportCardDetails extends Signable {
+  cardId: string;
+  reasons: ReportCardReason[];
+  comment: string;
+  requestRefund: boolean;
+}
+
+export type ReportCardReason = "inappropriate" | "plagiarism" | "clickbait" | "junk" | "other";
+
+export interface ReportCardResponse extends RestResponseWithUserStatus { }

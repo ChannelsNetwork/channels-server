@@ -21,6 +21,7 @@
         transition: opacity 0.25s ease;
       }
 
+      #inaccessible,
       #nocard {
         text-align: center;
         box-sizing: border-box;
@@ -129,6 +130,10 @@
         margin-top: -22px;
       }
 
+      #refundPanel {
+        padding-bottom: 30px;
+      }
+
       @media (max-width: 600px) {
         #morePanel {
           padding: 30px 8px 30px 5px;
@@ -144,13 +149,21 @@
     <soso-app-header>
       <channels-bar id="cbar"></channels-bar>
       <open-card-header id="header" data="[[data]]" on-card-down-vote="_onDownVote" on-card-up-vote="_onUpVote" on-card-close="_closeCard"
-        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated"></open-card-header>
+        on-card-deleted="_closeCard" on-content-updated="_cardContendUpdated" on-report-dialog="_onReportDialog"></open-card-header>
     </soso-app-header>
     <div id="nocard" class="horizontal layout center hidden">
       <div style="width: 100%; box-sizing: border-box; padding: 16px;">
         <div style="margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; color: #808080;">No card found</div>
         <div>
           <button on-click="_closeCard">back to channels feed</button>
+        </div>
+      </div>
+    </div>
+    <div id="inaccessible" class="horizontal layout center hidden">
+      <div style="width: 100%; box-sizing: border-box; padding: 20px 16px;">
+        <div style="margin-bottom: 20px; letter-spacing: 0.05em; color: #808080;">This card is inaccessible to you because you requested and received a refund on this card.</div>
+        <div>
+          <button on-click="_closeCard">Close</button>
         </div>
       </div>
     </div>
@@ -164,6 +177,9 @@
       <div id="cardView" class="hidden"></div>
       <div id="morePanel" class="hidden">
         <div id="morePanelContent">
+          <div id="refundPanel" class="hidden">
+            <a style="cursor: pointer;" on-click="_onRefund">Refund my card payment</a>
+          </div>
           <div id="ratingPanel" class="horizontal layout center hidden" style="margin-bottom: 15px;">
             <div class="flex"></div>
             <div>
@@ -222,6 +238,7 @@
         this._route = route;
         this.data = null;
         this.paymentInterval = 10000;
+        this.$.refundPanel.classList.add("hidden");
         $core.register().then(() => {
           this.$.cbar.activate();
           if (route.segments.length < 2) {
@@ -255,6 +272,11 @@
         if (this._cardOpened && this.data) {
           $core.cardClosed(this.data.id);
         }
+      }
+
+      _onInaccessible() {
+        this.$.inaccessible.classList.remove("hidden");
+        this.$.hasCard.classList.add("hidden");
       }
 
       _onNoCard() {
@@ -301,9 +323,11 @@
         this._cardContentLoaded = false;
         this._cardNode = null;
 
+        this.$.inaccessible.classList.add("hidden");
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
+        this.$.refundPanel.classList.add("hidden");
         this._clearNode(this.$.cardView);
 
         // show loading spinner
@@ -325,6 +349,15 @@
           }
           this.data = cardData.card;
           this.promotedCard = cardData.promotedCard;
+
+          // if refund was awarded on this card, do not show
+          if (this.data.userSpecific.openFeeRefunded) {
+            this._clearSpinner();
+            this._onInaccessible();
+            return;
+          }
+
+          // show terms panel if needed
           this._showTermsPanel();
 
           if (this.data.summary && this.data.summary.title) {
@@ -511,12 +544,16 @@
         });
       }
 
-      _createCardView(packageInfo) {
-        // hide loading spinner
+      _clearSpinner() {
         this.$.cardView.classList.remove("hidden");
         this.$.header.classList.remove("disabled");
         this.$.spinner.spinning = false;
         this.$.loadingPanel.classList.add("hidden");
+      }
+
+      _createCardView(packageInfo) {
+        // hide loading spinner
+        this._clearSpinner();
 
         // create and insert viewer
         let cardNode = document.createElement(packageInfo.channelComponent.viewerTag);
@@ -542,6 +579,16 @@
           this._cardNode.active = true;
         }
         $core.analytics.event("card", "accept-terms");
+      }
+
+      _onReportDialog(event) {
+        if (event.detail) {
+          if (event.detail.open) {
+            this._stopPaymentTimer();
+          } else {
+            this._startPaymentTimer();
+          }
+        }
       }
 
       _stopPaymentTimer() {
@@ -631,6 +678,7 @@
 
       _onPaymentSuccess() {
         this.$.header.onPayment();
+        this.$.refundPanel.classList.remove("hidden");
         this._fireUpdateCardData();
       }
 
@@ -681,7 +729,7 @@
         });
         this._refreshRating();
         this.$.header.refreshRating();
-        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        this._fireUpdateCardData();
       }
 
       _onDownVote() {
@@ -707,7 +755,22 @@
         });
         this._refreshRating();
         this.$.header.refreshRating();
-        window.dispatchEvent(new CustomEvent('card-data-updated', { bubbles: true, composed: true, detail: { card: this.data } }));
+        this._fireUpdateCardData();
+      }
+
+      _onRefund() {
+        this._import("../dialogs/refund-dialog.html").then(() => {
+          let dlg = $dialogs.open("refund-dialog", { card: this.data, refund: true });
+          dlg.addEventListener("close", (event) => {
+            if (!event.detail.cancel) {
+              if (event.detail.refunded) {
+                this.data.userSpecific.openFeeRefunded = true;
+                this._fireUpdateCardData();
+              }
+              this._closeCard();
+            }
+          });
+        });
       }
     }
     window.customElements.define(CardPage.is, CardPage);
