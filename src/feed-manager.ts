@@ -758,6 +758,9 @@ export class FeedManager implements Initializable, RestServer {
 
   private getTotalCardScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats, author: UserRecord): number {
     let score = 0;
+    if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
+      return 0;
+    }
     score += this.getCardAgeScore(card, author);
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);

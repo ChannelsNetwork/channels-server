@@ -102,6 +102,8 @@
           <div class="headerCell right">UniqueOpens</div>
           <div class="headerCell right">Likes</div>
           <div class="headerCell right">Dislikes</div>
+          <div class="headerCell right">Reports</div>
+          <div class="headerCell right">Refunds</div>
           <div class="headerCell center">Blocked</div>
           <div class="headerCell"></div>
         </div>
@@ -128,6 +130,8 @@
             <div class="cell right">[[item.uniqueOpens]]</div>
             <div class="cell right">[[item.likes]]</div>
             <div class="cell right">[[item.dislikes]]</div>
+            <div class="cell right">[[item.reports]]</div>
+            <div class="cell right">[[item.refunds]]</div>
             <div class="cell center">[[item.blocked]]</div>
             <div class="cell center toggle" on-click="_onEdit">edit</div>
           </div>
@@ -198,6 +202,8 @@
               uniqueOpens: card.stats.uniqueOpens,
               likes: card.stats.likes,
               dislikes: card.stats.dislikes,
+              reports: card.stats.reports,
+              refunds: card.stats.refunds,
               blocked: card.blocked ? "yes" : ""
             });
           }

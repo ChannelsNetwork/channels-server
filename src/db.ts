@@ -317,6 +317,7 @@ export class Database {
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
     await this.userCardActions.createIndex({ userId: 1, action: 1, author: 1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
+    await this.userCardActions.createIndex({ cardId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ action: 1, at: -1 });
     await this.userCardActions.createIndex({ at: -1 });
   }
@@ -936,7 +937,9 @@ export class Database {
         uniqueOpens: { value: 0, lastSnapshot: 0 },
         uniqueClicks: { value: 0, lastSnapshot: 0 },
         likes: { value: 0, lastSnapshot: 0 },
-        dislikes: { value: 0, lastSnapshot: 0 }
+        dislikes: { value: 0, lastSnapshot: 0 },
+        reports: { value: 0, lastSnapshot: 0 },
+        refunds: { value: 0, lastSnapshot: 0 }
       },
       score: 0,
       promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
@@ -1946,6 +1949,10 @@ export class Database {
     return null;
   }
 
+  async findUserCardActionReports(cardId: string, limit: number): Promise<UserCardActionRecord[]> {
+    return this.userCardActions.find<UserCardActionRecord>({ cardId: cardId, action: "report" }).sort({ at: -1 }).limit(limit || 10).toArray();
+  }
+
   async countUserCardsOpenedInTimeframe(userId: string, from: number, to: number): Promise<number> {
     return this.userCardActions.count({ userId: userId, action: "open", at: { $gt: from, $lte: to } });
   }
@@ -2311,6 +2318,8 @@ export class Database {
       paidUnits: 0,
       likes: 0,
       dislikes: 0,
+      reports: 0,
+      refunds: 0,
       cardRevenue: 0,
       blockedPaidOpens: 0,
       firstTimePaidOpens: 0,
@@ -2339,7 +2348,7 @@ export class Database {
     }
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number, firstTimePaidOpens: number, fanPaidOpens: number, grossRevenue: number, weightedRevenue: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number, firstTimePaidOpens: number, fanPaidOpens: number, grossRevenue: number, weightedRevenue: number, reports: number, refunds: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
@@ -2379,6 +2388,12 @@ export class Database {
     }
     if (weightedRevenue) {
       update["stats.weightedRevenue"] = weightedRevenue;
+    }
+    if (reports) {
+      update["stats.reports"] = reports;
+    }
+    if (refunds) {
+      update["stats.refunds"] = refunds;
     }
     let retries = 0;
     while (retries++ < 5) {
