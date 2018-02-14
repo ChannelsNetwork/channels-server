@@ -163,7 +163,7 @@ class CoreService extends Polymer.Element {
           return this.getUserProfile().then((profile) => {
             setInterval(() => {
               this.updateBalance();
-            }, 1000 * 30);
+            }, 1000 * 60);
             return result;
           });
         });
@@ -447,6 +447,9 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
+      if (couponId) {
+        this._fire("channels-balance-effect", this._userStatus);
+      }
     }).catch((err) => {
       console.warn("Card impression call failed: " + err);
     });
@@ -474,6 +477,9 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
+      if (couponId && amount && authorAddress) {
+        this._fire("channels-balance-effect", this._userStatus);
+      }
     });
   }
 
@@ -501,6 +507,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
+      this._fire("channels-balance-effect", this._userStatus);
       return response;
     });
   }
@@ -516,6 +523,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
+      this._fire("channels-balance-effect", this._userStatus);
     });
   }
 
@@ -564,6 +572,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((response) => {
       this._userStatus = response.status;
       this._fire("channels-user-status", this._userStatus);
+      this._fire("channels-balance-effect", this._userStatus);
       return response;
     });
   }
