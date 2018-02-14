@@ -173,7 +173,7 @@
         $core.register().then(() => {
           if (!($core.profile && $core.profile.handle)) {
             setTimeout(() => {
-              $router.goto(this.returnRoute.success);
+              $router.goto(this.returnRoute.success, this.returnRoute.context);
             }, 600);
           } else {
             this.$.container.classList.add("containerShowing");
@@ -191,7 +191,7 @@
       }
 
       _onCancel() {
-        $router.goto(this.returnRoute.success);
+        $router.goto(this.returnRoute.success, this.returnRoute.context);
       }
 
       _hideMessage() {
@@ -257,7 +257,7 @@
         $core.uploadImageFile(file, null, 256).then((fileInfo) => {
           this._setMessage("Saving profile");
           return $core.updateUserProfile(null, null, null, fileInfo.fileId, null, null, null).then(() => {
-            $router.goto(this.returnRoute.success);
+            $router.goto(this.returnRoute.success, this.returnRoute.context);
           });
         }).catch((err) => {
           console.error(err);

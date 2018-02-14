@@ -112,6 +112,28 @@
         if (!reasons.length) {
           this.$.dlg.showError("You must provide a reason.");
         } else {
+          // check if user is registered
+          let cardUrl = "/c/" + encodeURIComponent(this.card.id);
+          if (!$core.profile || !$core.profile.handle) {
+            $router.goto("/register", {
+              message: "Before you can report this card, you must first register with Channels.",
+              returnRoute: {
+                success: cardUrl,
+                cancel: cardUrl,
+                context: {
+                  action: 'reportCard',
+                  fromApp: true,
+                  data: {
+                    cardId: this.card.id,
+                    reasons: reasons,
+                    comment: this.$.comment.value.trim(),
+                    refund: this.$.chkRefund.checked
+                  }
+                }
+              }
+            });
+            return;
+          }
           this.$.dlg.showProgress("Reporting card");
           setTimeout(() => {
             $core.reportCard(this.card.id, reasons, this.$.comment.value.trim(), this.$.chkRefund.checked).then(() => {
