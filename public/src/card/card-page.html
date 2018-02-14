@@ -284,7 +284,7 @@
           case "reportCard":
             let data = context.data;
             $core.reportCard(data.cardId, data.reasons, data.comment, data.refund).then(() => {
-              $app.showError("The card has been reported.").then(() => {
+              $app.showError("This card has been reported.").then(() => {
                 this._closeCard();
               });
             }).catch((err) => {
