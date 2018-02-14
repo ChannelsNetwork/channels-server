@@ -163,7 +163,7 @@ class CoreService extends Polymer.Element {
           return this.getUserProfile().then((profile) => {
             setInterval(() => {
               this.updateBalance();
-            }, 1000 * 60);
+            }, 1000 * 30);
             return result;
           });
         });

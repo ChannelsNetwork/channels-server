@@ -284,16 +284,19 @@
           return;
         }
         console.log("_updateBalance: ", this._balance, $core.balance);
-        this._balanceCountRemaining = 40;
+        this._balanceCountRemaining = 30;
         if (!this._balanceTimer) {
           this._balanceTimer = setInterval(() => {
             this._refreshBalance();
-          }, 25);
+          }, 50);
         }
         this._refreshBalance();
       }
 
       _refreshBalance() {
+        if (!this._balanceCountRemaining) {
+          this._balanceCountRemaining = 0;
+        }
         if (this._balanceCountRemaining <= 0) {
           this.$.balanceOverlay.style.display = "none";
           clearInterval(this._balanceTimer);
@@ -301,9 +304,12 @@
           console.log("_refreshBalance: Closing", this._balance, $core.balance);
           return;
         }
-        const diff = $core.balance - this._balance;
-        this._balance += diff / this._balanceCountRemaining;
-        console.log("Revising balance to " + this._balance, diff, this._balanceCountRemaining);
+        const counter = this._balanceCountRemaining > 25 ? 20 : Math.max(1, this._balanceCountRemaining - 5);
+        if (counter <= 20) {
+          const diff = $core.balance - this._balance;
+          this._balance += diff / counter;
+          console.log("Revising balance to " + this._balance, diff, counter);
+        }
         const balanceDisplay = "ℂ" + (this._balance ? (Math.floor(this._balance * 1000) / 1000).toFixed(3) : "0.000");
         this.set('balanceDisplay', balanceDisplay);
         this._balanceCountRemaining--;
