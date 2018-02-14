@@ -1383,7 +1383,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.admin-update-card", requestBody.detailsObject);
-      await db.updateCardAdmin(card, requestBody.detailsObject.keywords, requestBody.detailsObject.blocked, requestBody.detailsObject.boost);
+      await db.updateCardAdmin(card, requestBody.detailsObject.keywords, requestBody.detailsObject.blocked, requestBody.detailsObject.boost, requestBody.detailsObject.overrideReports);
       const reply: AdminUpdateCardResponse = {
         serverVersion: SERVER_VERSION
       };
@@ -1791,6 +1791,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFeeRefunded: userInfo ? userInfo.openFeeRefunded : false
         },
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
+        overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: []
       };
       if (card.stats.reports > 0) {

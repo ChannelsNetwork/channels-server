@@ -70,6 +70,7 @@
             this.$.keywords.value = this.card.keywords ? this.card.keywords.join(', ') : '';
             this.$.blocked.checked = this.card.blocked || false;
             this.$.boost.value = this.card.boost ? this.card.boost.toFixed(1) : 0;
+            this.$.overrideReports.value = this.card.overrideReports;
             if (this.card.stats && this.card.stats.reports && this.card.stats.reports > 0) {
               this.set('_reports', this.card.stats.reports + " (" + this.card.reasons.join(', ') + ")");
             } else {
@@ -100,7 +101,7 @@
 
       _doSave() {
         const boost = this.$.boost.value ? Number(this.$.boost.value) : 0
-        $core.admin_updateCard(this.card.id, this._getKeywords(), this.$.blocked.checked, boost).then(() => {
+        $core.admin_updateCard(this.card.id, this._getKeywords(), this.$.blocked.checked, boost, this.$.overrideReports.checked).then(() => {
           this.hide();
           this._resolve(true);
         });

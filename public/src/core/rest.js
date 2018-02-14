@@ -587,7 +587,7 @@ class RestUtils {
     };
   }
 
-  static admin_updateCard(address, fingerprint, cardId, keywords, blocked, boost) {
+  static admin_updateCard(address, fingerprint, cardId, keywords, blocked, boost, overrideReports) {
     return {
       address: address,
       fingerprint: fingerprint,
@@ -595,7 +595,8 @@ class RestUtils {
       cardId: cardId,
       keywords: keywords,
       blocked: blocked,
-      boost: boost
+      boost: boost,
+      overrideReports: overrideReports
     };
   }
 
