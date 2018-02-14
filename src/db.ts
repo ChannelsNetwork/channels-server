@@ -1199,11 +1199,12 @@ export class Database {
     (card.stats as any)[statName] = { value: value, lastSnapshot: 0 };
   }
 
-  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean, boost: number): Promise<void> {
+  async updateCardAdmin(card: CardRecord, keywords: string[], blocked: boolean, boost: number, overrideReports: boolean): Promise<void> {
     const update: any = {
       keywords: this.cleanKeywords(keywords),
       "curation.block": blocked,
       "curation.boost": boost ? boost : 0,
+      "curation.overrideReports": overrideReports,
       lastScored: 0  // to force immediately rescoring
     };
     await this.cards.updateOne({ id: card.id }, { $set: update });

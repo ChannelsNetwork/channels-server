@@ -287,6 +287,14 @@
         if (event) {
           event.stopPropagation();
         }
+
+        // if not registered, redirect
+        let channelUrl = "/channel/" + encodeURIComponent(this.channel.owner.handle);
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you subscribe to this channel, you must first register an identity.", returnRoute: { success: channelUrl, cancel: channelUrl } });
+          return;
+        }
+
         this.channel.subscriptionState = "subscribed"
         $core.updateChannelSubscription(this.channel.id, 'subscribed').catch((err) => {
           console.error(err);

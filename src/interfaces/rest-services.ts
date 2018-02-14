@@ -228,6 +228,7 @@ export interface CardDescriptor {
 
   blocked: boolean;
   boost?: number;
+  overrideReports: boolean;
   reasons: ReportCardReason[];
 }
 
@@ -738,6 +739,7 @@ export interface AdminUpdateCardDetails extends Signable {
   keywords: string[];
   blocked: boolean;
   boost: number;
+  overrideReports: boolean;
 }
 
 export interface AdminUpdateCardResponse extends RestResponse { }

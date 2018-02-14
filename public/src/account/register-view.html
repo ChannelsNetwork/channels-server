@@ -211,7 +211,7 @@
           this.subtitle = contextMessage;
           if ($core.profile && $core.profile.handle) {
             setTimeout(() => {
-              $router.goto(this.returnRoute.success);
+              $router.goto(this.returnRoute.success, this.returnRoute.context);
             }, 600);
           } else {
             this.$.container.classList.add("containerShowing");
@@ -281,7 +281,7 @@
       }
 
       _onCancel() {
-        $router.goto(this.returnRoute.cancel);
+        $router.goto(this.returnRoute.cancel, { fromApp: true });
       }
 
       _onSubtitle() {
