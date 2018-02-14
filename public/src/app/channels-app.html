@@ -23,6 +23,27 @@
         letter-spacing: 0.1em;
         text-align: center;
       }
+
+      #balanceOverlay {
+        position: fixed;
+        z-index: 100;
+        top: 0;
+        right: 0;
+        height: 50px;
+        padding: 0 16px;
+        background: var(--bg-yellow);
+        color: #000;
+        cursor: pointer;
+      }
+
+      @media (max-width: 600px) {
+        #balancePanel {
+          letter-spacing: initial;
+          margin-left: 2px;
+          padding: 0 10px;
+          font-size: 15px;
+        }
+      }
     </style>
     <soso-router id="router" on-route-change="_onRouteChange"></soso-router>
     <soso-app-shell id="shell">
@@ -64,6 +85,7 @@
 
           <!-- <home-page id="home" class="home page" data-href="../home/home-page.html"></home-page> -->
         </div>
+        <div id="balanceOverlay" class="horizontal layout center" style="display:none;">[[balanceDisplay]]</div>
       </div>
       <!-- Navigation Menu -->
       <div slot="nav">
@@ -81,11 +103,18 @@
   <script>
     class ChannelsApp extends Polymer.Element {
       static get is() { return "channels-app"; }
+      static get properties() {
+        return {
+          balanceDisplay: String,
+        }
+      }
 
       constructor() {
         super();
         window.$app = this;
         window.$core = new CoreService();
+        this._registrationListener = this._initializeBalance.bind(this);
+        this._balanceListener = this._updateBalance.bind(this);
       }
 
       showMenu() {
@@ -105,6 +134,9 @@
             window.location.reload();
           }, 3000);
         });
+        this._balance = $core.balance;
+        window.addEventListener("channels-registration", this._registrationListener);
+        window.addEventListener("channels-user-status", this._balanceListener);
       }
 
       _import(path) {
@@ -236,6 +268,47 @@
           document.documentElement.scrollTop = value;
           document.body.scrollTop = value;
         }
+      }
+
+      _initializeBalance() {
+        console.log("_initializeBalance", $core.balance);
+        this._balance = $core.balance;
+      }
+
+      _updateBalance() {
+        console.log("_updateBalance");
+        if (!this._balance) {
+          return;
+        }
+        if (Math.abs(this._balance - $core.balance) < 0.002) {
+          return;
+        }
+        console.log("_updateBalance: ", this._balance, $core.balance);
+        this._balanceCountRemaining = 40;
+        if (!this._balanceTimer) {
+          this._balanceTimer = setInterval(() => {
+            this._refreshBalance();
+          }, 25);
+        }
+        this._refreshBalance();
+      }
+
+      _refreshBalance() {
+        if (this._balanceCountRemaining <= 0) {
+          this.$.balanceOverlay.style.display = "none";
+          clearInterval(this._balanceTimer);
+          this._balanceTimer = null;
+          console.log("_refreshBalance: Closing", this._balance, $core.balance);
+          return;
+        }
+        const diff = $core.balance - this._balance;
+        this._balance += diff / this._balanceCountRemaining;
+        console.log("Revising balance to " + this._balance, diff, this._balanceCountRemaining);
+        const balanceDisplay = "ℂ" + (this._balance ? (Math.floor(this._balance * 1000) / 1000).toFixed(3) : "0.000");
+        this.set('balanceDisplay', balanceDisplay);
+        this._balanceCountRemaining--;
+        this.$.balanceOverlay.style.display = "";
+        console.log("_refreshBalance: Updating", this._balance, $core.balance, balanceDisplay);
       }
     }
     window.customElements.define(ChannelsApp.is, ChannelsApp);
