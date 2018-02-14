@@ -1204,7 +1204,7 @@ export class Database {
       keywords: this.cleanKeywords(keywords),
       "curation.block": blocked,
       "curation.boost": boost ? boost : 0,
-      overrideReports: overrideReports,
+      "curation.overrideReports": overrideReports,
       lastScored: 0  // to force immediately rescoring
     };
     await this.cards.updateOne({ id: card.id }, { $set: update });
