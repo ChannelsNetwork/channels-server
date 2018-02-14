@@ -249,7 +249,12 @@
             if (!this.cardId) {
               this._onNoCard();
             } else {
-              this._loadCard();
+              // check for any pending actions in context
+              if (route && route.context && route.context.action) {
+                this._handleContextAction(route.context);
+              } else {
+                this._loadCard();
+              }
             }
           }
         }).catch((err) => {
@@ -271,6 +276,27 @@
         this.$.header.style.opacity = 0;
         if (this._cardOpened && this.data) {
           $core.cardClosed(this.data.id);
+        }
+      }
+
+      _handleContextAction(context) {
+        switch (context.action) {
+          case "reportCard":
+            let data = context.data;
+            $core.reportCard(data.cardId, data.reasons, data.comment, data.refund).then(() => {
+              $app.showError("This card has been reported.").then(() => {
+                this._closeCard();
+              });
+            }).catch((err) => {
+              console.error(err);
+              $app.showError(err).then(() => {
+                this._loadCard();
+              });
+            });
+            break;
+          default:
+            this._loadCard();
+            break;
         }
       }
 
