@@ -857,6 +857,12 @@ db.users.count({"identity.handle": {$exists: true}, id: {$nin: ["5139e3d2-fc02-4
   ])
 
   db.adSlots.aggregate([
+    {$match: {status: {$ne: "pending"}, created: {$gt: 1518508800000}}},
+    {$group: {_id: "$userId", count: {$sum: 1}}},
+    {$group: {_id: "count", totalUsers: {$sum: 1}}}
+  ])
+
+  db.adSlots.aggregate([
     {$match: {status: {$ne: "pending"}, redeemed: true}},
     {$group: {_id: "$userId", count: {$sum: 1}}},
     {$group: {_id: "count", totalUsers: {$sum: 1}}}
