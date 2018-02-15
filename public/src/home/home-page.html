@@ -1,4 +1,5 @@
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/feeds-bar.html">
 <link rel="import" href="../channel/channel-carousel.html">
@@ -13,6 +14,31 @@
       #carousel {
         margin: 20px auto;
       }
+
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      @media (max-width: 600px) {
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+      }
     </style>
     <soso-app-header>
       <channels-bar id="cbar"></channels-bar>
@@ -20,6 +46,8 @@
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
     <channel-carousel id="carousel"></channel-carousel>
+    <div style="height: 100px"></div>
+    <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
   <script>
     class HomePage extends Polymer.Element {
@@ -55,6 +83,14 @@
           this._homePanelMoved = true;
         }
         this.$.homePanelContainer.classList.remove("hidden");
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        $router.goto("/compose");
       }
     }
     window.customElements.define(HomePage.is, HomePage);
