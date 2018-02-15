@@ -1,20 +1,52 @@
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="../channel/channel-carousel.html">
+
 <dom-module id="home-page">
   <template>
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
       }
+
+      #carousel {
+        margin: 20px auto;
+      }
     </style>
     <soso-app-header>
-      <channels-bar></channels-bar>
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar></feeds-bar>
     </soso-app-header>
-    <div style="height: 300vh;"></div>
+    <channel-carousel id="carousel"></channel-carousel>
   </template>
   <script>
     class HomePage extends Polymer.Element {
       static get is() { return 'home-page'; }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          this.$.cbar.activate();
+          this._refreshHomePanelVisibility();
+
+          // Do not reload if coming back to home page
+          if (route.context && (route.context.page === 'home') && (route.context.scrollValue >= 0)) {
+            $app.scrollTo(route.context.scrollTop);
+            return;
+          }
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
+      }
+
+      _refreshHomePanelVisibility() {
+        // TODO: 
+      }
     }
     window.customElements.define(HomePage.is, HomePage);
   </script>
