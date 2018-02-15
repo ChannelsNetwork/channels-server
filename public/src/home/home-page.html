@@ -5,7 +5,7 @@
 
 <dom-module id="home-page">
   <template>
-    <style is="custom-style" include="app-styles">
+    <style is="custom-style" include="app-styles home-panel-styles">
       :host {
         display: block;
       }
@@ -18,6 +18,7 @@
       <channels-bar id="cbar"></channels-bar>
       <feeds-bar></feeds-bar>
     </soso-app-header>
+    <div id="homePanelContainer" class="hidden"></div>
     <channel-carousel id="carousel"></channel-carousel>
   </template>
   <script>
@@ -45,7 +46,15 @@
       }
 
       _refreshHomePanelVisibility() {
-        // TODO: 
+        if (!this._homePanelMoved) {
+          let d = document.getElementById('homePanel');
+          if (d) {
+            d.style.display = "block";
+            this.$.homePanelContainer.appendChild(d);
+          }
+          this._homePanelMoved = true;
+        }
+        this.$.homePanelContainer.classList.remove("hidden");
       }
     }
     window.customElements.define(HomePage.is, HomePage);

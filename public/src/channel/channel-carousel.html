@@ -109,6 +109,8 @@
         border-radius: 3px;
         overflow: hidden;
         box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        transition: opacity 0.28s ease;
       }
 
       #rightPanel {
@@ -116,14 +118,10 @@
       }
 
       #container {
-        min-height: 400px;
+        min-height: 300px;
       }
 
-      .cell {
-        min-height: 100px;
-      }
-
-      .panel {
+      .banner {
         background-color: #fff;
         background-size: cover;
         background-origin: border-box;
@@ -131,65 +129,120 @@
       }
 
       user-image {
-        width: 90px;
-        height: 90px;
+        width: 120px;
+        height: 120px;
         border: 5px solid #fafafa;
         border-radius: 50%;
+        margin-top: -50%;
         background: #fafafa;
-      }
-
-      .imageCell {
-        padding: 0 16px 0;
+        cursor: pointer;
       }
 
       .title {
-        font-size: 35px;
+        font-family: 'Raleway', 'Roboto', sans-serif;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #212121;
+        font-size: 24px;
+        padding: 0px 0 5px;
+        word-break: break-all;
+        cursor: pointer;
       }
 
       .description {
-        font-size: 24px;
-      }
-
-      .gradient {
-        background: rgba(0, 0, 0, 0.45);
-        background: -webkit-linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.45));
-        background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.45));
+        word-break: break-word;
       }
 
       .content {
-        padding: 20px 0;
-        color: white;
-        background: rgba(0, 0, 0, 0.45);
-      }
-
-      .realContent {
-        transition: opacity 0.3s ease;
-      }
-
-      .transparent .realContent {
-        opacity: 0;
-      }
-
-      .textPanel {
-        padding-right: 16px;
+        background: #fafafa;
       }
 
       soso-truncated-text {
-        max-height: 120px;
+        max-height: 90px;
+      }
+
+      .imagePanel {
+        padding: 10px;
+      }
+
+      .contentPanel {
+        padding: 10px 5px 20px 0;
+        font-size: 16px;
+      }
+
+      .cell {
+        min-height: 100px;
+      }
+
+      .desc2 {
+        display: none;
+      }
+
+      @media (max-width: 1200px) {
+        :host {
+          border-radius: 0;
+        }
+      }
+
+      @media (max-width: 1040px) {
+        .cell {
+          min-height: 80px;
+        }
+      }
+
+      @media (max-width: 800px) {
+        .cell {
+          min-height: 60px;
+        }
+
+        soso-truncated-text {
+          max-height: 60px;
+        }
+        .title {
+          font-size: 20px;
+        }
+
+        .description {
+          font-size: 15px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        #rightPanel {
+          display: none;
+        }
+        #container {
+          min-height: 250px;
+        }
+        .desc2 {
+          display: block;
+        }
+        .desc1 {
+          display: none;
+        }
+        user-image {
+          width: 90px;
+          height: 90px;
+        }
+        .imagePanel {
+          padding: 5px;
+        }
       }
     </style>
     <div id="container" class="horizontal layout">
       <dom-repeat items="[[channels]]">
         <template>
-          <div data-id$="[[item.id]]" class="flex vertical layout panel hidden" style$="[[getBg(item)]]">
-            <div class="flex gradient"></div>
+          <div data-id$="[[item.id]]" class="flex vertical layout panel hidden" on-click="_panelClick">
+            <div class="flex banner" style$="[[getBg(item)]]"></div>
             <div class="content horizontal layout">
-              <div class="imageCell">
-                <user-image class="realContent" image="[[getChannelImage(item)]]"></user-image>
+              <div class="imagePanel">
+                <user-image image="[[getChannelImage(item)]]"></user-image>
               </div>
-              <div class="flex realContent textPanel">
+              <div class="contentPanel flex">
                 <div class="title">[[item.name]]</div>
-                <soso-truncated-text class="description" text="[[item.about]]"></soso-truncated-text>
+                <div class="description desc2">[[getShortDesc(item)]]</div>
+                <soso-truncated-text class="description desc1" text="[[item.about]]"></soso-truncated-text>
               </div>
             </div>
           </div>
@@ -233,13 +286,47 @@
       }
 
       _pollForTemplate() {
+        this._panelsLoaded = false;
         const panels = this.shadowRoot.querySelectorAll(".panel");
         if (panels && (panels.length === this.channels.length)) {
+          this._timerStopped = false;
+          this._panelsLoaded = true;
           this.selected = 0;
+          setTimeout(() => {
+            this.style.opacity = 1;
+            this.startTimer();
+          }, 200);
         } else {
           setTimeout(() => {
             this._pollForTemplate();
           }, 100);
+        }
+      }
+
+      startTimer() {
+        if (this._panelsLoaded && (!this._timerStopped)) {
+          setTimeout(() => {
+            this._next();
+          }, 7000);
+        }
+      }
+
+      stopTimer() {
+        if (!this._timerStopped) {
+          this._timerStopped = true;
+        }
+      }
+
+      _next() {
+        if (!this._timerStopped) {
+          let s = this.selected + 1;
+          if (s >= this.channels.length) {
+            s = 0;
+          }
+          this.selected = s;
+          setTimeout(() => {
+            this._next();
+          }, 6000);
         }
       }
 
@@ -254,6 +341,14 @@
         return (item.owner.image ? item.owner.image.url : null) || $core.userManager.getFallbackUserImage(item.owner.handle);
       }
 
+      getShortDesc(item) {
+        let desc = item.about || "";
+        if (desc.length > 100) {
+          desc = desc.substring(0, 97).trim() + "...";
+        }
+        return desc;
+      }
+
       _onSelected() {
         let c = this.channels[this.selected];
         if (!c) {
@@ -265,7 +360,6 @@
           let p = panels[i];
           if (p.dataset.id == c.id) {
             p.classList.remove("hidden");
-            p.classList.add("transparent");
             activeP = p;
           } else {
             p.classList.add("hidden");
@@ -278,20 +372,20 @@
         }
 
         setTimeout(() => {
-          let ds = this.shadowRoot.querySelectorAll(".description");
+          let ds = this.shadowRoot.querySelectorAll(".desc1");
           for (let i = 0; i < ds.length; i++) {
             ds[i].refresh();
           }
-          setTimeout(() => {
-            if (activeP) {
-              activeP.classList.remove("transparent");
-            }
-          }, 400);
         }, 100);
       }
 
       _onCellClick(event) {
+        this.stopTimer();
         this.selected = event.model.index;
+      }
+
+      _panelClick(event) {
+        $router.goto("/channel/" + encodeURIComponent(event.model.item.handle));
       }
     }
     window.customElements.define(ChannelCarousel.is, ChannelCarousel);

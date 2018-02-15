@@ -6,7 +6,7 @@
 
 <dom-module id="feed-page">
   <template>
-    <style is="custom-style" include="app-styles home-panel-styles">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
       }
@@ -61,7 +61,6 @@
       <channels-bar id="cbar"></channels-bar>
       <feeds-bar id="fbar"></feeds-bar>
     </soso-app-header>
-    <div id="homePanelContainer" class="hidden"></div>
     <div class="container">
       <card-list auto-layout label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
         on-more="_onMoreChannels" class="hidden"></card-list>
@@ -107,7 +106,6 @@
           // activate top bars and home page content
           this.$.cbar.activate();
           this.$.fbar.selected = feedName;
-          this._refreshHomePanelVisibility();
 
           // check if route is different since last load
           let fetchNewContent = true;
@@ -181,22 +179,6 @@
 
       onDeactivate() {
         this.$.cbar.deactivate();
-      }
-
-      _refreshHomePanelVisibility() {
-        if (!this._homePanelMoved) {
-          let d = document.getElementById('homePanel');
-          if (d) {
-            d.style.display = "block";
-            this.$.homePanelContainer.appendChild(d);
-          }
-          this._homePanelMoved = true;
-        }
-        if (this._feedName === "recommended") {
-          this.$.homePanelContainer.classList.remove("hidden");
-        } else {
-          this.$.homePanelContainer.classList.add("hidden");
-        }
       }
 
       _compose() {

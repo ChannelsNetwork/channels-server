@@ -264,7 +264,7 @@
   <script>
     var _refreshHomePanel = function () {
       let pathname = window.location.pathname;
-      let mainPanelVisible = ((!pathname) || (pathname === "/") || (pathname === "/feed") || (pathname === "/feed/") || (pathname === "/feed/recommended"));
+      let mainPanelVisible = ((!pathname) || (pathname === "/") || (pathname === "/home") || (pathname === "/home/"));
       let hp = document.getElementById('homePanel');
       if (hp) {
         hp.style.display = mainPanelVisible ? "block" : "none";
