@@ -302,7 +302,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, null, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -1690,7 +1690,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, user);
+    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -1715,7 +1715,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1792,7 +1792,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         },
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
-        reasons: []
+        reasons: [],
+        sourceChannelId: sourceChannelId
       };
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);

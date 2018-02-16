@@ -171,7 +171,7 @@ export interface RequestedFeedDescriptor {
   afterCardId?: string;
 }
 
-export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel';
+export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel' | 'subscribed';
 
 export interface GetFeedsResponse extends RestResponse {
   feeds: CardFeedSet[];
@@ -230,6 +230,7 @@ export interface CardDescriptor {
   boost?: number;
   overrideReports: boolean;
   reasons: ReportCardReason[];
+  sourceChannelId: string;
 }
 
 export interface CardSummary {
@@ -918,3 +919,20 @@ export interface ReportCardDetails extends Signable {
 export type ReportCardReason = "inappropriate" | "plagiarism" | "clickbait" | "junk" | "other";
 
 export interface ReportCardResponse extends RestResponseWithUserStatus { }
+
+export interface GetHomePageDetails extends Signable {
+  maxSubscribedCards: number;
+  maxCardsPerChannel: number;
+}
+
+export interface GetHomePageResponse extends RestResponse {
+  featuredChannels: ChannelDescriptor[];
+  subscribedContent: CardDescriptor[];
+  channels: ChannelInfoWithCards[];
+  promotedContent: CardDescriptor[];
+}
+
+export interface ChannelInfoWithCards {
+  channel: ChannelDescriptor;
+  cards: CardDescriptor[];
+}

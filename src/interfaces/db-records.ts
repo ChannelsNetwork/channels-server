@@ -596,6 +596,8 @@ export interface ChannelRecord {
   latestCardPosted: number;
   firstCardPosted: number;
   keywords: string[];
+  featuredWeight: number;
+  listingWeight: number;
 }
 
 export type ChannelStatus = "active" | "deleted";

@@ -696,6 +696,13 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  getHome(maxSubscribedCards, maxCardsPerChannel) {
+    let details = RestUtils.getHome(this._keys.address, this._fingerprint, maxSubscribedCards, maxCardsPerChannel);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-home";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

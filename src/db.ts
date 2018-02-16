@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -418,8 +418,11 @@ export class Database {
     await this.channels.createIndex({ ownerId: 1 });
     await this.channels.createIndex({ state: 1, name: "text", handle: "text", keywords: "text", about: "text" }, { name: "textSearchIndex", weights: { name: 5, handle: 5, keywords: 3, about: 1 } });
     await this.channels.createIndex({ firstCardPosted: -1 });
+    await this.channels.createIndex({ state: 1, featuredWeight: -1 });
+    await this.channels.createIndex({ state: 1, listingWeight: -1 });
 
     await this.channels.updateMany({ firstCardPosted: { $exists: false } }, { $set: { firstCardPosted: 0 } });
+    await this.channels.updateMany({ featuredWeight: { $exists: false } }, { $set: { featuredWeight: 0, listingWeight: 0 } });
   }
 
   private async initializeChannelUsers(): Promise<void> {
@@ -2533,7 +2536,9 @@ export class Database {
       lastStatsSnapshot: 0,
       latestCardPosted: latestCardPosted,
       firstCardPosted: firstCardPosted,
-      keywords: []
+      keywords: [],
+      featuredWeight: 0,
+      listingWeight: 0
     };
     await this.channels.insertOne(record);
     return record;
@@ -2571,6 +2576,14 @@ export class Database {
 
   getChannelsWithoutFirstCard(): Cursor<ChannelRecord> {
     return this.channels.find<ChannelRecord>({ firstCardPosted: 0 });
+  }
+
+  async findFeaturedChannels(state: ChannelStatus, limit: number): Promise<ChannelRecord[]> {
+    return this.channels.find<ChannelRecord>({ state: state, featuredWeight: { $gt: 0 } }).sort({ featuredWeight: -1 }).limit(limit || 10).toArray();
+  }
+
+  async findListedChannels(state: ChannelStatus, limit: number): Promise<ChannelRecord[]> {
+    return this.channels.find<ChannelRecord>({ state: state, listingWeight: { $gt: 0 } }).sort({ listingWeight: -1 }).limit(limit || 10).toArray();
   }
 
   async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
@@ -2756,8 +2769,17 @@ export class Database {
     return this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
   }
 
-  getChannelCardsInChannels(channelIds: string[], since: number): Cursor<ChannelCardRecord> {
-    return this.channelCards.find<ChannelCardRecord>({ channelId: { $in: channelIds }, cardPostedAt: { $gt: since } }).sort({ cardPostedAt: -1 });
+  getChannelCardsInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
+    const query: any = { channelId: { $in: channelIds } };
+    const cardPostedAt: any = { $gt: after };
+    if (before && after) {
+      query.cardPostedAt = { $gt: after, $lte: before };
+    } else if (before) {
+      query.cardPostedAt = { $lte: before };
+    } else if (after) {
+      query.cardPostedAt = { $gt: after };
+    }
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
 
   getChannelCardsByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
