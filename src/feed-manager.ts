@@ -383,6 +383,11 @@ export class FeedManager implements Initializable, RestServer {
       if (found) {
         continue;
       }
+      const author = await userManager.getUser(card.createdById, false);
+      if (!author || author.balance < card.pricing.openPayment + card.pricing.promotionFee) {
+        // author doesn't have enough money to pay the reader
+        continue;
+      }
       let info = await this.getUserCardInfo(user.id, card.id, false);
       if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
         // This card is not eligible because the user has already been paid to open it (based on our cache)
@@ -598,7 +603,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false);
+    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false, true);
     const result = await this.populateCards(request, cards, false, null, user, startWithCardId);
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }

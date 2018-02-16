@@ -1302,8 +1302,8 @@ export class Database {
     return this.cards.find<CardRecord>({ createdById: userId }, { searchText: 0 });
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
-    const query: any = { state: "active" };
+  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean, excludeDeleted: boolean): Promise<CardRecord[]> {
+    const query: any = excludeDeleted ? { state: "active" } : {};
     if (excludeBlocked) {
       query["curation.block"] = false;
     }

@@ -828,12 +828,16 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
       const usersWithData: AdminUserInfo[] = [];
       for (const userInfo of users) {
-        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false, false);
+        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false, false, false);
         let privateCards = 0;
         let cardRevenue = 0;
+        let cardsDeleted = 0;
         for (const card of cards) {
           privateCards += card.private ? 1 : 0;
           cardRevenue += card.stats.revenue.value;
+          if (card.state !== 'active') {
+            cardsDeleted++;
+          }
         }
         let cardsBought = 0;
         let cardsOpened = 0;
@@ -854,7 +858,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           cardRevenue: cardRevenue,
           cardsBought: cardsBought,
           cardsOpened: cardsOpened,
-          cardsSold: cardsSold
+          cardsSold: cardsSold,
+          cardsDeleted: cardsDeleted
         };
         usersWithData.push(item);
       }

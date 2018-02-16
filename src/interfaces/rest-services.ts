@@ -623,6 +623,7 @@ export interface AdminUserInfo {
   cardsOpened: number;
   cardsBought: number;
   cardsSold: number;
+  cardsDeleted: number;
 }
 
 export interface AdminGetGoalsDetails extends Signable { }
