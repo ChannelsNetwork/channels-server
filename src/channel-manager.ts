@@ -307,7 +307,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       nextPageReference: listResult.nextPageReference
     };
     for (const record of listResult.records) {
-      const descriptor = await this.populateRecordDescriptor(user, record);
+      const descriptor = await this.populateChannelDescriptor(user, record);
       if (descriptor) {
         result.channels.push(descriptor);
       }
@@ -362,8 +362,8 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
 
-  getCardsInChannels(channelIds: string[], postedSince: number): Cursor<ChannelCardRecord> {
-    return db.getChannelCardsInChannels(channelIds, postedSince);
+  getCardsInChannels(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsInChannels(channelIds, postedBefore, postedAfter);
   }
 
   async findSubscribedChannelIdsForUser(user: UserRecord, force: boolean): Promise<string[]> {
@@ -421,7 +421,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
     const result: CardDescriptor[] = [];
     for (const channelCard of channelCards) {
-      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, user);
+      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, channel.id, user);
       result.push(descriptor);
     }
     return result;
@@ -469,7 +469,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
 
-  private async populateRecordDescriptor(user: UserRecord, record: ChannelRecord): Promise<ChannelDescriptor> {
+  async populateChannelDescriptor(user: UserRecord, record: ChannelRecord): Promise<ChannelDescriptor> {
     const channelUser = await db.findChannelUser(record.id, user.id);
     const result: ChannelDescriptor = {
       id: record.id,
@@ -676,7 +676,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
     const since = Math.max(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
-    const cursor = await db.getChannelCardsInChannels(channelIds, since);
+    const cursor = await db.getChannelCardsInChannels(channelIds, Date.now(), since);
     const cards: CardDescriptor[] = [];
     const sentChannelIds: string[] = [];
     while (await cursor.hasNext()) {
@@ -694,7 +694,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
             const cardUser = await db.findUserCardInfo(user.id, card.id);
             if (!cardUser || cardUser.lastOpened === 0) {
-              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, user);
+              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, user);
               cards.push(descriptor);
               if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
                 sentChannelIds.push(channelCard.channelId);

@@ -295,7 +295,7 @@ db.userCardActions.aggregate([
 What is our total outstanding liability?
 
 db.users.aggregate([
-  {$match: {balance: {$gt: 6}}},
+  {$match: {balance: {$gt: 5}}},
   {$project: {_id: "$id", netBalance: {$subtract: ["$balance", 5]}}},
   {$group: {_id: "1", count: {$sum: 1}, total: {$sum: "$netBalance"}}}
 ])
@@ -322,7 +322,7 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
-What is a giving fingerprint buying?
+What is a given fingerprint buying?
 
 db.userCardActions.aggregate([
   {$match: {fromFingerprint: "d867e987c3d63f21da5ed5b09ad6a2aa", action: "pay", at: {$gt: 1517480786000}}},
@@ -867,3 +867,78 @@ db.users.count({"identity.handle": {$exists: true}, id: {$nin: ["5139e3d2-fc02-4
     {$group: {_id: "$userId", count: {$sum: 1}}},
     {$group: {_id: "count", totalUsers: {$sum: 1}}}
   ])
+
+  db.userRegistrations.aggregate([
+    {$match: {"referrer": "https://www.google.com/", at: {$gt: 1518627600000}}}, 
+    {$group: {_id: {fingerprint: "$fingerprint"}, count: {$sum: 1}, ipAddress: {$push: "$ipAddress"}}},
+    {$project: {ipCount: {$size: "$ipAddress"}}},
+    {$sort: {ipCount: -1}}
+  ])
+
+  How much budget is left on ads?
+
+  db.cards.aggregate([
+    {$match: {"budget.amount" : {$gt: 0}, "budget.available": true, createdById: {$nin: ["bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "81b62690-81e0-4561-9eba-1b0c84dcc9ab", "42d5089c-1a72-49db-89ee-a0c05f7162a8"]}}},
+    {$project: {budget: "$budget", stats: "$stats", exceeding: {$cond: {if: {$lt: ["$budget.amount", "$budget.spent"]}, then: 1, else: 0}}}},
+    {$group: {_id: "1", exceeding: {$sum: "$exceeding"}, total: {$sum: "$budget.amount"}, spent: {$sum: "$budget.spent"}, extra: {$sum: {$multiply: ["$budget.plusPercent", 0.01, "$stats.revenue.value"]}}}}
+  ])
+
+
+What kind of cards are doing what?
+
+db.cards.aggregate([
+  {$match: {state: "active", "curation.block": false}},
+  {$group: {_id: "$cardType.package", count: {$sum: 1}, revenue: {$sum: "$stats.revenue.value"}}}, 
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "fd6f6b7b-cf2e-49a1-bfe7-71a5e20f3825", action: "pay"}},
+  {$group: {_id: {cardId: "$cardId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {fromFingerprint: "06ef0924e1dfa1887624d360036b7be4", action: "pay"}},
+  {$group: {_id: {cardId: "$cardId", ipAddress: "$fromIpAddress", authorId: "$authorId"}, count: {$sum: 1}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "fd6f6b7b-cf2e-49a1-bfe7-71a5e20f3825", action: "pay"}},
+  {$group: {_id: {cardId: "$cardId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", fraudReason: {$exists: false}, at: {$gt: 1518109200000}}},
+  {$group: {_id: {authorId: "$authorId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
+  {$match: {count: {$gt: 1}}},
+  {$group: {_id: "$_id.authorId", fingerprints: {$sum: 1}, purchases: {$sum: "$count"}, revenue: {$sum: "$revenue"}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
+  {$project: {buyers: "$fingerprints", purchases: "$purchases", count: "$count", revenue: "$revenue", handle: "$user.identity.handle"}},
+  {$sort: {buyers: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", fraudReason: {$exists: false}}},
+  {$group: {_id: {authorId: "$authorId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
+  {$group: {_id: "$_id.authorId", fingerprints: {$sum: 1}, purchases: {$sum: "$count"}, revenue: {$sum: "$revenue"}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
+])
+
+db.userRegistrations.aggregate([
+  {$match: {at: {$gt: 1518109200000}}},
+  {$group: {_id: {userId: "$userId", fingerprint: "$fingerprint"}, count: {$sum: 1}}},
+  {$group: {_id: "$_id.userId", fingerprints: {$sum: 1}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
+  {$project: {handle: "$user.identity.handle", fingerprints: "$fingerprints"}},
+  {$sort: {fingerprints: -1}}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {fingerprint: "68168707d4bbaf791d55b489fff920d2", at: {$gt: 1518109200000}}}, 
+  {$lookup: {from: "users", localField: "userId", foreignField: "id", as: "user"}},
+  {$project: {handle: "$user.identity.handle", city: "$user.city", country: "$user.country", ipAddress: "$ipAddress", at: "$at"}},
+  {$sort: {at: -1}}
+])

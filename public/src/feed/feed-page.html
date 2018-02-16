@@ -155,6 +155,8 @@
             });
           }
 
+          $core.getHome(5, 5); // Kingston: Test-only
+
           // fetch
           return $core.getFeed(this._feedName, this._fetchCount, null, null, null, this._promotedCardIds).then((feed) => {
             const cards = feed.cards;

@@ -775,4 +775,14 @@ class RestUtils {
     };
   }
 
+  static getHome(address, fingerprint, maxSubscribedCards, maxCardsPerChannel) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      maxSubscribedCards: maxSubscribedCards,
+      maxCardsPerChannel: maxCardsPerChannel
+    };
+  }
+
 }
