@@ -757,6 +757,14 @@ export interface AdminUpdateCardDetails extends Signable {
 
 export interface AdminUpdateCardResponse extends RestResponse { }
 
+export interface AdminUpdateChannelDetails extends Signable {
+  channelId: string;
+  featuredWeight: number;
+  listingWeight: number;
+}
+
+export interface AdminUpdateChannelResponse extends RestResponse { }
+
 export interface AdminGetWithdrawalsDetails extends Signable {
   limit: number;
 }

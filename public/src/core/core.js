@@ -912,6 +912,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_updateChannel(channelId, featuredWeight, listingWeight) {
+    let details = RestUtils.admin_updateChannel(this._keys.address, this._fingerprint, channelId, featuredWeight, listingWeight);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-update-channel";
+    return this.rest.post(url, request);
+  }
+
   admin_getGoals() {
     let details = RestUtils.admin_getGoals(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);

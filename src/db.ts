@@ -2628,6 +2628,10 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $set: { keywords: keywords } });
   }
 
+  async updateChannelAdmin(channelId: string, featuredWeight: number, listingWeight: number): Promise<void> {
+    await this.channels.updateOne({ id: channelId }, { $set: { featuredWeight: featuredWeight, listingWeight: listingWeight } });
+  }
+
   async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {

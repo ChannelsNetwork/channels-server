@@ -1,6 +1,6 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../controls/moment.html">
-<!-- <link rel="import" href="admin-edit-channel-dialog.html"> -->
+<link rel="import" href="admin-edit-channel-dialog.html">
 
 <dom-module id="admin-channels-view">
   <template>
@@ -86,9 +86,9 @@
           <div class="headerCell">Name</div>
           <div class="headerCell">Owner</div>
           <div class="headerCell">Owner Name</div>
-          <div class="headerCell right toggle" on-click="_onCreatedClick">Created</div>
-          <div class="headerCell right toggle" on-click="_onLatestClick">Last Card</div>
-          <div class="headerCell right">First Card</div>
+          <div class="headerCell toggle" on-click="_onCreatedClick">Created</div>
+          <div class="headerCell toggle" on-click="_onLatestClick">Last Card</div>
+          <div class="headerCell">First Card</div>
           <div class="headerCell right">Cards</div>
           <div class="headerCell right toggle" on-click="_onSubscribersClick">Subscribers</div>
           <div class="headerCell right toggle" on-click="_onRevenueClick">Revenue</div>
@@ -105,9 +105,9 @@
             <div class="cell">[[item.name]]</div>
             <div class="cell">[[item.owner]]</div>
             <div class="cell">[[item.ownerName]]</div>
-            <div class="cell right">[[item.created]]</div>
-            <div class="cell right">[[item.latestCard]]</div>
-            <div class="cell right">[[item.firstCard]]</div>
+            <div class="cell">[[item.created]]</div>
+            <div class="cell">[[item.latestCard]]</div>
+            <div class="cell">[[item.firstCard]]</div>
             <div class="cell right">[[item.cards]]</div>
             <div class="cell right">[[item.subscribers]]</div>
             <div class="cell right">[[item.revenue]]</div>
@@ -117,7 +117,7 @@
           </div>
         </template>
       </div>
-      <!-- <admin-edit-card-dialog id="editDialog"></admin-edit-card-dialog> -->
+      <admin-edit-channel-dialog id="editDialog"></admin-edit-channel-dialog>
     </div>
   </template>
   <script>
@@ -195,7 +195,7 @@
       }
 
       _onEdit(event) {
-        this.$.editDialog.show(event.model.item.id).then((result) => {
+        this.$.editDialog.show(event.model.item.info.channel).then((result) => {
           if (result) {
             this._refresh();
           }

@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults, AdminGetChannelsDetails, AdminGetChannelsResponse, AdminChannelInfo } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults, AdminGetChannelsDetails, AdminGetChannelsResponse, AdminChannelInfo, AdminUpdateChannelDetails, AdminUpdateChannelResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -124,6 +124,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-channels'), (request: Request, response: Response) => {
       void this.handleAdminGetChannels(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-update-channel'), (request: Request, response: Response) => {
+      void this.handleAdminUpdateChannel(request, response);
     });
   }
 
@@ -320,6 +323,39 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       response.json(result);
     } catch (err) {
       errorManager.error("ChannelManager.handleAdminGetChannels: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminUpdateChannel(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminUpdateChannelDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.channelId) {
+        response.status(400).send("Missing channelId");
+        return;
+      }
+      const channel = await db.findChannelById(requestBody.detailsObject.channelId);
+      if (!channel) {
+        response.status(404).send("No such channel");
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      console.log("ChannelManager.admin-channels:", request.headers, requestBody.detailsObject);
+      await db.updateChannelAdmin(requestBody.detailsObject.channelId, requestBody.detailsObject.featuredWeight || 0, requestBody.detailsObject.listingWeight || 0);
+      const result: AdminUpdateChannelResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleAdminUpdateChannel: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

@@ -600,6 +600,17 @@ class RestUtils {
     };
   }
 
+  static admin_updateChannel(address, fingerprint, channelId, featuredWeight, listingWeight) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      featuredWeight: featuredWeight,
+      listingWeight: listingWeight
+    };
+  }
+
   static admin_getGoals(address, fingerprint) {
     return {
       address: address,
