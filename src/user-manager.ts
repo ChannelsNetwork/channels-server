@@ -301,7 +301,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder",
@@ -342,6 +342,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const registerResponse: RegisterUserResponse = {
         serverVersion: SERVER_VERSION,
         status: userStatus,
+        id: userRecord.id,
         interestRatePerMillisecond: INTEREST_RATE_PER_MILLISECOND,
         subsidyRate: await priceRegulator.getUserSubsidyRate(),
         operatorTaxFraction: networkEntity.getOperatorTaxFraction(),
@@ -529,7 +530,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
-      await channelManager.getUserDefaultChannel(user);
+      await channelManager.ensureUserHomeChannel(user);
       if (sendConfirmation) {
         void this.sendEmailConfirmation(user);
       }
@@ -578,7 +579,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         emailAddress: user.identity ? user.identity.emailAddress : null,
         emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
         encryptedPrivateKey: user.encryptedPrivateKey,
-        accountSettings: this.getAccountSettings(user)
+        accountSettings: this.getAccountSettings(user),
+        homeChannelId: user.homeChannelId
       };
       response.json(reply);
     } catch (err) {
@@ -683,7 +685,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         emailAddress: user.identity ? user.identity.emailAddress : null,
         emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
         encryptedPrivateKey: user.encryptedPrivateKey,
-        accountSettings: this.getAccountSettings(user)
+        accountSettings: this.getAccountSettings(user),
+        homeChannelId: user.homeChannelId
       };
       response.json(result);
     } catch (err) {
@@ -717,7 +720,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         emailAddress: user.identity ? user.identity.emailAddress : null,
         emailConfirmed: user.identity && user.identity.emailConfirmed ? true : false,
         encryptedPrivateKey: user.encryptedPrivateKey,
-        accountSettings: this.getAccountSettings(user)
+        accountSettings: this.getAccountSettings(user),
+        homeChannelId: user.homeChannelId
       };
       response.json(reply);
     } catch (err) {

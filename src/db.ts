@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -436,9 +436,17 @@ export class Database {
   private async initializeChannelCards(): Promise<void> {
     this.channelCards = this.db.collection('channelCards');
     await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
-    await this.channelCards.createIndex({ cardId: 1 });
-    await this.channelCards.createIndex({ channelId: 1, cardLastPosted: -1 });
-    await this.channelCards.createIndex({ channelId: 1, cardLastPosted: 1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, cardId: 1 });
+    await this.channelCards.createIndex({ state: 1, cardId: 1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: -1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: 1 });
+
+    await this.channelCards.updateMany({ state: { $exists: false } }, {
+      $set: {
+        state: 'active',
+        removed: 0
+      }
+    });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
@@ -495,7 +503,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -526,7 +534,8 @@ export class Database {
         includeInMailingList: includeInMailingList
       },
       originalReferrer: referrer,
-      originalLandingPage: landingPage
+      originalLandingPage: landingPage,
+      homeChannelId: homeChannelId
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -552,6 +561,10 @@ export class Database {
 
   async updateUserBalance(userId: string, value: number): Promise<void> {
     await this.users.updateOne({ id: userId }, { $set: { balance: value } });
+  }
+
+  async updateUserHomeChannel(userId: string, channelId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { homeChannelId: channelId } });
   }
 
   async updateUserLastPosted(userId: string, value: number): Promise<void> {
@@ -684,6 +697,10 @@ export class Database {
 
   getUserPublishers(): Cursor<UserRecord> {
     return this.users.find<UserRecord>({ type: "normal", lastPosted: { $gt: 0 } }).sort({ lastPosted: -1 });
+  }
+
+  getUsersMissingHomeChannel(): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ identity: { $exists: true }, homeChannelId: { $exists: false } });
   }
 
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
@@ -2726,24 +2743,31 @@ export class Database {
     return this.channelUsers.find<ChannelUserRecord>({ notificationPending: true }).sort({ lastCardPosted: -1 });
   }
 
-  async upsertChannelCard(channelId: string, cardId: string, cardPostedAt: number): Promise<ChannelCardRecord> {
+  async ensureChannelCard(channelId: string, cardId: string): Promise<ChannelCardRecord> {
+    let record = await this.channelCards.findOne<ChannelCardRecord>({ channelId: channelId, cardId: cardId });
+    if (record) {
+      return record;
+    }
     const now = Date.now();
-    const record: ChannelCardRecord = {
+    record = {
       channelId: channelId,
       cardId: cardId,
-      added: now,
-      cardPostedAt: cardPostedAt
+      state: 'inactive',
+      cardPostedAt: 0,
+      added: 0,
+      removed: 0
     };
-    await this.channelCards.update({ channelId: channelId, cardId: cardId }, record, { upsert: true });
+    await this.channelCards.insertOne(record);
     return record;
   }
 
-  async findChannelCard(channelId: string, cardId: string): Promise<ChannelCardRecord> {
-    return this.channelCards.findOne<ChannelCardRecord>({ channelId: channelId, cardId: cardId });
+  async findChannelCard(channelId: string, cardId: string, includeInactive = false): Promise<ChannelCardRecord> {
+    const query = includeInactive ? { channelId: channelId, cardId: cardId } : { state: 'active', channelId: channelId, cardId: cardId };
+    return this.channelCards.findOne<ChannelCardRecord>(query);
   }
 
   async findChannelCardFirstByChannel(channelId: string): Promise<ChannelCardRecord> {
-    const result = await this.channelCards.find<ChannelCardRecord>({ channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
+    const result = await this.channelCards.find<ChannelCardRecord>({ state: 'active', channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
     if (result.length > 0) {
       return result[0];
     } else {
@@ -2759,12 +2783,35 @@ export class Database {
   }
 
   getChannelCardsByCard(cardId: string): Cursor<ChannelCardRecord> {
-    const query: any = { cardId: cardId };
+    const query: any = { state: 'active', cardId: cardId };
     return this.channelCards.find<ChannelCardRecord>(query);
   }
 
+  async addChannelCard(channelId: string, cardId: string, cardPostedAt: number): Promise<void> {
+    const update: any = {
+      state: 'active',
+      added: Date.now(),
+      cardPostedAt: cardPostedAt
+    };
+    await this.channelCards.updateOne({ channelId: channelId, cardId: cardId }, { $set: update });
+  }
+
+  async removeChannelCard(channelId: string, cardId: string): Promise<void> {
+    await this.channelCards.updateOne({ state: 'active', channelId: channelId, cardId: cardId }, {
+      $set: {
+        state: 'inactive',
+        removed: Date.now()
+      }
+    });
+  }
+
   async removeChannelCardsByCard(cardId: string): Promise<void> {
-    await this.channelCards.deleteMany({ cardId: cardId });
+    await this.channelCards.updateMany({ state: 'active', cardId: cardId }, {
+      $set: {
+        state: 'inactive',
+        removed: Date.now()
+      }
+    });
   }
 
   async findChannelCardsByChannel(channelId: string, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
@@ -2775,7 +2822,7 @@ export class Database {
   }
 
   getChannelCardsInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
-    const query: any = { channelId: { $in: channelIds } };
+    const query: any = { state: 'active', channelId: { $in: channelIds } };
     const cardPostedAt: any = { $gt: after };
     if (before && after) {
       query.cardPostedAt = { $gt: after, $lte: before };
@@ -2788,7 +2835,7 @@ export class Database {
   }
 
   getChannelCardsByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
-    const query: any = { channelId: channelId };
+    const query: any = { state: 'active', channelId: channelId };
     if (since) {
       query.since = { $gte: since };
     }

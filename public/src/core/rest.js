@@ -804,4 +804,25 @@ class RestUtils {
     };
   }
 
+  static getChannelCard(address, fingerprint, channelId, cardId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      cardId: cardId
+    };
+  }
+
+  static updateChannelCard(address, fingerprint, channelId, cardId, includeInChannel) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      cardId: cardId,
+      includeInChannel: includeInChannel
+    };
+  }
+
 }
