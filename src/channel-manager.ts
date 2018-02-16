@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults, AdminGetChannelsDetails, AdminGetChannelsResponse, AdminChannelInfo } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -121,6 +121,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     });
     this.app.post(this.urlManager.getDynamicUrl('report-channel-visit'), (request: Request, response: Response) => {
       void this.handleReportChannelVisit(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-channels'), (request: Request, response: Response) => {
+      void this.handleAdminGetChannels(request, response);
     });
   }
 
@@ -279,6 +282,44 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       response.json(registerResponse);
     } catch (err) {
       errorManager.error("ChannelManager.handleGetChannel: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminGetChannels(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetChannelsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      console.log("ChannelManager.admin-channels:", request.headers, requestBody.detailsObject);
+      const result: AdminGetChannelsResponse = {
+        serverVersion: SERVER_VERSION,
+        channels: []
+      };
+      const cursor = db.getChannels();
+      while (await cursor.hasNext()) {
+        const channel = await cursor.next();
+        const item: AdminChannelInfo = {
+          channel: channel,
+          descriptor: await this.populateChannelDescriptor(user, channel),
+          owner: await userManager.getUser(channel.ownerId, false)
+        };
+        result.channels.push(item);
+        if (result.channels.length > 500) {
+          break;
+        }
+      }
+      await cursor.close();
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleAdminGetChannels: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

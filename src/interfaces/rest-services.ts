@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord } from "./db-records";
 import { SignedObject } from "./signed-object";
 
 export interface RestRequest<T extends Signable> {
@@ -603,6 +603,18 @@ export interface AdminGetCardsDetails extends Signable {
 
 export interface AdminGetCardsResponse extends RestResponse {
   cards: AdminCardInfo[];
+}
+
+export interface AdminGetChannelsDetails extends Signable { }
+
+export interface AdminGetChannelsResponse extends RestResponse {
+  channels: AdminChannelInfo[];
+}
+
+export interface AdminChannelInfo {
+  channel: ChannelRecord;
+  descriptor: ChannelDescriptor;
+  owner: UserRecord;
 }
 
 export interface AdminCardInfo {

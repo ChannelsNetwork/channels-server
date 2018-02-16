@@ -420,6 +420,7 @@ export class Database {
     await this.channels.createIndex({ firstCardPosted: -1 });
     await this.channels.createIndex({ state: 1, featuredWeight: -1 });
     await this.channels.createIndex({ state: 1, listingWeight: -1 });
+    await this.channels.createIndex({ created: -1 });
 
     await this.channels.updateMany({ firstCardPosted: { $exists: false } }, { $set: { firstCardPosted: 0 } });
     await this.channels.updateMany({ featuredWeight: { $exists: false } }, { $set: { featuredWeight: 0, listingWeight: 0 } });
@@ -2571,7 +2572,7 @@ export class Database {
   }
 
   getChannels(): Cursor<ChannelRecord> {
-    return this.channels.find<ChannelRecord>();
+    return this.channels.find<ChannelRecord>().sort({ created: -1 });
   }
 
   getChannelsWithoutFirstCard(): Cursor<ChannelRecord> {
