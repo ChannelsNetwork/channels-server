@@ -2859,7 +2859,7 @@ export class Database {
           added: "$added",
           balance: { $max: [{ $subtract: ["$balance", 5] }, 0] },
           withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } },
-          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "added"] }, 43200000] }, then: 1, else: 0 } },
+          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "$added"] }, 43200000] }, then: 1, else: 0 } },
           publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
           storage: "$storage"
         }
