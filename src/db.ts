@@ -2850,11 +2850,122 @@ export class Database {
     }
     await this.adSlots.updateOne({ id: id }, { $set: update });
   }
+
+  async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {
+    return this.users.aggregate<BinnedUserData>([
+      { $match: { type: 'normal', admin: false } },
+      {
+        $project: {
+          added: "$added",
+          balance: { $max: [{ $subtract: ["$balance", 5] }, 0] },
+          withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } },
+          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "added"] }, 43200000] }, then: 1, else: 0 } },
+          publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
+          storage: "$storage"
+        }
+      },
+
+      {
+        $bucket: {
+          groupBy: "$added",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            newUsers: { $sum: 1 },
+            newUsersWithIdentity: { $sum: "$withIdentity" },
+            totalBalance: { $sum: "$balance" },
+            totalBalanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } },
+            returning: { $sum: "$returning" },
+            returningWithIdentity: { $sum: { $multiply: ["$withIdentity", "$returning"] } },
+            publishers: { $sum: "$publisher" },
+            storage: { $sum: "$storage" }
+          }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binCardsByDate(periodsStarting: number[]): Promise<BinnedCardData[]> {
+    return this.cards.aggregate<BinnedCardData>([
+      { $match: { type: "normal" } },
+      {
+        $project: {
+          postedAt: "$postedAt",
+          deleted: { $cond: { if: { $eq: ["$state", "active"] }, then: 0, else: 1 } },
+          private: { $cond: { if: "$private", then: 1, else: 0 } },
+          blocked: { $cond: { if: "$curation.block", then: 1, else: 0 } },
+          ad: { $cond: { if: { $eq: ["$pricing.openFeeUnits", 0] }, then: 1, else: 0 } },
+          promoted: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: ["$pricing.openFeeUnits", 0] },
+                  { $gt: ["$pricing.promotionFee", 0] }
+                ]
+              },
+              then: 1,
+              else: 0
+            }
+          },
+          budget: "$budget.amount",
+          spent: "$budget.spent",
+          revenue: "$stats.revenue.value",
+          refunds: "$stats.refunds.value",
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$postedAt",
+          boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            deleted: { $sum: "$deleted" },
+            private: { $sum: "$private" },
+            blocked: { $sum: "$blocked" },
+            ads: { $sum: "$ad" },
+            promoted: { $sum: "$promoted" },
+            budget: { $sum: "$budget" },
+            spent: { $sum: "$spent" },
+            revenue: { $sum: "$revenue" },
+            refunds: { $sum: "$refunds" }
+          }
+        }
+      }
+    ]).toArray();
+  }
 }
+
+// [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000]
 
 const db = new Database();
 
 export { db };
+
+export interface BinnedUserData {
+  _id: number;
+  newUsers: number;
+  newUsersWithIdentity: number;
+  totalExcessBalance: number;
+  totalExcessBalanceWithIdentity: number;
+  returning: number;
+  returningWithIdentity: number;
+  publishers: number;
+}
+
+export interface BinnedCardData {
+  _id: number;
+  total: number;
+  deleted: number;
+  private: number;
+  blocked: number;
+  ads: number;
+  promoted: number;
+  budget: number;
+  spent: number;
+  revenue: number;
+  refunds: number;
+}
 
 interface CardTopicDescriptor {
   topic: string;

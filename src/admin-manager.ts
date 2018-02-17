@@ -48,17 +48,26 @@ export class AdminManager implements RestServer {
         return;
       }
       console.log("AdminManager.admin-goals", user.id, requestBody.detailsObject);
-      const reply: AdminGetGoalsResponse = {
-        serverVersion: SERVER_VERSION,
-        days: []
-      };
-      let ending = Date.now();
+      // const ending = Date.now();
       let starting = +moment().tz('America/Los_Angeles').startOf('day');
+      let periodsStarting: number[] = [Date.now()];
       for (let i = 0; i < 7; i++) {
-        reply.days.push(await this.computeGoals(starting, ending));
-        ending = starting;
+        periodsStarting.push(starting);
+        // reply.days.push(await this.computeGoals(starting, ending));
+        // ending = starting;
         starting -= 1000 * 60 * 60 * 24;
       }
+      periodsStarting.push(0);
+      periodsStarting = periodsStarting.reverse();
+
+      const binnedUsers = await db.binUsersByAddedDate(periodsStarting);
+      const binnedCards = await db.binCardsByDate(periodsStarting);
+      const reply: AdminGetGoalsResponse = {
+        serverVersion: SERVER_VERSION,
+        periodsStarting: periodsStarting,
+        userBins: binnedUsers,
+        cardBins: binnedCards
+      };
       response.json(reply);
     } catch (err) {
       errorManager.error("AdminManager.handleGetAdminGoals: Failure", request, err);
