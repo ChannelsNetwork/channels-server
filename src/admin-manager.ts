@@ -62,11 +62,15 @@ export class AdminManager implements RestServer {
 
       const binnedUsers = await db.binUsersByAddedDate(periodsStarting);
       const binnedCards = await db.binCardsByDate(periodsStarting);
+      const binnedPayments = await db.binCardPayments(periodsStarting);
+      const binnedAdSlots = await db.binAdSlots(periodsStarting);
       const reply: AdminGetGoalsResponse = {
         serverVersion: SERVER_VERSION,
         periodsStarting: periodsStarting,
         userBins: binnedUsers,
-        cardBins: binnedCards
+        cardBins: binnedCards,
+        cardPaymentBins: binnedPayments,
+        adSlotBins: binnedAdSlots
       };
       response.json(reply);
     } catch (err) {
