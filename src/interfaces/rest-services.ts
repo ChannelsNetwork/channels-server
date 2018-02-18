@@ -1,6 +1,7 @@
 
 import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats } from "./db-records";
 import { SignedObject } from "./signed-object";
+import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
 export interface RestRequest<T extends Signable> {
   version: number;
@@ -629,7 +630,11 @@ export interface AdminUserInfo {
 export interface AdminGetGoalsDetails extends Signable { }
 
 export interface AdminGetGoalsResponse extends RestResponse {
-  days: AdminGoalsInfo[];
+  periodsStarting: number[];
+  userBins: BinnedUserData[];
+  cardBins: BinnedCardData[];
+  cardPaymentBins: BinnedPaymentData[];
+  adSlotBins: BinnedAdSlotData[];
 }
 
 export interface AdminGoalsInfo {

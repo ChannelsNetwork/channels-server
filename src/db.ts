@@ -2850,11 +2850,276 @@ export class Database {
     }
     await this.adSlots.updateOne({ id: id }, { $set: update });
   }
+
+  async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {
+    return this.users.aggregate<BinnedUserData>([
+      { $match: { type: 'normal', admin: false } },
+      {
+        $project: {
+          added: "$added",
+          balance: { $max: [{ $subtract: ["$balance", 5] }, 0] },
+          withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } },
+          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "$added"] }, 43200000] }, then: 1, else: 0 } },
+          publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
+          storage: "$storage"
+        }
+      },
+
+      {
+        $bucket: {
+          groupBy: "$added",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            newUsers: { $sum: 1 },
+            newUsersWithIdentity: { $sum: "$withIdentity" },
+            totalBalance: { $sum: "$balance" },
+            totalBalanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } },
+            returning: { $sum: "$returning" },
+            returningWithIdentity: { $sum: { $multiply: ["$withIdentity", "$returning"] } },
+            publishers: { $sum: "$publisher" },
+            storage: { $sum: "$storage" }
+          }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binCardsByDate(periodsStarting: number[]): Promise<BinnedCardData[]> {
+    return this.cards.aggregate<BinnedCardData>([
+      { $match: { type: "normal" } },
+      {
+        $project: {
+          postedAt: "$postedAt",
+          deleted: { $cond: { if: { $eq: ["$state", "active"] }, then: 0, else: 1 } },
+          private: { $cond: { if: "$private", then: 1, else: 0 } },
+          blocked: { $cond: { if: "$curation.block", then: 1, else: 0 } },
+          ad: { $cond: { if: { $eq: ["$pricing.openFeeUnits", 0] }, then: 1, else: 0 } },
+          promoted: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: ["$pricing.openFeeUnits", 0] },
+                  { $gt: ["$pricing.promotionFee", 0] }
+                ]
+              },
+              then: 1,
+              else: 0
+            }
+          },
+          budget: "$budget.amount",
+          spent: "$budget.spent",
+          revenue: "$stats.revenue.value",
+          refunds: "$stats.refunds.value",
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$postedAt",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            deleted: { $sum: "$deleted" },
+            private: { $sum: "$private" },
+            blocked: { $sum: "$blocked" },
+            ads: { $sum: "$ad" },
+            promoted: { $sum: "$promoted" },
+            budget: { $sum: "$budget" },
+            spent: { $sum: "$spent" },
+            revenue: { $sum: "$revenue" },
+            refunds: { $sum: "$refunds" }
+          }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binCardPayments(periodsStarting: number[]): Promise<BinnedPaymentData[]> {
+    return this.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $project: {
+          at: "$at",
+          firstTime: { $cond: { if: { $eq: ["$payment.category", "first"] }, then: 0, else: 1 } },
+          normal: { $cond: { if: { $eq: ["$payment.category", "normal"] }, then: 0, else: 1 } },
+          fan: { $cond: { if: { $eq: ["$payment.category", "fan"] }, then: 0, else: 1 } },
+          fraud: { $cond: { if: { $eq: ["$payment.category", "fraud"] }, then: 0, else: 1 } },
+          amount: "$payment.amount",
+          weightedRevenue: "$payment.weightedRevenue",
+          userId: "$userId",
+          authorId: "$authorId"
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            firstTime: { $sum: "$firstTime" },
+            normal: { $sum: "$normal" },
+            fan: { $sum: "$fan" },
+            fraud: { $sum: "$fraud" },
+            revenue: { $sum: "$amount" },
+            weightedRevenue: { $sum: "$weightedRevenue" },
+            purchasers: { $addToSet: "$userId" },
+            sellers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          total: "$total",
+          firstTime: "$firstTime",
+          normal: "$normal",
+          fan: "$fan",
+          fraud: "$fraud",
+          revenue: "$revenue",
+          weightedRevenue: "$weightedRevenue",
+          purchasers: { $size: "$purchasers" },
+          sellers: { $size: "$sellers" }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binAdSlots(periodsStarting: number[]): Promise<BinnedAdSlotData[]> {
+    return this.adSlots.aggregate([
+      { $match: { status: { $ne: "pending" } } },
+      {
+        $project: {
+          created: "$created",
+          impressionAd: { $cond: { if: { $eq: ["$type", "impression-ad"] }, then: 1, else: 0 } },
+          impressionContent: { $cond: { if: { $eq: ["$type", "impression-content"] }, then: 1, else: 0 } },
+          openPayment: { $cond: { if: { $eq: ["$type", "open-payment"] }, then: 1, else: 0 } },
+          clickPayment: { $cond: { if: { $eq: ["$type", "click-payment"] }, then: 1, else: 0 } },
+          announcement: { $cond: { if: { $eq: ["$type", "announcement"] }, then: 1, else: 0 } },
+          impression: { $cond: { if: { $eq: ["$status", "impression"] }, then: 1, else: 0 } },
+          opened: { $cond: { if: { $eq: ["$status", "opened"] }, then: 1, else: 0 } },
+          openPaid: { $cond: { if: { $eq: ["$status", "open-paid"] }, then: 1, else: 0 } },
+          clicked: { $cond: { if: { $eq: ["$status", "clicked"] }, then: 1, else: 0 } },
+          redemptionFailed: { $cond: { if: { $eq: ["$status", "redemption-failed"] }, then: 1, else: 0 } },
+          impressionsAmount: { $cond: { if: { $and: [{ $eq: ["$status", "impression"] }, "$redeemed"] }, then: "$amount", else: 0 } },
+          opensAmount: { $cond: { if: { $and: [{ $eq: ["$status", "open-paid"] }, "$redeemed"] }, then: "$amount", else: 0 } },
+          clicksAmount: { $cond: { if: { $and: [{ $eq: ["$status", "clicked"] }, "$redeemed"] }, then: "$amount", else: 0 } },
+          userId: "$userId",
+          authorId: "$authorId"
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$created",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            impressionAd: { $sum: "$impressionAd" },
+            impressionContent: { $sum: "$impressionContent" },
+            openPayment: { $sum: "$openPayment" },
+            clickPayment: { $sum: "$clickPayment" },
+            announcement: { $sum: "$announcement" },
+            impression: { $sum: "$impression" },
+            opened: { $sum: "$opened" },
+            openPaid: { $sum: "$openPaid" },
+            clicked: { $sum: "$clicked" },
+            redemptionFailed: { $sum: "$redemptionFailed" },
+            impressionsRevenue: { $sum: "$impressionsAmount" },
+            opensRevenue: { $sum: "$opensAmount" },
+            clicksRevenue: { $sum: "$clicksAmount" },
+            consumers: { $addToSet: "$userId" },
+            advertisers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          total: "$total",
+          impressionAd: "$impressionAd",
+          impressionContent: "$impressionContent",
+          openPayment: "$openPayment",
+          clickPayment: "$clickPayment",
+          announcement: "$announcement",
+          impression: "$impression",
+          opened: "$opened",
+          openPaid: "$openPaid",
+          clicked: "$clicked",
+          redemptionFailed: "$redemptionFailed",
+          impressionsRevenue: "$impressionsRevenue",
+          opensRevenue: "$opensRevenue",
+          clicksRevenue: "$clicksRevenue",
+          consumers: { $size: "$consumers" },
+          advertisers: { $size: "$advertisers" }
+        }
+      }
+    ]).toArray();
+  }
 }
+
+// [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000]
 
 const db = new Database();
 
 export { db };
+
+export interface BinnedUserData {
+  _id: number;
+  newUsers: number;
+  newUsersWithIdentity: number;
+  totalExcessBalance: number;
+  totalExcessBalanceWithIdentity: number;
+  returning: number;
+  returningWithIdentity: number;
+  publishers: number;
+}
+
+export interface BinnedCardData {
+  _id: number;
+  total: number;
+  deleted: number;
+  private: number;
+  blocked: number;
+  ads: number;
+  promoted: number;
+  budget: number;
+  spent: number;
+  revenue: number;
+  refunds: number;
+}
+
+export interface BinnedPaymentData {
+  _id: number;
+  total: number;
+  firstTime: number;
+  normal: number;
+  fan: number;
+  fraud: number;
+  revenue: number;
+  weightedRevenue: number;
+  purchasers: number;
+  sellers: number;
+}
+
+export interface BinnedAdSlotData {
+  _id: number;
+  total: number;
+  impressionAd: number;
+  impressionContent: number;
+  openPayment: number;
+  clickPayment: number;
+  announcement: number;
+  impression: number;
+  opened: number;
+  openPaid: number;
+  clicked: number;
+  redemptionFailed: number;
+  impressionsRevenue: number;
+  opensRevenue: number;
+  clicksRevenue: number;
+  consumers: number;
+  advertisers: number;
+}
 
 interface CardTopicDescriptor {
   topic: string;
