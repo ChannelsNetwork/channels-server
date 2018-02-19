@@ -630,11 +630,91 @@ export interface AdminUserInfo {
 export interface AdminGetGoalsDetails extends Signable { }
 
 export interface AdminGetGoalsResponse extends RestResponse {
-  periodsStarting: number[];
-  userBins: BinnedUserData[];
-  cardBins: BinnedCardData[];
-  cardPaymentBins: BinnedPaymentData[];
-  adSlotBins: BinnedAdSlotData[];
+  users: AdminUserStats;
+  activeUsers: AdminActiveUserStats;
+  cards: AdminCardStats;
+  purchases: AdminPurchaseStats;
+  ads: AdminAdStats;
+
+  // cards: {
+  //   total: number;
+  //   recent: RecentStats;
+  //   revenue: number;
+  //   refunds: number;
+  //   authors: number;
+  // };
+  // purchases: {
+  //   total: number;
+  //   recent: RecentStats;
+  //   firstTime: RecentStats;
+  //   revenue: number;
+  //   weightedRevenue: number;
+  //   recentRevenue: RecentStats;
+  //   purchasers: RecentStats;
+  //   sellers: RecentStats;
+  // };
+  // ads: {
+  //   total: number;
+  //   recent: RecentStats;
+  //   revenue: number;
+  //   recentRevenue: RecentStats;
+  //   consumers: RecentStats;
+  //   advertisers: RecentStats;
+  // };
+}
+
+export interface AdminUserStats {
+  total: number;
+  newUsers: RecentStats;
+  totalWithIdentity: number;
+  totalStaleWithIdentity: number;
+  newUsersWithIdentity: RecentStats;
+  excessBalance: number;
+}
+
+export interface AdminActiveUserStats {
+  total: RecentStats;
+  withIdentity: RecentStats;
+  returning: RecentStats;
+  returningWithIdentity: RecentStats;
+}
+
+export interface AdminCardStats {
+  total: number;
+  newCards: RecentStats;
+  budget: number;
+  spent: number;
+  revenue: number;
+}
+
+export interface AdminPurchaseStats {
+  total: number;
+  totalRevenue: number;
+  totalFirstTime: number;
+  totalFraud: number;
+  newPurchases: RecentStats;
+  newRevenue: RecentStats;
+  newWeightedRevenue: RecentStats;
+  newFirstTime: RecentStats;
+  fraud: RecentStats;
+  purchasers: RecentStats;
+  sellers: RecentStats;
+}
+
+export interface AdminAdStats {
+  total: number;
+  revenue: number;
+  newSlots: RecentStats;
+  newRevenue: RecentStats;
+  consumers: RecentStats;
+  advertisers: RecentStats;
+}
+
+export interface RecentStats {
+  today: number;
+  yesterday: number;
+  priorWeek: number;
+  priorMonth: number;
 }
 
 export interface AdminGoalsInfo {
