@@ -57,6 +57,7 @@
         display: table-cell;
         border: 1px solid #aaa;
         padding: 3px;
+        vertical-align: bottom;
       }
 
       .center {
@@ -76,478 +77,200 @@
       <div class="table">
         <div class="headerRow">
           <div class="headerCell"></div>
+          <div class="headerCell right fixed">Total</div>
           <div class="headerCell right fixed">Today</div>
           <div class="headerCell right fixed">Yesterday</div>
-          <div class="headerCell right fixed">2 days ago</div>
-          <div class="headerCell right fixed">3 days ago</div>
-          <div class="headerCell right fixed">4 days ago</div>
-          <div class="headerCell right fixed">5 days ago</div>
-          <div class="headerCell right fixed">6 days ago</div>
+          <div class="headerCell right fixed">Prior Week</div>
+          <div class="headerCell right fixed">Prior Month</div>
         </div>
         <div class="row">
           <div class="cell rowHeader1">users</div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
+          <div class="cell right">[[info.users.total]]</div>
+          <div class="cell right">[[info.users.newUsers.today]]</div>
+          <div class="cell right">[[info.users.newUsers.yesterday]]</div>
+          <div class="cell right">[[info.users.newUsers.priorWeek]]</div>
+          <div class="cell right">[[info.users.newUsers.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">with identity</div>
+          <div class="cell right">[[info.users.totalWithIdentity]]</div>
+          <div class="cell right">[[info.users.newUsersWithIdentity.today]]</div>
+          <div class="cell right">[[info.users.newUsersWithIdentity.yesterday]]</div>
+          <div class="cell right">[[info.users.newUsersWithIdentity.priorWeek]]</div>
+          <div class="cell right">[[info.users.newUsersWithIdentity.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader3">stale</div>
+          <div class="cell right">[[info.users.totalStaleWithIdentity]]</div>
           <div class="cell right"></div>
           <div class="cell right"></div>
           <div class="cell right"></div>
           <div class="cell right"></div>
         </div>
         <div class="row">
-          <div class="cell rowHeader2">total</div>
-          <div class="cell right">[[userDays.0.all]]</div>
-          <div class="cell right">[[userDays.1.all]]</div>
-          <div class="cell right">[[userDays.2.all]]</div>
-          <div class="cell right">[[userDays.3.all]]</div>
-          <div class="cell right">[[userDays.4.all]]</div>
-          <div class="cell right">[[userDays.5.all]]</div>
-          <div class="cell right">[[userDays.6.all]]</div>
+          <div class="cell rowHeader2">balance liability</div>
+          <div class="cell right">[[info.users.excessBalance]]</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+        </div>
+
+        <div class="row">
+          <div class="cell rowHeader1">active users</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.activeUsers.total.today]]</div>
+          <div class="cell right">[[info.activeUsers.total.yesterday]]</div>
+          <div class="cell right">[[info.activeUsers.total.priorWeek]]</div>
+          <div class="cell right">[[info.activeUsers.total.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">with identity</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.activeUsers.withIdentity.today]]</div>
+          <div class="cell right">[[info.activeUsers.withIdentity.yesterday]]</div>
+          <div class="cell right">[[info.activeUsers.withIdentity.priorWeek]]</div>
+          <div class="cell right">[[info.activeUsers.withIdentity.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">returning</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.activeUsers.returning.today]]</div>
+          <div class="cell right">[[info.activeUsers.returning.yesterday]]</div>
+          <div class="cell right">[[info.activeUsers.returning.priorWeek]]</div>
+          <div class="cell right">[[info.activeUsers.returning.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader3">with identity</div>
-          <div class="cell right">[[userDays.0.withIdentity]]</div>
-          <div class="cell right">[[userDays.1.withIdentity]]</div>
-          <div class="cell right">[[userDays.2.withIdentity]]</div>
-          <div class="cell right">[[userDays.3.withIdentity]]</div>
-          <div class="cell right">[[userDays.4.withIdentity]]</div>
-          <div class="cell right">[[userDays.5.withIdentity]]</div>
-          <div class="cell right">[[userDays.6.withIdentity]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader2">excess balance</div>
-          <div class="cell right">[[userDays.0.balance]]</div>
-          <div class="cell right">[[userDays.1.balance]]</div>
-          <div class="cell right">[[userDays.2.balance]]</div>
-          <div class="cell right">[[userDays.3.balance]]</div>
-          <div class="cell right">[[userDays.4.balance]]</div>
-          <div class="cell right">[[userDays.5.balance]]</div>
-          <div class="cell right">[[userDays.6.balance]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">with identity</div>
-          <div class="cell right">[[userDays.0.balanceWithIdentity]]</div>
-          <div class="cell right">[[userDays.1.balanceWithIdentity]]</div>
-          <div class="cell right">[[userDays.2.balanceWithIdentity]]</div>
-          <div class="cell right">[[userDays.3.balanceWithIdentity]]</div>
-          <div class="cell right">[[userDays.4.balanceWithIdentity]]</div>
-          <div class="cell right">[[userDays.5.balanceWithIdentity]]</div>
-          <div class="cell right">[[userDays.6.balanceWithIdentity]]</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.activeUsers.returningWithIdentity.today]]</div>
+          <div class="cell right">[[info.activeUsers.returningWithIdentity.yesterday]]</div>
+          <div class="cell right">[[info.activeUsers.returningWithIdentity.priorWeek]]</div>
+          <div class="cell right">[[info.activeUsers.returningWithIdentity.priorMonth]]</div>
         </div>
 
         <div class="row">
           <div class="cell rowHeader1">cards</div>
+          <div class="cell right">[[info.cards.total]]</div>
+          <div class="cell right">[[info.cards.newCards.today]]</div>
+          <div class="cell right">[[info.cards.newCards.yesterday]]</div>
+          <div class="cell right">[[info.cards.newCards.priorWeek]]</div>
+          <div class="cell right">[[info.cards.newCards.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">budget</div>
+          <div class="cell right">[[info.cards.budget]]</div>
           <div class="cell right"></div>
           <div class="cell right"></div>
           <div class="cell right"></div>
           <div class="cell right"></div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">spent</div>
+          <div class="cell right">[[info.cards.spent]]</div>
           <div class="cell right"></div>
           <div class="cell right"></div>
           <div class="cell right"></div>
+          <div class="cell right"></div>
         </div>
         <div class="row">
-          <div class="cell rowHeader2">total</div>
-          <div class="cell right">[[cardDays.0.all]]</div>
-          <div class="cell right">[[cardDays.1.all]]</div>
-          <div class="cell right">[[cardDays.2.all]]</div>
-          <div class="cell right">[[cardDays.3.all]]</div>
-          <div class="cell right">[[cardDays.4.all]]</div>
-          <div class="cell right">[[cardDays.5.all]]</div>
-          <div class="cell right">[[cardDays.6.all]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">deleted</div>
-          <div class="cell right">[[cardDays.0.deleted]]</div>
-          <div class="cell right">[[cardDays.1.deleted]]</div>
-          <div class="cell right">[[cardDays.2.deleted]]</div>
-          <div class="cell right">[[cardDays.3.deleted]]</div>
-          <div class="cell right">[[cardDays.4.deleted]]</div>
-          <div class="cell right">[[cardDays.5.deleted]]</div>
-          <div class="cell right">[[cardDays.6.deleted]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">private</div>
-          <div class="cell right">[[cardDays.0.private]]</div>
-          <div class="cell right">[[cardDays.1.private]]</div>
-          <div class="cell right">[[cardDays.2.private]]</div>
-          <div class="cell right">[[cardDays.3.private]]</div>
-          <div class="cell right">[[cardDays.4.private]]</div>
-          <div class="cell right">[[cardDays.5.private]]</div>
-          <div class="cell right">[[cardDays.6.private]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">blocked</div>
-          <div class="cell right">[[cardDays.0.blocked]]</div>
-          <div class="cell right">[[cardDays.1.blocked]]</div>
-          <div class="cell right">[[cardDays.2.blocked]]</div>
-          <div class="cell right">[[cardDays.3.blocked]]</div>
-          <div class="cell right">[[cardDays.4.blocked]]</div>
-          <div class="cell right">[[cardDays.5.blocked]]</div>
-          <div class="cell right">[[cardDays.6.blocked]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">ads</div>
-          <div class="cell right">[[cardDays.0.ads]]</div>
-          <div class="cell right">[[cardDays.1.ads]]</div>
-          <div class="cell right">[[cardDays.2.ads]]</div>
-          <div class="cell right">[[cardDays.3.ads]]</div>
-          <div class="cell right">[[cardDays.4.ads]]</div>
-          <div class="cell right">[[cardDays.5.ads]]</div>
-          <div class="cell right">[[cardDays.6.ads]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">promoted</div>
-          <div class="cell right">[[cardDays.0.promoted]]</div>
-          <div class="cell right">[[cardDays.1.promoted]]</div>
-          <div class="cell right">[[cardDays.2.promoted]]</div>
-          <div class="cell right">[[cardDays.3.promoted]]</div>
-          <div class="cell right">[[cardDays.4.promoted]]</div>
-          <div class="cell right">[[cardDays.5.promoted]]</div>
-          <div class="cell right">[[cardDays.6.promoted]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">budget</div>
-          <div class="cell right">[[cardDays.0.budget]]</div>
-          <div class="cell right">[[cardDays.1.budget]]</div>
-          <div class="cell right">[[cardDays.2.budget]]</div>
-          <div class="cell right">[[cardDays.3.budget]]</div>
-          <div class="cell right">[[cardDays.4.budget]]</div>
-          <div class="cell right">[[cardDays.5.budget]]</div>
-          <div class="cell right">[[cardDays.6.budget]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">spent</div>
-          <div class="cell right">[[cardDays.0.spent]]</div>
-          <div class="cell right">[[cardDays.1.spent]]</div>
-          <div class="cell right">[[cardDays.2.spent]]</div>
-          <div class="cell right">[[cardDays.3.spent]]</div>
-          <div class="cell right">[[cardDays.4.spent]]</div>
-          <div class="cell right">[[cardDays.5.spent]]</div>
-          <div class="cell right">[[cardDays.6.spent]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">revenue</div>
-          <div class="cell right">[[cardDays.0.revenue]]</div>
-          <div class="cell right">[[cardDays.1.revenue]]</div>
-          <div class="cell right">[[cardDays.2.revenue]]</div>
-          <div class="cell right">[[cardDays.3.revenue]]</div>
-          <div class="cell right">[[cardDays.4.revenue]]</div>
-          <div class="cell right">[[cardDays.5.revenue]]</div>
-          <div class="cell right">[[cardDays.6.revenue]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">refunds</div>
-          <div class="cell right">[[cardDays.0.refunds]]</div>
-          <div class="cell right">[[cardDays.1.refunds]]</div>
-          <div class="cell right">[[cardDays.2.refunds]]</div>
-          <div class="cell right">[[cardDays.3.refunds]]</div>
-          <div class="cell right">[[cardDays.4.refunds]]</div>
-          <div class="cell right">[[cardDays.5.refunds]]</div>
-          <div class="cell right">[[cardDays.6.refunds]]</div>
+          <div class="cell rowHeader2">revenue</div>
+          <div class="cell right">[[info.cards.revenue]]</div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
+          <div class="cell right"></div>
         </div>
 
         <div class="row">
           <div class="cell rowHeader1">purchases</div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader2">total</div>
-          <div class="cell right">[[paymentDays.0.total]]</div>
-          <div class="cell right">[[paymentDays.1.total]]</div>
-          <div class="cell right">[[paymentDays.2.total]]</div>
-          <div class="cell right">[[paymentDays.3.total]]</div>
-          <div class="cell right">[[paymentDays.4.total]]</div>
-          <div class="cell right">[[paymentDays.5.total]]</div>
-          <div class="cell right">[[paymentDays.6.total]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">first-time</div>
-          <div class="cell right">[[paymentDays.0.firstTime]]</div>
-          <div class="cell right">[[paymentDays.1.firstTime]]</div>
-          <div class="cell right">[[paymentDays.2.firstTime]]</div>
-          <div class="cell right">[[paymentDays.3.firstTime]]</div>
-          <div class="cell right">[[paymentDays.4.firstTime]]</div>
-          <div class="cell right">[[paymentDays.5.firstTime]]</div>
-          <div class="cell right">[[paymentDays.6.firstTime]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">normal</div>
-          <div class="cell right">[[paymentDays.0.normal]]</div>
-          <div class="cell right">[[paymentDays.1.normal]]</div>
-          <div class="cell right">[[paymentDays.2.normal]]</div>
-          <div class="cell right">[[paymentDays.3.normal]]</div>
-          <div class="cell right">[[paymentDays.4.normal]]</div>
-          <div class="cell right">[[paymentDays.5.normal]]</div>
-          <div class="cell right">[[paymentDays.6.normal]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">fan</div>
-          <div class="cell right">[[paymentDays.0.fan]]</div>
-          <div class="cell right">[[paymentDays.1.fan]]</div>
-          <div class="cell right">[[paymentDays.2.fan]]</div>
-          <div class="cell right">[[paymentDays.3.fan]]</div>
-          <div class="cell right">[[paymentDays.4.fan]]</div>
-          <div class="cell right">[[paymentDays.5.fan]]</div>
-          <div class="cell right">[[paymentDays.6.fan]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">fraud</div>
-          <div class="cell right">[[paymentDays.0.fraud]]</div>
-          <div class="cell right">[[paymentDays.1.fraud]]</div>
-          <div class="cell right">[[paymentDays.2.fraud]]</div>
-          <div class="cell right">[[paymentDays.3.fraud]]</div>
-          <div class="cell right">[[paymentDays.4.fraud]]</div>
-          <div class="cell right">[[paymentDays.5.fraud]]</div>
-          <div class="cell right">[[paymentDays.6.fraud]]</div>
+          <div class="cell right">[[info.purchases.total]]</div>
+          <div class="cell right">[[info.purchases.newPurchases.today]]</div>
+          <div class="cell right">[[info.purchases.newPurchases.yesterday]]</div>
+          <div class="cell right">[[info.purchases.newPurchases.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.newPurchases.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader2">revenue</div>
-          <div class="cell right">[[paymentDays.0.revenue]]</div>
-          <div class="cell right">[[paymentDays.1.revenue]]</div>
-          <div class="cell right">[[paymentDays.2.revenue]]</div>
-          <div class="cell right">[[paymentDays.3.revenue]]</div>
-          <div class="cell right">[[paymentDays.4.revenue]]</div>
-          <div class="cell right">[[paymentDays.5.revenue]]</div>
-          <div class="cell right">[[paymentDays.6.revenue]]</div>
+          <div class="cell right">[[info.purchases.totalRevenue]]</div>
+          <div class="cell right">[[info.purchases.newRevenue.today]]</div>
+          <div class="cell right">[[info.purchases.newRevenue.yesterday]]</div>
+          <div class="cell right">[[info.purchases.newRevenue.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.newRevenue.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader3">weighted</div>
-          <div class="cell right">[[paymentDays.0.weightedRevenue]]</div>
-          <div class="cell right">[[paymentDays.1.weightedRevenue]]</div>
-          <div class="cell right">[[paymentDays.2.weightedRevenue]]</div>
-          <div class="cell right">[[paymentDays.3.weightedRevenue]]</div>
-          <div class="cell right">[[paymentDays.4.weightedRevenue]]</div>
-          <div class="cell right">[[paymentDays.5.weightedRevenue]]</div>
-          <div class="cell right">[[paymentDays.6.weightedRevenue]]</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.purchases.newWeightedRevenue.today]]</div>
+          <div class="cell right">[[info.purchases.newWeightedRevenue.yesterday]]</div>
+          <div class="cell right">[[info.purchases.newWeightedRevenue.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.newWeightedRevenue.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">first-time</div>
+          <div class="cell right">[[info.purchases.totalFirstTime]]</div>
+          <div class="cell right">[[info.purchases.firstTime.today]]</div>
+          <div class="cell right">[[info.purchases.firstTime.yesterday]]</div>
+          <div class="cell right">[[info.purchases.firstTime.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.firstTime.priorMonth]]</div>
+        </div>
+        <div class="row">
+          <div class="cell rowHeader2">fraud</div>
+          <div class="cell right">[[info.purchases.totalFraud]]</div>
+          <div class="cell right">[[info.purchases.fraud.today]]</div>
+          <div class="cell right">[[info.purchases.fraud.yesterday]]</div>
+          <div class="cell right">[[info.purchases.fraud.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.fraud.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader2">purchasers</div>
-          <div class="cell right">[[paymentDays.0.purchasers]]</div>
-          <div class="cell right">[[paymentDays.1.purchasers]]</div>
-          <div class="cell right">[[paymentDays.2.purchasers]]</div>
-          <div class="cell right">[[paymentDays.3.purchasers]]</div>
-          <div class="cell right">[[paymentDays.4.purchasers]]</div>
-          <div class="cell right">[[paymentDays.5.purchasers]]</div>
-          <div class="cell right">[[paymentDays.6.purchasers]]</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.purchases.purchasers.today]]</div>
+          <div class="cell right">[[info.purchases.purchasers.yesterday]]</div>
+          <div class="cell right">[[info.purchases.purchasers.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.purchasers.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader2">sellers</div>
-          <div class="cell right">[[paymentDays.0.sellers]]</div>
-          <div class="cell right">[[paymentDays.1.sellers]]</div>
-          <div class="cell right">[[paymentDays.2.sellers]]</div>
-          <div class="cell right">[[paymentDays.3.sellers]]</div>
-          <div class="cell right">[[paymentDays.4.sellers]]</div>
-          <div class="cell right">[[paymentDays.5.sellers]]</div>
-          <div class="cell right">[[paymentDays.6.sellers]]</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.purchases.sellers.today]]</div>
+          <div class="cell right">[[info.purchases.sellers.yesterday]]</div>
+          <div class="cell right">[[info.purchases.sellers.priorWeek]]</div>
+          <div class="cell right">[[info.purchases.sellers.priorMonth]]</div>
         </div>
 
         <div class="row">
           <div class="cell rowHeader1">ad slots</div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader2">total</div>
-          <div class="cell right">[[adDays.0.total]]</div>
-          <div class="cell right">[[adDays.1.total]]</div>
-          <div class="cell right">[[adDays.2.total]]</div>
-          <div class="cell right">[[adDays.3.total]]</div>
-          <div class="cell right">[[adDays.4.total]]</div>
-          <div class="cell right">[[adDays.5.total]]</div>
-          <div class="cell right">[[adDays.6.total]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader2">type</div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">promoted content</div>
-          <div class="cell right">[[adDays.0.impressionContent]]</div>
-          <div class="cell right">[[adDays.1.impressionContent]]</div>
-          <div class="cell right">[[adDays.2.impressionContent]]</div>
-          <div class="cell right">[[adDays.3.impressionContent]]</div>
-          <div class="cell right">[[adDays.4.impressionContent]]</div>
-          <div class="cell right">[[adDays.5.impressionContent]]</div>
-          <div class="cell right">[[adDays.6.impressionContent]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">impression ads</div>
-          <div class="cell right">[[adDays.0.impressionAd]]</div>
-          <div class="cell right">[[adDays.1.impressionAd]]</div>
-          <div class="cell right">[[adDays.2.impressionAd]]</div>
-          <div class="cell right">[[adDays.3.impressionAd]]</div>
-          <div class="cell right">[[adDays.4.impressionAd]]</div>
-          <div class="cell right">[[adDays.5.impressionAd]]</div>
-          <div class="cell right">[[adDays.6.impressionAd]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">open ads</div>
-          <div class="cell right">[[adDays.0.openPayment]]</div>
-          <div class="cell right">[[adDays.1.openPayment]]</div>
-          <div class="cell right">[[adDays.2.openPayment]]</div>
-          <div class="cell right">[[adDays.3.openPayment]]</div>
-          <div class="cell right">[[adDays.4.openPayment]]</div>
-          <div class="cell right">[[adDays.5.openPayment]]</div>
-          <div class="cell right">[[adDays.6.openPayment]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">click ads</div>
-          <div class="cell right">[[adDays.0.clickPayment]]</div>
-          <div class="cell right">[[adDays.1.clickPayment]]</div>
-          <div class="cell right">[[adDays.2.clickPayment]]</div>
-          <div class="cell right">[[adDays.3.clickPayment]]</div>
-          <div class="cell right">[[adDays.4.clickPayment]]</div>
-          <div class="cell right">[[adDays.5.clickPayment]]</div>
-          <div class="cell right">[[adDays.6.clickPayment]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">announcements</div>
-          <div class="cell right">[[adDays.0.announcement]]</div>
-          <div class="cell right">[[adDays.1.announcement]]</div>
-          <div class="cell right">[[adDays.2.announcement]]</div>
-          <div class="cell right">[[adDays.3.announcement]]</div>
-          <div class="cell right">[[adDays.4.announcement]]</div>
-          <div class="cell right">[[adDays.5.announcement]]</div>
-          <div class="cell right">[[adDays.6.announcement]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader2">status</div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">impression</div>
-          <div class="cell right">[[adDays.0.impression]]</div>
-          <div class="cell right">[[adDays.1.impression]]</div>
-          <div class="cell right">[[adDays.2.impression]]</div>
-          <div class="cell right">[[adDays.3.impression]]</div>
-          <div class="cell right">[[adDays.4.impression]]</div>
-          <div class="cell right">[[adDays.5.impression]]</div>
-          <div class="cell right">[[adDays.6.impression]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">opened</div>
-          <div class="cell right">[[adDays.0.opened]]</div>
-          <div class="cell right">[[adDays.1.opened]]</div>
-          <div class="cell right">[[adDays.2.opened]]</div>
-          <div class="cell right">[[adDays.3.opened]]</div>
-          <div class="cell right">[[adDays.4.opened]]</div>
-          <div class="cell right">[[adDays.5.opened]]</div>
-          <div class="cell right">[[adDays.6.opened]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">open &amp; paid</div>
-          <div class="cell right">[[adDays.0.openPaid]]</div>
-          <div class="cell right">[[adDays.1.openPaid]]</div>
-          <div class="cell right">[[adDays.2.openPaid]]</div>
-          <div class="cell right">[[adDays.3.openPaid]]</div>
-          <div class="cell right">[[adDays.4.openPaid]]</div>
-          <div class="cell right">[[adDays.5.openPaid]]</div>
-          <div class="cell right">[[adDays.6.openPaid]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">clicked</div>
-          <div class="cell right">[[adDays.0.clicked]]</div>
-          <div class="cell right">[[adDays.1.clicked]]</div>
-          <div class="cell right">[[adDays.2.clicked]]</div>
-          <div class="cell right">[[adDays.3.clicked]]</div>
-          <div class="cell right">[[adDays.4.clicked]]</div>
-          <div class="cell right">[[adDays.5.clicked]]</div>
-          <div class="cell right">[[adDays.6.clicked]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">redemption failed</div>
-          <div class="cell right">[[adDays.0.redemptionFailed]]</div>
-          <div class="cell right">[[adDays.1.redemptionFailed]]</div>
-          <div class="cell right">[[adDays.2.redemptionFailed]]</div>
-          <div class="cell right">[[adDays.3.redemptionFailed]]</div>
-          <div class="cell right">[[adDays.4.redemptionFailed]]</div>
-          <div class="cell right">[[adDays.5.redemptionFailed]]</div>
-          <div class="cell right">[[adDays.6.redemptionFailed]]</div>
+          <div class="cell right">[[info.ads.total]]</div>
+          <div class="cell right">[[info.ads.newSlots.today]]</div>
+          <div class="cell right">[[info.ads.newSlots.yesterday]]</div>
+          <div class="cell right">[[info.ads.newSlots.priorWeek]]</div>
+          <div class="cell right">[[info.ads.newSlots.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader2">revenue</div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-          <div class="cell right"></div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">impressions</div>
-          <div class="cell right">[[adDays.0.impressionsRevenue]]</div>
-          <div class="cell right">[[adDays.1.impressionsRevenue]]</div>
-          <div class="cell right">[[adDays.2.impressionsRevenue]]</div>
-          <div class="cell right">[[adDays.3.impressionsRevenue]]</div>
-          <div class="cell right">[[adDays.4.impressionsRevenue]]</div>
-          <div class="cell right">[[adDays.5.impressionsRevenue]]</div>
-          <div class="cell right">[[adDays.6.impressionsRevenue]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">opens</div>
-          <div class="cell right">[[adDays.0.opensRevenue]]</div>
-          <div class="cell right">[[adDays.1.opensRevenue]]</div>
-          <div class="cell right">[[adDays.2.opensRevenue]]</div>
-          <div class="cell right">[[adDays.3.opensRevenue]]</div>
-          <div class="cell right">[[adDays.4.opensRevenue]]</div>
-          <div class="cell right">[[adDays.5.opensRevenue]]</div>
-          <div class="cell right">[[adDays.6.opensRevenue]]</div>
-        </div>
-        <div class="row">
-          <div class="cell rowHeader3">clicks</div>
-          <div class="cell right">[[adDays.0.clicksRevenue]]</div>
-          <div class="cell right">[[adDays.1.clicksRevenue]]</div>
-          <div class="cell right">[[adDays.2.clicksRevenue]]</div>
-          <div class="cell right">[[adDays.3.clicksRevenue]]</div>
-          <div class="cell right">[[adDays.4.clicksRevenue]]</div>
-          <div class="cell right">[[adDays.5.clicksRevenue]]</div>
-          <div class="cell right">[[adDays.6.clicksRevenue]]</div>
+          <div class="cell right">[[info.ads.revenue]]</div>
+          <div class="cell right">[[info.ads.newRevenue.today]]</div>
+          <div class="cell right">[[info.ads.newRevenue.yesterday]]</div>
+          <div class="cell right">[[info.ads.newRevenue.priorWeek]]</div>
+          <div class="cell right">[[info.ads.newRevenue.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader2">consumers</div>
-          <div class="cell right">[[adDays.0.consumers]]</div>
-          <div class="cell right">[[adDays.1.consumers]]</div>
-          <div class="cell right">[[adDays.2.consumers]]</div>
-          <div class="cell right">[[adDays.3.consumers]]</div>
-          <div class="cell right">[[adDays.4.consumers]]</div>
-          <div class="cell right">[[adDays.5.consumers]]</div>
-          <div class="cell right">[[adDays.6.consumers]]</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.ads.consumers.today]]</div>
+          <div class="cell right">[[info.ads.consumers.yesterday]]</div>
+          <div class="cell right">[[info.ads.consumers.priorWeek]]</div>
+          <div class="cell right">[[info.ads.consumers.priorMonth]]</div>
         </div>
         <div class="row">
           <div class="cell rowHeader2">advertisers</div>
-          <div class="cell right">[[adDays.0.advertisers]]</div>
-          <div class="cell right">[[adDays.1.advertisers]]</div>
-          <div class="cell right">[[adDays.2.advertisers]]</div>
-          <div class="cell right">[[adDays.3.advertisers]]</div>
-          <div class="cell right">[[adDays.4.advertisers]]</div>
-          <div class="cell right">[[adDays.5.advertisers]]</div>
-          <div class="cell right">[[adDays.6.advertisers]]</div>
+          <div class="cell right"></div>
+          <div class="cell right">[[info.ads.advertisers.today]]</div>
+          <div class="cell right">[[info.ads.advertisers.yesterday]]</div>
+          <div class="cell right">[[info.ads.advertisers.priorWeek]]</div>
+          <div class="cell right">[[info.ads.advertisers.priorMonth]]</div>
         </div>
-
       </div>
     </div>
   </template>
@@ -556,10 +279,7 @@
       static get is() { return 'admin-goals-view'; }
       static get properties() {
         return {
-          userDays: Array,
-          cardDays: Array,
-          paymentDays: Array,
-          adDays: Array
+          info: Object
         };
       }
 
@@ -582,312 +302,11 @@
       }
 
       _refresh() {
-        this.set('userDays', []);
-        this.set('cardDays', []);
-        this.set('paymentDays', []);
-        this.set('adDays', []);
+        this.set('info', {});
         $core.admin_getGoals().then((response) => {
-          this._refreshUsers(response);
-          this._refreshCards(response);
-          this._refreshPayments(response);
-          this._refreshAds(response);
+          this.set('info', response);
         });
       }
-
-      _refreshUsers(response) {
-        const days = [];
-        let baseDay;
-        let startingPeriodIndex = 0;
-        for (let i = 0; i < response.userBins.length; i++) {
-          const userDay = response.userBins[i];
-          if (userDay._id === 0) {
-            baseDay = userDay;
-            startingPeriodIndex++;
-          } else if (userDay._id > 0) {
-            while (userDay._id > response.periodsStarting[startingPeriodIndex]) {
-              const fillerDay = {
-                all: baseDay.newUsers,
-                withIdentity: baseDay.newUsersWithIdentity,
-                balance: 0,
-                balanceWithIdentity: 0
-              };
-              days.push(fillerDay);
-              startingPeriodIndex++;
-            }
-            const day = {
-              all: baseDay.newUsers + userDay.newUsers + " (+" + userDay.newUsers + ")",
-              withIdentity: baseDay.newUsersWithIdentity + userDay.newUsersWithIdentity + " (+" + userDay.newUsersWithIdentity + ")",
-              balance: userDay.totalBalance.toFixed(2),
-              balanceWithIdentity: userDay.totalBalanceWithIdentity.toFixed(2)
-            };
-            days.push(day);
-            baseDay.newUsers += userDay.newUsers;
-            baseDay.newUsersWithIdentity += userDay.newUsersWithIdentity;
-            startingPeriodIndex++;
-          }
-        }
-        while (startingPeriodIndex < response.periodsStarting.length) {
-          const fillerDay = {
-            all: baseDay.newUsers,
-            withIdentity: baseDay.newUsersWithIdentity,
-            balance: 0,
-            balanceWithIdentity: 0
-          };
-          days.push(fillerDay);
-          startingPeriodIndex++;
-        }
-        this.set('userDays', days.reverse());
-      }
-
-      _refreshCards(response) {
-        const days = [];
-        let baseDay;
-        let startingPeriodIndex = 0;
-        for (let i = 0; i < response.cardBins.length; i++) {
-          const newDay = response.cardBins[i];
-          if (newDay._id === 0) {
-            baseDay = newDay;
-            startingPeriodIndex++;
-          } else if (newDay._id > 0) {
-            while (newDay._id > response.periodsStarting[startingPeriodIndex]) {
-              const fillerDay = {
-                all: baseDay.total,
-                deleted: baseDay.deleted,
-                private: baseDay.private,
-                blocked: baseDay.blocked,
-                ads: baseDay.ads,
-                promoted: baseDay.promoted,
-                budget: Math.round(baseDay.budget),
-                spent: Math.round(baseDay.spent),
-                revenue: Math.round(baseDay.revenue),
-                refunds: baseDay.refunds
-              };
-              days.push(fillerDay);
-              startingPeriodIndex++;
-            }
-            const day = {
-              all: baseDay.total + newDay.total + " (+" + newDay.total + ")",
-              deleted: baseDay.deleted + newDay.deleted + " (+" + newDay.deleted + ")",
-              private: baseDay.private + newDay.private + " (+" + newDay.private + ")",
-              blocked: baseDay.blocked + newDay.blocked + " (+" + newDay.blocked + ")",
-              ads: baseDay.ads + newDay.ads + " (+" + newDay.ads + ")",
-              promoted: baseDay.promoted + newDay.promoted + " (+" + newDay.promoted + ")",
-              budget: Math.round(baseDay.budget + newDay.budget) + " (+" + Math.round(newDay.budget) + ")",
-              spent: Math.round(baseDay.spent + newDay.spent) + " (+" + Math.round(newDay.spent) + ")",
-              revenue: Math.round(baseDay.revenue + newDay.revenue) + " (+" + Math.round(newDay.revenue) + ")",
-              refunds: baseDay.refunds + newDay.refunds + " (+" + newDay.refunds + ")",
-            };
-            days.push(day);
-            baseDay.total += newDay.total;
-            baseDay.deleted += newDay.deleted;
-            baseDay.private += newDay.private;
-            baseDay.blocked += newDay.blocked;
-            baseDay.ads += newDay.ads;
-            baseDay.promoted += newDay.promoted;
-            baseDay.budget += newDay.budget;
-            baseDay.spent += newDay.spent;
-            baseDay.revenue += newDay.revenue;
-            baseDay.refunds += newDay.refunds;
-            startingPeriodIndex++;
-          }
-        }
-        while (startingPeriodIndex < response.periodsStarting.length) {
-          const fillerDay = {
-            all: baseDay.total,
-            deleted: baseDay.deleted,
-            private: baseDay.private,
-            blocked: baseDay.blocked,
-            ads: baseDay.ads,
-            promoted: baseDay.promoted,
-            budget: Math.round(baseDay.budget),
-            spent: Math.round(baseDay.spent),
-            revenue: Math.round(baseDay.revenue),
-            refunds: baseDay.refunds
-          };
-          days.push(fillerDay);
-          startingPeriodIndex++;
-        }
-        this.set('cardDays', days.reverse());
-      }
-
-      _refreshPayments(response) {
-        const days = [];
-        let baseDay;
-        let startingPeriodIndex = 0;
-        for (let i = 0; i < response.cardPaymentBins.length; i++) {
-          const newDay = response.cardPaymentBins[i];
-          if (newDay._id === 0) {
-            baseDay = newDay;
-            startingPeriodIndex++;
-          } else if (newDay._id > 0) {
-            while (newDay._id > response.periodsStarting[startingPeriodIndex]) {
-              const fillerDay = {
-                total: baseDay.total,
-                firstTime: baseDay.firstTime,
-                normal: baseDay.normal,
-                fan: baseDay.fan,
-                fraud: baseDay.fraud,
-                revenue: baseDay.revenue.toFixed(2),
-                weightedRevenue: baseDay.weightedRevenue.toFixed(2),
-                purchasers: 0,
-                sellers: 0
-              };
-              days.push(fillerDay);
-              startingPeriodIndex++;
-            }
-            const day = {
-              total: baseDay.total + newDay.total + " (+" + newDay.total + ")",
-              firstTime: baseDay.firstTime + newDay.firstTime + " (+" + newDay.firstTime + ")",
-              normal: baseDay.normal + newDay.normal + " (+" + newDay.normal + ")",
-              fan: baseDay.fan + newDay.fan + " (+" + newDay.fan + ")",
-              fraud: baseDay.fraud + newDay.fraud + " (+" + newDay.fraud + ")",
-              revenue: (baseDay.revenue + newDay.revenue).toFixed(2) + " (+" + newDay.revenue.toFixed(2) + ")",
-              weightedRevenue: (baseDay.weightedRevenue + newDay.weightedRevenue).toFixed(2) + " (+" + newDay.weightedRevenue.toFixed(2) + ")",
-              purchasers: newDay.purchasers,
-              sellers: newDay.sellers,
-            };
-            days.push(day);
-            baseDay.total += newDay.total;
-            baseDay.firstTime += newDay.firstTime;
-            baseDay.normal += newDay.normal;
-            baseDay.fan += newDay.fan;
-            baseDay.fraud += newDay.fraud;
-            baseDay.revenue += newDay.revenue;
-            baseDay.weightedRevenue += newDay.weightedRevenue;
-            startingPeriodIndex++;
-          }
-        }
-        while (startingPeriodIndex < response.periodsStarting.length) {
-          const fillerDay = {
-            total: baseDay.total,
-            firstTime: baseDay.firstTime,
-            normal: baseDay.normal,
-            fan: baseDay.fan,
-            fraud: baseDay.fraud,
-            revenue: baseDay.revenue.toFixed(2),
-            weightedRevenue: baseDay.weightedRevenue.toFixed(2),
-            purchasers: 0,
-            sellers: 0
-          };
-          days.push(fillerDay);
-          startingPeriodIndex++;
-        }
-        this.set('paymentDays', days.reverse());
-      }
-
-      _refreshAds(response) {
-        const days = [];
-        let baseDay;
-        let startingPeriodIndex = 0;
-        for (let i = 0; i < response.adSlotBins.length; i++) {
-          const newDay = response.adSlotBins[i];
-          if (newDay._id === 0) {
-            baseDay = newDay;
-            startingPeriodIndex++;
-          } else if (newDay._id > 0) {
-            if (!baseDay) {
-              baseDay = {
-                total: 0,
-                impressionAd: 0,
-                impressionContent: 0,
-                openPayment: 0,
-                clickPayment: 0,
-                announcement: 0,
-                impression: 0,
-                opened: 0,
-                openPaid: 0,
-                clicked: 0,
-                redemptionFailed: 0,
-                impressionsRevenue: 0,
-                opensRevenue: 0,
-                clicksRevenue: 0,
-                consumers: 0,
-                advertisers: 0
-              };
-            }
-            while (newDay._id > response.periodsStarting[startingPeriodIndex]) {
-              const fillerDay = {
-                total: baseDay.total,
-                impressionAd: baseDay.impressionAd,
-                impressionContent: baseDay.impressionContent,
-                openPayment: baseDay.openPayment,
-                clickPayment: baseDay.clickPayment,
-                announcement: baseDay.announcement,
-                impression: baseDay.impression,
-                opened: baseDay.opened,
-                openPaid: baseDay.openPaid,
-                clicked: baseDay.clicked,
-                redemptionFailed: baseDay.redemptionFailed,
-                impressionsRevenue: baseDay.impressionsRevenue.toFixed(2),
-                opensRevenue: baseDay.opensRevenue.toFixed(2),
-                clicksRevenue: baseDay.clicksRevenue.toFixed(2),
-                consumers: baseDay.consumers,
-                advertisers: baseDay.advertisers
-              };
-              days.push(fillerDay);
-              startingPeriodIndex++;
-            }
-            const day = {
-              total: baseDay.total + newDay.total + " (+" + newDay.total + ")",
-              impressionAd: baseDay.impressionAd + newDay.impressionAd + " (+" + newDay.impressionAd + ")",
-              impressionContent: baseDay.impressionContent + newDay.impressionContent + " (+" + newDay.impressionContent + ")",
-              openPayment: baseDay.openPayment + newDay.openPayment + " (+" + newDay.openPayment + ")",
-              clickPayment: baseDay.clickPayment + newDay.clickPayment + " (+" + newDay.clickPayment + ")",
-              announcement: baseDay.announcement + newDay.announcement + " (+" + newDay.announcement + ")",
-              impression: baseDay.impression + newDay.impression + " (+" + newDay.impression + ")",
-              opened: baseDay.opened + newDay.opened + " (+" + newDay.opened + ")",
-              openPaid: baseDay.openPaid + newDay.openPaid + " (+" + newDay.openPaid + ")",
-              clicked: baseDay.clicked + newDay.clicked + " (+" + newDay.clicked + ")",
-              redemptionFailed: baseDay.redemptionFailed + newDay.redemptionFailed + " (+" + newDay.redemptionFailed + ")",
-              impressionsRevenue: (baseDay.impressionsRevenue + newDay.impressionsRevenue).toFixed(2) + " (+" + newDay.impressionsRevenue.toFixed(2) + ")",
-              opensRevenue: (baseDay.opensRevenue + newDay.opensRevenue).toFixed(2) + " (+" + newDay.opensRevenue.toFixed(2) + ")",
-              clicksRevenue: (baseDay.clicksRevenue + newDay.clicksRevenue).toFixed(2) + " (+" + newDay.clicksRevenue.toFixed(2) + ")",
-              consumers: newDay.consumers,
-              advertisers: newDay.advertisers
-            };
-            days.push(day);
-            baseDay.total += newDay.total;
-            baseDay.impressionAd += newDay.impressionAd;
-            baseDay.impressionContent += newDay.impressionContent;
-            baseDay.openPayment += newDay.openPayment;
-            baseDay.clickPayment += newDay.clickPayment;
-            baseDay.announcement += newDay.announcement;
-            baseDay.impression += newDay.impression;
-            baseDay.opened += newDay.opened;
-            baseDay.openPaid += newDay.openPaid;
-            baseDay.clicked += newDay.clicked;
-            baseDay.redemptionFailed += newDay.redemptionFailed;
-            baseDay.impressionsRevenue += newDay.impressionsRevenue;
-            baseDay.opensRevenue += newDay.opensRevenue;
-            baseDay.clicksRevenue += newDay.clicksRevenue;
-            startingPeriodIndex++;
-          }
-        }
-        while (startingPeriodIndex < response.periodsStarting.length) {
-          const fillerDay = {
-            total: baseDay.total,
-            impressionAd: baseDay.impressionAd,
-            impressionContent: baseDay.impressionContent,
-            openPayment: baseDay.openPayment,
-            clickPayment: baseDay.clickPayment,
-            announcement: baseDay.announcement,
-            impression: baseDay.impression,
-            opened: baseDay.opened,
-            openPaid: baseDay.openPaid,
-            clicked: baseDay.clicked,
-            redemptionFailed: baseDay.redemptionFailed,
-            impressionsRevenue: baseDay.impressionsRevenue.toFixed(2),
-            opensRevenue: baseDay.opensRevenue.toFixed(2),
-            clicksRevenue: baseDay.clicksRevenue.toFixed(2),
-            consumers: 0,
-            advertisers: 0
-          };
-          days.push(fillerDay);
-          startingPeriodIndex++;
-        }
-        this.set('adDays', days.reverse());
-      }
-
     }
     window.customElements.define(AdminGoalsView.is, AdminGoalsView);
   </script>
