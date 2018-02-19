@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -29,6 +29,7 @@ export interface Signable {
 }
 
 export interface RegisterUserResponse extends RestResponseWithUserStatus {
+  id: string;
   interestRatePerMillisecond: number;
   subsidyRate: number;
   operatorTaxFraction: number;
@@ -117,6 +118,7 @@ export interface GetUserIdentityResponse extends RestResponse {
   emailConfirmed: boolean;
   encryptedPrivateKey: string;
   accountSettings: AccountSettings;
+  homeChannelId: string;
 }
 
 export interface AccountSettings {
@@ -221,6 +223,7 @@ export interface CardDescriptor {
     earnedFromAuthor: number;
     earnedFromReader: number;
     openFeeRefunded: boolean;
+    addedToHomeChannel: boolean;
   };
   state?: {
     user: CardState;
@@ -606,6 +609,18 @@ export interface AdminGetCardsResponse extends RestResponse {
   cards: AdminCardInfo[];
 }
 
+export interface AdminGetChannelsDetails extends Signable { }
+
+export interface AdminGetChannelsResponse extends RestResponse {
+  channels: AdminChannelInfo[];
+}
+
+export interface AdminChannelInfo {
+  channel: ChannelRecord;
+  descriptor: ChannelDescriptor;
+  owner: UserRecord;
+}
+
 export interface AdminCardInfo {
   descriptor: CardDescriptor;
   scoring: {
@@ -833,6 +848,14 @@ export interface AdminUpdateCardDetails extends Signable {
 
 export interface AdminUpdateCardResponse extends RestResponse { }
 
+export interface AdminUpdateChannelDetails extends Signable {
+  channelId: string;
+  featuredWeight: number;
+  listingWeight: number;
+}
+
+export interface AdminUpdateChannelResponse extends RestResponse { }
+
 export interface AdminGetWithdrawalsDetails extends Signable {
   limit: number;
 }
@@ -1024,3 +1047,29 @@ export interface ChannelInfoWithCards {
   channel: ChannelDescriptor;
   cards: CardDescriptor[];
 }
+
+export interface GetChannelCardDetails extends Signable {
+  channelId: string;
+  cardId: string;
+}
+
+export interface GetChannelCardResponse extends RestResponse {
+  info: ChannelCardInfo;
+}
+
+export interface ChannelCardInfo {
+  channelId: string;
+  cardId: string;
+  state: ChannelCardState;
+  cardPostedAt: number;
+  added: number;
+  removed: number;
+}
+
+export interface UpdateChannelCardDetails extends Signable {
+  channelId: string;
+  cardId: string;
+  includeInChannel: boolean;
+}
+
+export interface UpdateChannelCardResponse extends RestResponse { }

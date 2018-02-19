@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -1743,6 +1743,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         title: record.summary.title,
         text: record.summary.text,
       };
+      let channelCard: ChannelCardRecord;
+      if (user.homeChannelId && record.createdById !== user.id) {
+        channelCard = await db.findChannelCard(user.homeChannelId, record.id);
+      }
       const card: CardDescriptor = {
         id: record.id,
         postedAt: record.postedAt,
@@ -1788,7 +1792,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           paidToReader: userInfo ? userInfo.paidToReader : 0,
           earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
           earnedFromReader: userInfo ? userInfo.earnedFromReader : 0,
-          openFeeRefunded: userInfo ? userInfo.openFeeRefunded : false
+          openFeeRefunded: userInfo ? userInfo.openFeeRefunded : false,
+          addedToHomeChannel: channelCard ? true : false
         },
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,

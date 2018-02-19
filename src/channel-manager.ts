@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults, AdminGetChannelsDetails, AdminGetChannelsResponse, AdminChannelInfo, AdminUpdateChannelDetails, AdminUpdateChannelResponse, UpdateChannelCardDetails, UpdateChannelCardResponse, GetChannelCardDetails, GetChannelCardResponse, ChannelCardInfo } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -44,35 +44,43 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   async initialize2(): Promise<void> {
-    // Need to create channels for users if they don't already have one
-    const cursor = db.getUsersWithIdentity();
-    while (await cursor.hasNext()) {
-      const user = await cursor.next();
-      let channel = await db.findChannelByHandle(user.identity.handle);
-      if (!channel) {
-        channel = await this.createChannelForUser(user);
-        const cardCursor = await db.getCardsByAuthor(user.id);
-        while (await cardCursor.hasNext()) {
-          const card = await cardCursor.next();
-          console.log("Channel.initialize2:     Adding card to channel", channel.handle, card.summary.title);
-          await this.addCardToChannel(card, channel);
-          await db.incrementChannelStat(channel.id, "revenue", card.stats.revenue.value);
-        }
-        await cardCursor.close();
-      }
-    }
-    await cursor.close();
+    // // Need to create channels for users if they don't already have one
+    // const cursor = db.getUsersWithIdentity();
+    // while (await cursor.hasNext()) {
+    //   const user = await cursor.next();
+    //   let channel = await db.findChannelByHandle(user.identity.handle);
+    //   if (!channel) {
+    //     channel = await this.createChannelForUser(user);
+    //     const cardCursor = await db.getCardsByAuthor(user.id);
+    //     while (await cardCursor.hasNext()) {
+    //       const card = await cardCursor.next();
+    //       console.log("Channel.initialize2:     Adding card to channel", channel.handle, card.summary.title);
+    //       await this.addCardToChannel(card, channel);
+    //       await db.incrementChannelStat(channel.id, "revenue", card.stats.revenue.value);
+    //     }
+    //     await cardCursor.close();
+    //   }
+    // }
+    // await cursor.close();
 
-    const channelCursor = db.getChannelsWithoutFirstCard();
-    while (await channelCursor.hasNext()) {
-      const channel = await channelCursor.next();
-      const channelCard = await db.findChannelCardFirstByChannel(channel.id);
-      if (channelCard) {
-        await db.updateChannelFirstCardPosted(channel.id, channelCard.cardPostedAt);
-        console.log("Channel.initialize2: Updating channel firstCardPostedAt", channel.id);
-      }
+    // const channelCursor = db.getChannelsWithoutFirstCard();
+    // while (await channelCursor.hasNext()) {
+    //   const channel = await channelCursor.next();
+    //   const channelCard = await db.findChannelCardFirstByChannel(channel.id);
+    //   if (channelCard) {
+    //     await db.updateChannelFirstCardPosted(channel.id, channelCard.cardPostedAt);
+    //     console.log("Channel.initialize2: Updating channel firstCardPostedAt", channel.id);
+    //   }
+    // }
+    // await channelCursor.close();
+
+    const userCursor = db.getUsersMissingHomeChannel();
+    while (await userCursor.hasNext()) {
+      const user = await userCursor.next();
+      await this.ensureUserHomeChannel(user);
     }
-    await channelCursor.close();
+    await userCursor.close();
+
     setInterval(this.poll.bind(this), 1000 * 60 * 15);
   }
 
@@ -97,9 +105,19 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
-  async createChannelForUser(user: UserRecord): Promise<ChannelRecord> {
-    console.log("Channel.createChannelForUser: Creating channel for user", user.identity.handle);
+  async ensureUserHomeChannel(user: UserRecord): Promise<ChannelRecord> {
+    if (user.homeChannelId) {
+      return db.findChannelById(user.homeChannelId);
+    }
+    const channels = await db.findChannelsByOwnerId(user.id);
+    if (channels.length > 0) {
+      console.log("Channel.ensureUserHomeChannel: Using user homeChannelId", user.identity.handle);
+      await db.updateUserHomeChannel(user.id, channels[0].id);
+      return channels[0];
+    }
+    console.log("Channel.ensureUserHomeChannel: Creating channel for user", user.identity.handle);
     const channel = await db.insertChannel(user.identity.handle, user.identity.name, user.identity.location, user.id, null, null, null, null, 0, 0);
+    await db.updateUserHomeChannel(user.id, channel.id);
     return channel;
   }
 
@@ -121,6 +139,18 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     });
     this.app.post(this.urlManager.getDynamicUrl('report-channel-visit'), (request: Request, response: Response) => {
       void this.handleReportChannelVisit(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-channels'), (request: Request, response: Response) => {
+      void this.handleAdminGetChannels(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-update-channel'), (request: Request, response: Response) => {
+      void this.handleAdminUpdateChannel(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-channel-card'), (request: Request, response: Response) => {
+      void this.handleGetChannelCard(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('update-channel-card'), (request: Request, response: Response) => {
+      void this.handleUpdateChannelCard(request, response);
     });
   }
 
@@ -279,6 +309,77 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       response.json(registerResponse);
     } catch (err) {
       errorManager.error("ChannelManager.handleGetChannel: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminGetChannels(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetChannelsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      console.log("ChannelManager.admin-channels:", request.headers, requestBody.detailsObject);
+      const result: AdminGetChannelsResponse = {
+        serverVersion: SERVER_VERSION,
+        channels: []
+      };
+      const cursor = db.getChannels();
+      while (await cursor.hasNext()) {
+        const channel = await cursor.next();
+        const item: AdminChannelInfo = {
+          channel: channel,
+          descriptor: await this.populateChannelDescriptor(user, channel),
+          owner: await userManager.getUser(channel.ownerId, false)
+        };
+        result.channels.push(item);
+        if (result.channels.length > 500) {
+          break;
+        }
+      }
+      await cursor.close();
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleAdminGetChannels: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminUpdateChannel(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminUpdateChannelDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.channelId) {
+        response.status(400).send("Missing channelId");
+        return;
+      }
+      const channel = await db.findChannelById(requestBody.detailsObject.channelId);
+      if (!channel) {
+        response.status(404).send("No such channel");
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      console.log("ChannelManager.admin-channels:", request.headers, requestBody.detailsObject);
+      await db.updateChannelAdmin(requestBody.detailsObject.channelId, requestBody.detailsObject.featuredWeight || 0, requestBody.detailsObject.listingWeight || 0);
+      const result: AdminUpdateChannelResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleAdminUpdateChannel: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -565,6 +666,104 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
+  private async handleGetChannelCard(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetChannelCardDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      if (!requestBody.detailsObject.channelId || !requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing channel and/or card");
+        return;
+      }
+      const channel = await db.findChannelById(requestBody.detailsObject.channelId);
+      if (!channel || channel.state !== 'active') {
+        response.status(404).send("No such channel");
+        return;
+      }
+      const card = await db.findCardById(requestBody.detailsObject.cardId, false);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      console.log("ChannelManager.get-channel-card:", request.headers, requestBody.detailsObject);
+      const channelCard = await db.findChannelCard(channel.id, card.id, true);
+      const info: ChannelCardInfo = {
+        channelId: channel.id,
+        cardId: card.id,
+        state: channelCard ? channelCard.state : 'inactive',
+        cardPostedAt: channelCard ? channelCard.cardPostedAt : 0,
+        added: channelCard ? channelCard.added : 0,
+        removed: channelCard ? channelCard.removed : 0
+      };
+      const result: GetChannelCardResponse = {
+        serverVersion: SERVER_VERSION,
+        info: info
+      };
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleGetChannelCard: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleUpdateChannelCard(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<UpdateChannelCardDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      if (!requestBody.detailsObject.channelId || !requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing channel and/or card");
+        return;
+      }
+      const channel = await db.findChannelById(requestBody.detailsObject.channelId);
+      if (!channel || channel.state !== 'active') {
+        response.status(404).send("No such channel");
+        return;
+      }
+      const card = await db.findCardById(requestBody.detailsObject.cardId, false);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      if (channel.ownerId !== user.id) {
+        response.status(401).send("You are not the channel owner");
+        return;
+      }
+      if (card.createdById === channel.ownerId) {
+        response.status(400).send("This card cannot be moved within this channel");
+        return;
+      }
+      console.log("ChannelManager.update-channel-card:", request.headers, requestBody.detailsObject);
+      const channelCard = await db.ensureChannelCard(channel.id, card.id);
+      if (channelCard.state === 'active' && requestBody.detailsObject.includeInChannel) {
+        response.status(400).send("This card is already contained in this channel");
+        return;
+      }
+      if (channelCard.state === 'inactive' && !requestBody.detailsObject.includeInChannel) {
+        response.status(400).send("This card is not contained in this channel");
+        return;
+      }
+      if (requestBody.detailsObject.includeInChannel) {
+        await this.addCardToChannel(card, channel);
+      } else {
+        await this.removeCardFromChannel(card, channel);
+      }
+      const result: UpdateChannelCardResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleUpdateChannelCard: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleReportChannelVisit(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<ReportChannelVisitDetails>;
@@ -604,18 +803,13 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {
-    const channel = await this.getUserDefaultChannel(user);
+    const channel = await this.ensureUserHomeChannel(user);
     await this.addCardToChannel(card, channel);
   }
 
   async addCardToChannel(card: CardRecord, channel: ChannelRecord): Promise<void> {
-    const channelCard = await db.findChannelCard(channel.id, card.id);
-    let incrementChannelCardCount = false;
-    if (!channelCard) {
-      await db.upsertChannelCard(channel.id, card.id, card.postedAt);
-      incrementChannelCardCount = true;
-    }
-    if (incrementChannelCardCount) {
+    const channelCard = await db.ensureChannelCard(channel.id, card.id);
+    if (channelCard.state === 'inactive') {
       await db.incrementChannelStat(channel.id, "cards", 1);
       if (channel.latestCardPosted < card.postedAt) {
         await db.updateChannelLatestCardPosted(channel.id, card.postedAt);
@@ -623,10 +817,19 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       if (channel.firstCardPosted === 0 || channel.firstCardPosted > card.postedAt) {
         await db.updateChannelFirstCardPosted(channel.id, card.postedAt);
       }
+      await db.addChannelCard(channel.id, card.id, card.postedAt);
     }
     await db.updateChannelUsersForLatestUpdate(channel.id, card.postedAt);
     await this.updateChannelKeywordsForCard(channel, card.keywords, card.postedAt);
     await this.notifySubscribers(card, channel);
+  }
+
+  async removeCardFromChannel(card: CardRecord, channel: ChannelRecord): Promise<void> {
+    const channelCard = await db.ensureChannelCard(channel.id, card.id);
+    if (channelCard.state === 'active') {
+      await db.incrementChannelStat(channel.id, "cards", -1);
+      await db.removeChannelCard(channel.id, card.id);
+    }
   }
 
   private async updateChannelKeywordsForCard(channel: ChannelRecord, keywords: string[], cardPostedAt: number): Promise<void> {
@@ -781,12 +984,6 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     result += '</a>\n';
     result += '</div>\n';
     return result;
-  }
-
-  async getUserDefaultChannel(user: UserRecord): Promise<ChannelRecord> {
-    const channels = await db.findChannelsByOwnerId(user.id);
-    const channel = channels.length === 0 ? await this.createChannelForUser(user) : channels[0];
-    return channel;
   }
 
   async onChannelCardTransaction(transaction: BankTransactionDetails): Promise<void> {

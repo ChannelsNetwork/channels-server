@@ -41,6 +41,7 @@ export interface UserRecord {
     disallowContentNotifications?: boolean;
     lastContentNotification?: number;
   };
+  homeChannelId: string;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -632,9 +633,13 @@ export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked"
 export interface ChannelCardRecord {
   channelId: string;
   cardId: string;
+  state: ChannelCardState;
   cardPostedAt: number;
   added: number;
+  removed: number;
 }
+
+export type ChannelCardState = "active" | "inactive";
 
 export interface UserRegistrationRecord {
   userId: string;

@@ -600,6 +600,17 @@ class RestUtils {
     };
   }
 
+  static admin_updateChannel(address, fingerprint, channelId, featuredWeight, listingWeight) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      featuredWeight: featuredWeight,
+      listingWeight: listingWeight
+    };
+  }
+
   static admin_getGoals(address, fingerprint) {
     return {
       address: address,
@@ -638,6 +649,14 @@ class RestUtils {
   }
 
   static admin_getPublishers(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static admin_getChannels(address, fingerprint) {
     return {
       address: address,
       fingerprint: fingerprint,
@@ -782,6 +801,27 @@ class RestUtils {
       timestamp: RestUtils.now(),
       maxSubscribedCards: maxSubscribedCards,
       maxCardsPerChannel: maxCardsPerChannel
+    };
+  }
+
+  static getChannelCard(address, fingerprint, channelId, cardId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      cardId: cardId
+    };
+  }
+
+  static updateChannelCard(address, fingerprint, channelId, cardId, includeInChannel) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      cardId: cardId,
+      includeInChannel: includeInChannel
     };
   }
 

@@ -1,0 +1,262 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+<link rel="import" href="admin-edit-channel-dialog.html">
+
+<dom-module id="admin-channels-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 0 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <h1>Channels</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">id</div>
+          <div class="headerCell">Handle</div>
+          <div class="headerCell">Name</div>
+          <div class="headerCell">Owner</div>
+          <div class="headerCell">Owner Name</div>
+          <div class="headerCell toggle" on-click="_onCreatedClick">Created</div>
+          <div class="headerCell toggle" on-click="_onLatestClick">Last Card</div>
+          <div class="headerCell">First Card</div>
+          <div class="headerCell right">Cards</div>
+          <div class="headerCell right toggle" on-click="_onSubscribersClick">Subscribers</div>
+          <div class="headerCell right toggle" on-click="_onRevenueClick">Revenue</div>
+          <div class="headerCell center toggle" on-click="_onFeaturedClick">Featured</div>
+          <div class="headerCell center toggle" on-click="_onListingClick">Listing</div>
+          <div class="headerCell"></div>
+        </div>
+        <template is="dom-repeat" items="[[channels]]">
+          <div class="row">
+            <div class="cell">[[item.id]]</div>
+            <div class="cell">
+              <a href="[[item.url]]">[[item.handle]]</a>
+            </div>
+            <div class="cell">[[item.name]]</div>
+            <div class="cell">[[item.owner]]</div>
+            <div class="cell">[[item.ownerName]]</div>
+            <div class="cell">[[item.created]]</div>
+            <div class="cell">[[item.latestCard]]</div>
+            <div class="cell">[[item.firstCard]]</div>
+            <div class="cell right">[[item.cards]]</div>
+            <div class="cell right">[[item.subscribers]]</div>
+            <div class="cell right">[[item.revenue]]</div>
+            <div class="cell center">[[item.featured]]</div>
+            <div class="cell center">[[item.listing]]</div>
+            <div class="cell center toggle" on-click="_onEdit">edit</div>
+          </div>
+        </template>
+      </div>
+      <admin-edit-channel-dialog id="editDialog"></admin-edit-channel-dialog>
+    </div>
+  </template>
+  <script>
+    class AdminChannelsView extends Polymer.Element {
+      static get is() { return 'admin-channels-view'; }
+      static get properties() {
+        return {
+          channels: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('channels', []);
+        $core.admin_getChannels().then((response) => {
+          const channels = [];
+          for (const channelInfo of response.channels) {
+            const channel = channelInfo.descriptor;
+            const record = channelInfo.channel;
+            const owner = channelInfo.owner;
+            channels.push({
+              info: channelInfo,
+              id: channel.id,
+              url: "/channel/" + channel.handle,
+              handle: channel.handle,
+              name: channel.name,
+              owner: owner.identity.handle,
+              ownerName: owner.identity.name,
+              created: this._displayTimestamp(channel.created),
+              latestCard: this._displayTimestamp(record.latestCardPosted),
+              firstCard: this._displayTimestamp(record.firstCardPosted),
+              cards: channel.stats.cards,
+              subscribers: channel.stats.subscribers,
+              revenue: channel.stats.revenue ? channel.stats.revenue.toFixed(2) : "",
+              featured: record.featuredWeight ? record.featuredWeight : "",
+              listing: record.listingWeight ? record.listingWeight : ""
+            });
+          }
+          this.set('channels', channels);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onClick(event) {
+        $router.goto('/channel/' + event.model.item.handle);
+      }
+
+      _onEdit(event) {
+        this.$.editDialog.show(event.model.item.info.channel).then((result) => {
+          if (result) {
+            this._refresh();
+          }
+        });
+      }
+
+      _onCreatedClick() {
+        const newItems = this.channels;
+        this.set('channels', []);
+        newItems.sort((a, b) => {
+          return b.info.descriptor.created - a.info.descriptor.created;
+        });
+        this.set('channels', newItems);
+      }
+
+      _onLatestClick() {
+        const newItems = this.channels;
+        this.set('channels', []);
+        newItems.sort((a, b) => {
+          return b.info.channel.latestCardPosted - a.info.channel.latestCardPosted;
+        });
+        this.set('channels', newItems);
+      }
+
+      _onSubscribersClick() {
+        const newItems = this.channels;
+        this.set('channels', []);
+        newItems.sort((a, b) => {
+          return b.info.descriptor.stats.subscribers - a.info.descriptor.stats.subscribers;
+        });
+        this.set('channels', newItems);
+      }
+
+      _onRevenueClick() {
+        const newItems = this.channels;
+        this.set('channels', []);
+        newItems.sort((a, b) => {
+          return b.info.descriptor.stats.revenue - a.info.descriptor.stats.revenue;
+        });
+        this.set('channels', newItems);
+      }
+
+      _onFeaturedClick() {
+        const newItems = this.channels;
+        this.set('channels', []);
+        newItems.sort((a, b) => {
+          return b.info.channel.featuredWeight - a.info.channel.featuredWeight;
+        });
+        this.set('channels', newItems);
+      }
+
+      _onListingClick() {
+        const newItems = this.channels;
+        this.set('channels', []);
+        newItems.sort((a, b) => {
+          return b.info.channel.listingWeight - a.info.channel.listingWeight;
+        });
+        this.set('channels', newItems);
+      }
+
+    }
+    window.customElements.define(AdminChannelsView.is, AdminChannelsView);
+  </script>
+</dom-module>

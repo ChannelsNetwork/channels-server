@@ -612,27 +612,27 @@ export class FeedManager implements Initializable, RestServer {
     }
     // Taking one less than count from feed cards, because we want the last card on the page to always
     // be based on score for the purpose of getting subsequent cards based on score
-    const feedCards = await this.getCardsInFeed(request, user, count - 1, null, Date.now() - RECOMMENDED_FEED_CARD_MAX_AGE);
+    // const feedCards = await this.getCardsInFeed(request, user, count - 1, null, Date.now() - RECOMMENDED_FEED_CARD_MAX_AGE);
     const cards: CardRecord[] = [];
     const cardIds: string[] = [];
-    for (const feedCard of feedCards) {
-      if (feedCard.curation && feedCard.curation.block && feedCard.createdById !== user.id) {
-        continue;
-      }
-      if (feedCard.pricing.openPayment > 0 || (feedCard.pricing.promotionFee > 0 && feedCard.pricing.openFeeUnits === 0)) {
-        continue;  // exclude cards that pay you appearing in your feed just because you subscribe to that channel
-      }
-      if (feedCard.stats && feedCard.stats.reports && feedCard.stats.reports.value > 0 && (!feedCard.curation || !feedCard.curation.overrideReports)) {
-        continue;  // exclude cards that have been reported and not overridden by an admin
-      }
-      cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
-      if (!afterCardId) {  // Only include subscribed cards on first page of results
-        const userCard = await db.findUserCardInfo(user.id, feedCard.id);
-        if (!userCard || !userCard.lastOpened) {
-          cards.push(feedCard);
-        }
-      }
-    }
+    // for (const feedCard of feedCards) {
+    //   if (feedCard.curation && feedCard.curation.block && feedCard.createdById !== user.id) {
+    //     continue;
+    //   }
+    //   if (feedCard.pricing.openPayment > 0 || (feedCard.pricing.promotionFee > 0 && feedCard.pricing.openFeeUnits === 0)) {
+    //     continue;  // exclude cards that pay you appearing in your feed just because you subscribe to that channel
+    //   }
+    //   if (feedCard.stats && feedCard.stats.reports && feedCard.stats.reports.value > 0 && (!feedCard.curation || !feedCard.curation.overrideReports)) {
+    //     continue;  // exclude cards that have been reported and not overridden by an admin
+    //   }
+    //   cardIds.push(feedCard.id);  // Never want to allow this card to show up again (based on score)
+    //   if (!afterCardId) {  // Only include subscribed cards on first page of results
+    //     const userCard = await db.findUserCardInfo(user.id, feedCard.id);
+    //     if (!userCard || !userCard.lastOpened) {
+    //       cards.push(feedCard);
+    //     }
+    //   }
+    // }
 
     if (cards.length < count) {
       const authorIds: string[] = [];
@@ -1446,7 +1446,7 @@ export class FeedManager implements Initializable, RestServer {
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, null, null, null, null, null, null, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, null, null, null, null, null, null, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       fingerprint: null,
