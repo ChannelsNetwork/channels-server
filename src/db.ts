@@ -4,11 +4,12 @@ import * as uuid from "uuid";
 import { configuration } from "./configuration";
 import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor } from "./interfaces/rest-services";
+import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 import { errorManager } from "./error-manager";
 import { priceRegulator } from "./price-regulator";
+import * as moment from "moment-timezone";
 
 const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
 const MAX_PAYOUT_PER_BASE_FEE_PERIOD = 500;
@@ -1305,8 +1306,8 @@ export class Database {
     return this.cards.find<CardRecord>({ createdById: userId }, { searchText: 0 });
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean): Promise<CardRecord[]> {
-    const query: any = { state: "active" };
+  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean, excludeDeleted: boolean): Promise<CardRecord[]> {
+    const query: any = excludeDeleted ? { state: "active" } : {};
     if (excludeBlocked) {
       query["curation.block"] = false;
     }
@@ -2033,11 +2034,27 @@ export class Database {
     });
   }
 
-  async aggregateUserActionPaymentsForAuthor(authorId: string): Promise<AggregatedUserActionPaymentInfo[]> {
+  async aggregateUserActionPaymentsForAuthor(authorId: string, since: number): Promise<AggregatedUserActionPaymentInfo[]> {
+    const query: any = { action: "pay", authorId: authorId };
+    if (since) {
+      query.at = { $gt: since };
+    }
     return this.userCardActions.aggregate([
-      { $match: { action: "pay", authorId: authorId } },
+      { $match: query },
       { $group: { _id: "$payment.category", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
     ]).toArray();
+  }
+
+  async countUserActionPaymentsForAuthor(authorId: string, since: number): Promise<AggregatedUserActionPaymentInfo> {
+    const query: any = { action: "pay", authorId: authorId };
+    if (since) {
+      query.at = { $gt: since };
+    }
+    const result: any[] = await this.userCardActions.aggregate([
+      { $match: query },
+      { $group: { _id: "all", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
+    ]).toArray();
+    return result[0];
   }
 
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {
@@ -2872,11 +2889,665 @@ export class Database {
     }
     await this.adSlots.updateOne({ id: id }, { $set: update });
   }
+
+  async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {
+    return this.users.aggregate<BinnedUserData>([
+      { $match: { type: 'normal', admin: false } },
+      {
+        $project: {
+          added: "$added",
+          balance: { $max: [{ $subtract: ["$balance", 5] }, 0] },
+          withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } },
+          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "$added"] }, 43200000] }, then: 1, else: 0 } },
+          publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
+          storage: "$storage"
+        }
+      },
+
+      {
+        $bucket: {
+          groupBy: "$added",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            newUsers: { $sum: 1 },
+            newUsersWithIdentity: { $sum: "$withIdentity" },
+            totalBalance: { $sum: "$balance" },
+            totalBalanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } },
+            returning: { $sum: "$returning" },
+            returningWithIdentity: { $sum: { $multiply: ["$withIdentity", "$returning"] } },
+            publishers: { $sum: "$publisher" },
+            storage: { $sum: "$storage" }
+          }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binCardsByDate(periodsStarting: number[]): Promise<BinnedCardData[]> {
+    return this.cards.aggregate<BinnedCardData>([
+      { $match: { type: "normal" } },
+      {
+        $project: {
+          postedAt: "$postedAt",
+          deleted: { $cond: { if: { $eq: ["$state", "active"] }, then: 0, else: 1 } },
+          private: { $cond: { if: "$private", then: 1, else: 0 } },
+          blocked: { $cond: { if: "$curation.block", then: 1, else: 0 } },
+          ad: { $cond: { if: { $eq: ["$pricing.openFeeUnits", 0] }, then: 1, else: 0 } },
+          promoted: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: ["$pricing.openFeeUnits", 0] },
+                  { $gt: ["$pricing.promotionFee", 0] }
+                ]
+              },
+              then: 1,
+              else: 0
+            }
+          },
+          budget: "$budget.amount",
+          spent: "$budget.spent",
+          revenue: "$stats.revenue.value",
+          refunds: "$stats.refunds.value",
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$postedAt",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            deleted: { $sum: "$deleted" },
+            private: { $sum: "$private" },
+            blocked: { $sum: "$blocked" },
+            ads: { $sum: "$ad" },
+            promoted: { $sum: "$promoted" },
+            budget: { $sum: "$budget" },
+            spent: { $sum: "$spent" },
+            revenue: { $sum: "$revenue" },
+            refunds: { $sum: "$refunds" }
+          }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binCardPayments(periodsStarting: number[]): Promise<BinnedPaymentData[]> {
+    return this.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $project: {
+          at: "$at",
+          firstTime: { $cond: { if: { $eq: ["$payment.category", "first"] }, then: 0, else: 1 } },
+          normal: { $cond: { if: { $eq: ["$payment.category", "normal"] }, then: 0, else: 1 } },
+          fan: { $cond: { if: { $eq: ["$payment.category", "fan"] }, then: 0, else: 1 } },
+          fraud: { $cond: { if: { $eq: ["$payment.category", "fraud"] }, then: 0, else: 1 } },
+          amount: "$payment.amount",
+          weightedRevenue: "$payment.weightedRevenue",
+          userId: "$userId",
+          authorId: "$authorId"
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            firstTime: { $sum: "$firstTime" },
+            normal: { $sum: "$normal" },
+            fan: { $sum: "$fan" },
+            fraud: { $sum: "$fraud" },
+            revenue: { $sum: "$amount" },
+            weightedRevenue: { $sum: "$weightedRevenue" },
+            purchasers: { $addToSet: "$userId" },
+            sellers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          total: "$total",
+          firstTime: "$firstTime",
+          normal: "$normal",
+          fan: "$fan",
+          fraud: "$fraud",
+          revenue: "$revenue",
+          weightedRevenue: "$weightedRevenue",
+          purchasers: { $size: "$purchasers" },
+          sellers: { $size: "$sellers" }
+        }
+      }
+    ]).toArray();
+  }
+
+  async binAdSlots(periodsStarting: number[]): Promise<BinnedAdSlotData[]> {
+    return this.adSlots.aggregate([
+      { $match: { status: { $ne: "pending" } } },
+      {
+        $project: {
+          created: "$created",
+          impressionAd: { $cond: { if: { $eq: ["$type", "impression-ad"] }, then: 1, else: 0 } },
+          impressionContent: { $cond: { if: { $eq: ["$type", "impression-content"] }, then: 1, else: 0 } },
+          openPayment: { $cond: { if: { $eq: ["$type", "open-payment"] }, then: 1, else: 0 } },
+          clickPayment: { $cond: { if: { $eq: ["$type", "click-payment"] }, then: 1, else: 0 } },
+          announcement: { $cond: { if: { $eq: ["$type", "announcement"] }, then: 1, else: 0 } },
+          impression: { $cond: { if: { $eq: ["$status", "impression"] }, then: 1, else: 0 } },
+          opened: { $cond: { if: { $eq: ["$status", "opened"] }, then: 1, else: 0 } },
+          openPaid: { $cond: { if: { $eq: ["$status", "open-paid"] }, then: 1, else: 0 } },
+          clicked: { $cond: { if: { $eq: ["$status", "clicked"] }, then: 1, else: 0 } },
+          redemptionFailed: { $cond: { if: { $eq: ["$status", "redemption-failed"] }, then: 1, else: 0 } },
+          impressionsAmount: { $cond: { if: { $and: [{ $eq: ["$status", "impression"] }, "$redeemed"] }, then: "$amount", else: 0 } },
+          opensAmount: { $cond: { if: { $and: [{ $eq: ["$status", "open-paid"] }, "$redeemed"] }, then: "$amount", else: 0 } },
+          clicksAmount: { $cond: { if: { $and: [{ $eq: ["$status", "clicked"] }, "$redeemed"] }, then: "$amount", else: 0 } },
+          userId: "$userId",
+          authorId: "$authorId"
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$created",
+          boundaries: periodsStarting,
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            impressionAd: { $sum: "$impressionAd" },
+            impressionContent: { $sum: "$impressionContent" },
+            openPayment: { $sum: "$openPayment" },
+            clickPayment: { $sum: "$clickPayment" },
+            announcement: { $sum: "$announcement" },
+            impression: { $sum: "$impression" },
+            opened: { $sum: "$opened" },
+            openPaid: { $sum: "$openPaid" },
+            clicked: { $sum: "$clicked" },
+            redemptionFailed: { $sum: "$redemptionFailed" },
+            impressionsRevenue: { $sum: "$impressionsAmount" },
+            opensRevenue: { $sum: "$opensAmount" },
+            clicksRevenue: { $sum: "$clicksAmount" },
+            consumers: { $addToSet: "$userId" },
+            advertisers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          total: "$total",
+          impressionAd: "$impressionAd",
+          impressionContent: "$impressionContent",
+          openPayment: "$openPayment",
+          clickPayment: "$clickPayment",
+          announcement: "$announcement",
+          impression: "$impression",
+          opened: "$opened",
+          openPaid: "$openPaid",
+          clicked: "$clicked",
+          redemptionFailed: "$redemptionFailed",
+          impressionsRevenue: "$impressionsRevenue",
+          opensRevenue: "$opensRevenue",
+          clicksRevenue: "$clicksRevenue",
+          consumers: { $size: "$consumers" },
+          advertisers: { $size: "$advertisers" }
+        }
+      }
+    ]).toArray();
+  }
+
+  async aggregateUserStats(): Promise<AdminUserStats> {
+    const result: AdminUserStats = {
+      total: 0,
+      newUsers: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newUsersWithIdentity: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      totalWithIdentity: 0,
+      totalStaleWithIdentity: 0,
+      excessBalance: 0
+    };
+    const lastWeek = Date.now() - 1000 * 60 * 60 * 24 * 7;
+    const twoWeeksAgo = Date.now() - 1000 * 60 * 60 * 24 * 14;
+    const totals: any = await this.users.aggregate([
+      {
+        $group: {
+          _id: "all",
+          total: { $sum: 1 },
+          withIdentity: { $sum: { $cond: { if: { $gt: ["$identity.handle", null] }, then: 1, else: 0 } } },
+          staleWithIdentity: {
+            $sum: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $gt: ["$identity.handle", null] },
+                    { $lt: ["$lastContact", twoWeeksAgo] }
+                  ]
+                },
+                then: 1,
+                else: 0
+              }
+            },
+          },
+          excessBalance: { $sum: { $max: [0, { $subtract: ["$balance", 5] }] } },
+        }
+      }
+    ]).toArray();
+    result.total = totals[0].total;
+    result.totalWithIdentity = totals[0].withIdentity;
+    result.totalStaleWithIdentity = totals[0].staleWithIdentity;
+    result.excessBalance = Utils.roundToDecimal(totals[0].excessBalance, 2);
+    const now = Date.now() + 1000 * 60;
+    const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
+    const yesterday = moment(midnightToday).subtract(1, 'd');
+    const previousWeek = moment(yesterday).subtract(7, 'd');
+    const previousMonth = moment(previousWeek).subtract(30, 'd');
+    const buckets: number[] = [+previousMonth, +previousWeek, +yesterday, +midnightToday, now];
+    const newUsersInfo: any = await this.users.aggregate([
+      { $match: { added: { $gt: +previousMonth } } },
+      {
+        $bucket: {
+          groupBy: "$added",
+          boundaries: buckets,
+          default: -1,
+          output: {
+            newUsers: { $sum: 1 },
+            newUsersWithIdentity: { $sum: { $cond: { if: { $gt: ["$identity.handle", null] }, then: 1, else: 0 } } },
+          }
+        }
+      }
+    ]).toArray();
+    for (const item of newUsersInfo) {
+      if (item._id === +midnightToday) {
+        result.newUsers.today = item.newUsers;
+        result.newUsersWithIdentity.today = item.newUsersWithIdentity;
+      } else if (item._id === +yesterday) {
+        result.newUsers.yesterday = item.newUsers;
+        result.newUsersWithIdentity.yesterday = item.newUsersWithIdentity;
+      } else if (item._id === +previousWeek) {
+        result.newUsers.priorWeek = item.newUsers;
+        result.newUsersWithIdentity.priorWeek = item.newUsersWithIdentity;
+      } else if (item._id === +previousMonth) {
+        result.newUsers.priorMonth = item.newUsers;
+        result.newUsersWithIdentity.priorMonth = item.newUsersWithIdentity;
+      }
+    }
+    return result;
+  }
+
+  async aggregateNewUserStats(): Promise<AdminActiveUserStats> {
+    const now = Date.now() + 1000 * 60;
+    const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
+    const yesterday = moment(midnightToday).subtract(1, 'd');
+    const previousWeek = moment(yesterday).subtract(7, 'd');
+    const previousMonth = moment(previousWeek).subtract(30, 'd');
+    const buckets: number[] = [+previousMonth, +previousWeek, +yesterday, +midnightToday, now];
+    const results = await this.userRegistrations.aggregate([
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: buckets,
+          default: -1,
+          output: {
+            count: { $sum: 1 },
+            userIds: { $addToSet: "$userId" }
+          }
+        }
+      },
+      { $lookup: { from: "users", localField: "userIds", foreignField: "id", as: "user" } },
+      { $unwind: "$user" },
+      {
+        $project: {
+          userId: "$user.id",
+          withIdentity: { $cond: { if: { $gt: ["$user.identity.handle", null] }, then: 1, else: 0 } },
+          returning: {
+            $cond: {
+              if: {
+                $gt: [
+                  { $subtract: ["$user.lastContact", "$user.added"] },
+                  43200000
+                ]
+              },
+              then: 1,
+              else: 0
+            }
+          },
+          returningWithIdentity: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: [{ $subtract: ["$user.lastContact", "$user.added"] }, 43200000] },
+                  { $gt: ["$user.identity.handle", null] }]
+              },
+              then: 1,
+              else: 0
+            }
+          }
+        }
+      },
+      { $group: { _id: "$_id", users: { $sum: 1 }, withIdentity: { $sum: "$withIdentity" }, returning: { $sum: "$returning" }, returningWithIdentity: { $sum: "$returningWithIdentity" } } }
+    ]).toArray();
+    const result: AdminActiveUserStats = {
+      total: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      withIdentity: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      returning: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      returningWithIdentity: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 }
+    };
+    for (const item of results) {
+      if (item._id === +midnightToday) {
+        result.total.today = item.users;
+        result.withIdentity.today = item.withIdentity;
+        result.returning.today = item.returning;
+        result.returningWithIdentity.today = item.returningWithIdentity;
+      } else if (item._id === +yesterday) {
+        result.total.yesterday = item.users;
+        result.withIdentity.yesterday = item.withIdentity;
+        result.returning.yesterday = item.returning;
+        result.returningWithIdentity.yesterday = item.returningWithIdentity;
+      } else if (item._id === +previousWeek) {
+        result.total.priorWeek = item.users;
+        result.withIdentity.priorWeek = item.withIdentity;
+        result.returning.priorWeek = item.returning;
+        result.returningWithIdentity.priorWeek = item.returningWithIdentity;
+      } else if (item._id === +previousMonth) {
+        result.total.priorMonth = item.users;
+        result.withIdentity.priorMonth = item.withIdentity;
+        result.returning.priorMonth = item.returning;
+        result.returningWithIdentity.priorMonth = item.returningWithIdentity;
+      }
+    }
+    return result;
+  }
+
+  async aggregateCardStats(): Promise<AdminCardStats> {
+    const info = await this.cards.aggregate([
+      {
+        $group: {
+          _id: "all",
+          total: { $sum: 1 },
+          budget: { $sum: "$budget.amount" },
+          spent: { $sum: "$budget.spent" },
+          revenue: { $sum: "$stats.revenue.value" }
+        }
+      }
+    ]).toArray();
+    const result: AdminCardStats = {
+      total: info[0].total,
+      budget: Utils.roundToDecimal(info[0].budget, 2),
+      spent: Utils.roundToDecimal(info[0].spent, 2),
+      revenue: Utils.roundToDecimal(info[0].revenue, 2),
+      newCards: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 }
+    };
+    const now = Date.now() + 1000 * 60;
+    const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
+    const yesterday = moment(midnightToday).subtract(1, 'd');
+    const previousWeek = moment(yesterday).subtract(7, 'd');
+    const previousMonth = moment(previousWeek).subtract(30, 'd');
+    const buckets: number[] = [+previousMonth, +previousWeek, +yesterday, +midnightToday, now];
+    const results = await this.cards.aggregate([
+      {
+        $bucket: {
+          groupBy: "$postedAt",
+          boundaries: buckets,
+          default: -1,
+          output: {
+            count: { $sum: 1 }
+          }
+        }
+      }
+    ]).toArray();
+    for (const item of results) {
+      if (item._id === +midnightToday) {
+        result.newCards.today = item.count;
+      } else if (item._id === +yesterday) {
+        result.newCards.yesterday = item.count;
+      } else if (item._id === +previousWeek) {
+        result.newCards.priorWeek = item.count;
+      } else if (item._id === +previousMonth) {
+        result.newCards.priorMonth = item.count;
+      }
+    }
+    return result;
+  }
+
+  async aggregatePurchaseStats(): Promise<AdminPurchaseStats> {
+    const info = await this.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $group: {
+          _id: "all",
+          total: { $sum: 1 },
+          totalRevenue: { $sum: "$payment.amount" },
+          totalFraud: { $sum: { $cond: { if: { $eq: ["$payment.category", "fraud"] }, then: 1, else: 0 } } },
+          totalFirstTime: { $sum: { $cond: { if: { $eq: ["$payment.category", "first"] }, then: 1, else: 0 } } },
+        }
+      }
+    ]).toArray();
+    const result: AdminPurchaseStats = {
+      total: info[0].total,
+      totalRevenue: Utils.roundToDecimal(info[0].totalRevenue, 2),
+      totalFirstTime: info[0].totalFirstTime,
+      totalFraud: info[0].totalFraud,
+      newPurchases: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newRevenue: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newWeightedRevenue: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newFirstTime: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      fraud: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      purchasers: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      sellers: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+    };
+    const now = Date.now() + 1000 * 60;
+    const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
+    const yesterday = moment(midnightToday).subtract(1, 'd');
+    const previousWeek = moment(yesterday).subtract(7, 'd');
+    const previousMonth = moment(previousWeek).subtract(30, 'd');
+    const buckets: number[] = [+previousMonth, +previousWeek, +yesterday, +midnightToday, now];
+    const results = await this.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: buckets,
+          default: -1,
+          output: {
+            purchases: { $sum: 1 },
+            revenue: { $sum: "$payment.amount" },
+            weightedRevenue: { $sum: "$payment.weightedRevenue" },
+            fraud: { $sum: { $cond: { if: { $eq: ["$payment.category", "fraud"] }, then: 1, else: 0 } } },
+            firstTime: { $sum: { $cond: { if: { $eq: ["$payment.category", "first"] }, then: 1, else: 0 } } },
+            purchasers: { $addToSet: "$userId" },
+            sellers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          purchases: "$purchases",
+          revenue: "$revenue",
+          weightedRevenue: "$weightedRevenue",
+          fraud: "$fraud",
+          firstTime: "$firstTime",
+          purchasers: { $size: "$purchasers" },
+          sellers: { $size: "$sellers" }
+        }
+      }
+    ]).toArray();
+    for (const item of results) {
+      if (item._id === +midnightToday) {
+        result.newPurchases.today = item.purchases;
+        result.newRevenue.today = Utils.roundToDecimal(item.revenue, 2);
+        result.newWeightedRevenue.today = Utils.roundToDecimal(item.weightedRevenue, 2);
+        result.fraud.today = item.fraud;
+        result.newFirstTime.today = item.firstTime;
+        result.purchasers.today = item.purchasers;
+        result.sellers.today = item.sellers;
+      } else if (item._id === +yesterday) {
+        result.newPurchases.yesterday = item.purchases;
+        result.newRevenue.yesterday = Utils.roundToDecimal(item.revenue, 2);
+        result.newWeightedRevenue.yesterday = Utils.roundToDecimal(item.weightedRevenue, 2);
+        result.fraud.yesterday = item.fraud;
+        result.newFirstTime.yesterday = item.firstTime;
+        result.purchasers.yesterday = item.purchasers;
+        result.sellers.yesterday = item.sellers;
+      } else if (item._id === +previousWeek) {
+        result.newPurchases.priorWeek = item.purchases;
+        result.newRevenue.priorWeek = Utils.roundToDecimal(item.revenue, 2);
+        result.newWeightedRevenue.priorWeek = Utils.roundToDecimal(item.weightedRevenue, 2);
+        result.fraud.priorWeek = item.fraud;
+        result.newFirstTime.priorWeek = item.firstTime;
+        result.purchasers.priorWeek = item.purchasers;
+        result.sellers.priorWeek = item.sellers;
+      } else if (item._id === +previousMonth) {
+        result.newPurchases.priorMonth = item.purchases;
+        result.newRevenue.priorMonth = Utils.roundToDecimal(item.revenue, 2);
+        result.newWeightedRevenue.priorMonth = Utils.roundToDecimal(item.weightedRevenue, 2);
+        result.fraud.priorMonth = item.fraud;
+        result.newFirstTime.priorMonth = item.firstTime;
+        result.purchasers.priorMonth = item.purchasers;
+        result.sellers.priorMonth = item.sellers;
+      }
+    }
+    return result;
+  }
+
+  async aggregateAdStats(): Promise<AdminAdStats> {
+    const info = await this.adSlots.aggregate([
+      { $match: { status: { $ne: "pending" } } },
+      {
+        $group: {
+          _id: "all",
+          total: { $sum: 1 },
+          revenue: { $sum: { $cond: { if: "$redeemed", then: "$amount", else: 0 } } }
+        }
+      }
+    ]).toArray();
+    const result: AdminAdStats = {
+      total: info[0].total,
+      revenue: Utils.roundToDecimal(info[0].revenue, 2),
+      newSlots: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newRevenue: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      consumers: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      advertisers: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+    };
+
+    const now = Date.now() + 1000 * 60;
+    const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
+    const yesterday = moment(midnightToday).subtract(1, 'd');
+    const previousWeek = moment(yesterday).subtract(7, 'd');
+    const previousMonth = moment(previousWeek).subtract(30, 'd');
+    const buckets: number[] = [+previousMonth, +previousWeek, +yesterday, +midnightToday, now];
+    const results = await this.adSlots.aggregate([
+      { $match: { status: { $ne: "pending" } } },
+      {
+        $bucket: {
+          groupBy: "$created",
+          boundaries: buckets,
+          default: -1,
+          output: {
+            slots: { $sum: 1 },
+            revenue: { $sum: { $cond: { if: "$redeemed", then: "$amount", else: 0 } } },
+            consumers: { $addToSet: "$userId" },
+            advertisers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          slots: "$slots",
+          revenue: "$revenue",
+          consumers: { $size: "$consumers" },
+          advertisers: { $size: "$advertisers" }
+        }
+      }
+    ]).toArray();
+    for (const item of results) {
+      if (item._id === +midnightToday) {
+        result.newSlots.today = item.slots;
+        result.newRevenue.today = Utils.roundToDecimal(item.revenue, 2);
+        result.consumers.today = item.consumers;
+        result.advertisers.today = item.advertisers;
+      } else if (item._id === +yesterday) {
+        result.newSlots.yesterday = item.slots;
+        result.newRevenue.yesterday = Utils.roundToDecimal(item.revenue, 2);
+        result.consumers.yesterday = item.consumers;
+        result.advertisers.yesterday = item.advertisers;
+      } else if (item._id === +previousWeek) {
+        result.newSlots.priorWeek = item.slots;
+        result.newRevenue.priorWeek = Utils.roundToDecimal(item.revenue, 2);
+        result.consumers.priorWeek = item.consumers;
+        result.advertisers.priorWeek = item.advertisers;
+      } else if (item._id === +previousMonth) {
+        result.newSlots.priorMonth = item.slots;
+        result.newRevenue.priorMonth = Utils.roundToDecimal(item.revenue, 2);
+        result.consumers.priorMonth = item.consumers;
+        result.advertisers.priorMonth = item.advertisers;
+      }
+    }
+
+    return result;
+  }
 }
+
+// [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000]
 
 const db = new Database();
 
 export { db };
+
+export interface BinnedUserData {
+  _id: number;
+  newUsers: number;
+  newUsersWithIdentity: number;
+  totalExcessBalance: number;
+  totalExcessBalanceWithIdentity: number;
+  returning: number;
+  returningWithIdentity: number;
+  publishers: number;
+}
+
+export interface BinnedCardData {
+  _id: number;
+  total: number;
+  deleted: number;
+  private: number;
+  blocked: number;
+  ads: number;
+  promoted: number;
+  budget: number;
+  spent: number;
+  revenue: number;
+  refunds: number;
+}
+
+export interface BinnedPaymentData {
+  _id: number;
+  total: number;
+  firstTime: number;
+  normal: number;
+  fan: number;
+  fraud: number;
+  revenue: number;
+  weightedRevenue: number;
+  purchasers: number;
+  sellers: number;
+}
+
+export interface BinnedAdSlotData {
+  _id: number;
+  total: number;
+  impressionAd: number;
+  impressionContent: number;
+  openPayment: number;
+  clickPayment: number;
+  announcement: number;
+  impression: number;
+  opened: number;
+  openPaid: number;
+  clicked: number;
+  redemptionFailed: number;
+  impressionsRevenue: number;
+  opensRevenue: number;
+  clicksRevenue: number;
+  consumers: number;
+  advertisers: number;
+}
 
 interface CardTopicDescriptor {
   topic: string;

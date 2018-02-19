@@ -389,7 +389,7 @@ db.userCardActions.aggregate([
 
 24de4c67-771f-4f0f-8ffd-ca60bee4922b
 
-How much money has been spent by category since ...?
+How much money has been spent by category since ?
 
 db.bankTransactions.aggregate([
   {$match: {at: {$gt: 1517562817000}}},
@@ -868,77 +868,510 @@ db.users.count({"identity.handle": {$exists: true}, id: {$nin: ["5139e3d2-fc02-4
     {$group: {_id: "count", totalUsers: {$sum: 1}}}
   ])
 
-  db.userRegistrations.aggregate([
-    {$match: {"referrer": "https://www.google.com/", at: {$gt: 1518627600000}}}, 
-    {$group: {_id: {fingerprint: "$fingerprint"}, count: {$sum: 1}, ipAddress: {$push: "$ipAddress"}}},
-    {$project: {ipCount: {$size: "$ipAddress"}}},
-    {$sort: {ipCount: -1}}
-  ])
 
-  How much budget is left on ads?
+  db.users.aggregate([
+  { $match: { type: 'normal', admin: false } },
+  { $project: { added: "$added", balance: "$balance", withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } } } },
+  {
+    $bucket: {
+      groupBy: "$added",
+      boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+      default: -1,
+      output: {
+        total: { $sum: 1 },
+        withIdentity: { $sum: "$withIdentity" },
+        balance: { $sum: "$balance" },
+        balanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } }
+      }
+    }
+  },
+])
 
-  db.cards.aggregate([
-    {$match: {"budget.amount" : {$gt: 0}, "budget.available": true, createdById: {$nin: ["bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "81b62690-81e0-4561-9eba-1b0c84dcc9ab", "42d5089c-1a72-49db-89ee-a0c05f7162a8"]}}},
-    {$project: {budget: "$budget", stats: "$stats", exceeding: {$cond: {if: {$lt: ["$budget.amount", "$budget.spent"]}, then: 1, else: 0}}}},
-    {$group: {_id: "1", exceeding: {$sum: "$exceeding"}, total: {$sum: "$budget.amount"}, spent: {$sum: "$budget.spent"}, extra: {$sum: {$multiply: ["$budget.plusPercent", 0.01, "$stats.revenue.value"]}}}}
-  ])
+db.users.aggregate([
+   { $match: { type: 'normal', admin: false } },
+   { $project: { added: "$added", balance: "$balance", withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } } } },
+   {
+     $bucket: {
+       groupBy: "$added",       
+       boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+       default: -1,
+       output: {
+         total: { $sum: 1 },
+         withIdentity: { $sum: "$withIdentity" },
+         balance: { $sum: "$balance" },
+         balanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } }
+       }
+     }
+   },
+  { $project: { periodStarting: "$_id", newUsers: "$total", newUsersWithIdentity: "$withIdentity", totalBalance: "$balance", totalBalanceWithIdentity: "$balanceWithIdentity" } }
+ ])
 
 
-What kind of cards are doing what?
+[0, 1518336000000, 1518422400000, 1518508800000, 1518595200000, 1518681600000, 1518768000000, 1518854400000, 1518922984373]
+db.users.aggregate([
+   { $match: { type: 'normal', admin: false } },
+   { $project: { added: "$added", balance: "$balance", withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } } } },
+   {
+     $bucket: {
+       groupBy: "$added",
+       boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+       default: -1,
+       output: {
+         total: { $sum: 1 },
+         withIdentity: { $sum: "$withIdentity" },
+         balance: { $sum: "$balance" },
+         balanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } }
+       }
+     }
+   }
+ ])
+
+ db.users.aggregate([
+      { $match: { type: 'normal', admin: false } },
+      { $project: { 
+        added: "$added", 
+        balance: {$max: [{ $subtract: ["$balance", 5] }, 0]},
+        withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } }, 
+        returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "$added"] }, 43200000] }, then: 1, else: 0 } }, 
+        publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
+        storage: "$storage" 
+        } 
+      },
+      {
+        $bucket: {
+          groupBy: "$added",
+          boundaries: [0, 1518336000000, 1518422400000, 1518508800000, 1518595200000, 1518681600000, 1518768000000, 1518854400000, 1518922984373],
+          default: -1,
+          output: {
+            total: { $sum: 1 },
+            withIdentity: { $sum: "$withIdentity" },
+            balance: { $sum: "$balance" },
+            balanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } },
+            returning: { $sum: "$returning" },
+            returningWithIdentity: { $sum: { $multiply: ["$withIdentity", "$returning"] } },
+            publishers: {$sum: "$publisher"},
+            storage: {$sum: "$storage"}
+          }
+        }
+      }
+      ,
+      { $project: { periodStarting: "$_id", newUsers: "$total", newUsersWithIdentity: "$withIdentity", totalBalance: "$balance", totalBalanceWithIdentity: "$balanceWithIdentity", returning: "$returning", returningWithIdentity: "$returningWithIdentity", publishers: "$publishers", storage: "$storage" } }
+    ])
+
+    db.users.aggregate([
+      { $match: { type: 'normal', admin: false } },
+      {
+        $project: {
+          added: "$added",
+          balance: { $max: [{ $subtract: ["$balance", 5] }, 0] },
+          withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } },
+          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "$added"] }, 43200000] }, then: 1, else: 0 } },
+          publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
+          storage: "$storage"
+        }
+      },
+
+      {
+        $bucket: {
+          groupBy: "$added",
+          boundaries: [0, 1518336000000, 1518422400000, 1518508800000, 1518595200000, 1518681600000, 1518768000000, 1518854400000, 1518922984373],
+          default: -1,
+          output: {
+            newUsers: { $sum: 1 },
+            newUsersWithIdentity: { $sum: "$withIdentity" },
+            totalBalance: { $sum: "$balance" },
+            totalBalanceWithIdentity: { $sum: { $multiply: ["$balance", "$withIdentity"] } },
+            returning: { $sum: "$returning" },
+            returningWithIdentity: { $sum: { $multiply: ["$withIdentity", "$returning"] } },
+            publishers: { $sum: "$publisher" },
+            storage: { $sum: "$storage" }
+          }
+        }
+      }
+    ])
+
+db.users.aggregate([{$project: {balance: {$max: [{$subtract: ["$balance", 5]}, 0]}}}, {$group: {_id: "1", total: {$sum: "$balance"}}}])
+
+db.users.aggregate([
+      { $match: { type: 'normal', admin: false } },
+      {
+        $project: {
+          added: "$added",
+          balance: { $max: [{ $subtract: ["$balance", 5] }, 0] },
+          withIdentity: { $cond: { if: { $eq: ["$identity.handle", undefined] }, then: 0, else: 1 } },
+          returning: { $cond: { if: { $gt: [{ $subtract: ["$lastContact", "$added"] }, 43200000] }, then: 1, else: 0 } },
+          publisher: { $cond: { if: { $gt: ["$lastPosted", 0] }, then: 1, else: 0 } },
+          storage: "$storage"
+        }
+      }
+])
+db.cards.aggregate([
+  {$match: {type: "normal"}},
+  {$project: {
+    postedAt: "$postedAt",
+    deleted: { $cond: { if: {$eq: ["$state", "active"]}, then: 0, else: 1 } },
+    private: { $cond: { if: "$private", then: 1, else: 0 } },
+    blocked: { $cond: { if: "$curation.block", then: 1, else: 0 } },
+    ad: { $cond: { if: {$eq: ["$pricing.openFeeUnits", 0]}, then: 1, else: 0 } },
+    promoted: {
+      $cond: { 
+        if: {
+          $and: [
+            {$gt: ["$pricing.openFeeUnits", 0]}, 
+            {$gt: ["$pricing.promotionFee", 0]}
+          ]
+        }, 
+        then: 1, 
+        else: 0 
+      } 
+    },
+    budget: "$budget.amount",
+    spent: "$budget.spent",
+    revenue: "$stats.revenue.value",
+    refunds: "$stats.refunds.value",
+  }},
+  {$bucket: {
+    groupBy: "$postedAt",
+    boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+    default: -1,
+    output: {
+      total: {$sum: 1},
+      deleted: {$sum: "$deleted" },
+      private: {$sum: "$private" },
+      blocked: {$sum: "$blocked"},
+      ads: {$sum: "$ad"},
+      promoted: {$sum: "$promoted"},
+      budget: {$sum: "$budget"},
+      spent: {$sum: "$spent"},
+      revenue: {$sum: "$revenue"},
+      refunds: {$sum: "$refunds"}
+    }
+  }}
+])
+
+    ad: { $cond: { if: {$eq: ["$pricing.openFeeUnits", 0]}, then: 1, else: 0 } },
+    promoted: {$cond: { if: {$and: [{$gt: ["$pricing.openFeeUnits", 0]}, {$gt: [$pricing.promotionFee, 0]}]}, then: 1, else: 0 } },
+
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay"}},
+    {$project: {
+    at: "$at",
+    firstTime: { $cond: { if: {$eq: ["$payment.category", "first"]}, then: 0, else: 1 } },
+    normal: { $cond: { if: {$eq: ["$payment.category", "normal"]}, then: 0, else: 1 } },
+    fan: { $cond: { if: {$eq: ["$payment.category", "fan"]}, then: 0, else: 1 } },
+    fraud: { $cond: { if: {$eq: ["$payment.category", "fraud"]}, then: 0, else: 1 } },
+    amount: "$payment.amount",
+    weightedRevenue: "$payment.weightedRevenue",
+    userId: "$userId",
+    authorId: "$authorId"
+  }},
+  {$bucket: {
+    groupBy: "$at",
+    boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 2518809800000],
+    default: -1,
+    output: {
+      total: {$sum: 1},
+      firstTime: {$sum: "$firstTime"},
+      normal: {$sum: "$normal"},
+      fan: {$sum: "$fan"},
+      fraud: {$sum: "$fraud"},
+      revenue: {$sum: "$amount"},
+      weightedRevenue: {$sum: "$weightedRevenue"},
+      purchasers: {$addToSet: "$userId"},
+      sellers: {$addToSet: "$authorId"}
+    }
+  }},
+  {$project: {
+    total: "$total", 
+    firstTime: "$firstTime",
+    normal: "$normal",
+    fan: "$fan",
+    fraud: "$fraud",
+    revenue: "$revenue",
+    weightedRevenue: "$weightedRevenue",
+    purchasers: {$size: "$purchasers"},
+    sellers: {$size: "$sellers"}
+  }}
+])
+
+
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}}},
+  {$project: {
+    created: "$created",
+    impressionAd: { $cond: { if: {$eq: ["$type", "impression-ad"]}, then: 1, else: 0 } },
+    impressionContent: { $cond: { if: {$eq: ["$type", "impression-content"]}, then: 1, else: 0 } },
+    openPayment: { $cond: { if: {$eq: ["$type", "open-payment"]}, then: 1, else: 0 } },
+    clickPayment: { $cond: { if: {$eq: ["$type", "click-payment"]}, then: 1, else: 0 } },
+    announcement: { $cond: { if: {$eq: ["$type", "announcement"]}, then: 1, else: 0 } },
+    pending: { $cond: { if: {$eq: ["$status", "pending"]}, then: 1, else: 0 } },
+    impression: { $cond: { if: {$eq: ["$status", "impression"]}, then: 1, else: 0 } },
+    opened: { $cond: { if: {$eq: ["$status", "opened"]}, then: 1, else: 0 } },
+    openPaid: { $cond: { if: {$eq: ["$status", "open-paid"]}, then: 1, else: 0 } },
+    clicked: { $cond: { if: {$eq: ["$status", "clicked"]}, then: 1, else: 0 } },
+    redemptionFailed: { $cond: { if: {$eq: ["$status", "redemption-failed"]}, then: 1, else: 0 } },
+    impressionsAmount: { $cond: { if: {$and: [{$eq: ["$status", "impression"]}, "$redeemed"]}, then: "$amount", else: 0 } },
+    opensAmount: { $cond: { if: {$and: [{$eq: ["$status", "open-paid"]}, "$redeemed"]}, then: "$amount", else: 0 } },
+    clicksAmount: { $cond: { if: {$and: [{$eq: ["$status", "clicked"]}, "$redeemed"]}, then: "$amount", else: 0 } },
+    userId: "$userId",
+    authorId: "$authorId"
+  }},
+  {$bucket: {
+    groupBy: "$created",
+    boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 2518809800000],
+    default: -1,
+    output: {
+      total: {$sum: 1},
+      impressionAd: {$sum: "$impressionAd"},
+      impressionContent: {$sum: "$impressionContent"},
+      openPayment: {$sum: "$openPayment"},
+      clickPayment: {$sum: "$clickPayment"},
+      announcement: {$sum: "$announcement"},
+      impression: {$sum: "$impression"},
+      opened: {$sum: "$opened"},
+      openPaid: {$sum: "$openPaid"},
+      clicked: {$sum: "$clicked"},
+      redemptionFailed: {$sum: "$redemptionFailed"},
+      impressionsRevenue: {$sum: "$impressionsAmount"},      
+      opensRevenue: {$sum: "$opensAmount"},      
+      clicksRevenue: {$sum: "$clicksAmount"},  
+      consumers: {$addToSet: "$userId"},
+      advertisers: {$addToSet: "$authorId"}    
+    }
+  }},
+  {$project: {
+    total: "$total", 
+    impressionAd: "$impressionAd",
+    impressionContent: "$impressionContent",
+    openPayment: "$openPayment",
+    clickPayment: "$clickPayment",
+    announcement: "$announcement",
+    impression: "$impression",
+    opened: "$opened",
+    openPaid: "$openPaid",
+    clicked: "$clicked",
+    redemptionFailed: "$redemptionFailed",
+    impressionsRevenue: "$impressionsRevenue",
+    opensRevenue: "$opensRevenue",
+    clicksRevenue: "$clicksRevenue",
+    consumers: {$size: "$consumers"},
+    advertisers: {$size: "$advertisers"}
+  }}
+])
+
+
+db.users.aggregate([
+      {
+        $group: {
+          _id: "all",
+          total: { $sum: 1 },
+          withIdentity: { $sum: { $cond: { if: { $ne: ["$identity.handle", undefined] }, then: 1, else: 0 } } },
+          excessBalance: { $sum: { $max: [0, { $subtract: ["$balance", 5] }] } },
+          activeWithinPastWeek: {
+            $sum: { $cond: { if: { $gt: ["$lastContact", 1518372906000] }, then: 1, else: 0 } }
+          },
+          returningUsersWithinPastWeek: {
+              $sum: { $cond: { 
+                if: { $and: [
+                  { $gt: ["$lastContact", 1518372906000] }, 
+                  { $gt: [{$subtract: ["$lastContact","$added"]}, 43200000] }
+                  ]}, 
+                then: 1, 
+                else: 0 } },
+            }
+          }
+      }
+    ])
+
+db.users.aggregate([
+  {$bucket: {
+    groupBy: "$added",
+    boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 2518809800000],
+    default: -1,
+    output: {
+      newUsers: {$sum: 1},
+      newUsersWithIdentity: { $sum: { $cond: { if: { $gt: ["$identity.handle", null] }, then: 1, else: 0 } } },
+    }
+  }}
+])
+
+db.userRegistrations.aggregate([
+  {$bucket: {
+    groupBy: "$at",
+    boundaries: [1518195600000, 1518282000000, 1518368400000, 1518454800000, 2518809800000],
+    default: -1,
+    output: {
+      count: {$sum: 1},
+      userIds: {$addToSet: "$userId"}
+    }
+  }},
+  {$lookup: {from: "users", localField: "userIds", foreignField: "id", as: "user"}},
+  {$unwind: "$user"},
+  {$project: {
+    userId: "$user.id", 
+    hasIdentity: {$cond: {if: {$gt: ["$user.identity.handle", null]}, then: 1, else: 0}}, 
+    returning: {$cond: {if: {$gt: [
+      {$subtract: ["$user.lastContact", "$user.added"]},
+      43200000
+    ]}, then: 1, else: 0}},
+    returningWithIdentity: {$cond: {if: {$and: [{$gt: [
+      {$subtract: ["$user.lastContact", "$user.added"]},
+      43200000
+    ]}, {$gt: ["$user.identity.handle", null]}]}, then: 1, else: 0}}
+  }},
+  {$group: {_id: "$_id", users: {$sum: 1}, withIdentity: {$sum: "$hasIdentity"}, returning: {$sum: "$returning"}, returningWithIdentity: {$sum: "$returningWithIdentity"}}}
+])
+
+  {$lookup: {from: "users", localField: "$userIds", foreignField: "id", as: "user"}},
+  {$unwind: "$user"},
+  {$project: {
+    userId: "$user.id", 
+    hasIdentity: {$gt: ["$user.identity.handle", null]}, 
+    returning: {$gt: [
+      {$subtract: ["$user.lastContact", "$user.added"]},
+      43200000
+    ]}
+  }}
+
+
+db.userRegistrations.aggregate([
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+          default: -1,
+          output: {
+            count: { $sum: 1 },
+            userIds: { $addToSet: "$userId" }
+          }
+        }
+      },
+      { $lookup: { from: "users", localField: "userIds", foreignField: "id", as: "user" } },
+      { $unwind: "$user" },
+      {
+        $project: {
+          userId: "$user.id",
+          withIdentity: { $cond: { if: { $gt: ["$user.identity.handle", null] }, then: 1, else: 0 } },
+          returning: {
+            $cond: {
+              if: {
+                $gt: [
+                  { $subtract: ["$user.lastContact", "$user.added"] },
+                  43200000
+                ]
+              },
+              then: 1,
+              else: 0
+            }
+          },
+          returningWithIdentity: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: [{ $subtract: ["$user.lastContact", "$user.added"] }, 43200000] },
+                  { $gt: ["$user.identity.handle", null] }]
+              },
+              then: 1,
+              else: 0
+            }
+          }
+        }
+      },
+      { $group: { _id: "$_id", users: { $sum: 1 }, withIdentity: { $sum: "$hasIdentity" }, returning: { $sum: "$returning" }, returningWithIdentity: { $sum: "$returningWithIdentity" } } }
+    ])
+
 
 db.cards.aggregate([
-  {$match: {state: "active", "curation.block": false}},
-  {$group: {_id: "$cardType.package", count: {$sum: 1}, revenue: {$sum: "$stats.revenue.value"}}}, 
-  {$sort: {count: -1}}
+  {$group: {
+    _id: "all", 
+    total: {$sum: 1}, 
+    budget: {$sum: "$budget.amount"}, 
+    spent: {$sum: "$budget.spent"}, 
+    revenue: {$sum: "$stats.revenue.value"}
+  }}
+])
+
+db.cards.aggregate([
+      {
+        $bucket: {
+          groupBy: "$postedAt",
+          boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+          default: -1,
+          output: {
+            count: { $sum: 1 }
+          }
+        }
+      }
+    ])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay"}},
+  {$group: {
+    _id: "all", 
+    total: {$sum: 1},
+    totalRevenue: {$sum: "$payment.amount"},
+    totalFraud: {$sum: {$cond: {if: {$eq: ["$payment.category", "fraud"]}, then: 1, else: 0}}},
+    totalFirstTime: {$sum: {$cond: {if: {$eq: ["$payment.category", "first"]}, then: 1, else: 0}}},
+  }}
 ])
 
 db.userCardActions.aggregate([
-  {$match: {authorId: "fd6f6b7b-cf2e-49a1-bfe7-71a5e20f3825", action: "pay"}},
-  {$group: {_id: {cardId: "$cardId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}}},
-  {$sort: {count: -1}}
+    {$match: {action: "pay"}},
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+          default: -1,
+          output: {
+            purchases: { $sum: 1 },
+            revenue: {$sum: "$payment.amount"},
+            weightedRevenue: {$sum: "$payment.weightedRevenue"},
+            fraud: {$sum: {$cond: {if: {$eq: ["$payment.category", "fraud"]}, then: 1, else: 0}}},
+            purchasers: {$addToSet: "$userId"},
+            sellers: {$addToSet: "$authorId"}
+          }
+        }
+      },
+      {$project: {
+        purchases: "$purchases",
+        revenue: "$revenue",
+        weightedRevenue: "$weightedRevenue",
+        fraud: "$fraud",
+        purchasers: {$size: "$purchasers"},
+        sellers: {$size: "$sellers"}
+      }}
+    ])
+
+
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}}},
+  {$group: {
+    _id: "all",
+    total: {$sum: 1},
+    revenue: {$sum: {$cond: {if: "$redeemed", then: "$amount", else: 0}}}
+  }}
 ])
 
-db.userCardActions.aggregate([
-  {$match: {fromFingerprint: "06ef0924e1dfa1887624d360036b7be4", action: "pay"}},
-  {$group: {_id: {cardId: "$cardId", ipAddress: "$fromIpAddress", authorId: "$authorId"}, count: {$sum: 1}}},
-  {$sort: {count: -1}}
-])
-
-db.userCardActions.aggregate([
-  {$match: {authorId: "fd6f6b7b-cf2e-49a1-bfe7-71a5e20f3825", action: "pay"}},
-  {$group: {_id: {cardId: "$cardId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
-  {$sort: {count: -1}}
-])
-
-db.userCardActions.aggregate([
-  {$match: {action: "pay", fraudReason: {$exists: false}, at: {$gt: 1518109200000}}},
-  {$group: {_id: {authorId: "$authorId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
-  {$match: {count: {$gt: 1}}},
-  {$group: {_id: "$_id.authorId", fingerprints: {$sum: 1}, purchases: {$sum: "$count"}, revenue: {$sum: "$revenue"}}},
-  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
-  {$project: {buyers: "$fingerprints", purchases: "$purchases", count: "$count", revenue: "$revenue", handle: "$user.identity.handle"}},
-  {$sort: {buyers: -1}}
-])
-
-db.userCardActions.aggregate([
-  {$match: {action: "pay", fraudReason: {$exists: false}}},
-  {$group: {_id: {authorId: "$authorId", fingerprint: "$fromFingerprint"}, count: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
-  {$group: {_id: "$_id.authorId", fingerprints: {$sum: 1}, purchases: {$sum: "$count"}, revenue: {$sum: "$revenue"}}},
-  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
-])
-
-db.userRegistrations.aggregate([
-  {$match: {at: {$gt: 1518109200000}}},
-  {$group: {_id: {userId: "$userId", fingerprint: "$fingerprint"}, count: {$sum: 1}}},
-  {$group: {_id: "$_id.userId", fingerprints: {$sum: 1}}},
-  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}},
-  {$project: {handle: "$user.identity.handle", fingerprints: "$fingerprints"}},
-  {$sort: {fingerprints: -1}}
-])
-
-db.userRegistrations.aggregate([
-  {$match: {fingerprint: "68168707d4bbaf791d55b489fff920d2", at: {$gt: 1518109200000}}}, 
-  {$lookup: {from: "users", localField: "userId", foreignField: "id", as: "user"}},
-  {$project: {handle: "$user.identity.handle", city: "$user.city", country: "$user.country", ipAddress: "$ipAddress", at: "$at"}},
-  {$sort: {at: -1}}
-])
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}}},
+      {
+        $bucket: {
+          groupBy: "$created",
+          boundaries: [0, 1518195600000, 1518282000000, 1518368400000, 1518454800000, 1518809800000],
+          default: -1,
+          output: {
+            slots: { $sum: 1 },
+            revenue: {$sum: {$cond: {if: "$redeemed", then: "$amount", else: 0}}},
+            consumers: {$addToSet: "$userId"},
+            advertisers: {$addToSet: "$authorId"}
+          }
+        }
+      },
+      {$project: {
+        slots: "$slots",
+        revenue: "$revenue",
+        consumers: {$size: "$consumers"},
+        advertisers: {$size: "$advertisers"}
+      }}
+    ])

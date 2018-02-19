@@ -48,17 +48,35 @@ export class AdminManager implements RestServer {
         return;
       }
       console.log("AdminManager.admin-goals", user.id, requestBody.detailsObject);
+      // const ending = Date.now();
+      const starting = +moment().tz('America/Los_Angeles').startOf('day');
+      // let periodsStarting: number[] = [Date.now()];
+      // for (let i = 0; i < 7; i++) {
+      //   periodsStarting.push(starting);
+      //   // reply.days.push(await this.computeGoals(starting, ending));
+      //   // ending = starting;
+      //   starting -= 1000 * 60 * 60 * 24;
+      // }
+      // periodsStarting.push(0);
+      // periodsStarting = periodsStarting.reverse();
+
+      // const binnedUsers = await db.binUsersByAddedDate(periodsStarting);
+      // const binnedCards = await db.binCardsByDate(periodsStarting);
+      // const binnedPayments = await db.binCardPayments(periodsStarting);
+      // const binnedAdSlots = await db.binAdSlots(periodsStarting);
       const reply: AdminGetGoalsResponse = {
         serverVersion: SERVER_VERSION,
-        days: []
+        users: await db.aggregateUserStats(),
+        activeUsers: await db.aggregateNewUserStats(),
+        cards: await db.aggregateCardStats(),
+        purchases: await db.aggregatePurchaseStats(),
+        ads: await db.aggregateAdStats()
+        // periodsStarting: periodsStarting,
+        // userBins: binnedUsers,
+        // cardBins: binnedCards,
+        // cardPaymentBins: binnedPayments,
+        // adSlotBins: binnedAdSlots
       };
-      let ending = Date.now();
-      let starting = +moment().tz('America/Los_Angeles').startOf('day');
-      for (let i = 0; i < 7; i++) {
-        reply.days.push(await this.computeGoals(starting, ending));
-        ending = starting;
-        starting -= 1000 * 60 * 60 * 24;
-      }
       response.json(reply);
     } catch (err) {
       errorManager.error("AdminManager.handleGetAdminGoals: Failure", request, err);
@@ -349,8 +367,10 @@ export class AdminManager implements RestServer {
           earnings: await db.aggregateCardRevenueByAuthor(publisherUser.id),
           grossRevenue: 0,
           weightedRevenue: 0,
+          recentRevenue: 0,
           subscribers: 0,
           cardsPurchased: 0,
+          recentPurchases: 0,
           fraudPurchases: 0,
           firstTimePurchases: 0,
           normalPurchases: 0,
@@ -363,7 +383,12 @@ export class AdminManager implements RestServer {
           channelIds.push(channel.id);
         }
         publisher.subscribers = await db.countDistinctSubscribersInChannels(channelIds);
-        const payInfoByCategory = await db.aggregateUserActionPaymentsForAuthor(publisherUser.id);
+        const recentPayInfo = await db.countUserActionPaymentsForAuthor(publisherUser.id, Date.now() - 1000 * 60 * 60 * 24 * 2);
+        if (recentPayInfo) {
+          publisher.recentRevenue = recentPayInfo.grossRevenue;
+          publisher.recentPurchases = recentPayInfo.purchases;
+        }
+        const payInfoByCategory = await db.aggregateUserActionPaymentsForAuthor(publisherUser.id, 0);
         for (const payInfo of payInfoByCategory) {
           publisher.grossRevenue += payInfo.grossRevenue;
           publisher.weightedRevenue += payInfo.weightedRevenue;
@@ -387,7 +412,7 @@ export class AdminManager implements RestServer {
           }
         }
         reply.publishers.push(publisher);
-        if (reply.publishers.length >= 250) {
+        if (reply.publishers.length >= 100) {
           break;
         }
       }

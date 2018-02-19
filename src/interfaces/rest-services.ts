@@ -1,6 +1,7 @@
 
 import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats } from "./db-records";
 import { SignedObject } from "./signed-object";
+import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
 export interface RestRequest<T extends Signable> {
   version: number;
@@ -624,12 +625,97 @@ export interface AdminUserInfo {
   cardsOpened: number;
   cardsBought: number;
   cardsSold: number;
+  cardsDeleted: number;
 }
 
 export interface AdminGetGoalsDetails extends Signable { }
 
 export interface AdminGetGoalsResponse extends RestResponse {
-  days: AdminGoalsInfo[];
+  users: AdminUserStats;
+  activeUsers: AdminActiveUserStats;
+  cards: AdminCardStats;
+  purchases: AdminPurchaseStats;
+  ads: AdminAdStats;
+
+  // cards: {
+  //   total: number;
+  //   recent: RecentStats;
+  //   revenue: number;
+  //   refunds: number;
+  //   authors: number;
+  // };
+  // purchases: {
+  //   total: number;
+  //   recent: RecentStats;
+  //   firstTime: RecentStats;
+  //   revenue: number;
+  //   weightedRevenue: number;
+  //   recentRevenue: RecentStats;
+  //   purchasers: RecentStats;
+  //   sellers: RecentStats;
+  // };
+  // ads: {
+  //   total: number;
+  //   recent: RecentStats;
+  //   revenue: number;
+  //   recentRevenue: RecentStats;
+  //   consumers: RecentStats;
+  //   advertisers: RecentStats;
+  // };
+}
+
+export interface AdminUserStats {
+  total: number;
+  newUsers: RecentStats;
+  totalWithIdentity: number;
+  totalStaleWithIdentity: number;
+  newUsersWithIdentity: RecentStats;
+  excessBalance: number;
+}
+
+export interface AdminActiveUserStats {
+  total: RecentStats;
+  withIdentity: RecentStats;
+  returning: RecentStats;
+  returningWithIdentity: RecentStats;
+}
+
+export interface AdminCardStats {
+  total: number;
+  newCards: RecentStats;
+  budget: number;
+  spent: number;
+  revenue: number;
+}
+
+export interface AdminPurchaseStats {
+  total: number;
+  totalRevenue: number;
+  totalFirstTime: number;
+  totalFraud: number;
+  newPurchases: RecentStats;
+  newRevenue: RecentStats;
+  newWeightedRevenue: RecentStats;
+  newFirstTime: RecentStats;
+  fraud: RecentStats;
+  purchasers: RecentStats;
+  sellers: RecentStats;
+}
+
+export interface AdminAdStats {
+  total: number;
+  revenue: number;
+  newSlots: RecentStats;
+  newRevenue: RecentStats;
+  consumers: RecentStats;
+  advertisers: RecentStats;
+}
+
+export interface RecentStats {
+  today: number;
+  yesterday: number;
+  priorWeek: number;
+  priorMonth: number;
 }
 
 export interface AdminGoalsInfo {
@@ -719,8 +805,10 @@ export interface AdminPublisherInfo {
   earnings: number;
   grossRevenue: number;
   weightedRevenue: number;
+  recentRevenue: number;
   subscribers: number;
   cardsPurchased: number;
+  recentPurchases: number;
   fraudPurchases: number;
   firstTimePurchases: number;
   normalPurchases: number;

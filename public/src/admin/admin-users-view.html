@@ -99,6 +99,7 @@
           <div class="headerCell right">Cards Opened</div>
           <div class="headerCell right">Cards Bought</div>
           <div class="headerCell right">Cards Sold</div>
+          <div class="headerCell right">Cards Deleted</div>
           <div class="headerCell right">Private</div>
           <div class="headerCell right clickable" on-click="_onRevenueClick">Revenue</div>
           <div class="headerCell right">Storage (MB)</div>
@@ -129,6 +130,7 @@
             <div class="cell right">[[item.cardsOpened]]</div>
             <div class="cell right">[[item.cardsBought]]</div>
             <div class="cell right">[[item.cardsSold]]</div>
+            <div class="cell right">[[item.cardsDeleted]]</div>
             <div class="cell right">[[item.privateCards]]</div>
             <div class="cell right">[[item.cardRevenue]]</div>
             <div class="cell right">[[item.storage]]</div>
@@ -147,8 +149,9 @@
       </div>
       <h2>CSV</h2>
       <div class="csv">
-        <div class="csvRow">Name, First, Last, Handle, Address, Email, Posts, Cards Opened, Cards Bought, Private, Revenue, Balance, Storage,
-          IP Address, Country, Region, City, Mailing List, Original Referer, Original Landing Page, Curation
+        <div class="csvRow">Name, First, Last, Handle, Address, Email, Posts, Cards Opened, Cards Bought, Cards Sold, Cards Deleted, Private,
+          Revenue, Balance, Storage, IP Address, Country, Region, City, Mailing List, Original Referer, Original Landing
+          Page, Curation
         </div>
         <template is="dom-repeat" items="[[users]]">
           <div class="csvRow">
@@ -162,6 +165,7 @@
             <div class="csvCell">[[item.cardsOpened]]</div>,
             <div class="csvCell">[[item.cardsBought]]</div>,
             <div class="csvCell">[[item.cardsSold]]</div>,
+            <div class="csvCell">[[item.cardsDeleted]]</div>,
             <div class="csvCell">[[item.privateCards]]</div>,
             <div class="csvCell">[[item.cardRevenue]]</div>,
             <div class="csvCell">[[item.balance]]</div>,
@@ -239,6 +243,7 @@
               cardsOpened: userInfo.cardsOpened,
               cardsBought: userInfo.cardsBought,
               cardsSold: userInfo.cardsSold,
+              cardsDeleted: userInfo.cardsDeleted,
               referer: user.originalReferrer,
               landingPage: user.originalLandingPage,
               curation: user.curation ? user.curation : "",
