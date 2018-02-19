@@ -14,7 +14,12 @@
       }
 
       #carousel {
-        margin: 20px auto;
+        margin: 0 auto 20px;
+      }
+
+      #headlineContainer {
+        max-width: 1264px;
+        margin: 20px auto 8px;
       }
 
       #composeButton {
@@ -41,9 +46,31 @@
         box-sizing: border-box;
       }
 
-      @media (max-width: 1200px) {
-        #carousel {
-          margin: 0 auto 20px;
+      #headline {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 8px;
+        display: inline-block;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
         }
       }
 
@@ -52,6 +79,9 @@
           bottom: 24px;
           right: 16px;
         }
+        #headlineContainer {
+          text-align: center;
+        }
       }
     </style>
     <soso-app-header>
@@ -59,7 +89,10 @@
       <feeds-bar></feeds-bar>
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
-    <channel-carousel id="carousel" channels="[[featured]]" class="hidden"></channel-carousel>
+    <div id="headlineContainer">
+      <h2 id="headline">Featured channels</h2>
+    </div>
+    <channel-carousel id="carousel" label="Featured channels" channels="[[featured]]" class="hidden"></channel-carousel>
     <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more clickable-label on-card-open-request="_onCardOpenRequest"
       on-more="_gotoFeed" on-headline-click="_gotoFeed" class="hidden"></card-list>
     <dom-repeat items="[[channelList]]">
@@ -99,6 +132,7 @@
             }
           }
 
+          this._promotedCardIds = [];
           this.subscribed = [];
           this.channelList = [];
           this.recommended = [];
@@ -152,7 +186,9 @@
                 };
                 for (let j = 0; j < cardsPerSection; j++) {
                   if (promoted.length) {
-                    p.cards.push(promoted.shift());
+                    let pcard = promoted.shift();
+                    this._promotedCardIds.push(pcard.id);
+                    p.cards.push(pcard);
                   } else {
                     break;
                   }
@@ -191,7 +227,6 @@
         }
         setTimeout(() => {
           this._recommendedLoaded = true;
-          this._promotedCardIds = [];
           this._lastCardId = null;
           $core.getFeed("recommended", 24, null, null, null, this._promotedCardIds).then((feed) => {
             const cards = feed.cards;

@@ -207,7 +207,6 @@
       }
 
       #feed {
-        max-width: 1264px;
         margin: 0 auto;
         box-sizing: border-box;
         padding: 20px 0;
@@ -257,6 +256,28 @@
       #composeButton:active {
         color: var(--bg-yellow);
         background: var(--bg-dark);
+      }
+
+      card-list {
+        max-width: 1264px;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
+        }
       }
 
       @media (max-width: 600px) {
