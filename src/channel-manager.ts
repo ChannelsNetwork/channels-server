@@ -350,7 +350,10 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           }
           const selectedChannel = await db.findChannelById(selectedChannelId);
           if (selectedChannel) {
-            result.records.push(selectedChannel);
+            const author = await userManager.getUser(selectedChannel.ownerId, false);
+            if (author && !author.curation) {
+              result.records.push(selectedChannel);
+            }
           }
           if (result.records.length >= maxChannels) {
             break;
@@ -411,7 +414,10 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         result.nextPageReference = result.records[result.records.length - 1].id;
         break;
       }
-      result.records.push(channel);
+      const author = await userManager.getUser(channel.ownerId, false);
+      if (author && !author.curation) {
+        result.records.push(channel);
+      }
     }
     await cursor.close();
     return result;
@@ -427,14 +433,14 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
   private async getSubscribedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    return this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference);
+    return this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference, false);
   }
 
   private async getBlockedChannels(user: UserRecord, maxChannels: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
-    return this.getChannelsByState(user, maxChannels, 0, "blocked", nextPageReference);
+    return this.getChannelsByState(user, maxChannels, 0, "blocked", nextPageReference, true);
   }
 
-  private async getChannelsByState(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, subscriptionState: ChannelSubscriptionState, nextPageReference: string): Promise<ChannelsRecordsInfo> {
+  private async getChannelsByState(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, subscriptionState: ChannelSubscriptionState, nextPageReference: string, includeBlockedChannels: boolean): Promise<ChannelsRecordsInfo> {
     let latestLessThan: number;
     if (nextPageReference) {
       const afterRecord = await db.findChannelById(nextPageReference);
@@ -457,7 +463,10 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
             waiting = false;
           }
         } else {
-          result.records.push(channel);
+          const author = await userManager.getUser(channel.ownerId, false);
+          if (includeBlockedChannels || (author && !author.curation)) {
+            result.records.push(channel);
+          }
         }
         if (result.records.length >= maxChannels) {
           result.nextPageReference = result.records[result.records.length - 1].id;
