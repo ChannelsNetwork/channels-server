@@ -36,7 +36,7 @@
       }
 
       card-list {
-        max-width: 1200px;
+        max-width: 1264px;
         margin: 20px auto 0;
         box-sizing: border-box;
       }
@@ -60,14 +60,17 @@
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
     <channel-carousel id="carousel" channels="[[featured]]" class="hidden"></channel-carousel>
-    <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more on-card-open-request="_onCardOpenRequest" on-more="_gotoFeed"
-      class="hidden"></card-list>
+    <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more clickable-label on-card-open-request="_onCardOpenRequest"
+      on-more="_gotoFeed" on-headline-click="_gotoFeed" class="hidden"></card-list>
     <dom-repeat items="[[channelList]]">
       <template>
-        <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" on-card-open-request="_onCardOpenRequest" on-more="_gotoChannel"></card-list>
+        <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" clickable-label="[[item.more]]" on-card-open-request="_onCardOpenRequest"
+          on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
       </template>
     </dom-repeat>
-    <div style="height: 100px"></div>
+    <card-list id="recommendedList" label="Recommended" items="[[recommended]]" more="[[_moreRecommended]]" on-card-open-request="_onCardOpenRequest"
+      on-more="_onMoreRecommended" class="hidden"></card-list>
+    <div id="spacer" style="height: 100px"></div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
   <script>
@@ -77,7 +80,9 @@
         return {
           featured: Array,
           subscribed: Array,
-          channelList: Array
+          channelList: Array,
+          recommended: Array,
+          _moreRecommended: Boolean
         };
       }
 
@@ -89,17 +94,18 @@
           // Do not reload if coming back to home page
           if (this.channelList || this.subscribed || this.featured) {
             if (route.context && (route.context.page === 'home') && (route.context.scrollTop >= 0)) {
-              console.log("this.channelList", );
               $app.scrollTo(route.context.scrollTop);
               return;
             }
           }
 
+          this.subscribed = [];
           this.channelList = [];
+          this.recommended = [];
+          this._moreRecommended = false;
+          this._recommendedLoaded = false;
           const fourCols = window.innerWidth >= 1280;
-          return $core.getHome(fourCols ? 3 : 2, fourCols ? 3 : 2).then((response) => {
-            console.log(response);
-
+          return $core.getHome(fourCols ? 3 : 3, fourCols ? 3 : 2).then((response) => {
             // featured channels
             this.featured = response.featuredChannels;
             if (this.featured && this.featured.length) {
@@ -166,6 +172,8 @@
               }
             }
             this.channelList = cl;
+
+            this._loadRecommended(this.channelList.length > 0 || this._hasSubscribed);
           });
         }).catch((err) => {
           console.error(err);
@@ -175,6 +183,37 @@
 
       onDeactivate() {
         this.$.cbar.deactivate();
+      }
+
+      _loadRecommended(delayed) {
+        if (this._recommendedLoaded) {
+          return;
+        }
+        setTimeout(() => {
+          this._recommendedLoaded = true;
+          this._promotedCardIds = [];
+          this._lastCardId = null;
+          $core.getFeed("recommended", 24, null, null, null, this._promotedCardIds).then((feed) => {
+            const cards = feed.cards;
+            for (let i = 0; i < cards.length; i++) {
+              if (cards[i].promoted) {
+                this._promotedCardIds.push(cards[i].id);
+              } else {
+                this._lastCardId = cards[i].id;
+              }
+            }
+            this.recommended = cards;
+            if (cards && cards.length) {
+              this.$.recommendedList.classList.remove("hidden");
+            } else {
+              this.$.recommendedList.classList.add("hidden");
+            }
+            this._moreRecommended = (feed.moreAvailable && this._lastCardId) ? true : false;
+          }).catch((err) => {
+            console.error(err);
+            $app.showError(err);
+          });
+        }, delayed ? 2000 : 10);
       }
 
       _refreshHomePanelVisibility() {
@@ -221,6 +260,33 @@
           });
           $router.goto("/c/" + encodeURIComponent(card.id), context);
         }
+      }
+
+      _onMoreRecommended() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        $core.getFeed("recommended", 24, null, this._lastCardId, null, this._promotedCardIds).then((feed) => {
+          this._fetchingMore = false;
+          const cards = feed.cards || [];
+          this._lastCardId = null;
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].promoted) {
+              this._promotedCardIds.push(cards[i].id);
+            } else {
+              this._lastCardId = cards[i].id;
+            }
+          }
+          this._moreRecommended = feed.moreAvailable && this._lastCardId ? true : false;
+          for (let i = 0; i < cards.length; i++) {
+            this.push("recommended", cards[i]);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
       }
     }
     window.customElements.define(HomePage.is, HomePage);

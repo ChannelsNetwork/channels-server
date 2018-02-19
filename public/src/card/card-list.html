@@ -66,6 +66,10 @@
         margin: 8px;
       }
 
+      .clickable {
+        cursor: pointer;
+      }
+
       @media (max-width: 650px) {
         #container {
           -ms-flex-pack: center;
@@ -115,6 +119,10 @@
           autoLayout: {
             type: Boolean,
             observer: '_refreshLayout'
+          },
+          clickableLabel: {
+            type: Boolean,
+            observer: '_refreshClickableLabel'
           }
         };
       }
@@ -172,6 +180,14 @@
           this.$.more.classList.remove("hidden");
         } else {
           this.$.more.classList.add("hidden");
+        }
+      }
+
+      _refreshClickableLabel() {
+        if (this.clickableLabel) {
+          this.$.headline.classList.add("clickable");
+        } else {
+          this.$.headline.classList.remove("clickable");
         }
       }
 
