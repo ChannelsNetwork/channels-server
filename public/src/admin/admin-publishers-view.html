@@ -96,8 +96,10 @@
           <div class="headerCell right">Posts</div>
           <div class="headerCell right clickable" on-click="_onRevenueClick">Gross Revenue</div>
           <div class="headerCell right clickable" on-click="_onWeightedRevenueClick">Weighted Revenue</div>
+          <div class="headerCell right clickable" on-click="_onRecentRevenueClick">Recent Revenue</div>
           <div class="headerCell right">Subscribers</div>
           <div class="headerCell right">Total Purchases</div>
+          <div class="headerCell right clickable" on-click="_onRecentPurchasesClick">Recent Purchases</div>
           <div class="headerCell right">Fraud</div>
           <div class="headerCell right">First-Time</div>
           <div class="headerCell right">Normal</div>
@@ -130,8 +132,10 @@
             <div class="cell right">[[item.cardsPosted]]</div>
             <div class="cell right">[[item.grossRevenue]]</div>
             <div class="cell right">[[item.weightedRevenue]]</div>
+            <div class="cell right">[[item.recentRevenue]]</div>
             <div class="cell right">[[item.subscribers]]</div>
             <div class="cell right">[[item.purchases]]</div>
+            <div class="cell right">[[item.recentPurchases]]</div>
             <div class="cell right">[[item.fraudPurchases]]</div>
             <div class="cell right">[[item.firstTimePurchases]]</div>
             <div class="cell right">[[item.normalPurchases]]</div>
@@ -153,8 +157,8 @@
       <h2>CSV</h2>
       <div class="csv">
         <div class="csvRow">Id, Name, Handle, Email, Registered, Last Posted, Last Contact, Earnings, Balance, Cards Posted, Gross Revenue, Weighted
-          Revenue, Subscribers, Purchases, Fraud, First-Time, Normal, Fan, Other Purchases, Storage, IP Address, Country,
-          Region, City, Original Referer, Original Landing Page, Curation
+          Revenue, Recent Revenue, Subscribers, Purchases, Recent Purchases, Fraud, First-Time, Normal, Fan, Other Purchases,
+          Storage, IP Address, Country, Region, City, Original Referer, Original Landing Page, Curation
         </div>
         <template is="dom-repeat" items="[[publishers]]">
           <div class="csvRow">
@@ -170,8 +174,10 @@
             <div class="csvCell">[[item.cardsPosted]]</div>,
             <div class="csvCell">[[item.grossRevenue]]</div>,
             <div class="csvCell">[[item.weightedRevenue]]</div>,
+            <div class="csvCell">[[item.recentRevenue]]</div>,
             <div class="csvCell">[[item.subscribers]]</div>,
             <div class="csvCell">[[item.purchases]]</div>,
+            <div class="csvCell">[[item.recentPurchases]]</div>,
             <div class="csvCell">[[item.fraudPurchases]]</div>,
             <div class="csvCell">[[item.firstTimePurchases]]</div>,
             <div class="csvCell">[[item.normalPurchases]]</div>,
@@ -239,8 +245,10 @@
               cardsPosted: publisherInfo.cardsPublished,
               grossRevenue: publisherInfo.grossRevenue.toFixed(2),
               weightedRevenue: publisherInfo.weightedRevenue.toFixed(2),
+              recentRevenue: publisherInfo.recentRevenue.toFixed(2),
               subscribers: publisherInfo.subscribers,
               purchases: publisherInfo.cardsPurchased,
+              recentPurchases: publisherInfo.recentPurchases,
               fraudPurchases: publisherInfo.fraudPurchases,
               firstTimePurchases: publisherInfo.firstTimePurchases,
               normalPurchases: publisherInfo.normalPurchases,

@@ -804,8 +804,10 @@ export interface AdminPublisherInfo {
   earnings: number;
   grossRevenue: number;
   weightedRevenue: number;
+  recentRevenue: number;
   subscribers: number;
   cardsPurchased: number;
+  recentPurchases: number;
   fraudPurchases: number;
   firstTimePurchases: number;
   normalPurchases: number;
