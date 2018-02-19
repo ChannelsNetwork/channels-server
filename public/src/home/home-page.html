@@ -89,7 +89,7 @@
       <feeds-bar></feeds-bar>
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
-    <div id="headlineContainer">
+    <div id="headlineContainer" class="hidden">
       <h2 id="headline">Featured channels</h2>
     </div>
     <channel-carousel id="carousel" label="Featured channels" channels="[[featured]]" class="hidden"></channel-carousel>
@@ -144,8 +144,10 @@
             this.featured = response.featuredChannels;
             if (this.featured && this.featured.length) {
               this.$.carousel.classList.remove("hidden");
+              this.$.headlineContainer.classList.remove("hidden");
             } else {
               this.$.carousel.classList.add("hidden");
+              this.$.headlineContainer.classList.add("hidden");
             }
 
             // subscribed content
