@@ -45,7 +45,7 @@
       <feeds-bar></feeds-bar>
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
-    <channel-carousel id="carousel"></channel-carousel>
+    <channel-carousel id="carousel" class="hidden"></channel-carousel>
     <div style="height: 100px"></div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
@@ -63,6 +63,11 @@
             $app.scrollTo(route.context.scrollTop);
             return;
           }
+
+          const fourCols = window.innerWidth >= 1280;
+          return $core.getHome(fourCols ? 5 : 3, 3).then((response) => {
+            console.log(response);
+          });
         }).catch((err) => {
           console.error(err);
           $app.showError(err);

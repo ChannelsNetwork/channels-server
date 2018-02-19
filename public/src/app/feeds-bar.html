@@ -60,7 +60,7 @@
     <div id="bar" class="horizontal layout center" on-click="_barClick">
       <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
       <a href="/feed">
-        <button id="recommended">Feed</button>
+        <button id="subscribed">Feed</button>
       </a>
       <a href="/feed/new">
         <button id="new">New</button>
@@ -97,7 +97,7 @@
       }
 
       _onSelected() {
-        this.$.recommended.classList.remove("selected");
+        this.$.subscribed.classList.remove("selected");
         this.$.top.classList.remove("selected");
         this.$.new.classList.remove("selected");
         switch (this.selected || "") {
@@ -108,7 +108,7 @@
             this.$.top.classList.add("selected");
             break;
           default:
-            this.$.recommended.classList.add("selected");
+            this.$.subscribed.classList.add("selected");
             break;
         }
       }

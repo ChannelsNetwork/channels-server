@@ -96,7 +96,7 @@
       onActivate(route) {
         $core.register().then(() => {
           // parse the route
-          let feedName = "recommended";
+          let feedName = "subscribed";
           if (route && route.segments && (route.segments.length > 1)) {
             feedName = route.segments[1];
           }
@@ -152,8 +152,6 @@
               $app.showError(err);
             });
           }
-
-          $core.getHome(5, 5); // Kingston: Test-only
 
           // fetch
           return $core.getFeed(this._feedName, this._fetchCount, null, null, null, this._promotedCardIds).then((feed) => {
