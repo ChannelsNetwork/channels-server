@@ -2031,11 +2031,27 @@ export class Database {
     });
   }
 
-  async aggregateUserActionPaymentsForAuthor(authorId: string): Promise<AggregatedUserActionPaymentInfo[]> {
+  async aggregateUserActionPaymentsForAuthor(authorId: string, since: number): Promise<AggregatedUserActionPaymentInfo[]> {
+    const query: any = { action: "pay", authorId: authorId };
+    if (since) {
+      query.at = { $gt: since };
+    }
     return this.userCardActions.aggregate([
-      { $match: { action: "pay", authorId: authorId } },
+      { $match: query },
       { $group: { _id: "$payment.category", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
     ]).toArray();
+  }
+
+  async countUserActionPaymentsForAuthor(authorId: string, since: number): Promise<AggregatedUserActionPaymentInfo> {
+    const query: any = { action: "pay", authorId: authorId };
+    if (since) {
+      query.at = { $gt: since };
+    }
+    const result: any[] = await this.userCardActions.aggregate([
+      { $match: query },
+      { $group: { _id: "all", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
+    ]).toArray();
+    return result[0];
   }
 
   async ensureUserCardInfo(userId: string, cardId: string): Promise<UserCardInfoRecord> {

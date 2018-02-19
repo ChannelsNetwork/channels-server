@@ -367,8 +367,10 @@ export class AdminManager implements RestServer {
           earnings: await db.aggregateCardRevenueByAuthor(publisherUser.id),
           grossRevenue: 0,
           weightedRevenue: 0,
+          recentRevenue: 0,
           subscribers: 0,
           cardsPurchased: 0,
+          recentPurchases: 0,
           fraudPurchases: 0,
           firstTimePurchases: 0,
           normalPurchases: 0,
@@ -381,7 +383,12 @@ export class AdminManager implements RestServer {
           channelIds.push(channel.id);
         }
         publisher.subscribers = await db.countDistinctSubscribersInChannels(channelIds);
-        const payInfoByCategory = await db.aggregateUserActionPaymentsForAuthor(publisherUser.id);
+        const recentPayInfo = await db.countUserActionPaymentsForAuthor(publisherUser.id, Date.now() - 1000 * 60 * 60 * 24 * 2);
+        if (recentPayInfo) {
+          publisher.recentRevenue = recentPayInfo.grossRevenue;
+          publisher.recentPurchases = recentPayInfo.purchases;
+        }
+        const payInfoByCategory = await db.aggregateUserActionPaymentsForAuthor(publisherUser.id, 0);
         for (const payInfo of payInfoByCategory) {
           publisher.grossRevenue += payInfo.grossRevenue;
           publisher.weightedRevenue += payInfo.weightedRevenue;
@@ -405,7 +412,7 @@ export class AdminManager implements RestServer {
           }
         }
         reply.publishers.push(publisher);
-        if (reply.publishers.length >= 250) {
+        if (reply.publishers.length >= 100) {
           break;
         }
       }
