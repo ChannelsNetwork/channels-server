@@ -87,6 +87,9 @@ export class PriceRegulator implements Initializable {
   }
 
   async calculateBaseCardPrice(stats: NetworkCardStatsHistoryRecord): Promise<number> {
+    if (!stats) {
+      return MAXIMUM_BASE_CARD_FEE;
+    }
     const oldStats = await db.getNetworkCardStatsAt(Date.now() - BASE_CARD_FEE_PERIOD);
     const paidUnitCount = stats.stats.paidUnits && oldStats && oldStats.stats.paidUnits ? stats.stats.paidUnits : stats.stats.paidOpens * ESTIMATED_AVERAGE_UNITS_PER_OPEN;
     let originalPaidUnitCount = 0;
