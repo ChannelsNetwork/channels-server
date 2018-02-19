@@ -723,7 +723,8 @@
         if (this._route && this._route.context) {
           let context = this._route.context;
           let retContext = {
-            scrollTop: this._route.context.scrollTop || 0
+            scrollTop: this._route.context.scrollTop || 0,
+            page: this._route.context.page
           };
           if (context.returnPath) {
             $router.goto(context.returnPath, retContext);

@@ -1,8 +1,10 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/feeds-bar.html">
 <link rel="import" href="../channel/channel-carousel.html">
+<link rel="import" href="../card/card-list.html">
 
 <dom-module id="home-page">
   <template>
@@ -33,6 +35,18 @@
         background: var(--bg-dark);
       }
 
+      card-list {
+        max-width: 1200px;
+        margin: 20px auto 0;
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 1200px) {
+        #carousel {
+          margin: 0 auto 20px;
+        }
+      }
+
       @media (max-width: 600px) {
         #composeButton {
           bottom: 24px;
@@ -45,13 +59,27 @@
       <feeds-bar></feeds-bar>
     </soso-app-header>
     <div id="homePanelContainer" class="hidden"></div>
-    <channel-carousel id="carousel" class="hidden"></channel-carousel>
+    <channel-carousel id="carousel" channels="[[featured]]" class="hidden"></channel-carousel>
+    <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more on-card-open-request="_onCardOpenRequest" on-more="_gotoFeed"
+      class="hidden"></card-list>
+    <dom-repeat items="[[channelList]]">
+      <template>
+        <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" on-card-open-request="_onCardOpenRequest" on-more="_gotoChannel"></card-list>
+      </template>
+    </dom-repeat>
     <div style="height: 100px"></div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
   <script>
     class HomePage extends Polymer.Element {
       static get is() { return 'home-page'; }
+      static get properties() {
+        return {
+          featured: Array,
+          subscribed: Array,
+          channelList: Array
+        };
+      }
 
       onActivate(route) {
         $core.register().then(() => {
@@ -59,14 +87,85 @@
           this._refreshHomePanelVisibility();
 
           // Do not reload if coming back to home page
-          if (route.context && (route.context.page === 'home') && (route.context.scrollValue >= 0)) {
-            $app.scrollTo(route.context.scrollTop);
-            return;
+          if (this.channelList || this.subscribed || this.featured) {
+            if (route.context && (route.context.page === 'home') && (route.context.scrollTop >= 0)) {
+              console.log("this.channelList", );
+              $app.scrollTo(route.context.scrollTop);
+              return;
+            }
           }
 
+          this.channelList = [];
           const fourCols = window.innerWidth >= 1280;
-          return $core.getHome(fourCols ? 5 : 3, 3).then((response) => {
+          return $core.getHome(fourCols ? 3 : 2, fourCols ? 3 : 2).then((response) => {
             console.log(response);
+
+            // featured channels
+            this.featured = response.featuredChannels;
+            if (this.featured && this.featured.length) {
+              this.$.carousel.classList.remove("hidden");
+            } else {
+              this.$.carousel.classList.add("hidden");
+            }
+
+            // subscribed content
+            this._hasSubscribed = false;
+            this.subscribed = response.subscribedContent;
+            if (this.subscribed && this.subscribed.length) {
+              this.$.subscribedList.classList.remove("hidden");
+              this._hasSubscribed = true;
+            } else {
+              this.$.subscribedList.classList.add("hidden");
+            }
+
+            // other channels 
+            let cl = [];
+            for (let i = 0; i < response.channels.length; i++) {
+              let channel = response.channels[i].channel;
+              let cards = response.channels[i].cards;
+              cl.push({
+                label: channel.name || channel.handle,
+                more: true,
+                cards: cards,
+                channel: channel
+              });
+            }
+
+            // add promoted content
+            if (response.promotedContent && response.promotedContent.length) {
+              let promoted = response.promotedContent;
+              let cardsPerSection = fourCols ? 3 : 2;
+              let panelCount = Math.ceil(response.promotedContent.length / cardsPerSection);
+              cardsPerSection = Math.ceil(response.promotedContent.length / panelCount);
+              let panels = [];
+              for (let i = 0; i < panelCount; i++) {
+                let p = {
+                  label: "Promoted",
+                  more: false,
+                  cards: []
+                };
+                for (let j = 0; j < cardsPerSection; j++) {
+                  if (promoted.length) {
+                    p.cards.push(promoted.shift());
+                  } else {
+                    break;
+                  }
+                }
+                panels.push(p);
+              }
+              if (panels.length) {
+                let offset = this._hasSubscribed ? 0 : 1;
+                for (let i = 0; i < panels.length; i++) {
+                  let p = panels[i];
+                  cl.splice(offset, 0, p);
+                  offset = offset + 3;
+                  if (offset > cl.length) {
+                    offset = cl.length;
+                  }
+                }
+              }
+            }
+            this.channelList = cl;
           });
         }).catch((err) => {
           console.error(err);
@@ -96,6 +195,32 @@
           return;
         }
         $router.goto("/compose");
+      }
+
+      _gotoFeed() {
+        $router.goto("/feed");
+      }
+
+      _gotoChannel(event) {
+        $router.goto("/channel/" + encodeURIComponent(event.model.item.channel.handle));
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          let context = {
+            fromApp: true,
+            card: card,
+            page: "home",
+            scrollTop: $app.scrollValue,
+            returnPath: "/"
+          };
+          $router.updateContext({
+            scrollTop: $app.scrollValue,
+            page: "home"
+          });
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
+        }
       }
     }
     window.customElements.define(HomePage.is, HomePage);
