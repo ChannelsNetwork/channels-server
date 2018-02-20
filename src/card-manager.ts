@@ -267,16 +267,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
     console.log("handleCardRequest!!");
-    const card = await db.findCardById(request.params.cardId, false, true);
-    if (!card) {
-      response.redirect('/');
-      return;
+    let card = await db.findCardById(request.params.cardId, false, true);
+    if (card && card.curation && card.curation.block) {
+      card = null;
     }
-    if (card.curation && card.curation.block) {
-      response.redirect('/');
-      return;
-    }
-    const author = await userManager.getUser(card.createdById, false);
+    const author = card ? await userManager.getUser(card.createdById, false) : null;
     await rootPageManager.handlePage("index", request, response, card, null, author);
   }
 
