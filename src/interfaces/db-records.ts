@@ -13,6 +13,8 @@ export interface UserRecord {
   inviteeCode: string;
   inviterCode: string;
   balance: number;
+  grants: number;
+  earnings: number;
   minBalanceAfterWithdrawal: number;
   targetBalance: number;
   balanceLastUpdated: number;
@@ -389,7 +391,11 @@ export interface BankTransactionRecord {
   };
   refunded: boolean;
   refundInfo?: BankTransactionRefundInfo;
+  provisionalState: BankTransactionProvisionalState;
+  pendingPaymentsByRecipient: { [recipientId: string]: number };
 }
+
+export type BankTransactionProvisionalState = "pending" | "complete";
 
 export interface BankTransactionRefundInfo {
   at: number;
@@ -426,6 +432,7 @@ export interface UserCardActionPaymentInfo {
   category: CardPaymentCategory;
   weight: number;
   weightedRevenue: number;
+  paymentPending: boolean;
 }
 
 export interface UserCardActionReportInfo {

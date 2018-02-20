@@ -2,7 +2,7 @@ import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
 import { UrlManager } from "./url-manager";
-import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails, BankTransactionRefundReason, BankTransactionRefundInfo } from "./interfaces/db-records";
+import { BankTransactionRecord, UserRecord, BankCouponRecord, CardRecord, BankCouponDetails, BankTransactionRefundReason, BankTransactionRefundInfo, BankTransactionProvisionalState } from "./interfaces/db-records";
 import { db } from "./db";
 import { KeyUtils } from "./key-utils";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
@@ -264,7 +264,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
+  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, provisionalState: BankTransactionProvisionalState, pendingPaymentsByRecipient: { [recipientId: string]: number }, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -393,7 +393,7 @@ export class Bank implements RestServer, Initializable {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null);
+    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null, provisionalState, pendingPaymentsByRecipient);
     let index = 0;
     const amountByRecipientReason: { [reason: string]: number } = {};
     for (const recipient of details.toRecipients) {
@@ -471,7 +471,7 @@ export class Bank implements RestServer, Initializable {
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null, "complete", {});
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
@@ -564,7 +564,7 @@ export class Bank implements RestServer, Initializable {
   private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number): Promise<BankTransactionResult> {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
     await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < user.targetBalance, now);
-    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
+    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism, "complete", {});
     const amountByRecipientReason: { [reason: string]: number } = {};
     const result: BankTransactionResult = {
       record: record,

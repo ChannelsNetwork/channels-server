@@ -65,66 +65,26 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async initialize2(): Promise<void> {
-    // const oldUsers = await db.getOldUsers();
-    // for (const oldUser of oldUsers) {
-    //   const existing = await db.findUserById(oldUser.id);
-    //   if (!existing && oldUser.keys.length > 0 && oldUser.keys[0].address && oldUser.keys[0].publicKey && oldUser.id && oldUser.identity && oldUser.identity.handle) {
-    //     const user = await db.insertUser("normal", oldUser.keys[0].address, oldUser.keys[0].publicKey, null, null, uuid.v4(), 0, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, null, oldUser.id, oldUser.identity);
-    //     await db.incrementUserBalance(user, oldUser.balance, false, Date.now());
-    //     console.log("UserManager.initialize2: Migrated old user " + oldUser.id + " to new structure with balance = " + oldUser.balance);
-    //   }
-    // }
-    // const users = await db.findUsersWithoutCountry();
-    // for (const user of users) {
-    //   if (user.ipAddresses.length > 0) {
-    //     const result = await this.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1]);
-    //     if (result) {
-    //       await db.updateUserGeo(user.id, result.countryCode, result.region, result.city, result.zip);
-    //     } else {
-    //       await db.updateUserGeo(user.id, null, null, null, null);
-    //     }
-    //   } else {
-    //     await db.updateUserGeo(user.id, null, null, null, null);
-    //   }
-    // }
-    // const withImageUrl = await db.findUsersWithImageUrl();
-    // const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
-    // for (const user of withImageUrl) {
-    //   const imageUrl = user.identity.imageUrl;
-    //   if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
-    //     const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-    //     if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
-    //       await db.replaceUserImageUrl(user.id, fileId);
-    //       console.log("User.initialize2: replaced imageUrl with imageId", user.identity.imageUrl, fileId);
-    //     } else {
-    //       console.log("User.initialize2: Unable to replace user imageUrl because not in GUID format", user.identity);
-    //     }
-    //   }
-    // }
-
-    // const withdrawals = await db.listManualWithdrawals(1000);
-    // for (const withdrawal of withdrawals) {
-    //   const user = await this.getUser(withdrawal.userId, true);
-    //   if (user) {
-    //     if (!user.lastWithdrawal || withdrawal.created > user.lastWithdrawal) {
-    //       console.log("User.initialize2: Updating user last withdrawal", user.id, withdrawal.created);
-    //       await db.updateUserLastWithdrawal(user, withdrawal.created);
-    //     }
-    //   }
-    // }
-
-    // console.log("User.initialize2:  Checking for unconfirmed users who haven't received confirmation request...");
-    // const unconfirmedUsers = db.getUnconfirmedUsersWithNoLastNotice();
-    // while (await unconfirmedUsers.hasNext()) {
-    //   const unconfirmedUser = await unconfirmedUsers.next();
-    //   if (!unconfirmedUser.curation) {
-    //     await this.sendEmailConfirmation(unconfirmedUser);
-    //   }
-    // }
-
+    void this.initializeUserGrantsEarnings();
     setInterval(() => {
       void this.updateBalances();
     }, 30000);
+  }
+
+  async initializeUserGrantsEarnings(): Promise<void> {
+    const cursor = db.getUsersWithUninitializedEarnings();
+    let remaining = await cursor.count();
+    while (await cursor.hasNext()) {
+      const user = await cursor.next();
+      const grants = await db.totalGrantsForUser(user.id);
+      const earnings = await db.totalEarningsForUser(user.id);
+      await db.updateUserGrantsEarnings(user.id, grants, earnings);
+      console.log("Initializing grants and earnings: " + remaining + " remaining.", user.id, grants, earnings);
+      Utils.sleep(50);
+      remaining--;
+    }
+    await cursor.close();
+    console.log("User grant/earnings initialization completed");
   }
 
   private registerHandlers(): void {
@@ -299,13 +259,14 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           };
           await networkEntity.performBankTransaction(request, reward, null, true, false);
           inviteeReward = INVITEE_REWARD;
+          await db.incrementUserGrants(inviter.id, inviteeReward);
         }
         const inviteCode = await this.generateInviteCode();
         userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder",
-          reason: "invitation-reward-recipient"
+          reason: "grant-recipient"
         };
         const grant: BankTransactionDetails = {
           timestamp: null,
@@ -320,6 +281,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         };
         await networkEntity.performBankTransaction(request, grant, null, true, false);
         userRecord.balance = INITIAL_BALANCE;
+        await db.incrementUserGrants(userRecord.id, INITIAL_BALANCE);
+        const inviteeRecipient: BankTransactionRecipientDirective = {
+          address: requestBody.detailsObject.address,
+          portion: "remainder",
+          reason: "invitation-reward-recipient"
+        };
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
             timestamp: null,
@@ -330,10 +297,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: inviteeReward,
             relatedCardId: null,
             relatedCouponId: null,
-            toRecipients: [grantRecipient]
+            toRecipients: [inviteeRecipient]
           };
           await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false);
           userRecord.balance += inviteeReward;
+          await db.incrementUserGrants(userRecord.id, inviteeReward);
         }
       }
       await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);

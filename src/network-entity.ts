@@ -171,7 +171,7 @@ export class NetworkEntity implements Initializable {
       objectString: detailsString,
       signature: signature
     };
-    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, true, increaseTargetBalance, increaseWithdrawableBalance);
+    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, "complete", {}, true, increaseTargetBalance, increaseWithdrawableBalance);
   }
 }
 

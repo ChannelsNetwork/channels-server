@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, BankTransactionProvisionalState } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -118,11 +118,6 @@ export class Database {
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
-    for (const u of noIds) {
-      await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
-    }
-
     await this.users.createIndex({ id: 1 }, { unique: true });
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ inviterCode: 1 }, { unique: true });
@@ -136,60 +131,7 @@ export class Database {
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
     await this.users.createIndex({ added: -1 });
     await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
-
-    await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
-    await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
-    await this.users.updateMany({ balanceBelowTarget: { $exists: false } }, { $set: { balanceBelowTarget: false } });
-    await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
-    await this.users.updateMany({ withdrawableBalance: { $exists: false } }, { $set: { withdrawableBalance: 0 } });
-    await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
-
-    const noTarget = await this.users.find<UserRecord>({ type: "normal", targetBalance: 0 }).toArray();
-    for (const u of noTarget) {
-      await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
-    }
-
-    const noHistory = await this.users.find<UserRecord>({ addressHistory: { $exists: false } }).toArray();
-    for (const u of noHistory) {
-      await this.users.updateOne({ id: u.id }, { $push: { addressHistory: { address: u.address, publicKey: u.publicKey, added: Date.now() } } });
-    }
-
     await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
-
-    await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
-
-    const unnamedUsers = await this.users.find<UserRecord>({ identity: { $exists: true }, "identity.firstName": { $exists: false } }).toArray();
-    for (const unnamed of unnamedUsers) {
-      await this.users.updateOne({ id: unnamed.id }, {
-        $set: {
-          "identity.firstName": Utils.getFirstName(unnamed.identity.name),
-          "identity.lastName": Utils.getLastName(unnamed.identity.name)
-        }
-      });
-    }
-
-    const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
-    for (const marketingUser of noMarketing) {
-      const genericUser = marketingUser as any;
-      const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
-      await this.users.updateOne({ id: marketingUser.id }, {
-        $set: {
-          marketing: {
-            includeInMailingList: includeInMailingList
-          }
-        }
-      });
-    }
-
-    // const noLastPostedUsers = await this.users.find<UserRecord>({ lastPosted: { $exists: false } }).toArray();
-    // for (const noLastPosted of noLastPostedUsers) {
-    //   const lastCard = await this.findLastCardByUser(noLastPosted.id);
-    //   let lastPosted = 0;
-    //   if (lastCard) {
-    //     lastPosted = lastCard.postedAt;
-    //   }
-    //   await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
-    // }
   }
 
   private async initializeCards(): Promise<void> {
@@ -309,6 +251,9 @@ export class Database {
     await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
+    await this.bankTransactions.createIndex({ originatorUserId: 1, provisionalState: 1, "details.timestamp": 1 });
+
+    await this.bankTransactions.updateMany({ provisionalState: { $exists: false } }, { $set: { provisionalState: "complete", pendingPaymentsByRecipient: {} } });
   }
 
   private async initializeUserCardActions(): Promise<void> {
@@ -508,6 +453,8 @@ export class Database {
       inviterCode: inviterCode,
       balanceLastUpdated: now,
       balance: 0,
+      earnings: 0,
+      grants: 0,
       targetBalance: targetBalance,
       balanceBelowTarget: false,
       minBalanceAfterWithdrawal: minBalanceAfterWithdrawal,
@@ -600,6 +547,10 @@ export class Database {
     user.notifications.disallowContentNotifications = disallowContentNotifications;
   }
 
+  async updateUserGrantsEarnings(userId: string, grants: number, earnings: number): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { grants: grants, earnings: earnings } });
+  }
+
   async findUserById(id: string): Promise<UserRecord> {
     return this.users.findOne<UserRecord>({ id: id });
   }
@@ -681,6 +632,10 @@ export class Database {
 
   getUserPublishers(): Cursor<UserRecord> {
     return this.users.find<UserRecord>({ type: "normal", lastPosted: { $gt: 0 } }).sort({ lastPosted: -1 });
+  }
+
+  getUsersWithUninitializedEarnings(): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ earnings: { $exists: false } });
   }
 
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
@@ -807,6 +762,14 @@ export class Database {
 
   async updateUserEmailConfirmation(userId: string): Promise<void> {
     await this.users.updateOne({ id: userId }, { $set: { "identity.emailConfirmed": true, "identity.emailLastConfirmed": Date.now() }, $unset: { "identity.emailConfirmationCode": 1 } });
+  }
+
+  async incrementUserGrants(userId: string, amount: number): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $inc: { grants: amount } });
+  }
+
+  async incrementUserEarnings(userId: string, amount: number): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $inc: { earnings: amount } });
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
@@ -1801,7 +1764,7 @@ export class Database {
     return this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, provisionalState: BankTransactionProvisionalState, pendingPaymentsByRecipient: { [recipientId: string]: number }): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
@@ -1813,7 +1776,9 @@ export class Database {
       signedObject: signedObject,
       deductions: deductions,
       remainderShares: remainderShares,
-      refunded: false
+      refunded: false,
+      provisionalState: provisionalState,
+      pendingPaymentsByRecipient: pendingPaymentsByRecipient || {}
     };
     if (withdrawalType) {
       record.withdrawalInfo = {
@@ -1843,6 +1808,22 @@ export class Database {
       query["details.reason"] = { $nin: ["interest", "subsidy"] };
     }
     return this.bankTransactions.find<BankTransactionRecord>(query).sort({ "details.timestamp": -1 }).limit(limit).toArray();
+  }
+
+  async totalGrantsForUser(userId: string): Promise<number> {
+    const result = await this.bankTransactions.aggregate([
+      { $match: { participantUserIds: userId, "details.reason": "grant" } },
+      { $group: { _id: "all", count: { $sum: 1 }, total: { $sum: "$details.amount" } } }
+    ]).toArray();
+    return result.length > 0 ? result[0].total : 0;
+  }
+
+  async totalEarningsForUser(userId: string): Promise<number> {
+    const result = await this.bankTransactions.aggregate([
+      { $match: { originatorUserId: userId, "details.type": "coupon-redemption", "details.reason": { $in: ["card-promotion", "card-open-payment", "card-click-payment"] } } },
+      { $group: { _id: "all", count: { $sum: 1 }, total: { $sum: "$details.amount" } } }
+    ]).toArray();
+    return result.length > 0 ? result[0].total : 0;
   }
 
   async countBankTransactions(): Promise<number> {

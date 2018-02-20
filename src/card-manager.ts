@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, BankTransactionProvisionalState } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -534,6 +534,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await userManager.updateUserBalance(request, user);
         await userManager.updateUserBalance(request, author);
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+        await db.incrementUserEarnings(author.id, transactionResult.record.details.amount);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -707,6 +708,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await userManager.updateUserBalance(request, user);
         await userManager.updateUserBalance(request, author);
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+        await db.incrementUserEarnings(author.id, transactionResult.record.details.amount);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -843,7 +845,46 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const grossRevenue = amount;
       await userManager.updateUserBalance(request, user);
-      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
+      let provisionalState: BankTransactionProvisionalState = "complete";
+      const pendingPaymentsByRecipient: { [recipientId: string]: number } = {};
+      if (user.grants > user.earnings) {
+        provisionalState = "pending";
+        let remainder = amount;
+        let remainderCount = 0;
+        for (const recipient of transaction.toRecipients) {
+          const recipientUser = await userManager.getUserByAddress(recipient.address);
+          if (recipientUser) {
+            switch (recipient.portion) {
+              case "remainder":
+                remainderCount++;
+                break;
+              case "fraction":
+                pendingPaymentsByRecipient[recipientUser.id] = amount * recipient.amount;
+                remainder -= pendingPaymentsByRecipient[recipientUser.id];
+                break;
+              case "absolute":
+                pendingPaymentsByRecipient[recipientUser.id] = recipient.amount;
+                remainder -= pendingPaymentsByRecipient[recipientUser.id];
+                break;
+              default:
+                throw new Error("Unexpected recipient portion " + recipient.portion);
+            }
+          }
+        }
+        for (const recipient of transaction.toRecipients) {
+          const recipientUser = await userManager.getUserByAddress(recipient.address);
+          if (recipientUser) {
+            switch (recipient.portion) {
+              case "remainder":
+                pendingPaymentsByRecipient[recipientUser.id] = amount / remainderCount;
+                break;
+              default:
+                break;
+            }
+          }
+        }
+      }
+      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, provisionalState, pendingPaymentsByRecipient, false, false, true, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();
@@ -852,7 +893,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         transactionId: transactionResult.record.id,
         category: paymentCategory,
         weight: weight,
-        weightedRevenue: weight * amount
+        weightedRevenue: weight * amount,
+        paymentPending: provisionalState === "pending"
       };
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
@@ -1038,6 +1080,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await userManager.updateUserBalance(request, user);
       await userManager.updateUserBalance(request, author);
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+      await db.incrementUserEarnings(author.id, transactionResult.record.details.amount);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
