@@ -358,7 +358,7 @@ db.userCardActions.aggregate([
 What is our total outstanding liability?
 
 db.users.aggregate([
-  {$match: {balance: {$gt: 6}}},
+  {$match: {balance: {$gt: 5}}},
   {$project: {_id: "$id", netBalance: {$subtract: ["$balance", 5]}}},
   {$group: {_id: "1", count: {$sum: 1}, total: {$sum: "$netBalance"}}}
 ])
@@ -385,7 +385,7 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
-What is a giving fingerprint buying?
+What is a given fingerprint buying?
 
 db.userCardActions.aggregate([
   {$match: {fromFingerprint: "d867e987c3d63f21da5ed5b09ad6a2aa", action: "pay", at: {$gt: 1517480786000}}},
@@ -1455,6 +1455,7 @@ db.adSlots.aggregate([
         advertisers: {$size: "$advertisers"}
       }}
     ])
+<<<<<<< HEAD
 
 
 Which authors and cards are making the most purchases lately?
@@ -1544,3 +1545,5 @@ db. bankTransactions.aggregate([
       { $match: { originatorUserId: "bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "details.type": "coupon-redemption", "details.reason": { $in: ["card-promotion", "card-open-payment", "card-click-payment"] } }},
       { $group: { _id: "all", count: { $sum: 1 }, total: { $sum: "$details.amount" } } }
     ])
+=======
+>>>>>>> bbfe1e1031c41d31a32e2e67136421c260280f1a

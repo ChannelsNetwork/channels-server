@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -267,16 +267,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
     console.log("handleCardRequest!!");
-    const card = await db.findCardById(request.params.cardId, false, true);
-    if (!card) {
-      response.redirect('/');
-      return;
+    let card = await db.findCardById(request.params.cardId, false, true);
+    if (card && card.curation && card.curation.block) {
+      card = null;
     }
-    if (card.curation && card.curation.block) {
-      response.redirect('/');
-      return;
-    }
-    const author = await userManager.getUser(card.createdById, false);
+    const author = card ? await userManager.getUser(card.createdById, false) : null;
     await rootPageManager.handlePage("index", request, response, card, null, author);
   }
 
@@ -302,7 +297,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, null, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -1690,7 +1685,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, user);
+    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -1715,7 +1710,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1743,6 +1738,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         title: record.summary.title,
         text: record.summary.text,
       };
+      let channelCard: ChannelCardRecord;
+      if (user.homeChannelId && record.createdById !== user.id) {
+        channelCard = await db.findChannelCard(user.homeChannelId, record.id);
+      }
       const card: CardDescriptor = {
         id: record.id,
         postedAt: record.postedAt,
@@ -1788,11 +1787,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           paidToReader: userInfo ? userInfo.paidToReader : 0,
           earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
           earnedFromReader: userInfo ? userInfo.earnedFromReader : 0,
-          openFeeRefunded: userInfo ? userInfo.openFeeRefunded : false
+          openFeeRefunded: userInfo ? userInfo.openFeeRefunded : false,
+          addedToHomeChannel: channelCard ? true : false
         },
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
-        reasons: []
+        reasons: [],
+        sourceChannelId: sourceChannelId
       };
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);

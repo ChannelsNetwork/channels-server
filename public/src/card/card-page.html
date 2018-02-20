@@ -134,6 +134,11 @@
         padding-bottom: 30px;
       }
 
+      .disabled {
+        pointer-events: none;
+        opacity: 0 !important;
+      }
+
       @media (max-width: 600px) {
         #morePanel {
           padding: 30px 8px 30px 5px;
@@ -155,7 +160,7 @@
       <div style="width: 100%; box-sizing: border-box; padding: 16px;">
         <div style="margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; color: #808080;">No card found</div>
         <div>
-          <button on-click="_closeCard">back to channels feed</button>
+          <button on-click="_closeCard">back to channels</button>
         </div>
       </div>
     </div>
@@ -204,7 +209,8 @@
             </div>
           </div>
           <div>
-            <a href="/feed">View your feed</a> to see recommended cards.</div>
+            <a href="/">See what else is on Channels</a>
+          </div>
         </div>
       </div>
 
@@ -308,6 +314,7 @@
       _onNoCard() {
         this.$.nocard.classList.remove("hidden");
         this.$.hasCard.classList.add("hidden");
+        this.$.header.classList.add("disabled");
       }
 
       _clearNode(node) {
@@ -354,11 +361,11 @@
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
         this.$.refundPanel.classList.add("hidden");
+        this.$.header.classList.remove("disabled");
         this._clearNode(this.$.cardView);
 
         // show loading spinner
         this.$.cardView.classList.add("hidden");
-        this.$.header.classList.add("disabled");
         this.$.spinner.spinning = true;
         this.$.loadingPanel.classList.remove("hidden");
 
@@ -722,7 +729,8 @@
         if (this._route && this._route.context) {
           let context = this._route.context;
           let retContext = {
-            scrollTop: this._route.context.scrollTop || 0
+            scrollTop: this._route.context.scrollTop || 0,
+            page: this._route.context.page
           };
           if (context.returnPath) {
             $router.goto(context.returnPath, retContext);

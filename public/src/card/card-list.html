@@ -21,6 +21,7 @@
         text-transform: uppercase;
         letter-spacing: 0.1em;
         padding: 10px 8px;
+        display: inline-block;
       }
 
       #more {
@@ -30,7 +31,7 @@
         flex: 1;
         -webkit-flex-basis: 0.000000001px;
         flex-basis: 0.000000001px;
-        min-width: 300px;
+        min-width: 180px;
         margin: 8px;
         padding: 20px 0;
       }
@@ -65,18 +66,27 @@
         margin: 8px;
       }
 
+      .clickable {
+        cursor: pointer;
+      }
+
       @media (max-width: 650px) {
         #container {
           -ms-flex-pack: center;
           -webkit-justify-content: center;
           justify-content: center;
         }
-        #headline {
+        #headlineContainer {
           text-align: center;
+        }
+        #more {
+          min-width: 300px;
         }
       }
     </style>
-    <h2 id="headline">[[label]]</h2>
+    <div id="headlineContainer">
+      <h2 id="headline" on-click="_headlineClick">[[label]]</h2>
+    </div>
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
@@ -109,6 +119,10 @@
           autoLayout: {
             type: Boolean,
             observer: '_refreshLayout'
+          },
+          clickableLabel: {
+            type: Boolean,
+            observer: '_refreshClickableLabel'
           }
         };
       }
@@ -151,7 +165,7 @@
           // this.updateStyles({
           //   '--grid-card-height': ht + "px"
           // });
-          let ht = Math.min(Math.max(390, 0.6 * window.innerHeight), 500);
+          let ht = Math.min(Math.max(380, 0.6 * window.innerHeight), 480);
           let imgHt = ht < 480 ? "170px" : "250px";
           this.updateStyles({
             '--grid-card-height': ht + "px",
@@ -166,6 +180,14 @@
           this.$.more.classList.remove("hidden");
         } else {
           this.$.more.classList.add("hidden");
+        }
+      }
+
+      _refreshClickableLabel() {
+        if (this.clickableLabel) {
+          this.$.headline.classList.add("clickable");
+        } else {
+          this.$.headline.classList.remove("clickable");
         }
       }
 
@@ -213,6 +235,11 @@
       _onMore(event) {
         event.stopPropagation();
         this.dispatchEvent(new CustomEvent('more', { bubbles: true, composed: true }));
+      }
+
+      _headlineClick(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('headline-click', { bubbles: true, composed: true }));
       }
     }
     window.customElements.define(CardList.is, CardList);
