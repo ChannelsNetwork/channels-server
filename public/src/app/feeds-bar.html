@@ -59,6 +59,9 @@
     </style>
     <div id="bar" class="horizontal layout center" on-click="_barClick">
       <soso-icon icon="menu" on-click="_showMenu"></soso-icon>
+      <a href="/">
+        <button id="home">Home</button>
+      </a>
       <a href="/feed">
         <button id="subscribed">Feed</button>
       </a>
@@ -97,6 +100,7 @@
       }
 
       _onSelected() {
+        this.$.home.classList.remove("selected");
         this.$.subscribed.classList.remove("selected");
         this.$.top.classList.remove("selected");
         this.$.new.classList.remove("selected");
@@ -107,8 +111,11 @@
           case "top":
             this.$.top.classList.add("selected");
             break;
-          default:
+          case "subscribed":
             this.$.subscribed.classList.add("selected");
+            break;
+          case "home":
+            this.$.home.classList.add("selected");
             break;
         }
       }
