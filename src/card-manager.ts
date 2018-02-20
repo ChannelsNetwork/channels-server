@@ -1739,7 +1739,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         text: record.summary.text,
       };
       let channelCard: ChannelCardRecord;
-      if (user.homeChannelId && record.createdById !== user.id) {
+      if (user && user.homeChannelId && record.createdById !== user.id) {
         channelCard = await db.findChannelCard(user.homeChannelId, record.id);
       }
       const card: CardDescriptor = {
