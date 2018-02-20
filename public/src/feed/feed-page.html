@@ -50,6 +50,21 @@
         margin-bottom: 50px;
       }
 
+      #feedTitle {
+        color: #555;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+        padding: 0px 8px 15px;
+        text-align: center;
+      }
+
+      #feedTitle a,
+      #feedTitle a:visited,
+      #feedTitle a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+
       @media (max-width: 1264px) {
         card-list {
           max-width: 948px;
@@ -80,6 +95,9 @@
       <feeds-bar id="fbar"></feeds-bar>
     </soso-app-header>
     <div class="container">
+      <div id="feedTitle" class="hidden">Cards from your channel
+        <a href="/subscriptions">subscriptions</a>
+      </div>
       <card-list auto-layout label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
         on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
@@ -112,6 +130,8 @@
       }
 
       onActivate(route) {
+        this.$.feedTitle.classList.add("hidden");
+
         $core.register().then(() => {
           // parse the route
           let feedName = "subscribed";
@@ -124,6 +144,18 @@
           // activate top bars and home page content
           this.$.cbar.activate();
           this.$.fbar.selected = feedName;
+
+          // update none message
+          switch (feedName) {
+            case "subscribed":
+              this.emptyMessage = 'There are no cards in your feed. Subscribe to a channel to see their cards in your feed.';
+              this.$.feedTitle.classList.remove("hidden");
+              break;
+            default:
+              this.emptyMessage = 'There are no matching cards in this category.';
+              this.$.feedTitle.classList.add("hidden");
+              break;
+          }
 
           // check if route is different since last load
           let fetchNewContent = true;
@@ -186,6 +218,7 @@
               this.$.noItems.classList.add("hidden");
             } else {
               this.$.noItems.classList.remove("hidden");
+              this.$.feedTitle.classList.add("hidden");
             }
             this._moreAvailable = (feed.moreAvailable && this._lastCardId) ? true : false;
           });
