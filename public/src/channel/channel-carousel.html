@@ -277,11 +277,11 @@
       }
 
       _pollForTemplate() {
+        this.stopTimer();
         if (this.channels && this.channels.length) {
           this._panelsLoaded = false;
           const panels = this.shadowRoot.querySelectorAll(".panel");
           if (panels && (panels.length === this.channels.length)) {
-            this._timerStopped = false;
             this._panelsLoaded = true;
             this.selected = 0;
             setTimeout(() => {
@@ -297,30 +297,26 @@
       }
 
       startTimer() {
-        if (this._panelsLoaded && (!this._timerStopped)) {
-          setTimeout(() => {
+        if (this._panelsLoaded && (!this._timer)) {
+          this._timer = setInterval(() => {
             this._next();
-          }, 7000);
+          }, 6000);
         }
       }
 
       stopTimer() {
-        if (!this._timerStopped) {
-          this._timerStopped = true;
+        if (this._timer) {
+          clearInterval(this._timer);
+          this._timer = null;
         }
       }
 
       _next() {
-        if (!this._timerStopped) {
-          let s = this.selected + 1;
-          if (s >= this.channels.length) {
-            s = 0;
-          }
-          this.selected = s;
-          setTimeout(() => {
-            this._next();
-          }, 6000);
+        let s = this.selected + 1;
+        if (s >= this.channels.length) {
+          s = 0;
         }
+        this.selected = s;
       }
 
       getBg(item) {
