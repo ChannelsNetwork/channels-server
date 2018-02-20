@@ -1886,7 +1886,7 @@ export class Database {
     if (result.length === 0) {
       return 0;
     }
-    return result[0].total;
+    return result.length > 0 ? result[0].total : 0;
   }
 
   async updateBankTransactionWithdrawalStatus(transactionId: string, referenceId: string, status: string, err: any): Promise<void> {
@@ -3182,10 +3182,10 @@ export class Database {
         }
       }
     ]).toArray();
-    result.total = totals[0].total;
-    result.totalWithIdentity = totals[0].withIdentity;
-    result.totalStaleWithIdentity = totals[0].staleWithIdentity;
-    result.excessBalance = Utils.roundToDecimal(totals[0].excessBalance, 2);
+    result.total = totals.length > 0 ? totals[0].total : 0;
+    result.totalWithIdentity = totals.length > 0 ? totals[0].withIdentity : 0;
+    result.totalStaleWithIdentity = totals.length > 0 ? totals[0].staleWithIdentity : 0;
+    result.excessBalance = totals.length > 0 ? Utils.roundToDecimal(totals[0].excessBalance, 2) : 0;
     const now = Date.now() + 1000 * 60;
     const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
     const yesterday = moment(midnightToday).subtract(1, 'd');
@@ -3321,10 +3321,10 @@ export class Database {
       }
     ]).toArray();
     const result: AdminCardStats = {
-      total: info[0].total,
-      budget: Utils.roundToDecimal(info[0].budget, 2),
-      spent: Utils.roundToDecimal(info[0].spent, 2),
-      revenue: Utils.roundToDecimal(info[0].revenue, 2),
+      total: info.length > 0 ? info[0].total : 0,
+      budget: info.length > 0 ? Utils.roundToDecimal(info[0].budget, 2) : 0,
+      spent: info.length > 0 ? Utils.roundToDecimal(info[0].spent, 2) : 0,
+      revenue: info.length > 0 ? Utils.roundToDecimal(info[0].revenue, 2) : 0,
       newCards: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 }
     };
     const now = Date.now() + 1000 * 60;
@@ -3373,10 +3373,10 @@ export class Database {
       }
     ]).toArray();
     const result: AdminPurchaseStats = {
-      total: info[0].total,
-      totalRevenue: Utils.roundToDecimal(info[0].totalRevenue, 2),
-      totalFirstTime: info[0].totalFirstTime,
-      totalFraud: info[0].totalFraud,
+      total: info.length > 0 ? info[0].total : 0,
+      totalRevenue: info.length > 0 ? Utils.roundToDecimal(info[0].totalRevenue, 2) : 0,
+      totalFirstTime: info.length > 0 ? info[0].totalFirstTime : 0,
+      totalFraud: info.length > 0 ? info[0].totalFraud : 0,
       newPurchases: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
       newRevenue: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
       newWeightedRevenue: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
@@ -3471,8 +3471,8 @@ export class Database {
       }
     ]).toArray();
     const result: AdminAdStats = {
-      total: info[0].total,
-      revenue: Utils.roundToDecimal(info[0].revenue, 2),
+      total: info.length > 0 ? info[0].total : 0,
+      revenue: info.length > 0 ? Utils.roundToDecimal(info[0].revenue, 2) : 0,
       newSlots: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
       newRevenue: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
       consumers: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
