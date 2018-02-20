@@ -650,6 +650,7 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.updateChannelSubscriptionDetails(this._keys.address, this._fingerprint, channelId, state);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-channel-subscription";
+    window.__dirtyFeed = true;
     return this.rest.post(url, request);
   }
 
@@ -694,6 +695,27 @@ class CoreService extends Polymer.Element {
       this._fire("channels-user-status", this._userStatus);
       return response;
     });
+  }
+
+  getHome(maxSubscribedCards, maxCardsPerChannel) {
+    let details = RestUtils.getHome(this._keys.address, this._fingerprint, maxSubscribedCards, maxCardsPerChannel);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-home";
+    return this.rest.post(url, request);
+  }
+
+  getChannelCard(channelId, cardId) {
+    let details = RestUtils.updateChannelCard(this._keys.address, this._fingerprint, channelId, cardId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel-card";
+    return this.rest.post(url, request);
+  }
+
+  updateChannelCard(channelId, cardId, includeInChannel) {
+    let details = RestUtils.updateChannelCard(this._keys.address, this._fingerprint, channelId, cardId, includeInChannel);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-channel-card";
+    return this.rest.post(url, request);
   }
 
   uploadImageFile(imageFile, filename, maxWidth) {
@@ -750,6 +772,14 @@ class CoreService extends Polymer.Element {
     return this._profile;
   }
 
+  get isAdmin() {
+    return this.registration && this.registration.admin;
+  }
+
+  get homeChannelId() {
+    return this._profile ? this._profile.homeChannelId : null;
+  }
+
   get accountSettings() {
     if (!this._profile) {
       return null;
@@ -789,6 +819,10 @@ class CoreService extends Polymer.Element {
       return false;
     }
     return this._registration.withdrawalsEnabled;
+  }
+
+  get userId() {
+    return this._registration ? this._registration.id : null;
   }
 
   get balance() {
@@ -905,6 +939,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_updateChannel(channelId, featuredWeight, listingWeight) {
+    let details = RestUtils.admin_updateChannel(this._keys.address, this._fingerprint, channelId, featuredWeight, listingWeight);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-update-channel";
+    return this.rest.post(url, request);
+  }
+
   admin_getGoals() {
     let details = RestUtils.admin_getGoals(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
@@ -940,5 +981,11 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getChannels() {
+    let details = RestUtils.admin_getChannels(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-channels";
+    return this.rest.post(url, request);
+  }
 }
 window.customElements.define(CoreService.is, CoreService);

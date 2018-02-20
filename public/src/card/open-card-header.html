@@ -198,6 +198,8 @@
         <li id="editAction" class="menuDivider" on-click="_editCard">Edit Card</li>
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
+        <li id="addToHomeAction" on-click="_addToHome" class="menuDivider hidden">Add To My Channel</li>
+        <li id="removeFromHomeAction" on-click="_removeFromHome" class="hidden">Remove From My Channel</li>
         <li id="ratingTipItem" class="menuDivider">[[ratingTip]]</li>
         <li id="voteItem2">
           <div class="horizontal layout center">
@@ -345,11 +347,24 @@
           this.$.deleteAction.classList.remove("hidden");
           this.$.editAction.classList.remove("hidden");
           this.$.reportAction.classList.add("hidden");
+          this.$.addToHomeAction.classList.add("hidden");
+          this.$.removeFromHomeAction.classList.add("hidden");
         } else {
           this.$.analyticsAction.classList.add("hidden");
           this.$.deleteAction.classList.add("hidden");
           this.$.editAction.classList.add("hidden");
           this.$.reportAction.classList.remove("hidden");
+          this.$.addToHomeAction.classList.add("hidden");
+          this.$.removeFromHomeAction.classList.add("hidden");
+          if ($core.isAdmin && $core.profile && $core.userId && $core.homeChannelId) {
+            if (this.data && this.data.by && this.data.by.id !== $core.userId) {
+              if (this.data.userSpecific.addedToHomeChannel) {
+                this.$.removeFromHomeAction.classList.remove("hidden");
+              } else {
+                this.$.addToHomeAction.classList.remove("hidden");
+              }
+            }
+          }
         }
       }
 
@@ -429,6 +444,20 @@
               });
             });
           }
+        });
+      }
+
+      _addToHome() {
+        $core.updateChannelCard($core.homeChannelId, this.data.id, true).then((response) => { }).catch((err) => {
+          console.error("Failed to add card to home channel", err);
+          $app.showError("Oops. Something went wrong. Failed to add card to your channel.");
+        });
+      }
+
+      _removeFromHome() {
+        $core.updateChannelCard($core.homeChannelId, this.data.id, false).then((response) => { }).catch((err) => {
+          console.error("Failed to remove card from home channel", err);
+          $app.showError("Oops. Something went wrong. Failed to remove card from your channel.");
         });
       }
 

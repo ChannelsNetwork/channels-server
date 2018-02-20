@@ -1,20 +1,330 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="../channel/channel-carousel.html">
+<link rel="import" href="../card/card-list.html">
+
 <dom-module id="home-page">
   <template>
-    <style is="custom-style" include="app-styles">
+    <style is="custom-style" include="app-styles home-panel-styles">
       :host {
         display: block;
       }
+
+      #carousel {
+        margin: 0 auto 20px;
+      }
+
+      #headlineContainer {
+        max-width: 1264px;
+        margin: 20px auto 8px;
+      }
+
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      card-list {
+        max-width: 1264px;
+        margin: 20px auto 0;
+        box-sizing: border-box;
+      }
+
+      #headline {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 8px;
+        display: inline-block;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+        #headlineContainer {
+          text-align: center;
+        }
+      }
     </style>
     <soso-app-header>
-      <channels-bar></channels-bar>
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar selected="home"></feeds-bar>
     </soso-app-header>
-    <div style="height: 300vh;"></div>
+    <div id="homePanelContainer" class="hidden"></div>
+    <div id="headlineContainer" class="hidden">
+      <h2 id="headline">Featured channels</h2>
+    </div>
+    <channel-carousel id="carousel" label="Featured channels" channels="[[featured]]" class="hidden"></channel-carousel>
+    <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more clickable-label on-card-open-request="_onCardOpenRequest"
+      on-more="_gotoFeed" on-headline-click="_gotoFeed" class="hidden"></card-list>
+    <dom-repeat items="[[channelList]]">
+      <template>
+        <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" clickable-label="[[item.more]]" on-card-open-request="_onCardOpenRequest"
+          on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
+      </template>
+    </dom-repeat>
+    <card-list id="recommendedList" label="Recommended" items="[[recommended]]" more="[[_moreRecommended]]" on-card-open-request="_onCardOpenRequest"
+      on-more="_onMoreRecommended" class="hidden"></card-list>
+    <div id="spacer" style="height: 100px"></div>
+    <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
   <script>
     class HomePage extends Polymer.Element {
       static get is() { return 'home-page'; }
+      static get properties() {
+        return {
+          featured: Array,
+          subscribed: Array,
+          channelList: Array,
+          recommended: Array,
+          _moreRecommended: Boolean
+        };
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          this.$.cbar.activate();
+          this._refreshHomePanelVisibility();
+
+          // Do not reload if coming back to home page
+          if (this.channelList || this.subscribed || this.featured) {
+            if (route.context && (route.context.page === 'home') && (route.context.scrollTop >= 0)) {
+              $app.scrollTo(route.context.scrollTop);
+              return;
+            }
+          }
+
+          this._promotedCardIds = [];
+          this.subscribed = [];
+          this.channelList = [];
+          this.recommended = [];
+          this._moreRecommended = false;
+          this._recommendedLoaded = false;
+          const fourCols = window.innerWidth >= 1280;
+          return $core.getHome(fourCols ? 3 : 3, fourCols ? 3 : 2).then((response) => {
+            // featured channels
+            this.featured = response.featuredChannels;
+            if (this.featured && this.featured.length) {
+              this.$.carousel.classList.remove("hidden");
+              this.$.headlineContainer.classList.remove("hidden");
+            } else {
+              this.$.carousel.classList.add("hidden");
+              this.$.headlineContainer.classList.add("hidden");
+            }
+
+            // subscribed content
+            this._hasSubscribed = false;
+            this.subscribed = response.subscribedContent;
+            if (this.subscribed && this.subscribed.length) {
+              this.$.subscribedList.classList.remove("hidden");
+              this._hasSubscribed = true;
+            } else {
+              this.$.subscribedList.classList.add("hidden");
+            }
+
+            // other channels 
+            let cl = [];
+            for (let i = 0; i < response.channels.length; i++) {
+              let channel = response.channels[i].channel;
+              let cards = response.channels[i].cards;
+              cl.push({
+                label: channel.name || channel.handle,
+                more: true,
+                cards: cards,
+                channel: channel
+              });
+            }
+
+            // add promoted content
+            if (response.promotedContent && response.promotedContent.length) {
+              let promoted = response.promotedContent;
+              let cardsPerSection = fourCols ? 3 : 2;
+              let panelCount = Math.ceil(response.promotedContent.length / cardsPerSection);
+              cardsPerSection = Math.ceil(response.promotedContent.length / panelCount);
+              let panels = [];
+              for (let i = 0; i < panelCount; i++) {
+                let p = {
+                  label: "Promoted",
+                  more: false,
+                  cards: []
+                };
+                for (let j = 0; j < cardsPerSection; j++) {
+                  if (promoted.length) {
+                    let pcard = promoted.shift();
+                    this._promotedCardIds.push(pcard.id);
+                    p.cards.push(pcard);
+                  } else {
+                    break;
+                  }
+                }
+                panels.push(p);
+              }
+              if (panels.length) {
+                let offset = this._hasSubscribed ? 0 : 1;
+                for (let i = 0; i < panels.length; i++) {
+                  let p = panels[i];
+                  cl.splice(offset, 0, p);
+                  offset = offset + 3;
+                  if (offset > cl.length) {
+                    offset = cl.length;
+                  }
+                }
+              }
+            }
+            this.channelList = cl;
+
+            this._loadRecommended(this.channelList.length > 0 || this._hasSubscribed);
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
+      }
+
+      _loadRecommended(delayed) {
+        if (this._recommendedLoaded) {
+          return;
+        }
+        setTimeout(() => {
+          this._recommendedLoaded = true;
+          this._lastCardId = null;
+          $core.getFeed("recommended", 24, null, null, null, this._promotedCardIds).then((feed) => {
+            const cards = feed.cards;
+            for (let i = 0; i < cards.length; i++) {
+              if (cards[i].promoted) {
+                this._promotedCardIds.push(cards[i].id);
+              } else {
+                this._lastCardId = cards[i].id;
+              }
+            }
+            this.recommended = cards;
+            if (cards && cards.length) {
+              this.$.recommendedList.classList.remove("hidden");
+            } else {
+              this.$.recommendedList.classList.add("hidden");
+            }
+            this._moreRecommended = (feed.moreAvailable && this._lastCardId) ? true : false;
+          }).catch((err) => {
+            console.error(err);
+            $app.showError(err);
+          });
+        }, delayed ? 2000 : 10);
+      }
+
+      _refreshHomePanelVisibility() {
+        if (!this._homePanelMoved) {
+          let d = document.getElementById('homePanel');
+          if (d) {
+            d.style.display = "block";
+            this.$.homePanelContainer.appendChild(d);
+          }
+          this._homePanelMoved = true;
+        }
+        this.$.homePanelContainer.classList.remove("hidden");
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "feed" } });
+          return;
+        }
+        $router.goto("/compose");
+      }
+
+      _gotoFeed() {
+        $router.goto("/feed");
+      }
+
+      _gotoChannel(event) {
+        $router.goto("/channel/" + encodeURIComponent(event.model.item.channel.handle));
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          let context = {
+            fromApp: true,
+            card: card,
+            page: "home",
+            scrollTop: $app.scrollValue,
+            returnPath: "/"
+          };
+          $router.updateContext({
+            scrollTop: $app.scrollValue,
+            page: "home"
+          });
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
+        }
+      }
+
+      _onMoreRecommended() {
+        if (this._fetchingMore) {
+          return;
+        }
+        this._fetchingMore = true;
+        $core.getFeed("recommended", 24, null, this._lastCardId, null, this._promotedCardIds).then((feed) => {
+          this._fetchingMore = false;
+          const cards = feed.cards || [];
+          this._lastCardId = null;
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].promoted) {
+              this._promotedCardIds.push(cards[i].id);
+            } else {
+              this._lastCardId = cards[i].id;
+            }
+          }
+          this._moreRecommended = feed.moreAvailable && this._lastCardId ? true : false;
+          for (let i = 0; i < cards.length; i++) {
+            this.push("recommended", cards[i]);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
+      }
     }
     window.customElements.define(HomePage.is, HomePage);
   </script>

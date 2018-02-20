@@ -6,7 +6,7 @@
 
 <dom-module id="feed-page">
   <template>
-    <style is="custom-style" include="app-styles home-panel-styles">
+    <style is="custom-style" include="app-styles">
       :host {
         display: block;
       }
@@ -50,6 +50,39 @@
         margin-bottom: 50px;
       }
 
+      #feedTitle {
+        color: #555;
+        font-size: 16px;
+        letter-spacing: 0.03em;
+        padding: 0px 8px 15px;
+        text-align: center;
+      }
+
+      #feedTitle a,
+      #feedTitle a:visited,
+      #feedTitle a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
+        }
+      }
+
       @media (max-width: 600px) {
         #composeButton {
           bottom: 24px;
@@ -61,8 +94,10 @@
       <channels-bar id="cbar"></channels-bar>
       <feeds-bar id="fbar"></feeds-bar>
     </soso-app-header>
-    <div id="homePanelContainer" class="hidden"></div>
     <div class="container">
+      <div id="feedTitle" class="hidden">Cards from your channel
+        <a href="/subscriptions">subscriptions</a>
+      </div>
       <card-list auto-layout label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
         on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
@@ -95,9 +130,11 @@
       }
 
       onActivate(route) {
+        this.$.feedTitle.classList.add("hidden");
+
         $core.register().then(() => {
           // parse the route
-          let feedName = "recommended";
+          let feedName = "subscribed";
           if (route && route.segments && (route.segments.length > 1)) {
             feedName = route.segments[1];
           }
@@ -107,7 +144,18 @@
           // activate top bars and home page content
           this.$.cbar.activate();
           this.$.fbar.selected = feedName;
-          this._refreshHomePanelVisibility();
+
+          // update none message
+          switch (feedName) {
+            case "subscribed":
+              this.emptyMessage = 'There are no cards in your feed. Subscribe to a channel to see its cards in your feed.';
+              this.$.feedTitle.classList.remove("hidden");
+              break;
+            default:
+              this.emptyMessage = 'There are no matching cards in this category.';
+              this.$.feedTitle.classList.add("hidden");
+              break;
+          }
 
           // check if route is different since last load
           let fetchNewContent = true;
@@ -170,6 +218,7 @@
               this.$.noItems.classList.add("hidden");
             } else {
               this.$.noItems.classList.remove("hidden");
+              this.$.feedTitle.classList.add("hidden");
             }
             this._moreAvailable = (feed.moreAvailable && this._lastCardId) ? true : false;
           });
@@ -181,22 +230,6 @@
 
       onDeactivate() {
         this.$.cbar.deactivate();
-      }
-
-      _refreshHomePanelVisibility() {
-        if (!this._homePanelMoved) {
-          let d = document.getElementById('homePanel');
-          if (d) {
-            d.style.display = "block";
-            this.$.homePanelContainer.appendChild(d);
-          }
-          this._homePanelMoved = true;
-        }
-        if (this._feedName === "recommended") {
-          this.$.homePanelContainer.classList.remove("hidden");
-        } else {
-          this.$.homePanelContainer.classList.add("hidden");
-        }
       }
 
       _compose() {

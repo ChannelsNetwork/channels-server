@@ -61,8 +61,9 @@
           <admin-goals-view class="admin-goals page" data-href="../admin/admin-goals-view.html"></admin-goals-view>
           <admin-withdrawals-view class="admin-withdrawals page" data-href="../admin/admin-withdrawals-view.html"></admin-withdrawals-view>
           <admin-publishers-view class="admin-publishers page" data-href="../admin/admin-publishers-view.html"></admin-publishers-view>
+          <admin-channels-view class="admin-channels page" data-href="../admin/admin-channels-view.html"></admin-channels-view>
 
-          <!-- <home-page id="home" class="home page" data-href="../home/home-page.html"></home-page> -->
+          <home-page id="home" class="home page" data-href="../home/home-page.html"></home-page>
         </div>
       </div>
       <!-- Navigation Menu -->
@@ -144,15 +145,15 @@
 
       _handleRouteChange(route) {
         let segments = route.segments;
-        let pageName = segments[0] || "feed";
+        let pageName = segments[0] || "home";
         if (pageName === 'c') {
           pageName = "card";
         }
         const pages = this.shadowRoot.querySelectorAll(".page");
         let activePage = this.shadowRoot.querySelector("." + pageName);
         if (!activePage) {
-          activePage = this.$.feed;
-          pageName = "feed";
+          activePage = this.$.home;
+          pageName = "home";
         }
 
         if (!(pageName === "card" || pageName === "channel")) {

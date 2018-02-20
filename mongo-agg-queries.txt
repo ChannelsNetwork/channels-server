@@ -295,7 +295,7 @@ db.userCardActions.aggregate([
 What is our total outstanding liability?
 
 db.users.aggregate([
-  {$match: {balance: {$gt: 6}}},
+  {$match: {balance: {$gt: 5}}},
   {$project: {_id: "$id", netBalance: {$subtract: ["$balance", 5]}}},
   {$group: {_id: "1", count: {$sum: 1}, total: {$sum: "$netBalance"}}}
 ])
@@ -322,7 +322,7 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
-What is a giving fingerprint buying?
+What is a given fingerprint buying?
 
 db.userCardActions.aggregate([
   {$match: {fromFingerprint: "d867e987c3d63f21da5ed5b09ad6a2aa", action: "pay", at: {$gt: 1517480786000}}},
