@@ -291,8 +291,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("No matching author for this card");
         return;
       }
-      if (author.curation && author.curation === "blocked" && user.id !== author.id) {
-        console.log("Card.handleGetCard: returning 404 for card by blocked author being requested by someone else", card.id, user.id, author.id);
+      if (card.curation && card.curation.block && user.id !== author.id) {
+        console.log("Card.handleGetCard: returning 404 for card by blocked card being requested by someone else", card.id, user.id, author.id);
         response.status(404).send("No card found");
         return;
       }
