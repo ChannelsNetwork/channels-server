@@ -234,6 +234,7 @@
 
       connectedCallback() {
         super.connectedCallback();
+        this._visibilityListener = this._visibilityChange.bind(this);
         this.iconMap = window._channelIcons;
       }
 
@@ -272,10 +273,13 @@
         setTimeout(() => {
           this.$.header.style.opacity = 1;
         }, 1250);
+
+        window.addEventListener('visibility-change', this._visibilityListener);
       }
 
       onDeactivate() {
         this._active = false;
+        window.removeEventListener('visibility-change', this._visibilityListener);
         this.$.cbar.deactivate();
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
@@ -624,6 +628,15 @@
         }
       }
 
+      _visibilityChange(event) {
+        let hidden = event.detail.hidden;
+        if (hidden) {
+          this._stopPaymentTimer();
+        } else {
+          this._startPaymentTimer();
+        }
+      }
+
       _stopPaymentTimer() {
         if (this._paymentTimer) {
           clearTimeout(this._paymentTimer);
@@ -639,6 +652,9 @@
           return;
         }
         if (this._paymentTimer) {
+          return;
+        }
+        if ($core.visibility.isHidden()) {
           return;
         }
 
