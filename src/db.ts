@@ -3568,10 +3568,10 @@ export class Database {
       {
         $group: {
           _id: "all",
-          subscribers: { $addToSet: "userId" },
+          subscribers: { $addToSet: "$userId" },
           totalSubscriptions: { $sum: 1 },
-          channels: { $addToSet: "channelId" },
-          bonuses: { $sum: "bonusPaid" },
+          channels: { $addToSet: "$channelId" },
+          bonuses: { $sum: "$bonusPaid" },
           fraud: { $sum: { $cond: { if: "$bonusFraudDetected", then: 1, else: 0 } } },
         }
       },

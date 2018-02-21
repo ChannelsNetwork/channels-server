@@ -1460,7 +1460,7 @@ db.adSlots.aggregate([
 Which authors and cards are making the most purchases lately?
 
 db.userCardActions.aggregate([
-  {$match: {action: "pay", at: {$gt: 1519027200000}, fraudReason: {$exists: false}}},
+  {$match: {action: "pay", at: {$gt: 1519113600000}, fraudReason: {$exists: false}}},
   {$group: {_id: {seller: "$authorId", cardId: "$cardId"}, count: {$sum: 1}, total: {$sum: "$payment.amount"}, weighted: {$sum: "$payment.weightedRevenue"} }},
   {$match: {count: {$gt: 1}}},
   {$lookup: {from: "users", localField:"_id.seller", foreignField: "id", as: "user"}}, 
@@ -1561,15 +1561,16 @@ db. bankTransactions.aggregate([
 
 
 db.channelUsers.aggregate([
-      { $match: { status: "subscribed" } },
+      { $match: { subscriptionState: "subscribed" } },
       {
         $group: {
           _id: "all",
-          subscribers: { $addToSet: "userId" },
+          subscribers: { $addToSet: "$userId" },
           totalSubscriptions: { $sum: 1 },
-          channels: { $addToSet: "channelId" },
-          bonuses: { $sum: "bonusPaid" }
+          channels: { $addToSet: "$channelId" },
+          bonuses: { $sum: "$bonusPaid" }
         }
       },
-      { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
+          { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
+
