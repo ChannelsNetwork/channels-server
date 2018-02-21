@@ -232,9 +232,15 @@
         };
       }
 
+      constructor() {
+        super();
+        this._cardProgressStartListener = this._onCardProgressStart.bind(this);
+        this._cardProgressStopListener = this._onCardProgressStop.bind(this);
+        this._visibilityListener = this._visibilityChange.bind(this);
+      }
+
       connectedCallback() {
         super.connectedCallback();
-        this._visibilityListener = this._visibilityChange.bind(this);
         this.iconMap = window._channelIcons;
       }
 
@@ -358,6 +364,12 @@
       _loadCard() {
         this._cardOpened = false;
         this._cardContentLoaded = false;
+        this._cardHandlesPaymentProgress = false;
+
+        if (this._cardNode) {
+          this._cardNode.removeEventListener("progress-start", this._cardProgressStartListener);
+          this._cardNode.removeEventListener("progress-stop", this._cardProgressStopListener);
+        }
         this._cardNode = null;
 
         this.$.inaccessible.classList.add("hidden");
@@ -435,7 +447,7 @@
                 this._cardContentLoaded = true;
                 setTimeout(() => {
                   if (this._active) {
-                    this._startPaymentTimer();
+                    this._startPaymentTimerIfNotControlledByCard();
                   }
                 });
               });
@@ -601,6 +613,12 @@
         cardNode.user = $core.profile;
         cardNode.services = $core.cardManager.cardService;
         cardNode.active = this._termsAccepted;
+        this._cardHandlesPaymentProgress = false;
+        if (cardNode.handlesPaymentProgress) {
+          cardNode.addEventListener("progress-start", this._cardProgressStartListener);
+          cardNode.addEventListener("progress-stop", this._cardProgressStopListener);
+          this._cardHandlesPaymentProgress = true;
+        }
         this.$.cardView.appendChild(cardNode);
         this._cardNode = cardNode;
 
@@ -610,7 +628,7 @@
       _onTermsAccept() {
         this._termsAccepted = true;
         if (this._cardContentLoaded) {
-          this._startPaymentTimer();
+          this._startPaymentTimerIfNotControlledByCard();
         }
         if (this._cardNode) {
           this._cardNode.active = true;
@@ -633,8 +651,16 @@
         if (hidden) {
           this._stopPaymentTimer();
         } else {
-          this._startPaymentTimer();
+          this._startPaymentTimerIfNotControlledByCard();
         }
+      }
+
+      _onCardProgressStart(event) {
+        this._startPaymentTimer();
+      }
+
+      _onCardProgressStop(event) {
+        this._stopPaymentTimer();
       }
 
       _stopPaymentTimer() {
@@ -645,6 +671,12 @@
           $core.cardManager.cacheCardData(this.cardId, "prev-operation-duration", duration);
         }
         this.$.header.hideTimer();
+      }
+
+      _startPaymentTimerIfNotControlledByCard() {
+        if (!this._cardHandlesPaymentProgress) {
+          this._startPaymentTimer();
+        }
       }
 
       _startPaymentTimer() {
