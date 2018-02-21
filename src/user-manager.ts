@@ -1240,6 +1240,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     return false;
   }
+
+  async adminBlockUser(user: UserRecord): Promise<void> {
+    await db.updateUserCuration(user.id, "blocked");
+    await this.announceUserUpdated(user);
+  }
 }
 
 const BAD_WORDS: string[] = ["4r5e",

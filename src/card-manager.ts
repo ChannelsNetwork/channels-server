@@ -2035,6 +2035,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "report", null, 0, null, 0, null, null, reportInfo);
       await this.incrementStat(card, "reports", 1, now, CARD_REPORT_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, refunds);
+
+      if (user.admin && requestBody.detailsObject.adminBlockCard) {
+        console.log("Card.handleReportCard:  admin blocking card", card.id);
+        await db.updateCardAdminBlocked(card, true);
+      }
+      if (user.admin && requestBody.detailsObject.adminBlockUser) {
+        const owner = await userManager.getUser(card.createdById, false);
+        if (owner) {
+          console.log("Card.handleReportCard:  admin blocking card owner", card.id, owner.id, owner.identity);
+          await userManager.adminBlockUser(owner);
+        }
+      }
+
       let html = "";
       html += "<p>A user has reported a card.</p>";
       html += "<p>Card: <a href='" + this.urlManager.getAbsoluteUrl('/c/' + card.id) + "'>" + card.summary.title + "</a></p>";

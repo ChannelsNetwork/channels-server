@@ -1039,6 +1039,8 @@ export interface ReportCardDetails extends Signable {
   reasons: ReportCardReason[];
   comment: string;
   requestRefund: boolean;
+  adminBlockCard: boolean;
+  adminBlockUser: boolean;
 }
 
 export type ReportCardReason = "inappropriate" | "plagiarism" | "clickbait" | "junk" | "other";

@@ -727,6 +727,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       amount = bonusDetails.amount;
       console.log("Channel.paySubscriptionBonus", channel.handle, subscriber);
       await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus for channel " + channel.handle + " by " + subscriber.identity.handle, null, null);
+      await db.incrementChannelStat(channel.id, "revenue", amount);
     }
     return amount;
   }

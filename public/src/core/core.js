@@ -686,8 +686,8 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  reportCard(cardId, reasons, comment, requestRefund) {
-    let details = RestUtils.reportCardDetails(this._keys.address, this._fingerprint, cardId, reasons, comment, requestRefund);
+  reportCard(cardId, reasons, comment, requestRefund, adminBlockCard, adminBlockUser) {
+    let details = RestUtils.reportCardDetails(this._keys.address, this._fingerprint, cardId, reasons, comment, requestRefund, adminBlockCard, adminBlockUser);
     let request = this._createRequest(details);
     const url = this.restBase + "/report-card";
     return this.rest.post(url, request).then((response) => {

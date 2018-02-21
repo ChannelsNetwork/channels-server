@@ -1241,6 +1241,13 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
 
+  async updateCardAdminBlocked(card: CardRecord, blocked: boolean): Promise<void> {
+    const update: any = {
+      "curation.block": blocked
+    };
+    await this.cards.updateOne({ id: card.id }, { $set: update });
+  }
+
   async updateCardPricing(card: CardRecord, promotionFee: number, openPayment: number, openFeeUnits: number, couponId: string, coupon: SignedObject, budgetAmount: number, plusPercent: number, budgetAvailable: boolean): Promise<void> {
     const update: any = {
       $set: {
