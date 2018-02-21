@@ -1455,7 +1455,6 @@ db.adSlots.aggregate([
         advertisers: {$size: "$advertisers"}
       }}
     ])
-<<<<<<< HEAD
 
 
 Which authors and cards are making the most purchases lately?
@@ -1479,6 +1478,20 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
+db.channelUsers.aggregate([
+      { $match: { status: "subscribed" } },
+      {
+        $bucket: {
+          groupBy: "$lastUpdated",
+          boundaries: [1515744000000, 1518336000000, 1518940800000, 1519027200000, 1519080328120],
+          default: -1,
+          output: {
+            subscriptions: {$sum: 1},
+            bonuses: {$sum: "$bonusPaid"}
+          }
+        }
+      }
+    ])
 
 [1515744000000, 1518336000000, 1518940800000, 1519027200000, 1519080328120]
 
@@ -1545,5 +1558,18 @@ db. bankTransactions.aggregate([
       { $match: { originatorUserId: "bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "details.type": "coupon-redemption", "details.reason": { $in: ["card-promotion", "card-open-payment", "card-click-payment"] } }},
       { $group: { _id: "all", count: { $sum: 1 }, total: { $sum: "$details.amount" } } }
     ])
-=======
->>>>>>> bbfe1e1031c41d31a32e2e67136421c260280f1a
+
+
+db.channelUsers.aggregate([
+      { $match: { status: "subscribed" } },
+      {
+        $group: {
+          _id: "all",
+          subscribers: { $addToSet: "userId" },
+          totalSubscriptions: { $sum: 1 },
+          channels: { $addToSet: "channelId" },
+          bonuses: { $sum: "bonusPaid" }
+        }
+      },
+      { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
+    ])

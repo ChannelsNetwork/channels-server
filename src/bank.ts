@@ -142,7 +142,7 @@ export class Bank implements RestServer, Initializable {
       const feeDescription = "USD$" + this.paypalFixedPayoutFee.toFixed(2);
       const paidAmount = amountInUSD - feeAmount;
       const now = Date.now();
-      const transactionResult = await this.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now);
+      const transactionResult = await this.initiateWithdrawal(user, requestBody.detailsObject.transaction, details, feeAmount, feeDescription, paidAmount, now, null, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
 
       // const note = "Your withdrawal request from your Channels balance has been accepted.";
       // let payoutResult: PaypalPayoutResponse;
@@ -220,7 +220,8 @@ export class Bank implements RestServer, Initializable {
           details: transaction.details,
           isOriginator: transaction.originatorUserId === user.id,
           isRecipient: [],
-          refunded: transaction.refunded
+          refunded: transaction.refunded,
+          description: transaction.description
         };
         for (const recipientUserId of transaction.recipientUserIds) {
           info.isRecipient.push(user.id === recipientUserId);
@@ -264,7 +265,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
+  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -393,7 +394,7 @@ export class Bank implements RestServer, Initializable {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null);
+    const record = await db.insertBankTransaction(now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null, description, fromIpAddress, fromFingerprint);
     let index = 0;
     const amountByRecipientReason: { [reason: string]: number } = {};
     for (const recipient of details.toRecipients) {
@@ -431,7 +432,7 @@ export class Bank implements RestServer, Initializable {
     return result;
   }
 
-  async performRedemption(from: UserRecord, to: UserRecord, transactionObject: SignedObject, networkInitiated = false): Promise<BankTransactionResult> {
+  async performRedemption(from: UserRecord, to: UserRecord, transactionObject: SignedObject, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false): Promise<BankTransactionResult> {
     const now = Date.now();
     if (!KeyUtils.verifyString(transactionObject.objectString, to.publicKey, transactionObject.signature)) {
       throw new ErrorWithStatusCode(403, "This transaction is not signed properly");
@@ -471,7 +472,7 @@ export class Bank implements RestServer, Initializable {
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null);
+    const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null, description, fromIpAddress, fromFingerprint);
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
     await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < to.targetBalance, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
@@ -561,10 +562,10 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number): Promise<BankTransactionResult> {
+  private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionResult> {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
     await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < user.targetBalance, now);
-    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism);
+    const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism, description, fromIpAddress, fromFingerprint);
     const amountByRecipientReason: { [reason: string]: number } = {};
     const result: BankTransactionResult = {
       record: record,

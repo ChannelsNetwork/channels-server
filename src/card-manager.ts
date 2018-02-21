@@ -57,6 +57,7 @@ const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
+const FIRST_CARD_PURCHASE_AMOUNT = 0.01;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
@@ -528,7 +529,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (transaction && author) {
         await userManager.updateUserBalance(request, user);
         await userManager.updateUserBalance(request, author);
-        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction, "Card impression: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -701,7 +702,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         await userManager.updateUserBalance(request, user);
         await userManager.updateUserBalance(request, author);
-        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+        transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction, "Card clicked: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -817,7 +818,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
         }
       }
-      const amount = skipMoneyTransfer ? 0.000001 : transaction.amount;
+      const amount = skipMoneyTransfer ? 0.000001 : (user.firstCardPurchasedId ? transaction.amount : FIRST_CARD_PURCHASE_AMOUNT);
       const cardsPreviouslyPurchased = await db.countUserCardsPaid(user.id);
       const isFirstUserCardPurchase = cardsPreviouslyPurchased === 0;
       let firstTimePaidOpens = 0;
@@ -838,7 +839,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const grossRevenue = amount;
       await userManager.updateUserBalance(request, user);
-      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, false, false, true, skipMoneyTransfer);
+      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, true, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();
@@ -849,6 +850,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         weight: weight,
         weightedRevenue: weight * amount
       };
+      await db.updateUserFirstCardPurchased(user.id, card.id);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue, 0, 0);
@@ -1032,7 +1034,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-redeem-open-payment", requestBody.detailsObject);
       await userManager.updateUserBalance(request, user);
       await userManager.updateUserBalance(request, author);
-      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction);
+      const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction, "Card open payment: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;

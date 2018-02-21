@@ -42,6 +42,7 @@ export interface UserRecord {
     lastContentNotification?: number;
   };
   homeChannelId: string;
+  firstCardPurchasedId: string;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -390,6 +391,9 @@ export interface BankTransactionRecord {
   };
   refunded: boolean;
   refundInfo?: BankTransactionRefundInfo;
+  description: string;
+  fromIpAddress: string;
+  fromFingerprint: string;
 }
 
 export interface BankTransactionRefundInfo {
@@ -626,9 +630,12 @@ export interface ChannelUserRecord {
   notificationPending: boolean;
   lastNotification: number;
   lastVisited: number;
+  bonusPaid: number;
+  bonusPaidAt: number;
+  bonusFraudDetected: boolean;
 }
 
-export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked";
+export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked" | "previously-subscribed";
 
 export interface ChannelCardRecord {
   channelId: string;
