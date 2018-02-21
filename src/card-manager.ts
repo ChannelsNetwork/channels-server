@@ -304,7 +304,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       let delay = DEFAULT_CARD_PAYMENT_DELAY;
-      if (cardState.pricing.openFeeUnits > 1) {
+      if (cardState.pricing.openFeeUnits > 1 && author.firstCardPurchasedId) {
         delay += (cardState.pricing.openFeeUnits - 1) * CARD_PAYMENT_DELAY_PER_LEVEL;
       }
       const now = Date.now();
@@ -818,7 +818,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
         }
       }
-      const amount = skipMoneyTransfer ? 0.000001 : (user.firstCardPurchasedId ? transaction.amount : FIRST_CARD_PURCHASE_AMOUNT);
+      const amount = skipMoneyTransfer ? 0.000001 : transaction.amount;
       const cardsPreviouslyPurchased = await db.countUserCardsPaid(user.id);
       const isFirstUserCardPurchase = cardsPreviouslyPurchased === 0;
       let firstTimePaidOpens = 0;
@@ -827,7 +827,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (paymentCategory === 'normal') {
         if (isFirstUserCardPurchase) {
           paymentCategory = "first";
-          // amount = 0.01;
           firstTimePaidOpens++;
         } else {
           const isFanPurchase = (await db.countUserCardPurchasesToAuthor(user.id, author.id)) > 0;
@@ -878,7 +877,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private getPurchaseWeight(priorPurchases: number): number {
     if (priorPurchases <= 0) {
-      return 0.1;
+      return 1;
     } else if (priorPurchases <= 1) {
       return 0.33;
     } else if (priorPurchases <= 2) {
@@ -1760,7 +1759,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         pricing: {
           promotionFee: record.pricing.promotionFee,
           openFeeUnits: record.pricing.openFeeUnits,
-          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
+          openFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : -record.pricing.openPayment,
         },
         promoted: promoted,
         adSlotId: adSlotId,
