@@ -67,6 +67,7 @@ export class RootPageManager implements Initializable {
     const agentInfo = useragent.is(userAgent);
     const useShadyDom = agentInfo.safari || agentInfo.mobile_safari || agentInfo.ie || (userAgent.indexOf("Edge") >= 0);
 
+    let canonicalUrl = this.urlManager.getAbsoluteUrl(request.url.split(/[\#\?]/)[0]);
     // initialize metadata
     const ogUrl = configuration.get('baseClientUri');
     const metadata = {
@@ -89,6 +90,7 @@ export class RootPageManager implements Initializable {
         metadata.description = escapeHtml(channnel.about);
       }
       metadata.url = this.urlManager.getAbsoluteUrl('/channel/' + encodeURIComponent(channnel.handle || author.identity.handle));
+      canonicalUrl = metadata.url;
       const fallbackImage = metadata.image;
       metadata.image = null;
       if (channnel.bannerImageFileId) {
@@ -126,6 +128,7 @@ export class RootPageManager implements Initializable {
       metadata.image = null;
       metadata.description = escapeHtml(card.summary.text || "");
       metadata.url = this.urlManager.getAbsoluteUrl('/c/' + card.id);
+      canonicalUrl = metadata.url;
       if (card.summary.imageId) {
         const imageInfo = await fileManager.getFileInfo(card.summary.imageId);
         if (imageInfo) {
@@ -155,6 +158,7 @@ export class RootPageManager implements Initializable {
     // Replace in template
     const view = {
       public_base: this.urlManager.getPublicBaseUrl(),
+      canonical_url: metadata.url,
       rest_base: this.urlManager.getDynamicBaseUrl(),
       og_title: metadata.title,
       og_description: metadata.description,

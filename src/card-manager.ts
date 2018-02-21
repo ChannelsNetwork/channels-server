@@ -267,7 +267,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async handleCardRequest(request: Request, response: Response): Promise<void> {
-    console.log("handleCardRequest!!");
+    console.log("Card.handleCardRequest: card requested", request.params);
     let card = await db.findCardById(request.params.cardId, false, true);
     if (card && card.curation && card.curation.block) {
       card = null;
@@ -838,7 +838,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const grossRevenue = amount;
       await userManager.updateUserBalance(request, user);
-      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, true, skipMoneyTransfer);
+      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, false, false, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();
