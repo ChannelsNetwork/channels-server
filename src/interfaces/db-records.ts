@@ -43,6 +43,8 @@ export interface UserRecord {
   };
   homeChannelId: string;
   firstCardPurchasedId: string;
+  firstArrivalCardId: string;
+  referralBonusPaidToUserId: string;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -630,9 +632,6 @@ export interface ChannelUserRecord {
   notificationPending: boolean;
   lastNotification: number;
   lastVisited: number;
-  bonusPaid: number;
-  bonusPaidAt: number;
-  bonusFraudDetected: boolean;
 }
 
 export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked" | "previously-subscribed";

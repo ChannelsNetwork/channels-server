@@ -210,7 +210,8 @@ class TestClient implements RestServer {
       timestamp: Date.now(),
       referrer: null,
       landingUrl: null,
-      userAgent: null
+      userAgent: null,
+      landingCardId: null
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<RegisterUserDetails> = {

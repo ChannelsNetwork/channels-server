@@ -293,7 +293,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, null);
         const grantRecipient: BankTransactionRecipientDirective = {
           address: requestBody.detailsObject.address,
           portion: "remainder",
@@ -811,7 +811,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
       await db.updateUserEmailConfirmation(user.id);
       if (!user.identity.emailLastConfirmed) {
-        await channelManager.payNewUserSubscriptionBonuses(user);
+        await channelManager.payReferralBonusIfAppropriate(user);
         await this.payRegistrationBonus(request, user, requestBody.detailsObject.fingerprint);
       }
       await this.announceUserUpdated(user);

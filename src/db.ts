@@ -505,7 +505,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -538,7 +538,9 @@ export class Database {
       originalReferrer: referrer,
       originalLandingPage: landingPage,
       homeChannelId: homeChannelId,
-      firstCardPurchasedId: null
+      firstCardPurchasedId: null,
+      firstArrivalCardId: firstArrivalCardId,
+      referralBonusPaidToUserId: null
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -577,6 +579,10 @@ export class Database {
   async updateUserLastWithdrawal(user: UserRecord, value: number): Promise<void> {
     await this.users.updateOne({ id: user.id }, { $set: { lastWithdrawal: value } });
     user.lastWithdrawal = value;
+  }
+
+  async updateUserReferralBonusPaid(userId: string, paidToUserId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { referralBonusPaidToUserId: paidToUserId } });
   }
 
   async updateUserRecoveryCode(user: UserRecord, code: string, expires: number): Promise<void> {
@@ -2645,6 +2651,10 @@ export class Database {
     return this.channels.find<ChannelRecord>({ state: state, listingWeight: { $gt: 0 } }).sort({ listingWeight: -1 }).limit(limit || 10).toArray();
   }
 
+  async findOwnedChannelIds(ownerId: string): Promise<string[]> {
+    return this.channels.distinct("id", { ownerId: ownerId });
+  }
+
   async updateChannel(channelId: string, name: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[]): Promise<void> {
     const update: any = {};
     if (typeof name !== 'undefined') {
@@ -2694,7 +2704,12 @@ export class Database {
     return this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
   }
 
-  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number, bonusPaid: number, bonusPaidAt: number, bonusFraudDetected: boolean): Promise<ChannelUserRecord> {
+  async existsChannelUserSubscriptions(userId: string, channelIds: string[], subscriptionState: ChannelSubscriptionState): Promise<boolean> {
+    const result = await this.channelUsers.find<ChannelUserRecord>({ userId: userId, channelId: { $in: channelIds } }).limit(1).toArray();
+    return result.length > 0;
+  }
+
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
@@ -2705,10 +2720,7 @@ export class Database {
       lastUpdated: now,
       notificationPending: false,
       lastNotification: 0,
-      lastVisited: lastVisited,
-      bonusPaid: bonusPaid,
-      bonusPaidAt: bonusPaidAt,
-      bonusFraudDetected: bonusFraudDetected
+      lastVisited: lastVisited
     };
     await this.channelUsers.update({ channelId: channelId, userId: userId }, record, { upsert: true });
     return record;
