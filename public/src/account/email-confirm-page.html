@@ -86,7 +86,7 @@
           this.$.spinner.spinning = true;
 
           $core.register().then(() => {
-            return $core.confirmEmail(code).then((response) => {
+            return $core.confirmEmail(code).then(() => {
               this._message("Your email address has been confirmed.", true);
             });
           }).catch((err) => {

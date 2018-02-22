@@ -1,3 +1,37 @@
+class NotificationManager {
+  constructor() {
+    this._notifications = [];
+    this._pendingFire = false;
+  }
+
+  get notifications() {
+    return this._notifications;
+  }
+
+  clear() {
+    let count = this._notifications.length;
+    this._notifications = [];
+    if (count) {
+      this._fireNotificationChange();
+    }
+  }
+
+  add(text, url) {
+    this._notifications.push({ text, url });
+    this._fireNotificationChange();
+  }
+
+  _fireNotificationChange() {
+    if (!this._pendingFire) {
+      this._pendingFire = true;
+      setTimeout(() => {
+        this._pendingFire = false;
+        window.dispatchEvent(new CustomEvent("notifications-change"));
+      }, 100);
+    }
+  }
+}
+
 class PageVisibilityManager {
   constructor() {
     var hidden, visibilityChange;
