@@ -657,31 +657,45 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       console.log("ChannelManager.update-channel-subscription:", request.headers, requestBody.detailsObject);
       const channelUser = await db.findChannelUser(channel.id, user.id);
       let subscriptionChange = 0;
+      const now = Date.now();
       if (requestBody.detailsObject.subscriptionState === "subscribed") {
         if (channelUser) {
           if (channelUser.subscriptionState !== "subscribed") {
             subscriptionChange++;
-            await db.updateChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, Date.now());
+            await db.updateChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now);
+            let bonusPaid = 0;
+            let bonusPaidAt = 0;
+            let bonusFraudDetected = false;
+            if (channelUser.subscriptionState !== "previously-subscribed") {
+              if (user.identity && user.identity.emailConfirmed) {
+                bonusPaid = await this.paySubscriptionBonus(channel, user);
+                bonusPaidAt = now;
+                if (bonusPaid === 0) {
+                  bonusFraudDetected = true;
+                }
+                await db.updateChannelUserBonus(channel.id, user.id, bonusPaid, bonusPaidAt, bonusFraudDetected);
+              }
+            }
           }
         } else {
           subscriptionChange++;
           let bonusPaid = 0;
-          const bonusPaidAt = 0;
+          let bonusPaidAt = 0;
           let bonusFraudDetected = false;
           if (user.identity && user.identity.emailConfirmed) {
             bonusPaid = await this.paySubscriptionBonus(channel, user);
+            bonusPaidAt = now;
             if (bonusPaid === 0) {
               bonusFraudDetected = true;
             }
           }
-          const now = Date.now();
           await db.upsertChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now, bonusPaid, bonusPaid ? now : 0, bonusFraudDetected);
         }
       } else {
         if (channelUser) {
           if (channelUser.subscriptionState === "subscribed") {
             subscriptionChange--;
-            await db.updateChannelUser(channel.id, user.id, "previously-subscribed", channel.latestCardPosted, Date.now());
+            await db.updateChannelUser(channel.id, user.id, "previously-subscribed", channel.latestCardPosted, now);
           }
         }
       }
@@ -713,7 +727,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         fingerprint: null,
         timestamp: null,
         type: "transfer",
-        reason: "grant",
+        reason: "publisher-subscription-bonus",
         relatedCardId: null,
         relatedCouponId: null,
         amount: PUBLISHER_SUBSCRIPTION_BONUS,

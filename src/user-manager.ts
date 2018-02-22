@@ -841,7 +841,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       address: null,
       fingerprint: null,
       type: "transfer",
-      reason: "grant",
+      reason: "registration-bonus",
       amount: REGISTRATION_BONUS,
       relatedCardId: null,
       relatedCouponId: null,
