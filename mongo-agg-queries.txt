@@ -1460,7 +1460,7 @@ db.adSlots.aggregate([
 Which authors and cards are making the most purchases lately?
 
 db.userCardActions.aggregate([
-  {$match: {action: "pay", at: {$gt: 1519113600000}, fraudReason: {$exists: false}}},
+  {$match: {action: "pay", at: {$gt: 1519286400000}, fraudReason: {$exists: false}}},
   {$group: {_id: {seller: "$authorId", cardId: "$cardId"}, count: {$sum: 1}, total: {$sum: "$payment.amount"}, weighted: {$sum: "$payment.weightedRevenue"} }},
   {$match: {count: {$gt: 1}}},
   {$lookup: {from: "users", localField:"_id.seller", foreignField: "id", as: "user"}}, 
