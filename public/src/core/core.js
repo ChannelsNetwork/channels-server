@@ -18,6 +18,7 @@ class CoreService extends Polymer.Element {
     this.userManager = new UserManager(this);
     this.social = new SocialService();
     this.visibility = new PageVisibilityManager();
+    this.notificationManager = new NotificationManager();
     this.analytics = {
       event: function (category, action) {
         if (window.ga) {
@@ -235,6 +236,7 @@ class CoreService extends Polymer.Element {
     this._switchToBackupKeys();
     this._profile = null;
     this._registration = null;
+    this._updateNotifications();
     return this.register();
   }
 
@@ -270,6 +272,15 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  _updateNotifications() {
+    this.notificationManager.clear();
+    if (this._profile) {
+      if (!this.profile.emailConfirmed) {
+        this.notificationManager.add("Your email address has not been confirmed. Check your inbox for a confirmation email.", "/account");
+      }
+    }
+  }
+
   getUserProfile() {
     let details = RestUtils.getUserIdentityDetails(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
@@ -277,6 +288,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((profile) => {
       this._profile = profile;
       this._fire("channels-profile", this._profile);
+      this._updateNotifications();
       return profile;
     });
   }
@@ -322,6 +334,7 @@ class CoreService extends Polymer.Element {
         this.storage.clearItem(_CKeys.BACKUP_KEYS);
         this._profile = null;
         this._registration = null;
+        this._updateNotifications();
         return this.register();
       });
     });
@@ -673,7 +686,9 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.confirmEmailDetails(this._keys.address, this._fingerprint, code);
     let request = this._createRequest(details);
     const url = this.restBase + "/confirm-email";
-    return this.rest.post(url, request);
+    return this.rest.post(url, request).then(() => {
+      return this.getUserProfile();
+    });
   }
 
   updateAccountSettings(settings) {
@@ -683,6 +698,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request).then((profile) => {
       this._profile = profile;
       this._fire("channels-profile", this._profile);
+      this._updateNotifications();
       return profile.accountSettings;
     });
   }
