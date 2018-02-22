@@ -782,7 +782,7 @@ class RestUtils {
     };
   }
 
-  static reportCardDetails(address, fingerprint, cardId, reasons, comment, requestRefund) {
+  static reportCardDetails(address, fingerprint, cardId, reasons, comment, requestRefund, adminBlockCard, adminBlockUser) {
     return {
       address: address,
       fingerprint: fingerprint,
@@ -790,7 +790,9 @@ class RestUtils {
       cardId: cardId,
       reasons: reasons,
       comment: comment,
-      requestRefund: requestRefund
+      requestRefund: requestRefund,
+      adminBlockCard: adminBlockCard,
+      adminBlockUser: adminBlockUser
     };
   }
 

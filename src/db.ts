@@ -4,7 +4,7 @@ import * as uuid from "uuid";
 import { configuration } from "./configuration";
 import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats } from "./interfaces/rest-services";
+import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 import { errorManager } from "./error-manager";
@@ -536,7 +536,8 @@ export class Database {
       },
       originalReferrer: referrer,
       originalLandingPage: landingPage,
-      homeChannelId: homeChannelId
+      homeChannelId: homeChannelId,
+      firstCardPurchasedId: null
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -615,6 +616,10 @@ export class Database {
     }
     user.notifications.disallowPlatformNotifications = disallowPlatformNotifications;
     user.notifications.disallowContentNotifications = disallowContentNotifications;
+  }
+
+  async updateUserFirstCardPurchased(userId: string, cardId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { firstCardPurchasedId: cardId } });
   }
 
   async findUserById(id: string): Promise<UserRecord> {
@@ -702,6 +707,10 @@ export class Database {
 
   getUsersMissingHomeChannel(): Cursor<UserRecord> {
     return this.users.find<UserRecord>({ identity: { $exists: true }, homeChannelId: { $exists: false } });
+  }
+
+  findUsersWithIdentityAmong(userIds: string[], limit: number): Promise<UserRecord[]> {
+    return this.users.find<UserRecord>({ id: { $in: userIds }, identity: { $exists: true } }).limit(limit || 10).toArray();
   }
 
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
@@ -1228,6 +1237,13 @@ export class Database {
       "curation.boost": boost ? boost : 0,
       "curation.overrideReports": overrideReports,
       lastScored: 0  // to force immediately rescoring
+    };
+    await this.cards.updateOne({ id: card.id }, { $set: update });
+  }
+
+  async updateCardAdminBlocked(card: CardRecord, blocked: boolean): Promise<void> {
+    const update: any = {
+      "curation.block": blocked
     };
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
@@ -1822,7 +1838,7 @@ export class Database {
     return this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       at: at,
@@ -1834,7 +1850,10 @@ export class Database {
       signedObject: signedObject,
       deductions: deductions,
       remainderShares: remainderShares,
-      refunded: false
+      refunded: false,
+      description: description,
+      fromIpAddress: fromIpAddress,
+      fromFingerprint: fromFingerprint
     };
     if (withdrawalType) {
       record.withdrawalInfo = {
@@ -2666,28 +2685,11 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $set: { featuredWeight: featuredWeight, listingWeight: listingWeight } });
   }
 
-  async insertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
-    const now = Date.now();
-    const record: ChannelUserRecord = {
-      channelId: channelId,
-      userId: userId,
-      added: now,
-      lastUpdated: now,
-      lastCardPosted: lastCardPosted,
-      subscriptionState: subscriptionState,
-      notificationPending: false,
-      lastNotification: 0,
-      lastVisited: lastVisited
-    };
-    await this.channelUsers.insertOne(record);
-    return record;
-  }
-
   async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
     return this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
   }
 
-  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
+  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number, bonusPaid: number, bonusPaidAt: number, bonusFraudDetected: boolean): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
@@ -2698,7 +2700,10 @@ export class Database {
       lastUpdated: now,
       notificationPending: false,
       lastNotification: 0,
-      lastVisited: lastVisited
+      lastVisited: lastVisited,
+      bonusPaid: bonusPaid,
+      bonusPaidAt: bonusPaidAt,
+      bonusFraudDetected: bonusFraudDetected
     };
     await this.channelUsers.update({ channelId: channelId, userId: userId }, record, { upsert: true });
     return record;
@@ -2711,6 +2716,16 @@ export class Database {
         lastUpdated: Date.now(),
         channelLatestCard: channelLatestCard,
         lastVisited: lastVisited
+      }
+    });
+  }
+
+  async updateChannelUserBonus(channelId: string, userId: string, bonusPaid: number, bonusPaidAt: number, bonusFraudDetected: boolean): Promise<void> {
+    await this.channelUsers.updateOne({ channelId: channelId, userId: userId }, {
+      $set: {
+        bonusPaid: bonusPaid,
+        bonusPaidAt: bonusPaidAt,
+        bonusFraudDetected: bonusFraudDetected
       }
     });
   }
@@ -2732,6 +2747,10 @@ export class Database {
 
   async findChannelUserRecords(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, latestLessThan: number, latestGreaterThan: number): Promise<ChannelUserRecord[]> {
     return this.getChannelUserRecords(userId, subscriptionState, latestLessThan, latestGreaterThan).limit(maxCount || 100).toArray();
+  }
+
+  async findChannelUserRecordsForward(userId: string, subscriptionState: ChannelSubscriptionState, maxCount: number): Promise<ChannelUserRecord[]> {
+    return this.channelUsers.find<ChannelUserRecord>({ userId: userId, subscriptionState: subscriptionState }).sort({ added: 1 }).limit(maxCount || 10).toArray();
   }
 
   getChannelUserSubscribers(channelId: string): Cursor<ChannelUserRecord> {
@@ -2876,6 +2895,14 @@ export class Database {
   async existsUserRegistrationByFingerprint(userId: string, fingerprint: string): Promise<boolean> {
     const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, fingerprint: fingerprint }).limit(1).toArray();
     return record.length > 0 ? true : false;
+  }
+
+  async findUserRegistrationDistinctFingerprints(userId: string): Promise<string[]> {
+    return this.userRegistrations.distinct('fingerprint', { userId: userId, fingerprint: { $ne: null } });
+  }
+
+  async findUserIdsByFingerprint(fingerprints: string[]): Promise<string[]> {
+    return this.userRegistrations.distinct('userId', { fingerprint: { $in: fingerprints } });
   }
 
   async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {
@@ -3532,7 +3559,74 @@ export class Database {
         result.advertisers.priorMonth = item.advertisers;
       }
     }
+    return result;
+  }
 
+  async aggregateSubscriptionStats(): Promise<AdminSubscriptionStats> {
+    const info = await this.channelUsers.aggregate([
+      { $match: { subscriptionState: "subscribed" } },
+      {
+        $group: {
+          _id: "all",
+          subscribers: { $addToSet: "$userId" },
+          totalSubscriptions: { $sum: 1 },
+          channels: { $addToSet: "$channelId" },
+          bonuses: { $sum: "$bonusPaid" },
+          fraud: { $sum: { $cond: { if: "$bonusFraudDetected", then: 1, else: 0 } } },
+        }
+      },
+      { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses", totalFraud: "$fraud" } }
+    ]).toArray();
+    const result: AdminSubscriptionStats = {
+      totalSubscribers: info.length > 0 ? info[0].totalSubscribers : 0,
+      totalSubscriptions: info.length > 0 ? info[0].totalSubscriptions : 0,
+      totalChannelsWithSubscriptions: info.length > 0 ? info[0].totalChannels : 0,
+      totalSubscriptionBonuses: info.length > 0 ? Utils.roundToDecimal(info[0].bonuses, 2) : 0,
+      totalFraud: info.length > 0 ? info[0].totalFraud : 0,
+      newSubscriptions: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newSubscriptionBonuses: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+      newFraud: { today: 0, yesterday: 0, priorWeek: 0, priorMonth: 0 },
+    };
+    const now = Date.now() + 1000 * 60;
+    const midnightToday = moment().tz('America/Los_Angeles').startOf('day');
+    const yesterday = moment(midnightToday).subtract(1, 'd');
+    const previousWeek = moment(yesterday).subtract(7, 'd');
+    const previousMonth = moment(previousWeek).subtract(30, 'd');
+    const buckets: number[] = [+previousMonth, +previousWeek, +yesterday, +midnightToday, now];
+    const results = await this.channelUsers.aggregate([
+      { $match: { subscriptionState: "subscribed" } },
+      {
+        $bucket: {
+          groupBy: "$lastUpdated",
+          boundaries: buckets,
+          default: -1,
+          output: {
+            subscriptions: { $sum: 1 },
+            bonuses: { $sum: "$bonusPaid" },
+            fraud: { $sum: { $cond: { if: "$bonusFraudDetected", then: 1, else: 0 } } },
+          }
+        }
+      }
+    ]).toArray();
+    for (const item of results) {
+      if (item._id === +midnightToday) {
+        result.newSubscriptions.today = item.subscriptions;
+        result.newSubscriptionBonuses.today = item.bonuses;
+        result.newFraud.today = item.fraud;
+      } else if (item._id === +yesterday) {
+        result.newSubscriptions.yesterday = item.subscriptions;
+        result.newSubscriptionBonuses.yesterday = item.bonuses;
+        result.newFraud.yesterday = item.fraud;
+      } else if (item._id === +previousWeek) {
+        result.newSubscriptions.priorWeek = item.subscriptions;
+        result.newSubscriptionBonuses.priorWeek = item.bonuses;
+        result.newFraud.priorWeek = item.fraud;
+      } else if (item._id === +previousMonth) {
+        result.newSubscriptions.priorMonth = item.subscriptions;
+        result.newSubscriptionBonuses.priorMonth = item.bonuses;
+        result.newFraud.priorMonth = item.fraud;
+      }
+    }
     return result;
   }
 }

@@ -604,10 +604,9 @@
               this.$.btnBU.classList.remove("hidden");
               break;
             case "unsubscribed":
+            default:
               this.$.btnS.classList.remove("hidden");
               this.$.btnBS.classList.remove("hidden");
-              break;
-            default:
               break;
           }
         }
@@ -654,7 +653,7 @@
           $router.updateContext({
             scrollTop: $app.scrollValue
           });
-          $router.goto("/c/" + encodeURIComponent(card.id), context);
+          $router.goto("/c/" + encodeURIComponent(card.id) + "?channel=" + encodeURIComponent(this._handle), context);
         }
       }
 

@@ -4,7 +4,7 @@ import { UrlManager } from "./url-manager";
 import { configuration } from "./configuration";
 import { KeyUtils, KeyInfo } from "./key-utils";
 import { Signable, BankTransactionRecipientDirective, BankTransactionDetails, PublisherSubsidiesInfo } from "./interfaces/rest-services";
-import { BankTransactionRecord } from "./interfaces/db-records";
+import { BankTransactionRecord, UserRecord, ChannelRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { bank } from "./bank";
 import { BankTransactionResult } from "./interfaces/socket-messages";
@@ -94,7 +94,7 @@ export class NetworkEntity implements Initializable {
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
-        await this.performBankTransaction(null, grant, null, true, false);
+        await this.performBankTransaction(null, grant, null, true, false, null, null, null);
         const interest = Math.max(user.balance - grant.amount, 0);
         if (interest > 0) {
           const interestPayment: BankTransactionDetails = {
@@ -108,7 +108,7 @@ export class NetworkEntity implements Initializable {
             relatedCouponId: null,
             toRecipients: [recipient]
           };
-          await this.performBankTransaction(null, interestPayment, null, true, false);
+          await this.performBankTransaction(null, interestPayment, null, true, false, null, null, null);
         }
       }
     }
@@ -161,7 +161,7 @@ export class NetworkEntity implements Initializable {
     return 0.02;
   }
 
-  async performBankTransaction(request: Request, details: BankTransactionDetails, relatedCardTitle: string, increaseTargetBalance: boolean, increaseWithdrawableBalance: boolean): Promise<BankTransactionResult> {
+  async performBankTransaction(request: Request, details: BankTransactionDetails, relatedCardTitle: string, increaseTargetBalance: boolean, increaseWithdrawableBalance: boolean, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionResult> {
     details.address = this.networkEntityKeyInfo.address;
     details.timestamp = Date.now();
     const detailsString = JSON.stringify(details);
@@ -171,7 +171,7 @@ export class NetworkEntity implements Initializable {
       objectString: detailsString,
       signature: signature
     };
-    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, true, increaseTargetBalance, increaseWithdrawableBalance);
+    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, description, fromIpAddress, fromFingerprint, true, increaseTargetBalance, increaseWithdrawableBalance);
   }
 }
 
