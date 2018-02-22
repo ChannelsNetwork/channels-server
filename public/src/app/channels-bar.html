@@ -1,3 +1,4 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-dropdown/soso-dropdown.html">
 <link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
 <link rel="import" href="../controls/user-image.html">
@@ -83,6 +84,11 @@
         z-index: 1;
       }
 
+      .wrappedItem {
+        white-space: normal !important;
+        line-height: 1.3;
+      }
+
       @media (max-width: 600px) {
         #bar {
           padding: 0 0 0 8px;
@@ -95,6 +101,12 @@
         }
         .logo {
           height: 26px;
+        }
+      }
+
+      @media (max-width: 370px) {
+        .logo {
+          display: none;
         }
       }
     </style>
@@ -122,9 +134,12 @@
       <li on-click="_gotoSubscriptions">Subscriptions</li>
       <li on-click="_signOut" class="menuDivider">Sign Out</li>
     </soso-dropdown>
-    <soso-dropdown for="notificationsIcon" alignment="right" offset="-5">
-      <li>Notifications go here</li>
-      <li>Notifications go here</li>
+    <soso-dropdown for="notificationsIcon" alignment="center" offset="-5" style="max-width: 285px;">
+      <dom-repeat items="[[notifications]]">
+        <template>
+          <li class="wrappedItem" on-click="_notificationClick">[[item.text]]</li>
+        </template>
+      </dom-repeat>
     </soso-dropdown>
   </template>
   <script>
@@ -136,7 +151,8 @@
           showMenu: {
             type: Boolean,
             observer: '_onShowMenuToggle'
-          }
+          },
+          notifications: Array
         }
       }
 
@@ -144,6 +160,7 @@
         super();
         this._balaceListener = this._updateBalance.bind(this);
         this._profileListener = this._refreshUser.bind(this);
+        this._notificationsListener = this._refreshNotifications.bind(this);
         this.balance = "ℂ0.000";
       }
 
@@ -169,8 +186,10 @@
         window.addEventListener("channels-registration", this._balaceListener);
         window.addEventListener("channels-user-status", this._balaceListener);
         window.addEventListener("channels-profile", this._profileListener);
+        window.addEventListener("notifications-change", this._notificationsListener);
         this._updateBalance();
         this._refreshUser();
+        this._refreshNotifications();
       }
 
       deactivate() {
@@ -190,6 +209,7 @@
         window.removeEventListener("channels-registration", this._balaceListener);
         window.removeEventListener("channels-user-status", this._balaceListener);
         window.removeEventListener("channels-profile", this._profileListener);
+        window.removeEventListener("notifications-change", this._notificationsListener);
       }
 
       _updateBalance() {
@@ -218,6 +238,23 @@
         } else {
           this.$.signInLink.classList.remove("hidden");
           this.$.userImage.classList.add("hidden");
+        }
+      }
+
+      _refreshNotifications() {
+        let notifications = $core.notificationManager.notifications || [];
+        if (notifications.length) {
+          this.$.notificationsIcon.classList.remove("hidden");
+        } else {
+          this.$.notificationsIcon.classList.add("hidden");
+        }
+        this.notifications = notifications;
+      }
+
+      _notificationClick(event) {
+        let url = event.model.item.url;
+        if (url) {
+          $router.goto(url);
         }
       }
 
