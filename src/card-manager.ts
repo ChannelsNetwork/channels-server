@@ -304,7 +304,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       let delay = DEFAULT_CARD_PAYMENT_DELAY;
-      if (cardState.pricing.openFeeUnits > 1 && author.firstCardPurchasedId) {
+      if (cardState.pricing.openFeeUnits > 1 && user.firstCardPurchasedId) {
         delay += (cardState.pricing.openFeeUnits - 1) * CARD_PAYMENT_DELAY_PER_LEVEL;
       }
       const now = Date.now();
