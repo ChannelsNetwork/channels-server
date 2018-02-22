@@ -278,7 +278,7 @@ class CoreService extends Polymer.Element {
 
   _updateNotifications() {
     this.notificationManager.clear();
-    if (this._profile) {
+    if (this._profile && this.profile.handle) {
       if (!this.profile.emailConfirmed) {
         this.notificationManager.add("Your email address has not been confirmed. Check your inbox for a confirmation email.", "/account");
       }
