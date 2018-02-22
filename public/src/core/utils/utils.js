@@ -1,3 +1,42 @@
+class PageVisibilityManager {
+  constructor() {
+    var hidden, visibilityChange;
+    if (typeof document.hidden !== "undefined") {
+      hidden = "hidden";
+      visibilityChange = "visibilitychange";
+    } else if (typeof document.msHidden !== "undefined") {
+      hidden = "msHidden";
+      visibilityChange = "msvisibilitychange";
+    } else if (typeof document.webkitHidden !== "undefined") {
+      hidden = "webkitHidden";
+      visibilityChange = "webkitvisibilitychange";
+    }
+    this._prop = hidden;
+    this._event = visibilityChange;
+    this._handler = this._visibilityChange.bind(this);
+    this._attach();
+  }
+
+  _attach() {
+    document.addEventListener(this._event, this._handler);
+  }
+
+  _detach() {
+    document.removeEventListener(this._event, this._handler);
+  }
+
+  _visibilityChange() {
+    window.dispatchEvent(new CustomEvent('visibility-change', { bubbles: true, composed: true, detail: { hidden: this.isHidden() } }));
+  }
+
+  isHidden() {
+    if (typeof document[this._prop] === "undefined") {
+      return false;
+    }
+    return document[this._prop];
+  }
+}
+
 class SocialService {
   tweet(text, url) {
     let windowOptions = "scrollbars=yes,resizable=yes,toolbar=no,location=yes";
