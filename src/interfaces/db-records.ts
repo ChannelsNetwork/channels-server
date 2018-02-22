@@ -43,6 +43,8 @@ export interface UserRecord {
   };
   homeChannelId: string;
   firstCardPurchasedId: string;
+  firstArrivalCardId: string;
+  referralBonusPaidToUserId: string;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -481,7 +483,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "publisher-subscription-bonus" | "registration-bonus";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -630,9 +632,6 @@ export interface ChannelUserRecord {
   notificationPending: boolean;
   lastNotification: number;
   lastVisited: number;
-  bonusPaid: number;
-  bonusPaidAt: number;
-  bonusFraudDetected: boolean;
 }
 
 export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked" | "previously-subscribed";

@@ -20,6 +20,7 @@ export interface RegisterUserDetails extends Signable {
   referrer: string;
   landingUrl: string;
   userAgent: string;
+  landingCardId: string;
 }
 
 export interface Signable {
@@ -532,7 +533,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "publisher-subscription-bonus" | "registration-bonus";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 

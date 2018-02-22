@@ -84,7 +84,7 @@ class RestUtils {
     return (new Date()).getTime();
   }
 
-  static registerUserDetails(address, fingerprint, publicKey, inviteCode, referrer, landingPageUrl, userAgent) {
+  static registerUserDetails(address, fingerprint, publicKey, inviteCode, referrer, landingPageUrl, userAgent, landingCardId) {
     return {
       publicKey: publicKey,
       inviteCode: inviteCode,
@@ -93,7 +93,8 @@ class RestUtils {
       timestamp: RestUtils.now(),
       referrer: referrer,
       landingUrl: landingPageUrl,
-      userAgent: userAgent
+      userAgent: userAgent,
+      landingCardId: landingCardId
     };
   }
 

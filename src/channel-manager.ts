@@ -663,34 +663,12 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           if (channelUser.subscriptionState !== "subscribed") {
             subscriptionChange++;
             await db.updateChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now);
-            let bonusPaid = 0;
-            let bonusPaidAt = 0;
-            let bonusFraudDetected = false;
-            if (channelUser.subscriptionState !== "previously-subscribed") {
-              if (user.identity && user.identity.emailConfirmed) {
-                bonusPaid = await this.paySubscriptionBonus(channel, user);
-                bonusPaidAt = now;
-                if (bonusPaid === 0) {
-                  bonusFraudDetected = true;
-                }
-                await db.updateChannelUserBonus(channel.id, user.id, bonusPaid, bonusPaidAt, bonusFraudDetected);
-              }
-            }
           }
         } else {
           subscriptionChange++;
-          let bonusPaid = 0;
-          let bonusPaidAt = 0;
-          let bonusFraudDetected = false;
-          if (user.identity && user.identity.emailConfirmed) {
-            bonusPaid = await this.paySubscriptionBonus(channel, user);
-            bonusPaidAt = now;
-            if (bonusPaid === 0) {
-              bonusFraudDetected = true;
-            }
-          }
-          await db.upsertChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now, bonusPaid, bonusPaid ? now : 0, bonusFraudDetected);
+          await db.upsertChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now);
         }
+        await this.payReferralBonusIfAppropriate(user);
       } else {
         if (channelUser) {
           if (channelUser.subscriptionState === "subscribed") {
@@ -713,64 +691,79 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
-  private async paySubscriptionBonus(channel: ChannelRecord, subscriber: UserRecord): Promise<number> {
-    const fraud = await userManager.isMultiuserFromSameBrowser(subscriber);
+  async payReferralBonusIfAppropriate(user: UserRecord): Promise<void> {
+    if (user.referralBonusPaidToUserId || !user.firstArrivalCardId) {
+      return;
+    }
+    const fraud = await userManager.isMultiuserFromSameBrowser(user);
     if (fraud) {
-      console.warn("Channel.paySubscriptionBonus: Skipping subscription bonus because fraud detected with multiple registered users from same machine", channel.handle, subscriber.identity);
-      return 0;
+      console.warn("Channel.payReferralBonusIfAppropriate: Skipping referral bonus because fraud detected with multiple registered users from same machine", user.identity);
+      return;
     }
-    const channelOwner = await userManager.getUser(channel.ownerId, false);
-    let amount = 0;
-    if (channelOwner) {
-      const bonusDetails: BankTransactionDetails = {
-        address: null,
-        fingerprint: null,
-        timestamp: null,
-        type: "transfer",
-        reason: "publisher-subscription-bonus",
-        relatedCardId: null,
-        relatedCouponId: null,
-        amount: PUBLISHER_SUBSCRIPTION_BONUS,
-        toRecipients: [],
-      };
-      bonusDetails.toRecipients.push({
-        address: channelOwner.address,
-        portion: "remainder",
-        reason: "publisher-subscription-bonus"
-      });
-      amount = bonusDetails.amount;
-      console.log("Channel.paySubscriptionBonus", channel.handle, subscriber);
-      await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus for channel " + channel.handle + " by " + subscriber.identity.handle, null, null);
-      await db.incrementChannelStat(channel.id, "revenue", amount);
+    const originalCard = await db.findCardById(user.firstArrivalCardId, true);
+    if (!originalCard) {
+      return;
     }
-    return amount;
+    const channelOwner = await userManager.getUser(originalCard.createdById, false);
+    if (!channelOwner || channelOwner.curation) {
+      return;
+    }
+    const channelIds = await db.findOwnedChannelIds(channelOwner.id);
+    if (channelIds.length === 0) {
+      return;
+    }
+    const subscribed = await db.existsChannelUserSubscriptions(user.id, channelIds, "subscribed");
+    if (!subscribed) {
+      return;
+    }
+    const bonusDetails: BankTransactionDetails = {
+      address: null,
+      fingerprint: null,
+      timestamp: null,
+      type: "transfer",
+      reason: "referral-bonus",
+      relatedCardId: null,
+      relatedCouponId: null,
+      amount: PUBLISHER_SUBSCRIPTION_BONUS,
+      toRecipients: [],
+    };
+    bonusDetails.toRecipients.push({
+      address: channelOwner.address,
+      portion: "remainder",
+      reason: "referral-bonus"
+    });
+    console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
+    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null);
+    await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
+    await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
   }
 
-  async payNewUserSubscriptionBonuses(user: UserRecord): Promise<void> {
-    const multiUser = await userManager.isMultiuserFromSameBrowser(user);
-    if (multiUser) {
-      console.warn("Channel.payNewUserSubscriptionBonuses: Skipping payment of bonus because subscriber appears to have multiple registered accounts from the same machine", user.id, user.identity);
-    }
-    const channelUsers = await db.findChannelUserRecordsForward(user.id, "subscribed", MAX_SUBSCRIPTION_BONUSES_ON_CONFIRM);
-    for (const channelUser of channelUsers) {
-      const channel = await db.findChannelById(channelUser.channelId);
-      if (channel) {
-        const owner = await userManager.getUser(channel.ownerId, false);
-        if (owner && !owner.curation && owner.identity) {
-          if (multiUser) {
-            await db.updateChannelUserBonus(channel.id, user.id, 0, 0, true);
-          } else {
-            const bonusPaid = await this.paySubscriptionBonus(channel, user);
-            if (bonusPaid) {
-              await db.updateChannelUserBonus(channel.id, user.id, bonusPaid, Date.now(), bonusPaid === 0);
-            } else {
-              await db.updateChannelUserBonus(channel.id, user.id, 0, 0, true);
-            }
-          }
-        }
-      }
-    }
-  }
+  // async payReferralBonus(user: UserRecord): Promise<void> {
+  //   const multiUser = await userManager.isMultiuserFromSameBrowser(user);
+  //   if (multiUser) {
+  //     console.warn("Channel.payReferralBonus: Skipping payment of bonus because subscriber appears to have multiple registered accounts from the same machine", user.id, user.identity);
+  //   }
+
+  //   const channelUsers = await db.findChannelUserRecordsForward(user.id, "subscribed", MAX_SUBSCRIPTION_BONUSES_ON_CONFIRM);
+  //   for (const channelUser of channelUsers) {
+  //     const channel = await db.findChannelById(channelUser.channelId);
+  //     if (channel) {
+  //       const owner = await userManager.getUser(channel.ownerId, false);
+  //       if (owner && !owner.curation && owner.identity) {
+  //         if (multiUser) {
+  //           await db.updateChannelUserBonus(channel.id, user.id, 0, 0, true);
+  //         } else {
+  //           const bonusPaid = await this.paySubscriptionBonus(channel, user);
+  //           if (bonusPaid) {
+  //             await db.updateChannelUserBonus(channel.id, user.id, bonusPaid, Date.now(), bonusPaid === 0);
+  //           } else {
+  //             await db.updateChannelUserBonus(channel.id, user.id, 0, 0, true);
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   private async handleGetChannelCard(request: Request, response: Response): Promise<void> {
     try {
@@ -905,7 +898,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (channelUser) {
       return channelUser;
     }
-    return db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0, 0, 0, false);
+    return db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0);
   }
 
   async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {
