@@ -1058,6 +1058,7 @@ export interface GetHomePageResponse extends RestResponse {
   subscribedContent: CardDescriptor[];
   channels: ChannelInfoWithCards[];
   promotedContent: CardDescriptor[];
+  newContent: CardDescriptor[];
 }
 
 export interface ChannelInfoWithCards {

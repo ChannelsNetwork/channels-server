@@ -1479,21 +1479,21 @@ db.userCardActions.aggregate([
 ])
 
 db.channelUsers.aggregate([
-      { $match: { status: "subscribed" } },
+      { $match: { subscriptionState: "subscribed" } },
       {
         $bucket: {
           groupBy: "$lastUpdated",
-          boundaries: [1515744000000, 1518336000000, 1518940800000, 1519027200000, 1519080328120],
+          boundaries: [1518681600000, 1519317694000],
           default: -1,
           output: {
             subscriptions: {$sum: 1},
-            bonuses: {$sum: "$bonusPaid"}
           }
         }
       }
     ])
+            bonuses: {$sum: "$bonusPaid"}
 
-[1515744000000, 1518336000000, 1518940800000, 1519027200000, 1519080328120]
+[1518681600000, 1518768000000, 1518854400000, 1518940800000, 1519027200000, 1519113600000, 1519200000000, 1519286400000, 1519317694000]
 
 db.userCardActions.aggregate([
       { $match: { action: "pay" } },

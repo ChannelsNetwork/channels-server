@@ -208,6 +208,7 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
+    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "pricing.openFeeUnits": 1, postedAt: -1 });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
 
     await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
@@ -1109,6 +1110,10 @@ export class Database {
 
   getCardsWithSummaryImageUrl(): Cursor<CardRecord> {
     return this.cards.find<CardRecord>({ "summary.imageUrl": { $exists: true } });
+  }
+
+  getCardsLatestNonPromoted(): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "pricing.openFeeUnits": { $gt: 0 }, score: { $gt: 0 } }).sort({ postedAt: -1 });
   }
 
   async replaceCardBy(cardId: string, createdById: string): Promise<void> {
