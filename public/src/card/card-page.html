@@ -738,7 +738,7 @@
         if (!card.userSpecific.isPoster) {
           if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
             card.userSpecific.paidToAuthor = card.pricing.openFee;
-            $core.cardPay(card.id, card.pricing.openFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
+            $core.cardPay(card.id, card.pricing.discountedOpenFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
               card.stats.revenue = response.totalCardRevenue;
               $core.analytics.event("card", "paid");
               this._onPaymentSuccess();

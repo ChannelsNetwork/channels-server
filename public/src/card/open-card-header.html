@@ -257,7 +257,7 @@
 
       _refreshPrice() {
         this._refreshPaidCheck();
-        let cost = this.data.pricing.openFee;
+        let cost = this.data.pricing.discountedOpenFee;
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
         if (cost <= 0) {
