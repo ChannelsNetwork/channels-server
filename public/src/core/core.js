@@ -150,8 +150,12 @@ class CoreService extends Polymer.Element {
       return this._generateFingerprint().then(() => {
         const referrer = document.referrer;
         const landingPageUrl = window.location.href;
+        let landingCardId = null;
+        if (landingPageUrl && /\/c\/\S+$/i.test(landingPageUrl)) {
+          landingCardId = landingPageUrl.toLowerCase().split("/c/")[1].split("?")[0];
+        }
         const userAgent = window.navigator ? window.navigator.userAgent : null;
-        let details = RestUtils.registerUserDetails(this._keys.address, this._fingerprint, this._keys.publicKeyPem, inviteCode, referrer, landingPageUrl, userAgent);
+        let details = RestUtils.registerUserDetails(this._keys.address, this._fingerprint, this._keys.publicKeyPem, inviteCode, referrer, landingPageUrl, userAgent, landingCardId);
         let request = this._createRequest(details);
         const url = this.restBase + "/register-user";
         return this.rest.post(url, request).then((result) => {

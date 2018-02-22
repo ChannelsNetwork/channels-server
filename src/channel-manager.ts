@@ -705,6 +705,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       return;
     }
     const channelOwner = await userManager.getUser(originalCard.createdById, false);
+    if (!channelOwner || channelOwner.curation) {
+      return;
+    }
     const channelIds = await db.findOwnedChannelIds(channelOwner.id);
     if (channelIds.length === 0) {
       return;
@@ -713,29 +716,26 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (!subscribed) {
       return;
     }
-    let amount = 0;
-    if (channelOwner) {
-      const bonusDetails: BankTransactionDetails = {
-        address: null,
-        fingerprint: null,
-        timestamp: null,
-        type: "transfer",
-        reason: "publisher-subscription-bonus",
-        relatedCardId: null,
-        relatedCouponId: null,
-        amount: PUBLISHER_SUBSCRIPTION_BONUS,
-        toRecipients: [],
-      };
-      bonusDetails.toRecipients.push({
-        address: channelOwner.address,
-        portion: "remainder",
-        reason: "publisher-subscription-bonus"
-      });
-      amount = bonusDetails.amount;
-      console.log("Channel.payReferralBonusIfAppropriate", user.identity, channelOwner.identity);
-      await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null);
-      await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
-    }
+    const bonusDetails: BankTransactionDetails = {
+      address: null,
+      fingerprint: null,
+      timestamp: null,
+      type: "transfer",
+      reason: "referral-bonus",
+      relatedCardId: null,
+      relatedCouponId: null,
+      amount: PUBLISHER_SUBSCRIPTION_BONUS,
+      toRecipients: [],
+    };
+    bonusDetails.toRecipients.push({
+      address: channelOwner.address,
+      portion: "remainder",
+      reason: "referral-bonus"
+    });
+    console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
+    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null);
+    await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
+    await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
   }
 
   // async payReferralBonus(user: UserRecord): Promise<void> {
