@@ -30,7 +30,7 @@ import { errorManager } from "./error-manager";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 3;
+const SCORE_CARD_WEIGHT_AGE = 1.5;
 const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
 const SCORE_CARD_WEIGHT_REVENUE = 1;
 const SCORE_CARD_REVENUE_DOUBLING = 100;
@@ -118,12 +118,14 @@ export class FeedManager implements Initializable, RestServer {
         featuredChannels: [],
         subscribedContent: [],
         channels: [],
-        promotedContent: []
+        promotedContent: [],
+        newContent: []
       };
       const promises: Array<Promise<void>> = [];
       promises.push(this.populateHomeFeaturedChannels(request, user, reply.featuredChannels));
       promises.push(this.populateHomeSubscribedContent(request, user, requestBody.detailsObject.maxSubscribedCards, reply.subscribedContent));
       promises.push(this.populateHomeChannels(request, user, requestBody.detailsObject.maxCardsPerChannel, reply.channels));
+      promises.push(this.populateHomeNewContent(request, user, requestBody.detailsObject.maxCardsPerChannel, reply.newContent));
       await Promise.all(promises);
       await this.populateHomePromotedContent(request, user, reply);
       response.json(reply);
@@ -145,6 +147,22 @@ export class FeedManager implements Initializable, RestServer {
     for (const card of cards) {
       feedCards.push(card);
     }
+  }
+
+  private async populateHomeNewContent(request: Request, user: UserRecord, maxCount: number, feedCards: CardDescriptor[]): Promise<void> {
+    const cursor = db.getCardsLatestNonPromoted();
+    if (!maxCount) {
+      maxCount = 5;
+    }
+    let count = 0;
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      feedCards.push(await this.populateCard(request, card, false, null, null, user));
+      if (++count >= maxCount) {
+        break;
+      }
+    }
+    await cursor.close();
   }
 
   private async populateHomeChannels(request: Request, user: UserRecord, maxCardsPerChannel: number, channelsWithCards: ChannelInfoWithCards[]): Promise<void> {
