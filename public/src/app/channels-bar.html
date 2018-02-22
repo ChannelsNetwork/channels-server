@@ -29,6 +29,10 @@
         color: var(--bg-yellow);
       }
 
+      #notificationsIcon {
+        color: var(--bg-yellow);
+      }
+
       .logo {
         display: block;
         height: 36px;
@@ -104,6 +108,7 @@
         <button id="signin">Sign In</button>
       </a>
       <soso-icon icon="search" on-click="_onSearch"></soso-icon>
+      <soso-icon id="notificationsIcon" icon="notifications-active" class="hidden"></soso-icon>
       <user-image id="userImage" class="hidden"></user-image>
       <a href="/balance">
         <div id="balancePanel" class="horizontal layout center">
@@ -116,6 +121,10 @@
       <li on-click="_gotoAccount">Account</li>
       <li on-click="_gotoSubscriptions">Subscriptions</li>
       <li on-click="_signOut" class="menuDivider">Sign Out</li>
+    </soso-dropdown>
+    <soso-dropdown for="notificationsIcon" alignment="right" offset="-5">
+      <li>Notifications go here</li>
+      <li>Notifications go here</li>
     </soso-dropdown>
   </template>
   <script>
