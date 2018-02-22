@@ -206,6 +206,7 @@ export interface CardDescriptor {
   pricing: {
     promotionFee: number;
     openFee: number;  // in ChannelCoin, -ve for ads
+    discountedOpenFee: number;  // 0.01 for first-time card purchase, otherwise = openFee
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   promoted: boolean;
