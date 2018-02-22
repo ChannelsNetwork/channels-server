@@ -17,6 +17,7 @@ class CoreService extends Polymer.Element {
     this.cardManager = new CardManager(this);
     this.userManager = new UserManager(this);
     this.social = new SocialService();
+    this.visibility = new PageVisibilityManager();
     this.analytics = {
       event: function (category, action) {
         if (window.ga) {

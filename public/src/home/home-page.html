@@ -95,12 +95,17 @@
     <channel-carousel id="carousel" label="Featured channels" channels="[[featured]]" class="hidden"></channel-carousel>
     <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more clickable-label on-card-open-request="_onCardOpenRequest"
       on-more="_gotoFeed" on-headline-click="_gotoFeed" class="hidden"></card-list>
+
     <dom-repeat items="[[channelList]]">
       <template>
         <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" clickable-label="[[item.more]]" on-card-open-request="_onCardOpenRequest"
           on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
       </template>
     </dom-repeat>
+
+    <card-list id="newList" label="New" items="[[newCards]]" more clickable-label on-card-open-request="_onCardOpenRequest" on-more="_gotoNew"
+      on-headline-click="_gotoNew" class="hidden"></card-list>
+
     <card-list id="recommendedList" label="Recommended" items="[[recommended]]" more="[[_moreRecommended]]" on-card-open-request="_onCardOpenRequest"
       on-more="_onMoreRecommended" class="hidden"></card-list>
     <div id="spacer" style="height: 100px"></div>
@@ -113,6 +118,7 @@
         return {
           featured: Array,
           subscribed: Array,
+          newCards: Array,
           channelList: Array,
           recommended: Array,
           _moreRecommended: Boolean
@@ -158,6 +164,14 @@
               this._hasSubscribed = true;
             } else {
               this.$.subscribedList.classList.add("hidden");
+            }
+
+            // new cards
+            this.newCards = response.newContent;
+            if (this.newCards && this.newCards.length) {
+              this.$.newList.classList.remove("hidden");
+            } else {
+              this.$.newList.classList.add("hidden");
             }
 
             // other channels 
@@ -275,6 +289,10 @@
 
       _gotoFeed() {
         $router.goto("/feed");
+      }
+
+      _gotoNew() {
+        $router.goto("/feed/new");
       }
 
       _gotoChannel(event) {
