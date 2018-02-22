@@ -1243,6 +1243,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
   async adminBlockUser(user: UserRecord): Promise<void> {
     await db.updateUserCuration(user.id, "blocked");
+    await db.updateCardsBlockedByAuthor(user.id, true);
     await this.announceUserUpdated(user);
   }
 }
