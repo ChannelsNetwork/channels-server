@@ -40,6 +40,8 @@
       </div>
       <text-area id="comment" single-line label="Comment" placeholder="Add a comment"></text-area>
       <soso-checkbox id="chkRefund" label="I'd like a refund of my card purchase"></soso-checkbox>
+      <soso-checkbox id="chkBlockCard" label="Admin only:  block this card" style="display:none;"></soso-checkbox>
+      <soso-checkbox id="chkBlockUser" label="Admin only:  block card owner" style="display:none;"></soso-checkbox>
     </dialog-view>
   </template>
   <script>
@@ -79,6 +81,16 @@
         } else {
           this.$.chkRefund.checked = false;
           this.$.chkRefund.classList.add("hidden");
+        }
+        this.$.chkBlockUser.checked = false;
+        if ($core.isAdmin) {
+          this.$.chkBlockCard.style.display = "";
+          this.$.chkBlockUser.style.display = "";
+          this.$.chkBlockCard.checked = data.blocked ? true : false;
+        } else {
+          this.$.chkBlockCard.style.display = "none";
+          this.$.chkBlockUser.style.display = "none";
+          this.$.chkBlockCard.checked = false;
         }
         return this.$.dlg.show();
       }
@@ -136,7 +148,7 @@
           }
           this.$.dlg.showProgress("Reporting card");
           setTimeout(() => {
-            $core.reportCard(this.card.id, reasons, this.$.comment.value.trim(), this.$.chkRefund.checked).then(() => {
+            $core.reportCard(this.card.id, reasons, this.$.comment.value.trim(), this.$.chkRefund.checked, this.$.chkBlockCard.checked, this.$.chkBlockUser.checked).then(() => {
               $dialogs.hide(this);
               this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true, detail: { cancel: false, reasons: reasons, refunded: this.$.chkRefund.checked } }));
             }).catch((err) => {

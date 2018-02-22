@@ -289,7 +289,7 @@
         switch (context.action) {
           case "reportCard":
             let data = context.data;
-            $core.reportCard(data.cardId, data.reasons, data.comment, data.refund).then(() => {
+            $core.reportCard(data.cardId, data.reasons, data.comment, data.refund, false, false).then(() => {
               $app.showError("This card has been reported.").then(() => {
                 this._closeCard();
               });

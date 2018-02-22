@@ -22,10 +22,13 @@ import { Utils } from './utils';
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
 import { errorManager } from "./error-manager";
 import { rootPageManager } from "./root-page-manager";
+import { networkEntity } from "./network-entity";
 
 const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
 const MAX_KEYWORDS_PER_CHANNEL = 16;
 const MAX_CARDS_PER_EMAIL_NOTIFICATION = 16;
+const PUBLISHER_SUBSCRIPTION_BONUS = 1.00;
+const MAX_SUBSCRIPTION_BONUSES_ON_CONFIRM = 5;
 
 export class ChannelManager implements RestServer, Initializable, NotificationHandler {
   private app: express.Application;
@@ -647,21 +650,42 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         response.status(404).send("No such channel");
         return;
       }
+      if (["subscribed", "unsubscribed"].indexOf(requestBody.detailsObject.subscriptionState.toString()) < 0) {
+        response.status(400).send("Invalid subscription state");
+        return;
+      }
       console.log("ChannelManager.update-channel-subscription:", request.headers, requestBody.detailsObject);
       const channelUser = await db.findChannelUser(channel.id, user.id);
       let subscriptionChange = 0;
       if (requestBody.detailsObject.subscriptionState === "subscribed") {
-        subscriptionChange++;
-      }
-      if (channelUser) {
-        if (channelUser.subscriptionState === "subscribed") {
-          subscriptionChange--;
+        if (channelUser) {
+          if (channelUser.subscriptionState !== "subscribed") {
+            subscriptionChange++;
+            await db.updateChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, Date.now());
+          }
+        } else {
+          subscriptionChange++;
+          let bonusPaid = 0;
+          const bonusPaidAt = 0;
+          let bonusFraudDetected = false;
+          if (user.identity && user.identity.emailConfirmed) {
+            bonusPaid = await this.paySubscriptionBonus(channel, user);
+            if (bonusPaid === 0) {
+              bonusFraudDetected = true;
+            }
+          }
+          const now = Date.now();
+          await db.upsertChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now, bonusPaid, bonusPaid ? now : 0, bonusFraudDetected);
         }
-        await db.updateChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.latestCardPosted, Date.now());
       } else {
-        await db.upsertChannelUser(channel.id, user.id, requestBody.detailsObject.subscriptionState, channel.latestCardPosted, Date.now());
+        if (channelUser) {
+          if (channelUser.subscriptionState === "subscribed") {
+            subscriptionChange--;
+            await db.updateChannelUser(channel.id, user.id, "previously-subscribed", channel.latestCardPosted, Date.now());
+          }
+        }
       }
-      if (subscriptionChange) {
+      if (subscriptionChange !== 0) {
         await db.incrementChannelStat(channel.id, "subscribers", subscriptionChange);
       }
       await this.announceSubscriptionChange(channel, user);
@@ -672,6 +696,65 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     } catch (err) {
       errorManager.error("ChannelManager.handleUpdateChannelSubscription: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async paySubscriptionBonus(channel: ChannelRecord, subscriber: UserRecord): Promise<number> {
+    const fraud = await userManager.isMultiuserFromSameBrowser(subscriber);
+    if (fraud) {
+      console.warn("Channel.paySubscriptionBonus: Skipping subscription bonus because fraud detected with multiple registered users from same machine", channel.handle, subscriber.identity);
+      return 0;
+    }
+    const channelOwner = await userManager.getUser(channel.ownerId, false);
+    let amount = 0;
+    if (channelOwner) {
+      const bonusDetails: BankTransactionDetails = {
+        address: null,
+        fingerprint: null,
+        timestamp: null,
+        type: "transfer",
+        reason: "grant",
+        relatedCardId: null,
+        relatedCouponId: null,
+        amount: PUBLISHER_SUBSCRIPTION_BONUS,
+        toRecipients: [],
+      };
+      bonusDetails.toRecipients.push({
+        address: channelOwner.address,
+        portion: "remainder",
+        reason: "publisher-subscription-bonus"
+      });
+      amount = bonusDetails.amount;
+      console.log("Channel.paySubscriptionBonus", channel.handle, subscriber);
+      await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus for channel " + channel.handle + " by " + subscriber.identity.handle, null, null);
+      await db.incrementChannelStat(channel.id, "revenue", amount);
+    }
+    return amount;
+  }
+
+  async payNewUserSubscriptionBonuses(user: UserRecord): Promise<void> {
+    const multiUser = await userManager.isMultiuserFromSameBrowser(user);
+    if (multiUser) {
+      console.warn("Channel.payNewUserSubscriptionBonuses: Skipping payment of bonus because subscriber appears to have multiple registered accounts from the same machine", user.id, user.identity);
+    }
+    const channelUsers = await db.findChannelUserRecordsForward(user.id, "subscribed", MAX_SUBSCRIPTION_BONUSES_ON_CONFIRM);
+    for (const channelUser of channelUsers) {
+      const channel = await db.findChannelById(channelUser.channelId);
+      if (channel) {
+        const owner = await userManager.getUser(channel.ownerId, false);
+        if (owner && !owner.curation && owner.identity) {
+          if (multiUser) {
+            await db.updateChannelUserBonus(channel.id, user.id, 0, 0, true);
+          } else {
+            const bonusPaid = await this.paySubscriptionBonus(channel, user);
+            if (bonusPaid) {
+              await db.updateChannelUserBonus(channel.id, user.id, bonusPaid, Date.now(), bonusPaid === 0);
+            } else {
+              await db.updateChannelUserBonus(channel.id, user.id, 0, 0, true);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -808,7 +891,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (channelUser) {
       return channelUser;
     }
-    return db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0);
+    return db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0, 0, 0, false);
   }
 
   async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {

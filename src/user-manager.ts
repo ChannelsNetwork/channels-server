@@ -40,7 +40,8 @@ const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 60 * 24;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
-const INITIAL_BALANCE = 2.5;
+const INITIAL_BALANCE = 1;
+const REGISTRATION_BONUS = 1.5;
 const DEFAULT_TARGET_BALANCE = 5;
 
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
@@ -246,16 +247,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.register-user", requestBody.detailsObject.address);
-      const ipAddressHeader = request.headers['x-forwarded-for'] as string;
-      let ipAddress: string;
-      if (ipAddressHeader) {
-        const ipAddresses = ipAddressHeader.split(',');
-        if (ipAddresses.length >= 1 && ipAddresses[0].trim().length > 0) {
-          ipAddress = ipAddresses[0].trim();
-        }
-      } else if (request.ip) {
-        ipAddress = request.ip.trim();
-      }
+      const ipAddress = this.getIpAddressFromRequest(request);
       let ipAddressInfo: IpAddressRecord;
       if (ipAddress && ipAddress.length > 0) {
         ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
@@ -297,7 +289,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(request, reward, null, true, false);
+          await networkEntity.performBankTransaction(request, reward, null, true, false, "Invitation reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -318,7 +310,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, true, false);
+        await networkEntity.performBankTransaction(request, grant, null, true, false, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
         userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
@@ -332,7 +324,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false);
+          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
           userRecord.balance += inviteeReward;
         }
       }
@@ -359,6 +351,20 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       errorManager.error("User.handleRegisterUser: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  getIpAddressFromRequest(request: Request): string {
+    const ipAddressHeader = request.headers['x-forwarded-for'] as string;
+    let ipAddress: string;
+    if (ipAddressHeader) {
+      const ipAddresses = ipAddressHeader.split(',');
+      if (ipAddresses.length >= 1 && ipAddresses[0].trim().length > 0) {
+        ipAddress = ipAddresses[0].trim();
+      }
+    } else if (request.ip) {
+      ipAddress = request.ip.trim();
+    }
+    return ipAddress;
   }
 
   private async fetchIpAddressInfo(ipAddress: string): Promise<IpAddressRecord> {
@@ -804,6 +810,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       await db.updateUserEmailConfirmation(user.id);
+      if (!user.identity.emailLastConfirmed) {
+        await channelManager.payNewUserSubscriptionBonuses(user);
+        await this.payRegistrationBonus(request, user, requestBody.detailsObject.fingerprint);
+      }
       await this.announceUserUpdated(user);
       const reply: ConfirmEmailResponse = {
         serverVersion: SERVER_VERSION,
@@ -815,6 +825,31 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       errorManager.error("User.handleConfirmEmail: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async payRegistrationBonus(request: Request, user: UserRecord, fingerprint: string): Promise<void> {
+    if (user.balance > 2.51) {
+      return;
+    }
+    const grantRecipient: BankTransactionRecipientDirective = {
+      address: user.address,
+      portion: "remainder",
+      reason: "registration-bonus"
+    };
+    const grant: BankTransactionDetails = {
+      timestamp: null,
+      address: null,
+      fingerprint: null,
+      type: "transfer",
+      reason: "grant",
+      amount: REGISTRATION_BONUS,
+      relatedCardId: null,
+      relatedCouponId: null,
+      toRecipients: [grantRecipient]
+    };
+    await networkEntity.performBankTransaction(request, grant, null, true, false, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint);
+    user.balance += REGISTRATION_BONUS;
+    console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
 
   private async handleAdminGetUsers(request: Request, response: Response): Promise<void> {
@@ -1029,7 +1064,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       totalPublisherRevenue: network.totalPublisherRevenue,
       totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
       publisherSubsidies: await networkEntity.getPublisherSubsidies(),
-      timeUntilNextAllowedWithdrawal: timeUntilNextAllowedWithdrawal
+      timeUntilNextAllowedWithdrawal: timeUntilNextAllowedWithdrawal,
+      firstCardPurchasedId: user.firstCardPurchasedId
     };
     return result;
   }
@@ -1102,7 +1138,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false);
+        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false, "User subsidy", null, null);
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1125,7 +1161,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, true, false);
+        await networkEntity.performBankTransaction(request, grant, null, true, false, "Interest", null, null);
       }
     }
   }
@@ -1189,6 +1225,25 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     };
     const buttons: EmailButton[] = [button];
     await emailManager.sendUsingTemplate("Channels email verification", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, "Confirm your email address", "email-confirmation", info, buttons);
+  }
+
+  async isMultiuserFromSameBrowser(user: UserRecord): Promise<boolean> {
+    const fingerprints = await db.findUserRegistrationDistinctFingerprints(user.id);
+    const filtered: string[] = [];
+    const userIds = await db.findUserIdsByFingerprint(fingerprints);
+    const users = await db.findUsersWithIdentityAmong(userIds, 10);
+    if (users.length > 1) {
+      return true;
+    }
+    if (users.length === 1) {
+      return users[0].id !== user.id;
+    }
+    return false;
+  }
+
+  async adminBlockUser(user: UserRecord): Promise<void> {
+    await db.updateUserCuration(user.id, "blocked");
+    await this.announceUserUpdated(user);
   }
 }
 

@@ -70,6 +70,7 @@ export interface UserStatus {
   totalPublisherRevenue: number;
   totalCardDeveloperRevenue: number;
   publisherSubsidies: PublisherSubsidiesInfo;
+  firstCardPurchasedId: string;
 }
 
 export interface PublisherSubsidiesInfo {
@@ -502,6 +503,7 @@ export interface BankTransactionDetailsWithId {
   isOriginator: boolean;
   isRecipient: boolean[];
   refunded: boolean;
+  description: string;
 }
 
 export interface BankTransactionDetails extends Signable {
@@ -529,7 +531,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "publisher-subscription-bonus" | "registration-bonus";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 
@@ -651,6 +653,7 @@ export interface AdminGetGoalsResponse extends RestResponse {
   cards: AdminCardStats;
   purchases: AdminPurchaseStats;
   ads: AdminAdStats;
+  subscriptions: AdminSubscriptionStats;
 
   // cards: {
   //   total: number;
@@ -724,6 +727,17 @@ export interface AdminAdStats {
   newRevenue: RecentStats;
   consumers: RecentStats;
   advertisers: RecentStats;
+}
+
+export interface AdminSubscriptionStats {
+  totalSubscribers: number;
+  totalSubscriptions: number;
+  totalChannelsWithSubscriptions: number;
+  totalSubscriptionBonuses: number;
+  totalFraud: number;
+  newSubscriptions: RecentStats;
+  newSubscriptionBonuses: RecentStats;
+  newFraud: RecentStats;
 }
 
 export interface RecentStats {
@@ -1025,6 +1039,8 @@ export interface ReportCardDetails extends Signable {
   reasons: ReportCardReason[];
   comment: string;
   requestRefund: boolean;
+  adminBlockCard: boolean;
+  adminBlockUser: boolean;
 }
 
 export type ReportCardReason = "inappropriate" | "plagiarism" | "clickbait" | "junk" | "other";

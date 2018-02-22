@@ -48,34 +48,14 @@ export class AdminManager implements RestServer {
         return;
       }
       console.log("AdminManager.admin-goals", user.id, requestBody.detailsObject);
-      // const ending = Date.now();
-      const starting = +moment().tz('America/Los_Angeles').startOf('day');
-      // let periodsStarting: number[] = [Date.now()];
-      // for (let i = 0; i < 7; i++) {
-      //   periodsStarting.push(starting);
-      //   // reply.days.push(await this.computeGoals(starting, ending));
-      //   // ending = starting;
-      //   starting -= 1000 * 60 * 60 * 24;
-      // }
-      // periodsStarting.push(0);
-      // periodsStarting = periodsStarting.reverse();
-
-      // const binnedUsers = await db.binUsersByAddedDate(periodsStarting);
-      // const binnedCards = await db.binCardsByDate(periodsStarting);
-      // const binnedPayments = await db.binCardPayments(periodsStarting);
-      // const binnedAdSlots = await db.binAdSlots(periodsStarting);
       const reply: AdminGetGoalsResponse = {
         serverVersion: SERVER_VERSION,
         users: await db.aggregateUserStats(),
         activeUsers: await db.aggregateNewUserStats(),
         cards: await db.aggregateCardStats(),
         purchases: await db.aggregatePurchaseStats(),
-        ads: await db.aggregateAdStats()
-        // periodsStarting: periodsStarting,
-        // userBins: binnedUsers,
-        // cardBins: binnedCards,
-        // cardPaymentBins: binnedPayments,
-        // adSlotBins: binnedAdSlots
+        ads: await db.aggregateAdStats(),
+        subscriptions: await db.aggregateSubscriptionStats()
       };
       response.json(reply);
     } catch (err) {
