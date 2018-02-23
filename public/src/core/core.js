@@ -739,6 +739,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  postCardComment(cardId, text, metadata) {
+    let details = RestUtils.postCardComment(this._keys.address, this._fingerprint, cardId, text, metadata);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/post-card-comment";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

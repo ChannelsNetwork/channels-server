@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -47,6 +47,7 @@ export class Database {
   private userRegistrations: Collection;
   private channelKeywords: Collection;
   private adSlots: Collection;
+  private cardComments: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -83,6 +84,7 @@ export class Database {
     await this.initializeUserRegistrations();
     await this.initializeChannelKeywords();
     await this.initializeAdSlots();
+    await this.initializeCardComments();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -467,6 +469,12 @@ export class Database {
   private async initializeAdSlots(): Promise<void> {
     this.adSlots = this.db.collection('adSlots');
     await this.adSlots.createIndex({ id: 1 }, { unique: true });
+  }
+
+  private async initializeCardComments(): Promise<void> {
+    this.cardComments = this.db.collection('cardComments');
+    await this.cardComments.createIndex({ id: 1 }, { unique: true });
+    await this.cardComments.createIndex({ cardId: 1, at: -1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -2984,6 +2992,38 @@ export class Database {
       update.redeemed = true;
     }
     await this.adSlots.updateOne({ id: id }, { $set: update });
+  }
+
+  async insertCardComment(byId: string, at: number, cardId: string, text: string, metadata: CardCommentMetadata): Promise<CardCommentRecord> {
+    const now = Date.now();
+    const record: CardCommentRecord = {
+      id: uuid.v4(),
+      byId: byId,
+      at: at,
+      cardId: cardId,
+      text: text,
+      metadata: metadata
+    };
+    await this.cardComments.insertOne(record);
+    return record;
+  }
+
+  async findCardCommentById(id: string): Promise<CardCommentRecord> {
+    return this.cardComments.findOne<CardCommentRecord>({ id: id });
+  }
+
+  async findCardCommentsForCard(cardId: string, before: number, maxCount: number): Promise<CardCommentRecord[]> {
+    const query: any = {
+      cardId: cardId
+    };
+    if (before) {
+      query.at = { $lt: before };
+    }
+    return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 }).limit(maxCount || 10).toArray();
+  }
+
+  async countCardComments(cardId: string): Promise<number> {
+    return this.cardComments.count({cardId: cardId});
   }
 
   async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {

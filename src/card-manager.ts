@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -129,6 +129,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('report-card'), (request: Request, response: Response) => {
       void this.handleReportCard(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('post-card-comment'), (request: Request, response: Response) => {
+      void this.handlePostCardComment(request, response);
     });
   }
 
@@ -333,13 +336,47 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         serverVersion: SERVER_VERSION,
         card: cardState,
         paymentDelayMsecs: delay,
-        promotedCard: promotedCard
+        promotedCard: promotedCard,
+        totalComments: 0,
+        comments: [],
+        commentorInfoById: {}
       };
+      if (requestBody.detailsObject.maxComments) {
+        reply.totalComments = await db.countCardComments(card.id);
+        let cardComments = await db.findCardCommentsForCard(card.id, 0, requestBody.detailsObject.maxComments);
+        cardComments = cardComments.reverse();
+        for (const cardComment of cardComments) {
+          reply.comments.push(await this.populateCardComment(request, user, cardComment, reply.commentorInfoById));
+        }
+      }
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleGetCard: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async populateCardComment(request: Request, user: UserRecord, cardComment: CardCommentRecord, commentorInfoById: { [id: string]: CommentorInfo }): Promise<CardCommentDescriptor> {
+    const result: CardCommentDescriptor = {
+      id: cardComment.id,
+      at: cardComment.at,
+      cardId: cardComment.cardId,
+      byId: cardComment.byId,
+      text: cardComment.text,
+      metadata: cardComment.metadata
+    };
+    if (!commentorInfoById[cardComment.byId]) {
+      const commentor = await userManager.getUser(cardComment.byId, false);
+      if (commentor) {
+        const commentorInfo: CommentorInfo = {
+          name: commentor.identity ? commentor.identity.name : null,
+          handle: commentor.identity ? commentor.identity.handle : null,
+          image: commentor.identity && commentor.identity.imageId ? await fileManager.getFileInfo(commentor.identity.imageId) : null
+        };
+        commentorInfoById[cardComment.byId] = commentorInfo;
+      }
+    }
+    return result;
   }
 
   private async handlePostCard(request: Request, response: Response): Promise<void> {
@@ -2079,6 +2116,40 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  async handlePostCardComment(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<PostCardCommentDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.cardId || !requestBody.detailsObject.text) {
+        response.status(400).send("Missing cardId and/or text");
+        return;
+      }
+      const card = await this.getCardById(requestBody.detailsObject.cardId, true);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      if (!user.identity) {
+        response.status(403).send("You must be registered");
+        return;
+      }
+      console.log("CardManager.post-card-comment", requestBody.detailsObject);
+      const now = Date.now();
+      const commentRecord = await db.insertCardComment(user.id, now, card.id, requestBody.detailsObject.text, requestBody.detailsObject.metadata);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "comment", null, 0, null, 0, null, null, null);
+      const reply: PostCardCommentResponse = {
+        serverVersion: SERVER_VERSION,
+        commentId: commentRecord.id
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handlePostCardComment: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
 }
 
 const cardManager = new CardManager();

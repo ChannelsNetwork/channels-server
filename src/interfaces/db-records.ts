@@ -445,7 +445,7 @@ export interface UserCardActionReportInfo {
 
 export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
@@ -683,3 +683,27 @@ export interface AdSlotRecord {
 export type AdSlotType = "impression-ad" | "impression-content" | "open-payment" | "click-payment" | "announcement";
 
 export type AdSlotStatus = "pending" | "impression" | "opened" | "open-paid" | "clicked" | "redemption-failed";
+
+export interface CardCommentRecord {
+  id: string;
+  at: number;
+  cardId: string;
+  byId: string;
+  text: string;
+  metadata: CardCommentMetadata;
+}
+
+export interface CardCommentMetadata {
+  fields: CardCommentFieldDescriptor[];
+}
+
+export interface CardCommentFieldDescriptor {
+  startOffset: number;
+  length: number;
+  text: string;
+  type: CardCommentFieldType;
+  href?: string;
+  handle?: string;
+}
+
+export type CardCommentFieldType = "hyperlink" | "handle";

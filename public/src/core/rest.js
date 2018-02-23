@@ -828,4 +828,31 @@ class RestUtils {
     };
   }
 
+  static postCardComment(address, fingerprint, cardId, text, metadata) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      text: text,
+      metadata: metadata
+    };
+  }
+
+  static cardCommentMetadata(fields) {
+    return {
+      fields: fields
+    };
+  }
+
+  static cardCommentFieldDescriptor(startOffset, length, text, type, href, handle) {
+    return {
+      startOffset: startOffset,
+      length: length,
+      text: text,
+      type: type,
+      href: href,
+      handle: handle
+    };
+  }
 }
