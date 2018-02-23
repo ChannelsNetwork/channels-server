@@ -1100,29 +1100,37 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.update-card-like", requestBody.detailsObject);
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
-      if (cardInfo && cardInfo.like !== requestBody.detailsObject.selection) {
+      if (cardInfo && requestBody.detailsObject.selection && cardInfo.like !== requestBody.detailsObject.selection) {
         if (cardInfo.like !== requestBody.detailsObject.selection) {
           const now = Date.now();
           let existingLikes = 0;
           let existingDislikes = 0;
-          let action: CardActionType;
           switch (cardInfo.like) {
             case "like":
               existingLikes++;
-              action = "like";
               break;
             case "dislike":
               existingDislikes++;
-              action = "dislike";
               break;
             case "none":
-              action = "reset-like";
               break;
             default:
               throw new Error("Unhandled card info like state " + cardInfo.like);
           }
           await db.updateUserCardInfoLikeState(user.id, card.id, requestBody.detailsObject.selection);
           cardInfo.like = requestBody.detailsObject.selection;
+          let action: CardActionType;
+          switch (requestBody.detailsObject.selection) {
+            case "like":
+              action = "like";
+              break;
+            case "dislike":
+              action = "dislike";
+              break;
+            default:
+              action = "reset-like";
+              break;
+          }
           await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, action, null, 0, null, 0, null, null, null);
           let newLikes = 0;
           let newDislikes = 0;

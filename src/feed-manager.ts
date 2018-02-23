@@ -192,6 +192,9 @@ export class FeedManager implements Initializable, RestServer {
           if (card.private && card.createdById !== user.id) {
             continue;
           }
+          if (card.pricing.openFeeUnits === 0) {
+            continue;
+          }
           const descriptor = await this.populateCard(request, card, false, null, channel.id, user);
           result.push(descriptor);
         }
@@ -568,7 +571,6 @@ export class FeedManager implements Initializable, RestServer {
         return card;
       }
     }
-    await adCursor.close();
     return null;
   }
 
