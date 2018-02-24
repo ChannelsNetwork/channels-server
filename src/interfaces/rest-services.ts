@@ -238,6 +238,7 @@ export interface CardDescriptor {
   overrideReports: boolean;
   reasons: ReportCardReason[];
   sourceChannelId: string;
+  commentCount: number;
 }
 
 export interface CardSummary {

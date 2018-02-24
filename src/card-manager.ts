@@ -1843,7 +1843,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
-        sourceChannelId: sourceChannelId
+        sourceChannelId: sourceChannelId,
+        commentCount: await db.countCardComments(cardId)
       };
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);
