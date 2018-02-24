@@ -346,8 +346,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       if (requestBody.detailsObject.maxComments) {
         reply.totalComments = await db.countCardComments(card.id);
-        let cardComments = await db.findCardCommentsForCard(card.id, 0, requestBody.detailsObject.maxComments);
-        cardComments = cardComments.reverse();
+        const cardComments = await db.findCardCommentsForCard(card.id, 0, requestBody.detailsObject.maxComments);
         for (const cardComment of cardComments) {
           reply.comments.push(await this.populateCardComment(request, user, cardComment, reply.commentorInfoById));
         }
