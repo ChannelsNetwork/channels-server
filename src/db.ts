@@ -3022,8 +3022,12 @@ export class Database {
     return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 }).limit(maxCount || 10).toArray();
   }
 
-  async countCardComments(cardId: string): Promise<number> {
-    return this.cardComments.count({cardId: cardId});
+  async countCardComments(cardId: string, before = 0): Promise<number> {
+    const query: any = { cardId: cardId };
+    if (before) {
+      query.at = { $lt: before };
+    }
+    return this.cardComments.count(query);
   }
 
   async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {

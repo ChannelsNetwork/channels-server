@@ -1121,3 +1121,15 @@ export interface PostCardCommentDetails extends Signable {
 export interface PostCardCommentResponse extends RestResponse {
   commentId: string;
 }
+
+export interface GetCardCommentsDetails extends Signable {
+  cardId: string;
+  before: number;  // timestmap or 0 for all
+  maxCount: number;
+}
+
+export interface GetCardCommentsResponse extends RestResponse {
+  comments: CardCommentDescriptor[];
+  commentorInfoById: { [id: string]: CommentorInfo };
+  moreAvailable: boolean;
+}

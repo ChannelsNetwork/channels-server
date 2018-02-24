@@ -839,6 +839,17 @@ class RestUtils {
     };
   }
 
+  static getCardComments(address, fingerprint, cardId, before, maxCount) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      before: before,
+      maxCount: maxCount
+    };
+  }
+
   static cardCommentMetadata(fields) {
     return {
       fields: fields
@@ -849,8 +860,8 @@ class RestUtils {
     return {
       startOffset: startOffset,
       length: length,
-      text: text,
-      type: type,
+      text: text,  // the text representing this (such as 'channels.cc/c/...')
+      type: type,  // 'hyperlink' | 'handle'
       href: href,
       handle: handle
     };
