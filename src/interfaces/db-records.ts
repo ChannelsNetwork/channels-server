@@ -39,12 +39,16 @@ export interface UserRecord {
   notifications?: {
     disallowPlatformNotifications?: boolean;
     disallowContentNotifications?: boolean;
+    disallowCommentNotifications?: boolean;
     lastContentNotification?: number;
+    lastCommentNotification?: number;
   };
   homeChannelId: string;
   firstCardPurchasedId: string;
   firstArrivalCardId: string;
   referralBonusPaidToUserId: string;
+  commentsLastReviewed: number;
+  commentNotificationPending?: boolean;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -456,6 +460,7 @@ export interface UserCardInfoRecord {
   lastOpened: number;
   lastClicked: number;
   lastClosed: number;
+  lastCommentsFetch: number;
   paidToAuthor: number;
   paidToReader: number;
   earnedFromAuthor: number;
@@ -463,6 +468,7 @@ export interface UserCardInfoRecord {
   openFeeRefunded: boolean;
   transactionIds: string[];
   like: CardLikeState;
+  commentNotificationPending?: boolean;
 }
 
 export type CardLikeState = "none" | "like" | "dislike";
