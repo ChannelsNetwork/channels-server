@@ -691,6 +691,17 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
+  private getChannelHandleFromUrl(url: string): string {
+    if (!url) {
+      return null;
+    }
+    if (/^https?\:\/\/\S+\/channel\/\S+$/i.test(url)) {
+      const handle = url.toLowerCase().split('/channel/')[1].split(/[\?\#]/)[0];
+      return handle;
+    }
+    return null;
+  }
+
   async payReferralBonusIfAppropriate(user: UserRecord): Promise<void> {
     if (user.referralBonusPaidToUserId || !user.firstArrivalCardId) {
       return;
@@ -700,11 +711,21 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       console.warn("Channel.payReferralBonusIfAppropriate: Skipping referral bonus because fraud detected with multiple registered users from same machine", user.identity);
       return;
     }
+    let channelOwner: UserRecord;
     const originalCard = await db.findCardById(user.firstArrivalCardId, true);
-    if (!originalCard) {
-      return;
+    let originalChannel: ChannelRecord;
+    if (originalCard) {
+      channelOwner = await userManager.getUser(originalCard.createdById, false);
+    } else {
+      const originalChannelHandle = this.getChannelHandleFromUrl(user.originalLandingPage);
+      if (!originalChannelHandle) {
+        return;
+      }
+      originalChannel = await db.findChannelByHandle(originalChannelHandle);
+      if (originalChannel) {
+        channelOwner = await userManager.getUser(originalChannel.ownerId, true);
+      }
     }
-    const channelOwner = await userManager.getUser(originalCard.createdById, false);
     if (!channelOwner || channelOwner.curation) {
       return;
     }
