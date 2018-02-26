@@ -46,6 +46,7 @@ export interface UserRecord {
   firstArrivalCardId: string;
   referralBonusPaidToUserId: string;
   lastLanguagePublished: string;
+  preferredLangCodes: string[];
 }
 
 export type UserCurationType = "blocked" | "discounted";

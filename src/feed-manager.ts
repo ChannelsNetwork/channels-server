@@ -157,9 +157,11 @@ export class FeedManager implements Initializable, RestServer {
     let count = 0;
     while (await cursor.hasNext()) {
       const card = await cursor.next();
-      feedCards.push(await this.populateCard(request, card, false, null, null, user));
-      if (++count >= maxCount) {
-        break;
+      if (this.isCardLanguageInterest(user, card)) {
+        feedCards.push(await this.populateCard(request, card, false, null, null, user));
+        if (++count >= maxCount) {
+          break;
+        }
       }
     }
     await cursor.close();
@@ -195,6 +197,9 @@ export class FeedManager implements Initializable, RestServer {
           if (card.pricing.openFeeUnits === 0) {
             continue;
           }
+          if (!this.isCardLanguageInterest(user, card)) {
+            continue;
+          }
           const descriptor = await this.populateCard(request, card, false, null, channel.id, user);
           result.push(descriptor);
         }
@@ -205,6 +210,16 @@ export class FeedManager implements Initializable, RestServer {
       await cursor.close();
     }
     return result;
+  }
+
+  private isCardLanguageInterest(user: UserRecord, card: CardRecord): boolean {
+    if (!card.summary.langCode) {
+      return true;
+    }
+    if (!user.preferredLangCodes || user.preferredLangCodes.length === 0) {
+      return true;
+    }
+    return user.preferredLangCodes.indexOf(card.summary.langCode) >= 0;
   }
 
   private async populateHomePromotedContent(request: Request, user: UserRecord, reply: GetHomePageResponse): Promise<void> {
@@ -525,6 +540,9 @@ export class FeedManager implements Initializable, RestServer {
       if (existingAnnouncementId && card.id === existingAnnouncementId) {
         continue;
       }
+      if (!this.isCardLanguageInterest(user, card)) {
+        continue;
+      }
       let found = false;
       for (const existing of existingCards) {
         if (existing.id === card.id) {
@@ -665,6 +683,9 @@ export class FeedManager implements Initializable, RestServer {
         if (cardByScore.stats && cardByScore.stats.reports && cardByScore.stats.reports.value > 0 && (!cardByScore.curation || !cardByScore.curation.overrideReports)) {
           continue;  // exclude cards that have been reported and not overridden by an admin
         }
+        if (!this.isCardLanguageInterest(user, cardByScore)) {
+          continue;
+        }
         if (cardIds.indexOf(cardByScore.id) < 0) {
           if (authorIds.indexOf(cardByScore.createdById) < 0) {  // include at most one card from any given author
             cards.push(cardByScore);
@@ -755,7 +776,18 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findAccessibleCardsByTime(before || Date.now(), 0, limit + 1, user.id);
+    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id);
+    const cards: CardRecord[] = [];
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      if (this.isCardLanguageInterest(user, card)) {
+        cards.push(card);
+        if (cards.length > limit) {
+          break;
+        }
+      }
+    }
+    await cursor.close();
     const result = await this.populateCards(request, cards, false, null, null, user, startWithCardId);
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
@@ -781,7 +813,18 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false, true);
+    const cursor = db.getCardsByUserAndTime(before || Date.now(), 0, user.id, false, false, true);
+    const cards: CardRecord[] = [];
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      if (this.isCardLanguageInterest(user, card)) {
+        cards.push(card);
+        if (cards.length > limit) {
+          break;
+        }
+      }
+    }
+    await cursor.close();
     const result = await this.populateCards(request, cards, false, null, null, user, startWithCardId);
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
@@ -813,7 +856,7 @@ export class FeedManager implements Initializable, RestServer {
           }
           cards.push(card);
         }
-        if (cards.length >= limit) {
+        if (cards.length > limit) {
           break;
         }
       }

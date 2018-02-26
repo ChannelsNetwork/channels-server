@@ -777,10 +777,11 @@ class RestUtils {
     };
   }
 
-  static accountSettings(disallowPlatformNotifications, disallowContentNotifications) {
+  static accountSettings(disallowPlatformNotifications, disallowContentNotifications, preferredlangCodes) {
     return {
       disallowPlatformNotifications: disallowPlatformNotifications ? true : false,
-      disallowContentNotifications: disallowContentNotifications ? true : false
+      disallowContentNotifications: disallowContentNotifications ? true : false,
+      preferredlangCodes: preferredLangCodes
     };
   }
 

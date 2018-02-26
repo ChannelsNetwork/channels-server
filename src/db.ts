@@ -541,7 +541,8 @@ export class Database {
       firstCardPurchasedId: null,
       firstArrivalCardId: firstArrivalCardId,
       referralBonusPaidToUserId: null,
-      lastLanguagePublished: null
+      lastLanguagePublished: null,
+      preferredLangCodes: null
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -617,8 +618,14 @@ export class Database {
     await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
   }
 
-  async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformNotifications": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications } });
+  async updateUserAccountSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean, preferredLangCodes: string[]): Promise<void> {
+    await this.users.updateOne({ id: user.id }, {
+      $set: {
+        "notifications.disallowPlatformNotifications": disallowPlatformNotifications,
+        "notifications.disallowContentNotifications": disallowContentNotifications,
+        preferredLangCodes: preferredLangCodes
+      }
+    });
     if (!user.notifications) {
       user.notifications = {};
     }
@@ -1353,7 +1360,7 @@ export class Database {
     return this.cards.find<CardRecord>({ createdById: userId }, { searchText: 0 });
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean, excludeDeleted: boolean): Promise<CardRecord[]> {
+  getCardsByUserAndTime(before: number, after: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean, excludeDeleted: boolean): Cursor<CardRecord> {
     const query: any = excludeDeleted ? { state: "active" } : {};
     if (excludeBlocked) {
       query["curation.block"] = false;
@@ -1369,7 +1376,7 @@ export class Database {
     if (excludePrivate) {
       query.private = false;
     }
-    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
   async findCardsByTime(limit: number): Promise<CardRecord[]> {
@@ -1389,7 +1396,7 @@ export class Database {
     return null;
   }
 
-  async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
+  getAccessibleCardsByTime(before: number, after: number, userId: string): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     if (before && after) {
@@ -1399,7 +1406,7 @@ export class Database {
     } else if (after) {
       query.postedAt = { $gt: after };
     }
-    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
   async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {

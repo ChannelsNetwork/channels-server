@@ -127,6 +127,7 @@ export interface GetUserIdentityResponse extends RestResponse {
 export interface AccountSettings {
   disallowPlatformEmailAnnouncements: boolean;
   disallowContentEmailAnnouncements: boolean;
+  preferredLangCodes: string[];
 }
 
 export interface GetHandleDetails extends CheckHandleDetails { }
