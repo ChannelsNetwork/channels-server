@@ -691,8 +691,20 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
+  private getChannelHandleFromUrl(url: string): string {
+    if (!url) {
+      return null;
+    }
+    if (/^https?\:\/\/\S+\/channel\/\S+$/i.test(url)) {
+      const handle = url.toLowerCase().split('/channel/')[1].split(/[\?\#]/)[0];
+      return handle;
+    }
+    return null;
+  }
+
   async payReferralBonusIfAppropriate(user: UserRecord): Promise<void> {
-    if (user.referralBonusPaidToUserId || !user.firstArrivalCardId) {
+    if (user.referralBonusPaidToUserId) {
+      console.log("Channel.payReferralBonusIfAppropriate: skipping because already paid", user.identity);
       return;
     }
     const fraud = await userManager.isMultiuserFromSameBrowser(user);
@@ -700,20 +712,34 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       console.warn("Channel.payReferralBonusIfAppropriate: Skipping referral bonus because fraud detected with multiple registered users from same machine", user.identity);
       return;
     }
+    let channelOwner: UserRecord;
     const originalCard = await db.findCardById(user.firstArrivalCardId, true);
-    if (!originalCard) {
-      return;
+    let originalChannel: ChannelRecord;
+    if (originalCard) {
+      channelOwner = await userManager.getUser(originalCard.createdById, false);
+    } else {
+      const originalChannelHandle = this.getChannelHandleFromUrl(user.originalLandingPage);
+      if (!originalChannelHandle) {
+        console.log("Channel.payReferralBonusIfAppropriate: skipping because no original card or channel landing page", user.identity);
+        return;
+      }
+      originalChannel = await db.findChannelByHandle(originalChannelHandle);
+      if (originalChannel) {
+        channelOwner = await userManager.getUser(originalChannel.ownerId, true);
+      }
     }
-    const channelOwner = await userManager.getUser(originalCard.createdById, false);
     if (!channelOwner || channelOwner.curation) {
+      console.log("Channel.payReferralBonusIfAppropriate: skipping because blocked or no channel", user.identity);
       return;
     }
     const channelIds = await db.findOwnedChannelIds(channelOwner.id);
     if (channelIds.length === 0) {
+      console.log("Channel.payReferralBonusIfAppropriate: skipping because recipient has no owned channels", user.identity);
       return;
     }
     const subscribed = await db.existsChannelUserSubscriptions(user.id, channelIds, "subscribed");
     if (!subscribed) {
+      console.log("Channel.payReferralBonusIfAppropriate: skipping because user is not subscribed to one of the owner's channels", user.identity);
       return;
     }
     const bonusDetails: BankTransactionDetails = {
