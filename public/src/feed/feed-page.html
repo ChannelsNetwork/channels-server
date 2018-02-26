@@ -3,6 +3,7 @@
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/feeds-bar.html">
 <link rel="import" href="../card/card-list.html">
+<link rel="import" href="../card/sectioned-card-list.html">
 
 <dom-module id="feed-page">
   <template>
@@ -101,7 +102,8 @@
       <card-list auto-layout label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
         on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
-      <card-list label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
+      <sectioned-card-list id="sectionedList" label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+        on-more="_onMore"></sectioned-card-list>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
@@ -276,9 +278,7 @@
             }
           }
           this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
-          for (let i = 0; i < cards.length; i++) {
-            this.push("items", cards[i]);
-          }
+          this.$.sectionedList.append(cards);
         }).catch((err) => {
           this._fetchingMore = false;
           console.error(err);
