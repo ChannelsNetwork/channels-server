@@ -226,7 +226,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, language, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
       fingerprint: fingerprint,
@@ -236,6 +236,7 @@ class RestUtils {
       iframeUrl: iframeUrl,
       title: title,
       text: text,
+      language: language,
       private: isPrivate,
       cardType: packageName,            // same as sent to ensure-component
       pricing: {

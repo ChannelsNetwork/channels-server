@@ -401,7 +401,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
+  postCard(imageId, linkURL, iframeUrl, title, text, language, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (linkURL ? "card-click-payment" : "card-open-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -411,7 +411,7 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, language, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);

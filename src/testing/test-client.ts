@@ -467,6 +467,7 @@ class TestClient implements RestServer {
       fingerprint: null,
       timestamp: Date.now(),
       text: "hello world",
+      language: 'en',
       keywords: ["test"],
       searchText: "hello world",
       private: false,

@@ -45,6 +45,7 @@ export interface UserRecord {
   firstCardPurchasedId: string;
   firstArrivalCardId: string;
   referralBonusPaidToUserId: string;
+  lastLanguagePublished: string;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -131,6 +132,7 @@ export interface CardRecord {
     iframeUrl: string;
     title: string;
     text: string;
+    language: string; // ISO 639-1 code such as 'en'
   };
   keywords: string[];
   private: boolean;

@@ -1159,6 +1159,7 @@ export class FeedManager implements Initializable, RestServer {
         null,
         sample.title,
         sample.text,
+        'en',
         false,
         "ChannelsNetwork/card-hello-world",
         './icon.png',

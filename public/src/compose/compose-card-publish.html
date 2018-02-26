@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -117,6 +118,13 @@
           <div>
             <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
             <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
+            <div>This card is in
+              <select>
+                <template is="dom-repeat" items="[[languages]]">
+                  <option value="[[item.code]]">[[item.name]]</option>
+                </template>
+              </select>
+            </div>
           </div>
           <div id="cardDeveloper" style="display:none;">
             <div>Card developer royalty:
@@ -156,7 +164,8 @@
         return {
           wizard: Object,
           cardData: Object,
-          cardDeveloperRoyalty: String
+          cardDeveloperRoyalty: String,
+          languages: Array
         };
       }
 

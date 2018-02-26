@@ -258,4 +258,36 @@ class EncryptionUtils {
     }
     return str;
   }
+
+  static languagesByCode() {
+    const result = {};
+    result.ar = "Arabic";
+    result.hy = "Armenian";
+    result.zh = "Chinese";
+    result.cs = "Czech";
+    result.da = "Danish";
+    result.nl = "Dutch";
+    result.en = "English";
+    result.eo = "Esperanto";
+    result.fi = "Finnish";
+    result.fr = "French";
+    result.ka = "Georgian";
+    result.de = "German";
+    result.el = "Greek";
+    result.it = "Italian";
+    result.ja = "Japanese";
+    result.ko = "Korean";
+    result.ku = "Kurdish";
+    result.fa = "Persian";
+    result.pl = "Polish";
+    result.pt = "Portuguese";
+    result.ro = "Romanian";
+    result.ru = "Russian";
+    result.es = "Spanish";
+    result.es = "Spanish";
+    result.sv = "Swedish";
+    result.tr = "Turkish";
+    result.ur = "Urdu";
+    return result;
+  }
 }

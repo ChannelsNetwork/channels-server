@@ -1065,7 +1065,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
       publisherSubsidies: await networkEntity.getPublisherSubsidies(),
       timeUntilNextAllowedWithdrawal: timeUntilNextAllowedWithdrawal,
-      firstCardPurchasedId: user.firstCardPurchasedId
+      firstCardPurchasedId: user.firstCardPurchasedId,
+      lastLanguagePublished: user.lastLanguagePublished
     };
     return result;
   }
