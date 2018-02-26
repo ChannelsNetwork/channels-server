@@ -349,7 +349,7 @@ export interface PostCardDetails extends Signable {
   iframeUrl?: string;
   title?: string;
   text: string;
-  language: string; // IOS 639-1 code such as 'en'
+  langCode: string; // IOS 639-1 code such as 'en'
   keywords: string[];
   searchText: string;
   private: boolean;

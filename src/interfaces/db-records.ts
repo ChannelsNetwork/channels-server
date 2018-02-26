@@ -132,7 +132,7 @@ export interface CardRecord {
     iframeUrl: string;
     title: string;
     text: string;
-    language: string; // ISO 639-1 code such as 'en'
+    langCode: string; // ISO 639-1 code such as 'en'
   };
   keywords: string[];
   private: boolean;

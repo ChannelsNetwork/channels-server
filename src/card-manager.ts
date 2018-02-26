@@ -1435,7 +1435,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.language, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
+    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (configuration.get("notifications.postCard")) {
       let html = "<div>";
@@ -1457,7 +1457,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       html += "</div>";
       void emailManager.sendInternalNotification("Card posted", "", html);
     }
-    await db.updateUserLastPosted(user.id, card.postedAt, card.summary.language);
+    await db.updateUserLastPosted(user.id, card.postedAt, card.summary.langCode);
     await channelManager.addCardToUserChannel(card, user);
     await this.announceCardPosted(card, user);
     return card;

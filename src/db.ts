@@ -919,7 +919,7 @@ export class Database {
     return this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, language: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, langCode: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -942,7 +942,7 @@ export class Database {
         iframeUrl: iframeUrl,
         title: title,
         text: text,
-        language: language
+        langCode: langCode
       },
       keywords: this.cleanKeywords(keywords),
       private: isPrivate,
