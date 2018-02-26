@@ -22,6 +22,27 @@
         border-bottom: 1px solid #f0f0f0;
       }
 
+      #more {
+        box-sizing: border-box;
+        padding: 20px 0;
+      }
+
+      #moreButton {
+        text-align: center;
+        width: 85px;
+        height: 85px;
+        cursor: pointer;
+        margin: 0 auto;
+        border-radius: 50%;
+        font-size: 16px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        color: var(--highlight-green);
+        background: transparent;
+        border: 3px solid;
+      }
+
       @media (max-width: 1264px) {
         card-list {
           max-width: 948px;
@@ -47,6 +68,13 @@
         </div>
       </template>
     </dom-repeat>
+    <div id="more" class="horizontal layout center hidden">
+      <div id="moreButton" class="horizontal layout center" on-click="_onMore">
+        <div style="width: 100%; box-sizing: border-box;">
+          <div>More</div>
+        </div>
+      </div>
+    </div>
   </template>
   <script>
     class SectionedCardList extends Polymer.Element {
@@ -58,7 +86,10 @@
             observer: '_onItems'
           },
           sections: Array,
-          more: Boolean
+          more: {
+            type: Boolean,
+            observer: '_refreshMore'
+          }
         };
       }
 
@@ -72,6 +103,19 @@
       disconnectedCallback() {
         super.disconnectedCallback();
         window.removeEventListener("resize", this._resizeListener);
+      }
+
+      _refreshMore() {
+        if (this.more) {
+          this.$.more.classList.remove("hidden");
+        } else {
+          this.$.more.classList.add("hidden");
+        }
+      }
+
+      _onMore(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('more', { bubbles: true, composed: true }));
       }
 
       getPanelClass(item) {
