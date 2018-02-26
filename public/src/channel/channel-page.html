@@ -3,7 +3,7 @@
 <link rel="import" href="../app/channels-bar.html">
 <link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
-<link rel="import" href="../card/card-list.html">
+<link rel="import" href="../card/sectioned-card-list.html">
 
 <dom-module id="channel-page">
   <template>
@@ -207,8 +207,6 @@
       }
 
       #feed {
-        margin: 0 auto;
-        box-sizing: border-box;
         padding: 20px 0;
       }
 
@@ -256,28 +254,6 @@
       #composeButton:active {
         color: var(--bg-yellow);
         background: var(--bg-dark);
-      }
-
-      card-list {
-        max-width: 1264px;
-      }
-
-      @media (max-width: 1264px) {
-        card-list {
-          max-width: 948px;
-        }
-      }
-
-      @media (max-width: 948px) {
-        card-list {
-          max-width: 632px;
-        }
-      }
-
-      @media (max-width: 632px) {
-        card-list {
-          max-width: 320px;
-        }
       }
 
       @media (max-width: 600px) {
@@ -341,7 +317,7 @@
       <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
     </soso-app-header>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
-    <card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></card-list>
+    <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></sectioned-card-list>
     <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
   </template>
   <script>
@@ -358,7 +334,6 @@
           stats: Array,
           items: Array,
           _moreAvailable: Boolean,
-          promotedItems: Array,
           channelWebsite: String
         };
       }
@@ -514,25 +489,21 @@
 
       _refreshFeed() {
         this.items = [];
-        this.promotedItems = [];
         this._promotedCardIds = [];
         this._moreAvailable = false;
         this._lastCardId = null;
         this._fetchTimestamp = (new Date()).getTime();
         return $core.getFeed("channel", 60, null, null, this._handle, []).then((feed) => {
           let list = [];
-          let plist = [];
           for (let i = 0; i < feed.cards.length; i++) {
+            list.push(feed.cards[i]);
             if (feed.cards[i].promoted) {
-              plist.push(feed.cards[i]);
               this._promotedCardIds.push(feed.cards[i].id);
             } else {
-              list.push(feed.cards[i]);
               this._lastCardId = feed.cards[i].id;
             }
           }
           this.items = list;
-          this.promotedItems = plist;
           if (this.items.length) {
             this.$.noItems.classList.add("hidden");
           } else {
@@ -556,22 +527,17 @@
           const cards = feed.cards || [];
           this._lastCardId = null;
           let list = [];
-          let plist = [];
           for (let i = 0; i < cards.length; i++) {
+            list.push(cards[i]);
             if (cards[i].promoted) {
-              plist.push(cards[i]);
               this._promotedCardIds.push(cards[i].id);
             } else {
-              list.push(cards[i]);
               this._lastCardId = cards[i].id;
             }
           }
           this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
           for (let i = 0; i < list.length; i++) {
             this.push("items", list[i]);
-          }
-          for (let i = 0; i < plist.length; i++) {
-            this.push("promotedItems", plist[i]);
           }
         }).catch((err) => {
           this._fetchingMore = false;
