@@ -24,7 +24,7 @@
 
       #more {
         box-sizing: border-box;
-        padding: 20px 0;
+        padding: 30px 0 20px;
       }
 
       #moreButton {
@@ -89,7 +89,8 @@
           more: {
             type: Boolean,
             observer: '_refreshMore'
-          }
+          },
+          label: String
         };
       }
 
@@ -119,7 +120,7 @@
       }
 
       getPanelClass(item) {
-        return item.label ? "promotedPanel" : "";
+        return item.promoted ? "promotedPanel" : "";
       }
 
       _onResize() {
@@ -132,19 +133,23 @@
       }
 
       _relayout() {
+        this.sections = this._createSections(this.items, true);
+      }
+
+      _createSections(items, useLabel) {
         let colsPerRow = Math.min(4, Math.floor(this.offsetWidth / 312));
         this._colsPerRow = colsPerRow;
         let list = [];
         let plist = [];
-        let current = { cards: [], more: false };
-        let pcurrent = { label: 'Promoted', cards: [], more: false };
-        for (let i = 0; i < this.items.length; i++) {
-          let item = this.items[i];
+        let current = { cards: [], more: false, label: useLabel ? this.label : "" };
+        let pcurrent = { label: 'Promoted', cards: [], more: false, promoted: true };
+        for (let i = 0; i < items.length; i++) {
+          let item = items[i];
           if (item.promoted) {
             if (pcurrent.cards.length === 0) {
               plist.push(pcurrent);
             } else if (pcurrent.cards.length === colsPerRow) {
-              pcurrent = { label: 'Promoted', cards: [], more: false };
+              pcurrent = { label: 'Promoted', cards: [], more: false, promoted: true };
               plist.push(pcurrent);
             }
             pcurrent.cards.push(item);
@@ -172,7 +177,7 @@
             sections.push(b);
           }
         }
-        this.sections = sections;
+        return sections;
       }
 
       _onItems() {
@@ -182,6 +187,22 @@
           window.addEventListener("resize", this._resizeListener);
         } else {
           this.sections = [];
+        }
+      }
+
+      append(newItems) {
+        if (this.items && this.items.length) {
+          if (newItems && newItems.length) {
+            for (let i = 0; i < newItems.length; i++) {
+              this.items.push(newItems[i]);
+            }
+            let newSections = this._createSections(newItems, false) || [];
+            for (let i = 0; i < newSections.length; i++) {
+              this.push("sections", newSections[i]);
+            }
+          }
+        } else {
+          this.items = newItems;
         }
       }
     }
