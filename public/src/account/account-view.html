@@ -204,7 +204,7 @@
           languages.push({
             code: key,
             name: map[key],
-            selected: !langCodes || langCodes.indexOf(key) >= 0
+            selected: !langCodes || langCodes.length === 0 || langCodes.indexOf(key) >= 0
           });
         }
         this.set('languages', languages);
