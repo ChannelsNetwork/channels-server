@@ -174,14 +174,15 @@
               break;
             }
             sections.push(b);
-          }
-          sections.push(a);
-          distCount++;
-          if (distCount === adDist) {
-            distCount = 0;
-            let b = plist.shift();
-            if (b) {
-              sections.push(b);
+          } else {
+            sections.push(a);
+            distCount++;
+            if (distCount === adDist) {
+              distCount = 0;
+              let b = plist.shift();
+              if (b) {
+                sections.push(b);
+              }
             }
           }
         }
