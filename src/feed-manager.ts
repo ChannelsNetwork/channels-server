@@ -501,6 +501,97 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
+    // To get the next ad card, we are going to randomly decide on a weighted basis between a pays-to-open/click ad, an impression ad, and a promoted pay-for card,
+    // then we'll randomly pick one of these that is eligible.
+    // If the one we choose is not eligible for some reason, we'll do it again until we find one, or we run out of steam.
+    const excludedCardIds: string[] = [];
+    for (const id of alreadyPopulatedAdCardIds) {
+      excludedCardIds.push(id);
+    }
+    for (const id of existingPromotedCardIds) {
+      excludedCardIds.push(id);
+    }
+    for (const id of earnedAdCardIds) {
+      excludedCardIds.push(id);
+    }
+    for (const existing of existingCards) {
+      excludedCardIds.push(existing.id);
+    }
+    if (existingAnnouncementId) {
+      excludedCardIds.push(existingAnnouncementId);
+    }
+    let tries = 0;
+    let noPayToOpens = false;
+    let noImpressions = false;
+    let noPromoted = false;
+    while (tries++ < 200 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+      const value = Math.random();
+      let card: CardRecord;
+      if (value < 0.25 && !noPayToOpens) {
+        // 25% pays-to-open/click
+        card = await db.findRandomPayToOpenCard(user.id, excludedCardIds);
+        if (!card) {
+          noPayToOpens = true;
+          console.warn("Feed.getNextAdCard: Found no eligible pays-to-open/click candidate");
+        }
+      } else if (value < 0.5 && !noImpressions) {
+        // 25% pays-per-impression
+        card = await db.findRandomImpressionAdCard(user.id, excludedCardIds);
+        if (!card) {
+          noImpressions = true;
+          console.warn("Feed.getNextAdCard: Found no eligible impression-ad candidate");
+        }
+      } else if (!noPromoted) {
+        // 50% promoted content
+        card = await db.findRandomPromotedCard(user.id, excludedCardIds);
+        if (!card) {
+          noPromoted = true;
+          console.warn("Feed.getNextAdCard: Found no eligible promoted-card candidate");
+        }
+      }
+      if (card) {
+        const author = await userManager.getUser(card.createdById, false);
+        if (!author || author.balance < card.pricing.openPayment + card.pricing.promotionFee) {
+          // author doesn't have enough money to pay the reader
+          continue;
+        }
+        let info = await this.getUserCardInfo(user.id, card.id, false);
+        if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+          // This card is not eligible because the user has already been paid to open it (based on our cache)
+          earnedAdCardIds.push(card.id);
+        } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
+          // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
+          earnedAdCardIds.push(card.id);
+        } else if (card.pricing.openPayment === 0 && info.userCardInfo && Date.now() - info.userCardInfo.lastImpression < MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
+          // This isn't eligible because it is impression-based and the user recently saw it
+          continue;
+        } else if (info.fromCache) {
+          // We got this userInfo from cache, so it may be out of date.  Check again before committing to this
+          // card
+          info = await this.getUserCardInfo(user.id, card.id, true);
+          if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+            // Check that it is still eligible based on having been paid
+            earnedAdCardIds.push(card.id);
+          } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
+            // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
+            earnedAdCardIds.push(card.id);
+          } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
+            // Check again based on a recent impression
+            alreadyPopulatedAdCardIds.push(card.id);
+            return card;
+          }
+        } else {
+          // We can use it because it passes eligibility and the userCardInfo came directly from mongo
+          alreadyPopulatedAdCardIds.push(card.id);
+          return card;
+        }
+      }
+    }
+    console.warn("Feed.getNextAdCard: Found no available ads");
+    return null;
+  }
+
+  private async getNextAdCard_original(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();
       if (card.pricing.promotionFee === 0 && card.pricing.openPayment === 0) {
