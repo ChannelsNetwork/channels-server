@@ -1574,6 +1574,7 @@ db.channelUsers.aggregate([
           { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
 
+<<<<<<< HEAD
 
 
 db.cards.aggregate([
@@ -1638,3 +1639,63 @@ id: {$in: ["f88bf796-96ca-4584-bc3f-cc230ab06b32",
 "acd6344b-c31e-4579-a1fe-69070c6e1f6a",
 "49b28937-9423-485f-8e86-f6c544a25514"]}				
 }
+=======
+<<<<<<< HEAD
+
+db.cards.aggregate([
+  {$match: { state: "active", "pricing.openFeeUnits": {$gt: 0}, "stats.uniqueOpens.value": {$gt: 0}}},
+  {$project: {_id: 0, id: "$id", units: "$pricing.openFeeUnits", opens: "$stats.uniqueOpens.value"}},
+  {$lookup: {
+    from: "userCardActions", 
+    localField: "id",
+    foreignField: "cardId",
+    as: "action"
+  }},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay"}},
+  {$group: {_id: "$id", purchases: {$sum: 1}, units: {$first: "$units"}, opens: {$first: "$opens"}}},
+  {$group: {_id: "$units", opens: {$sum: "$opens"}, purchases: {$sum: "$purchases"}}},
+  {$project: {_id: 0, priceLevel: "$_id", opens: 1, purchases: 1, ratio: {$divide: ["$purchases", "$opens"]}}},
+  {$sort: {priceLevel: 1}}
+])
+
+
+
+  {$project: {units: "$units", opens: "$opens", purchases: {$size: "$action"}}}
+
+  {$group: {
+    _id: "$units",
+    purchases: {$sum: 1},
+    opens: {$sum: "$opens"},
+  }}
+
+{$lookup: {
+    from: "userCardActions", 
+    let: {cardId: "$id"},
+    pipeline: [
+      {$match: {action: "pay", $eq: ["$cardId", "$$cardId"]}},
+      {$group: {_id: "all", count: {$sum: 1}}}
+    ],
+    as: "purchases"
+  }},
+  {$unwind: "$purchases"},  
+  {$group: {
+    _id: {level: "$pricing.openFeeUnits"}, 
+    opens: { $sum: "$stats.uniqueOpens.value"},    
+    purchases: {$sum: "$purchases.count"}
+  }},
+=======
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1519086911000}}},
+  {$group: {_id: {purchaser: "$userId"}, count: {$sum: 1}}},
+  {$group: {_id: "$count", purchasers: {$sum: 1}}},
+  {$sort: {_id: 1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1519086911000}}},
+  {$group: {_id: "$userId"}},
+  {$group: {_id: "all", count: {$sum: 1}}}
+])
+>>>>>>> f474ebe29c239c74d2e2bb5fc606f5cec7669bf1
+>>>>>>> 2f3f1475964bae5c6d7bd35f85743122138821a8
