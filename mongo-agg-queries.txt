@@ -1574,3 +1574,15 @@ db.channelUsers.aggregate([
           { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
 
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1519086911000}}},
+  {$group: {_id: {purchaser: "$userId"}, count: {$sum: 1}}},
+  {$group: {_id: "$count", purchasers: {$sum: 1}}},
+  {$sort: {_id: 1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1519086911000}}},
+  {$group: {_id: "$userId"}},
+  {$group: {_id: "all", count: {$sum: 1}}}
+])
