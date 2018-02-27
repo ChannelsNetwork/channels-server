@@ -1,3 +1,4 @@
+<link rel="import" href="../../bower_components/utils-urlize/utils-urlize.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../controls/moment.html">
 
@@ -44,7 +45,7 @@
           <span class="userName">[[data.author.name]]</span>
           <span class="timestamp"> - [[data.atDisplay]]</span>
         </div>
-        <div class="comment">[[data.text]]</div>
+        <div id="comment" class="comment"></div>
       </div>
     </div>
   </template>
@@ -75,7 +76,20 @@
           if (!this.data.atDisplay) {
             this.set("data.atDisplay", displayFriendlyTime(this.data.at));
           }
+          this.$.comment.innerHtml = this._toHtml(this.data.text);
+          console.log("i", this.$.comment.innerHtml);
         }
+      }
+
+      _toHtml(text) {
+        let html = urlize(text, {
+          autoescape: true,
+          target: "blank",
+          trim: "www",
+          top_level_domains: urlize.top_level_domains
+        });
+        html = html.split('\n').join('<br>\n');
+        return html;
       }
 
       _openUserChannel() {
