@@ -1574,3 +1574,67 @@ db.channelUsers.aggregate([
           { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
 
+
+
+db.cards.aggregate([
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},
+  {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},
+  {$group: {
+    _id: "$country",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+countryCards = db.cards.aggregate([
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},
+  {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},
+  {$match: {country: "United States"}},
+])
+
+countryCards.forEach(function(x) {
+  db.cards.update({id: x.id}, {$set: {"summary.langCode": "en"}})
+})
+
+var r = db.cards.aggregate([   {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},   {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},   {$match: {country: "GB"}}, ])
+r.map(function(x) { db.cards.updateOne({_id: x.id}, {"$set": {"summary.langCode": "en" }}); })
+
+var r = db.cards.aggregate([
+  {$match: {"summary.langCode": {$exists: false}, state: "active", "curation.block": false}},
+  {$group: {_id: "$createdById", count: {$sum: 1}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {handle: "$user.identity.handle", country: "$user.country", count: "$count"}},
+  {$sort: {count: -1}}
+])
+
+var r = db.cards.aggregate([   
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},   
+  {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},   
+  {$match: {handle: {$in: ["ezequielgomes", "igalapagos", "teologia", "patymassa", "moiseslugli", "aldenio", "massola", "marcosalvez", "gutohill", "thomasblum", "croniquista", "maicondecapreo", "pedagogia", "guidutra"]}}}
+])
+
+db.cards.aggregate([
+  {$match: {"summary.langCode": {$exists: false}, state: "active", "curation.block": false}},
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 0, id: "$id", handle: "$user.identity.handle", country: "$user.country", title: "$summary.title"}},
+  {$sort: {handle: 1}}
+])
+
+
+var r = db.cards.aggregate([
+  {$match: {"summary.langCode": {$exists: false}, state: "active", "curation.block": false}},
+  {$project: {id: "$id", createdById: "$createdById", title: "$summary.title"}},
+  {$sort: {createdById: 1}}
+])
+
+{
+id: {$in: ["f88bf796-96ca-4584-bc3f-cc230ab06b32",
+"1e1dc6f7-a5dc-4034-972b-0b78792c2881",
+"ed961441-c21e-4ca9-979e-0a6ca3f251a2",
+"98567f21-0b98-4e90-bd13-2760290b9c06",
+"98ee5289-46c6-4e6f-b7e7-90e004289564"
+"acd6344b-c31e-4579-a1fe-69070c6e1f6a",
+"49b28937-9423-485f-8e86-f6c544a25514"]}				
+}
