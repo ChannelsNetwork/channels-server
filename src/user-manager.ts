@@ -574,7 +574,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.update-account-settings", requestBody.detailsObject);
-      await db.updateUserNotificationSettings(user, requestBody.detailsObject.settings.disallowPlatformEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowContentEmailAnnouncements ? true : false);
+      await db.updateUserNotificationSettings(user, requestBody.detailsObject.settings.disallowPlatformEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowContentEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowCommentEmailAnnouncements ? true : false);
       await this.announceUserUpdated(user);
       const reply: UpdateAccountSettingsResponse = {
         serverVersion: SERVER_VERSION,
@@ -704,7 +704,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private getAccountSettings(user: UserRecord): AccountSettings {
     const result: AccountSettings = {
       disallowPlatformEmailAnnouncements: user.notifications && user.notifications.disallowPlatformNotifications ? true : false,
-      disallowContentEmailAnnouncements: user.notifications && user.notifications.disallowContentNotifications ? true : false
+      disallowContentEmailAnnouncements: user.notifications && user.notifications.disallowContentNotifications ? true : false,
+      disallowCommentEmailAnnouncements: user.notifications && user.notifications.disallowCommentNotifications ? true : false
     };
     return result;
   }

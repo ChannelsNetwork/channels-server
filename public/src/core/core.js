@@ -394,8 +394,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getCard(cardId, includePromotedCard, channelIdContext) {
-    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard, channelIdContext);
+  getCard(cardId, includePromotedCard, channelIdContext, commentCount) {
+    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard, channelIdContext, commentCount);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card";
     return this.rest.post(url, request);
@@ -736,6 +736,20 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.updateChannelCard(this._keys.address, this._fingerprint, channelId, cardId, includeInChannel);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-channel-card";
+    return this.rest.post(url, request);
+  }
+
+  postCardComment(cardId, text, metadata) {
+    let details = RestUtils.postCardComment(this._keys.address, this._fingerprint, cardId, text, metadata);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/post-card-comment";
+    return this.rest.post(url, request);
+  }
+
+  getCardComments(cardId, before, maxCount) {
+    let details = RestUtils.getCardComments(this._keys.address, this._fingerprint, cardId, before, maxCount);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-card-comments";
     return this.rest.post(url, request);
   }
 

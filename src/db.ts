@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -47,6 +47,7 @@ export class Database {
   private userRegistrations: Collection;
   private channelKeywords: Collection;
   private adSlots: Collection;
+  private cardComments: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -83,6 +84,7 @@ export class Database {
     await this.initializeUserRegistrations();
     await this.initializeChannelKeywords();
     await this.initializeAdSlots();
+    await this.initializeCardComments();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -136,6 +138,7 @@ export class Database {
     await this.users.createIndex({ ipAddresses: 1, added: -1 });
     await this.users.createIndex({ added: -1 });
     await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
+    await this.users.createIndex({ commentNotificationPending: 1 });
 
     await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
     await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
@@ -190,6 +193,8 @@ export class Database {
     //   }
     //   await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
     // }
+
+    await this.users.updateMany({ commentsLastReviewed: { $exists: false } }, { $set: { commentsLastReviewed: 0 } });
   }
 
   private async initializeCards(): Promise<void> {
@@ -328,6 +333,7 @@ export class Database {
     this.userCardInfo = this.db.collection('userCardInfo');
     await this.userCardInfo.createIndex({ userId: 1, cardId: 1 }, { unique: true });
     await this.userCardInfo.createIndex({ userId: 1, lastOpened: -1 });
+    await this.userCardInfo.createIndex({ userId: 1, commentNotificationPending: 1 });
   }
 
   private async initializeBankCoupons(): Promise<void> {
@@ -469,6 +475,12 @@ export class Database {
     await this.adSlots.createIndex({ id: 1 }, { unique: true });
   }
 
+  private async initializeCardComments(): Promise<void> {
+    this.cardComments = this.db.collection('cardComments');
+    await this.cardComments.createIndex({ id: 1 }, { unique: true });
+    await this.cardComments.createIndex({ cardId: 1, at: -1 });
+  }
+
   async getNetwork(): Promise<NetworkRecord> {
     return this.networks.findOne({ id: '1' });
   }
@@ -540,7 +552,8 @@ export class Database {
       homeChannelId: homeChannelId,
       firstCardPurchasedId: null,
       firstArrivalCardId: firstArrivalCardId,
-      referralBonusPaidToUserId: null
+      referralBonusPaidToUserId: null,
+      commentsLastReviewed: 0
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -616,17 +629,31 @@ export class Database {
     await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
   }
 
-  async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformNotifications": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications } });
+  async updateUserCommentNotification(user: UserRecord): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastCommentNotification": Date.now() } });
+  }
+
+  async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean, disallowCommentNotifications: boolean): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformNotifications": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications, "notifications.disallowCommentNotifications": disallowCommentNotifications } });
     if (!user.notifications) {
       user.notifications = {};
     }
     user.notifications.disallowPlatformNotifications = disallowPlatformNotifications;
     user.notifications.disallowContentNotifications = disallowContentNotifications;
+    user.notifications.disallowCommentNotifications = disallowCommentNotifications;
   }
 
   async updateUserFirstCardPurchased(userId: string, cardId: string): Promise<void> {
     await this.users.updateOne({ id: userId }, { $set: { firstCardPurchasedId: cardId } });
+  }
+
+  async updateUserCommentsLastReviewed(userId: string, currentValue: number, newValue: number): Promise<boolean> {
+    const result = await this.users.updateOne({ id: userId, commentsLastReviewed: currentValue }, { $set: { commentsLastReviewed: newValue } });
+    return result.modifiedCount === 1;
+  }
+
+  async setUserCommentNotificationPending(userIds: string[], value: boolean): Promise<void> {
+    await this.users.updateMany({ id: { $in: userIds } }, { $set: { commentNotificationPending: value } });
   }
 
   async findUserById(id: string): Promise<UserRecord> {
@@ -836,6 +863,14 @@ export class Database {
 
   async updateUserEmailConfirmationCode(user: UserRecord, code: string): Promise<void> {
     await this.users.updateOne({ id: user.id }, { $set: { "identity.emailConfirmed": false, "identity.emailConfirmationCode": code } });
+  }
+
+  async updateUserCommentNotificationPending(user: UserRecord, value: boolean): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { commentNotificationPending: value } });
+  }
+
+  getUsersWithCommentNotificationPending(): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ commentNotificationPending: true });
   }
 
   async findUserByEmailConfirmationCode(code: string): Promise<UserRecord> {
@@ -2121,6 +2156,7 @@ export class Database {
           lastOpened: 0,
           lastClicked: 0,
           lastClosed: 0,
+          lastCommentsFetch: 0,
           paidToAuthor: 0,
           paidToReader: 0,
           earnedFromAuthor: 0,
@@ -2151,6 +2187,22 @@ export class Database {
     return this.userCardInfo.find<UserCardInfoRecord>(query).sort({ lastOpened: -1 }).limit(limit).toArray();
   }
 
+  getUserCardsWithPendingCommentNotifications(userId: string): Cursor<UserCardInfoRecord> {
+    return this.userCardInfo.find<UserCardInfoRecord>({ userId: userId, commentNotificationPending: true });
+  }
+
+  async updateUserCardCommentNotificationPending(userId: string, cardId: string, value: boolean): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { commentNotificationPending: value } });
+  }
+
+  async updateUserCardsCommentNotificationPending(userIds: string[], cardId: string, value: boolean): Promise<void> {
+    for (const userId of userIds) {
+      await this.ensureUserCardInfo(userId, cardId);
+    }
+    await this.userCardInfo.updateMany({ userId: { $in: userIds }, cardId: cardId }, { $set: { commentNotificationPending: value } });
+  }
+
   async updateUserCardLastImpression(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastImpression: value } });
@@ -2158,12 +2210,17 @@ export class Database {
 
   async updateUserCardLastOpened(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value, lastCommentFetch: value } });
   }
 
   async updateUserCardLastClicked(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastClicked: value } });
+  }
+
+  async updateUserCardLastCommentFetch(userId: string, cardId: string, value: number): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastCommentFetch: value } });
   }
 
   async updateUserCardLastClosed(userId: string, cardId: string, value: number): Promise<void> {
@@ -2988,6 +3045,46 @@ export class Database {
       update.redeemed = true;
     }
     await this.adSlots.updateOne({ id: id }, { $set: update });
+  }
+
+  async insertCardComment(byId: string, at: number, cardId: string, text: string, metadata: CardCommentMetadata): Promise<CardCommentRecord> {
+    const now = Date.now();
+    const record: CardCommentRecord = {
+      id: uuid.v4(),
+      byId: byId,
+      at: at,
+      cardId: cardId,
+      text: text,
+      metadata: metadata
+    };
+    await this.cardComments.insertOne(record);
+    return record;
+  }
+
+  async findCardCommentById(id: string): Promise<CardCommentRecord> {
+    return this.cardComments.findOne<CardCommentRecord>({ id: id });
+  }
+
+  async findCardCommentsForCard(cardId: string, before: number, since: number, maxCount: number): Promise<CardCommentRecord[]> {
+    const query: any = {
+      cardId: cardId
+    };
+    if (before && since) {
+      query.at = { $lt: before, $gt: since };
+    } else if (before) {
+      query.at = { $lt: before };
+    } else if (since) {
+      query.at = { $gt: since };
+    }
+    return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 }).limit(maxCount || 10).toArray();
+  }
+
+  async countCardComments(cardId: string, before = 0): Promise<number> {
+    const query: any = { cardId: cardId };
+    if (before) {
+      query.at = { $lt: before };
+    }
+    return this.cardComments.count(query);
   }
 
   async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {

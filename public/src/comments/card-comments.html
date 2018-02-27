@@ -1,0 +1,153 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="comment-composer.html">
+<link rel="import" href="comment-view.html">
+<dom-module id="card-comments">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      h3 {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 0;
+        display: inline-block;
+      }
+
+      comment-composer {
+        margin-top: 25px;
+      }
+
+      comment-view {
+        padding: 8px 0;
+      }
+
+      .total {
+        font-family: 'Open Sans', 'Roboto', sans-serif;
+        font-weight: 400;
+      }
+
+      #moreButton {
+        font-size: 12px;
+        background: #ffeb3b;
+        padding: 5px;
+        border-radius: 3px;
+        color: #111;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+    </style>
+    <div class="header horizontal layout center">
+      <h3 class="flex">Comments
+        <span class="total">([[total]])</span>
+      </h3>
+      <div id="moreButton" on-click="_more" class="hidden">earlier comments ↑</div>
+    </div>
+
+    <dom-repeat items="[[comments]]">
+      <template>
+        <comment-view data="[[item]]"></comment-view>
+      </template>
+    </dom-repeat>
+    <comment-composer id="composer" placeholder="[[placeholder]]" on-send="_send"></comment-composer>
+  </template>
+  <script>
+    class CardComments extends Polymer.Element {
+      static get is() { return 'card-comments'; }
+      static get properties() {
+        return {
+          card: String,
+          comments: Array,
+          total: Number,
+          hasMore: {
+            type: Boolean,
+            observer: '_refreshMore'
+          },
+          placeholder: String
+        };
+      }
+
+      initialize(data) {
+        this.card = data.card.id;
+        this.comments = this._createComments(data.comments, data.commentorInfoById);
+        this.total = data.totalComments || 0;
+        this.hasMore = this.total > data.comments.length;
+        this._fetchingMore = false;
+        this.placeholder = this.total > 0 ? "Join the discussion..." : "Be the first to comment...";
+      }
+
+      _refreshMore() {
+        if (this.hasMore) {
+          this.$.moreButton.classList.remove("hidden");
+        } else {
+          this.$.moreButton.classList.add("hidden");
+        }
+      }
+
+      _createComments(comments, commentors) {
+        let list = [];
+        for (let i = 0; i < comments.length; i++) {
+          let c = comments[i];
+          c.author = commentors[c.byId];
+          if (c.author) {
+            list.push(c);
+          }
+        }
+        list.sort((a, b) => {
+          return a.at - b.at;
+        });
+        return list;
+      }
+
+      _send(event) {
+        let text = event.detail.value;
+        if (text && this.card) {
+          $core.postCardComment(this.card, text).catch(err => {
+            console.error(err);
+            $app.showError(err);
+          });
+          this.$.composer.clear();
+          let comment = {
+            text: text,
+            at: (new Date()).getTime(),
+            author: $core.profile
+          };
+          this.push("comments", comment);
+          this.total = this.total + 1;
+        }
+      }
+
+      _more() {
+        if (!this._fetchingMore) {
+          this._fetchingMore = true;
+          let before = (new Date()).getTime();
+          let c = this.comments && this.comments[0];
+          if (c) {
+            before = c.at;
+          }
+          $core.getCardComments(this.card, before, 10).then(result => {
+            this._fetchingMore = false;
+            let moreComments = this._createComments(result.comments, result.commentorInfoById);
+            for (let i = (moreComments.length - 1); i >= 0; i--) {
+              this.unshift("comments", moreComments[i]);
+            }
+            this.hasMore = result.moreAvailable;
+          }).catch(err => {
+            this._fetchingMore = false;
+            console.error(err);
+            $app.showError(err);
+          });
+        }
+      }
+    }
+    window.customElements.define(CardComments.is, CardComments);
+  </script>
+</dom-module>

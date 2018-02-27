@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -22,7 +22,7 @@ import * as uuid from "uuid";
 import { networkEntity } from "./network-entity";
 import { channelsComponentManager } from "./channels-component-manager";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
-import { emailManager } from "./email-manager";
+import { emailManager, EmailButton } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as url from 'url';
 import { Utils } from "./utils";
@@ -58,6 +58,7 @@ const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 const FIRST_CARD_PURCHASE_AMOUNT = 0.01;
+const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
@@ -129,6 +130,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('report-card'), (request: Request, response: Response) => {
       void this.handleReportCard(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('post-card-comment'), (request: Request, response: Response) => {
+      void this.handlePostCardComment(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-card-comments'), (request: Request, response: Response) => {
+      void this.handleGetCardComments(request, response);
     });
   }
 
@@ -255,6 +262,119 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     //   }
     // }
     // await paymentCursor.close();
+
+    setInterval(this.poll.bind(this), 1000 * 60 * 5);
+  }
+
+  private async poll(): Promise<void> {
+    const cursor = db.getUsersWithCommentNotificationPending();
+    while (await cursor.hasNext()) {
+      const user = await cursor.next();
+      await this.processUserForCommentNotifications(user);
+    }
+    await cursor.close();
+  }
+
+  private async processUserForCommentNotifications(user: UserRecord): Promise<void> {
+    if (user.notifications && user.notifications.disallowCommentNotifications) {
+      console.log("Card.processUserForCommentNotifications: Skipping notification because of user preference", user.id, user.identity);
+      await db.updateUserCommentNotificationPending(user, false);
+      return;
+    }
+    const now = Date.now();
+    if (user.notifications && now - user.notifications.lastCommentNotification < MINIMUM_COMMENT_NOTIFICATION_INTERVAL) {
+      return;
+    }
+    const locked = await db.updateUserCommentsLastReviewed(user.id, user.commentsLastReviewed, now);
+    if (!locked) {
+      console.log("Card.processUserForCommentNotifications: race condition -- skipping", user.id);
+      return;
+    }
+    await db.updateUserCommentNotificationPending(user, false);
+    if (user.curation === 'blocked') {
+      console.log("Card.processUserForCommentNotifications: skipping because user is blocked", user.identity);
+      return;
+    }
+    if (!user.identity || !user.identity.emailAddress || !user.identity.emailConfirmed) {
+      console.log("Card.processUserForCommentNotifications: Skipping notification because no confirmed email", user.id, user.identity);
+      return;
+    }
+    const userCardCursor = db.getUserCardsWithPendingCommentNotifications(user.id);
+    let authorCount = 0;
+    let readerCount = 0;
+    const messages: string[] = [];
+    const textMessages: string[] = [];
+    let subject: string;
+    while (await userCardCursor.hasNext()) {
+      const userCard = await userCardCursor.next();
+      await db.updateUserCardCommentNotificationPending(user.id, userCard.cardId, false);
+      // We're looking for comments that were added after the last time the user was notified, but also
+      // later than the last time the user saw those comments on screen.
+      const comments = await db.findCardCommentsForCard(userCard.cardId, 0, Math.max(userCard.lastCommentsFetch, user.notifications && user.notifications.lastCommentNotification ? user.notifications.lastCommentNotification : 0), 64);
+      if (comments.length > 0) {
+        const card = await db.findCardById(userCard.cardId, false);
+        if (card) {
+          let count = 0;
+          let commentorName = "someone";
+          for (const comment of comments) {
+            if (comment.byId !== user.id) {
+              if (count === 0) {
+                const commentor = await userManager.getUser(comment.byId, false);
+                if (commentor && commentor.identity) {
+                  commentorName = commentor.identity.name;
+                }
+              }
+              count++;
+            }
+          }
+          if (count > 0) {
+            const cardUrl = this.urlManager.getAbsoluteUrl('/c/' + card.id);
+            if (card.createdById === user.id) {
+              authorCount++;
+              let message = count > 1 ? count + " new comments" : count + " new comment from " + commentorName;
+              message += ' on your card: <a href="' + cardUrl + '">"' + escapeHtml(Utils.truncate(card.summary.title, 64, true)) + '"</a>';
+              messages.push(message);
+              textMessages.push('New comments on your card, "' + Utils.truncate(card.summary.title, 64, true) + '"');
+            } else {
+              readerCount++;
+              let message = count > 1 ? count + " new comments" : count + " new comment from " + commentorName;
+              message += ' on a card that you commented on: <a href="' + cardUrl + '">"' + escapeHtml(Utils.truncate(card.summary.title, 64, true)) + '"</a>';
+              messages.push(message);
+              textMessages.push('New comments on card you commented on: "' + Utils.truncate(card.summary.title, 64, true) + '"');
+            }
+            if (!subject) {
+              subject = 'New comments on "' + Utils.truncate(card.summary.title, 64, true) + '"';
+            }
+          }
+        }
+      }
+    }
+    if (messages.length > 0) {
+      if (messages.length > 1) {
+        subject += " and more";
+      }
+      console.log("Card.processUserForCommentNotifications: Sending notification email to " + user.identity.emailAddress);
+      await db.updateUserCommentNotification(user);
+      const body = await this.generateCommentEmail(user, messages);
+      const button: EmailButton = {
+        caption: "Visit Channels",
+        url: this.urlManager.getAbsoluteUrl("/")
+      };
+      const info = {
+        messages: body,
+        textMessages: textMessages.join('\n')
+      };
+      await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, subject, "comment-notification", info, [button]);
+    }
+    await userCardCursor.close();
+  }
+
+  private async generateCommentEmail(user: UserRecord, messages: string[]): Promise<string> {
+    let result = "";
+    for (const message of messages) {
+      result += '<div style="font-family:sans-serif;margin:15px 0;color:black;">' + message + '</div>\n';
+    }
+    return result;
   }
 
   private async getCardById(id: string, force: boolean): Promise<CardRecord> {
@@ -333,13 +453,46 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         serverVersion: SERVER_VERSION,
         card: cardState,
         paymentDelayMsecs: delay,
-        promotedCard: promotedCard
+        promotedCard: promotedCard,
+        totalComments: 0,
+        comments: [],
+        commentorInfoById: {}
       };
+      if (requestBody.detailsObject.maxComments) {
+        reply.totalComments = await db.countCardComments(card.id);
+        const cardComments = await db.findCardCommentsForCard(card.id, 0, 0, requestBody.detailsObject.maxComments);
+        for (const cardComment of cardComments) {
+          reply.comments.push(await this.populateCardComment(request, user, cardComment, reply.commentorInfoById));
+        }
+      }
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleGetCard: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async populateCardComment(request: Request, user: UserRecord, cardComment: CardCommentRecord, commentorInfoById: { [id: string]: CommentorInfo }): Promise<CardCommentDescriptor> {
+    const result: CardCommentDescriptor = {
+      id: cardComment.id,
+      at: cardComment.at,
+      cardId: cardComment.cardId,
+      byId: cardComment.byId,
+      text: cardComment.text,
+      metadata: cardComment.metadata
+    };
+    if (!commentorInfoById[cardComment.byId]) {
+      const commentor = await userManager.getUser(cardComment.byId, false);
+      if (commentor) {
+        const commentorInfo: CommentorInfo = {
+          name: commentor.identity ? commentor.identity.name : null,
+          handle: commentor.identity ? commentor.identity.handle : null,
+          image: commentor.identity && commentor.identity.imageId ? await fileManager.getFileInfo(commentor.identity.imageId) : null
+        };
+        commentorInfoById[cardComment.byId] = commentorInfo;
+      }
+    }
+    return result;
   }
 
   private async handlePostCard(request: Request, response: Response): Promise<void> {
@@ -1803,7 +1956,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
-        sourceChannelId: sourceChannelId
+        sourceChannelId: sourceChannelId,
+        commentCount: await db.countCardComments(cardId)
       };
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);
@@ -2079,6 +2233,97 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  async handlePostCardComment(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<PostCardCommentDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.cardId || !requestBody.detailsObject.text) {
+        response.status(400).send("Missing cardId and/or text");
+        return;
+      }
+      const card = await this.getCardById(requestBody.detailsObject.cardId, true);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      if (!user.identity) {
+        response.status(403).send("You must be registered");
+        return;
+      }
+      console.log("CardManager.post-card-comment", requestBody.detailsObject);
+      const now = Date.now();
+      const commentRecord = await db.insertCardComment(user.id, now, card.id, requestBody.detailsObject.text, requestBody.detailsObject.metadata);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "comment", null, 0, null, 0, null, null, null);
+      const notificationIds: string[] = [];
+      if (card.createdById !== user.id) {
+        const creator = await userManager.getUser(card.createdById, false);
+        if (creator && creator.identity && creator.identity.emailConfirmed && (!creator.notifications || !creator.notifications.disallowCommentNotifications)) {
+          notificationIds.push(card.createdById);
+        }
+      }
+      const comments = await db.findCardCommentsForCard(card.id, 0, 0, 100);
+      for (const comment of comments) {
+        if (comment.byId !== user.id) {
+          if (notificationIds.indexOf(comment.byId) < 0) {
+            const commentor = await userManager.getUser(comment.byId, false);
+            if (commentor && commentor.identity && commentor.identity.emailConfirmed && (!commentor.notifications || !commentor.notifications.disallowCommentNotifications)) {
+              notificationIds.push(comment.byId);
+            }
+          }
+        }
+      }
+      if (notificationIds.length > 0) {
+        await db.setUserCommentNotificationPending(notificationIds, true);
+        await db.updateUserCardsCommentNotificationPending(notificationIds, card.id, true);
+      }
+      const reply: PostCardCommentResponse = {
+        serverVersion: SERVER_VERSION,
+        commentId: commentRecord.id
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handlePostCardComment: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleGetCardComments(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetCardCommentsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing cardId");
+        return;
+      }
+      const card = await this.getCardById(requestBody.detailsObject.cardId, true);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      console.log("CardManager.get-card-comments", requestBody.detailsObject);
+      const comments = await db.findCardCommentsForCard(card.id, requestBody.detailsObject.before, 0, requestBody.detailsObject.maxCount);
+      const count = await db.countCardComments(card.id, requestBody.detailsObject.before);
+      const reply: GetCardCommentsResponse = {
+        serverVersion: SERVER_VERSION,
+        comments: [],
+        commentorInfoById: {},
+        moreAvailable: comments.length < count
+      };
+      for (const comment of comments) {
+        reply.comments.push(await this.populateCardComment(request, user, comment, reply.commentorInfoById));
+      }
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetCardComments: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
 }
 
 const cardManager = new CardManager();
