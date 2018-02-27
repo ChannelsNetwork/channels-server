@@ -35,6 +35,13 @@
       .comment {
         margin-top: 1px;
       }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
     </style>
     <div class="horizontal layout">
       <div class="imageCell">
@@ -76,8 +83,7 @@
           if (!this.data.atDisplay) {
             this.set("data.atDisplay", displayFriendlyTime(this.data.at));
           }
-          this.$.comment.innerHtml = this._toHtml(this.data.text);
-          console.log("i", this.$.comment.innerHtml);
+          this.$.comment.innerHTML = this._toHtml(this.data.text);
         }
       }
 
