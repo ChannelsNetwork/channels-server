@@ -1,6 +1,7 @@
 <link rel="import" href="../controls/dialog-view.html">
 <link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 
 <dom-module id="edit-card-summary-dialog">
   <template>
@@ -12,12 +13,27 @@
       soso-text-input {
         margin: 25px 0;
       }
+
+      select {
+        font-size: 18px;
+      }
+
+      .languageSelection {
+        margin: 25px 0;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <soso-file-picker id="filePicker" label="Drag an image file" accept="image/*" on-files="_onFile"></soso-file-picker>
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
       <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
+      <div class="languageSelection">Language:
+        <select id="languageSelect">
+          <template is="dom-repeat" items="[[languages]]">
+            <option value$="[[item.code]]" selected$="{{item.selected}}">[[item.name]]</option>
+          </template>
+        </select>
+      </div>
     </dialog-view>
   </template>
   <script>
@@ -25,7 +41,8 @@
       static get is() { return 'edit-card-summary-dialog'; }
       static get properties() {
         return {
-          _buttons: Array
+          _buttons: Array,
+          languages: Array
         };
       }
 
@@ -39,6 +56,7 @@
         this.$.title.value = summary.title;
         this.$.text.value = summary.text;
         this.$.keywords.value = summary.keywords ? summary.keywords.join(', ') : "";
+        this._refreshLanguageList(summary.langCode);
         this._buttons = [
           { id: 'cancel', label: "Cancel" },
           { id: 'update', label: "Update" }
@@ -48,6 +66,22 @@
           this.$.dlg.show();
         });
         return this._promise;
+      }
+
+      _refreshLanguageList(selectedLanguage) {
+        const languages = [];
+        const map = $core.languages;
+        if (!selectedLanguage) {
+          selectedLanguage = 'en';
+        }
+        for (const key of Object.keys(map)) {
+          languages.push({
+            code: key,
+            name: map[key],
+            selected: key === selectedLanguage
+          });
+        }
+        this.set('languages', languages);
       }
 
       _handleButton(event) {
@@ -61,6 +95,7 @@
               return $core.uploadImageFile(this._file).then((fileInfo) => {
                 this.summary.imageId = fileInfo.fileId;
                 this.summary.imageURL = fileInfo.url;
+                this.summary.langCode = this.$.languageSelect.options[this.$.languageSelect.selectedIndex].value;
                 this._resolve({ summary: this.summary, keywords: this._getKeywords() });
               }).catch((err) => {
                 console.error(err);

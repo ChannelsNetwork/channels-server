@@ -1228,11 +1228,12 @@ export class Database {
     card.promotionScores = promotionScores;
   }
 
-  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageId: string, keywords: string[]): Promise<void> {
+  async updateCardSummary(card: CardRecord, title: string, text: string, langCode: string, linkUrl: string, imageId: string, keywords: string[]): Promise<void> {
     const update: any = {
       summary: {
         title: title,
         text: text,
+        langCode: langCode,
         linkUrl: linkUrl,
         imageId: imageId
       }

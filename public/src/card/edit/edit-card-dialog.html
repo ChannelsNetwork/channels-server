@@ -2,6 +2,7 @@
 <link rel="import" href="../../controls/image-upload.html">
 <link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 
 <dom-module id="edit-card-dialog">
   <template>
@@ -38,6 +39,14 @@
         width: 18px;
         height: 18px;
       }
+
+      select {
+        font-size: 18px;
+      }
+
+      .languageSelection {
+        margin: 25px 0;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <h3>Edit Card</h3>
@@ -48,6 +57,13 @@
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
       <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
+      <div class="languageSelection">Language:
+        <select id="languageSelect">
+          <template is="dom-repeat" items="[[languages]]">
+            <option value$="[[item.code]]" selected$="{{item.selected}}">[[item.name]]</option>
+          </template>
+        </select>
+      </div>
       <soso-checkbox id="private" label="Keep this card private"></soso-checkbox>
     </dialog-view>
   </template>
@@ -57,7 +73,8 @@
       static get properties() {
         return {
           _buttons: Array,
-          iconMap: Object
+          iconMap: Object,
+          languages: Array
         };
       }
 
@@ -98,9 +115,27 @@
         this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
         this.$.filePicker.image = card.summary.imageURL;
+        this._refreshLanguageList(card.summary.langCode);
 
         return this.$.dlg.show();
       }
+
+      _refreshLanguageList(selectedLanguage) {
+        const languages = [];
+        const map = $core.languages;
+        if (!selectedLanguage) {
+          selectedLanguage = 'en';
+        }
+        for (const key of Object.keys(map)) {
+          languages.push({
+            code: key,
+            name: map[key],
+            selected: key === selectedLanguage
+          });
+        }
+        this.set('languages', languages);
+      }
+
 
       hide() {
         return this.$.dlg.hide();
@@ -172,7 +207,7 @@
           imgURL = null;
         }
         let keywords = this._getKeywords();
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), null, imgId, imgURL, keywords).then((summary) => {
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.options[this.$.languageSelect.selectedIndex].value, null, imgId, imgURL, keywords).then((summary) => {
           this._summary = summary;
           this._summary.keywords = keywords;
         });

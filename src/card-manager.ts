@@ -1300,7 +1300,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       if (requestBody.detailsObject.summary || keywords) {
         const summary = requestBody.detailsObject.summary;
-        await db.updateCardSummary(card, summary.title, summary.text, summary.linkUrl, summary.imageId, keywords);
+        await db.updateCardSummary(card, summary.title, summary.text, summary.langCode, summary.linkUrl, summary.imageId, keywords);
       }
       if (requestBody.detailsObject.state) {
         await db.deleteCardProperties(card.id);
@@ -1746,6 +1746,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         iframeUrl: record.summary.iframeUrl,
         title: record.summary.title,
         text: record.summary.text,
+        langCode: record.summary.langCode
       };
       let channelCard: ChannelCardRecord;
       if (user && user.homeChannelId && record.createdById !== user.id) {

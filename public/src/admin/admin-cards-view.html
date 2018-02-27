@@ -104,6 +104,7 @@
           <div class="headerCell right">Dislikes</div>
           <div class="headerCell right">Reports</div>
           <div class="headerCell right">Refunds</div>
+          <div class="headerCell center">Language</div>
           <div class="headerCell center">Override</div>
           <div class="headerCell center">Blocked</div>
           <div class="headerCell"></div>
@@ -133,6 +134,7 @@
             <div class="cell right">[[item.dislikes]]</div>
             <div class="cell right">[[item.reports]]</div>
             <div class="cell right">[[item.refunds]]</div>
+            <div class="cell center">[[item.langCode]]</div>
             <div class="cell center">[[item.overrideReports]]</div>
             <div class="cell center">[[item.blocked]]</div>
             <div class="cell center toggle" on-click="_onEdit">edit</div>
@@ -206,6 +208,7 @@
               dislikes: card.stats.dislikes,
               reports: card.stats.reports,
               refunds: card.stats.refunds,
+              langCode: $core.languages[card.summary.langCode],
               overrideReports: card.overrideReports ? "yes" : "",
               blocked: card.blocked ? "yes" : ""
             });

@@ -236,7 +236,8 @@
             title: data.summary.title,
             text: data.summary.text,
             linkURL: data.summary.linkURL,
-            iframeUrl: data.summary.iframeUrl
+            iframeUrl: data.summary.iframeUrl,
+            langCode: data.summary.langCode
           },
           stats: {
             likes: 0,
@@ -309,7 +310,8 @@
             text: this.cardData.summary.text,
             linkURL: this.cardData.summary.linkURL,
             iframeUrl: this.cardData.summary.iframeUrl,
-            keywords: this._getKeywords()
+            keywords: this._getKeywords(),
+            langCode: this.$.languageSelect.options[this.$.languageSelect.selectedIndex].value
           };
           this.wizard.headerVisible = false;
           this.$.editDialog.show(editSummary).then((result) => {
@@ -320,6 +322,7 @@
               this.cardData.summary = result.summary;
               this.$.keywords.value = result.keywords.join(', ');
               this.cardData.keywords = result.keywords;
+              this._refreshLanguageList(result.langCode);
               if (result.summary.imageId || result.summary.imageURL) {
                 this.wizard.data.imageSetByUser = true;
               } else {

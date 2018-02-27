@@ -250,6 +250,7 @@ export interface CardSummary {
   iframeUrl: string;  // only for iframe ad cards
   title: string;
   text: string;
+  langCode: string;
 }
 
 export interface CardDescriptorStatistics {

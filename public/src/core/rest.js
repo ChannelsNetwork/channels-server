@@ -278,10 +278,11 @@ class RestUtils {
     return result;
   }
 
-  static cardStateSummary(title, text, linkURL, imageId, imageURL) {
+  static cardStateSummary(title, text, langCode, linkURL, imageId, imageURL) {
     return {
       title: title,
       text: text,
+      langCode: langCode,
       linkUrl: linkURL,
       imageId: imageId,
       imageURL: imageURL
