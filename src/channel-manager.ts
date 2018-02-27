@@ -703,6 +703,10 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   async payReferralBonusIfAppropriate(user: UserRecord): Promise<void> {
+    if (!user.identity || !user.identity.emailConfirmed) {
+      console.log("Channel.payReferralBonusIfAppropriate: skipping because email not yet confirmed", user.identity);
+      return;
+    }
     if (user.referralBonusPaidToUserId) {
       console.log("Channel.payReferralBonusIfAppropriate: skipping because already paid", user.identity);
       return;

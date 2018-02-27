@@ -809,8 +809,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         response.status(409).send("User has no email address to confirm");
         return;
       }
-      await db.updateUserEmailConfirmation(user.id);
-      if (!user.identity.emailLastConfirmed) {
+      const firstConfirmation = user.identity.emailLastConfirmed ? false : true;
+      await db.updateUserEmailConfirmation(user);
+      if (firstConfirmation) {
         await channelManager.payReferralBonusIfAppropriate(user);
         await this.payRegistrationBonus(request, user, requestBody.detailsObject.fingerprint);
       }
