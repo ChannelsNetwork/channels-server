@@ -215,14 +215,15 @@ class RestUtils {
     };
   }
 
-  static getCardDetails(address, fingerprint, cardId, includePromotedCard, channelIdContext) {
+  static getCardDetails(address, fingerprint, cardId, includePromotedCard, channelIdContext, maxComments) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       includePromotedCard: includePromotedCard,
-      channelIdContext: channelIdContext
+      channelIdContext: channelIdContext,
+      maxComments: maxComments
     };
   }
 
@@ -831,4 +832,42 @@ class RestUtils {
     };
   }
 
+  static postCardComment(address, fingerprint, cardId, text, metadata) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      text: text,
+      metadata: metadata
+    };
+  }
+
+  static getCardComments(address, fingerprint, cardId, before, maxCount) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      before: before,
+      maxCount: maxCount
+    };
+  }
+
+  static cardCommentMetadata(fields) {
+    return {
+      fields: fields
+    };
+  }
+
+  static cardCommentFieldDescriptor(startOffset, length, text, type, href, handle) {
+    return {
+      startOffset: startOffset,
+      length: length,
+      text: text,  // the text representing this (such as 'channels.cc/c/...')
+      type: type,  // 'hyperlink' | 'handle'
+      href: href,
+      handle: handle
+    };
+  }
 }

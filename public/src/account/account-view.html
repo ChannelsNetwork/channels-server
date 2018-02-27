@@ -139,6 +139,7 @@
         <h3>Email Settings</h3>
         <soso-checkbox id="chkGeneral" on-change="_updateSettings" label="Email me about new and interesting updates to Channels"></soso-checkbox>
         <soso-checkbox id="chkSubscription" on-change="_updateSettings" label="Email me about new content based on my subscriptions"></soso-checkbox>
+        <soso-checkbox id="chkComments" on-change="_updateSettings" label="Email me about new comments I may be interested in"></soso-checkbox>
       </div>
       <div id="languageSettingsPanel" class="hidden">
         <h3>Language Settings</h3>
@@ -186,6 +187,7 @@
             }
             this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
             this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
+            this.$.chkComments.checked = !(this.profile.accountSettings.disallowCommentEmailAnnouncements);
             this.$.emailSettingsPanel.classList.remove("hidden");
             this._refreshLanguages(this.profile.accountSettings ? this.profile.accountSettings.preferredLangCodes : null);
           });
@@ -251,6 +253,7 @@
             // We set the codes to null if they have selected all languages, so if a new language
             // is added later, then it will be included by default, since null means "choose all"
             settings.preferredLangCodes = codes.length === this.languages.length ? null : codes;
+            settings.disallowCommentEmailAnnouncements = !(this.$.chkComments.checked);
             $core.updateAccountSettings(settings).catch((err) => {
               console.error(err);
               $app.showError(err);

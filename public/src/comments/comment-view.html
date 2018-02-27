@@ -1,0 +1,107 @@
+<link rel="import" href="../../bower_components/utils-urlize/utils-urlize.html">
+<link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../controls/moment.html">
+
+<dom-module id="comment-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        font-size: 14px;
+      }
+
+      .imageCell {
+        padding: 0 10px 0 3px;
+      }
+
+      #authorImage {
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+      }
+
+      .userName {
+        font-weight: bold;
+        color: #555;
+        letter-spacing: 0.05em;
+      }
+
+      .timestamp {
+        color: #777;
+        letter-spacing: 0.03em;
+        font-size: 12px;
+      }
+
+      .comment {
+        margin-top: 1px;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+    </style>
+    <div class="horizontal layout">
+      <div class="imageCell">
+        <user-image id="authorImage" on-click="_openUserChannel"></user-image>
+      </div>
+      <div class="flex">
+        <div>
+          <span class="userName">[[data.author.name]]</span>
+          <span class="timestamp"> - [[data.atDisplay]]</span>
+        </div>
+        <div id="comment" class="comment"></div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CommentView extends Polymer.Element {
+      static get is() { return 'comment-view'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_refresh'
+          }
+        };
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this._attached = true;
+        this._refresh();
+      }
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._attached = false;
+      }
+
+      _refresh() {
+        if (this.data && this._attached) {
+          this.$.authorImage.image = this.data.author.image && this.data.author.image.url ? this.data.author.image.url : $core.userManager.getFallbackUserImage(this.data.author.handle);
+          if (!this.data.atDisplay) {
+            this.set("data.atDisplay", displayFriendlyTime(this.data.at));
+          }
+          this.$.comment.innerHTML = this._toHtml(this.data.text);
+        }
+      }
+
+      _toHtml(text) {
+        let html = urlize(text, {
+          autoescape: true,
+          target: "blank",
+          trim: "www",
+          top_level_domains: urlize.top_level_domains
+        });
+        html = html.split('\n').join('<br>\n');
+        return html;
+      }
+
+      _openUserChannel() {
+        $router.goto("/channel/" + encodeURIComponent(this.data.author.handle));
+      }
+    }
+    window.customElements.define(CommentView.is, CommentView);
+  </script>
+</dom-module>

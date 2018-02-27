@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -128,6 +128,7 @@ export interface AccountSettings {
   disallowPlatformEmailAnnouncements: boolean;
   disallowContentEmailAnnouncements: boolean;
   preferredLangCodes: string[];
+  disallowCommentEmailAnnouncements: boolean;
 }
 
 export interface GetHandleDetails extends CheckHandleDetails { }
@@ -240,6 +241,7 @@ export interface CardDescriptor {
   overrideReports: boolean;
   reasons: ReportCardReason[];
   sourceChannelId: string;
+  commentCount: number;
 }
 
 export interface CardSummary {
@@ -315,12 +317,31 @@ export interface GetCardDetails extends Signable {
   cardId: string;
   includePromotedCard: boolean;
   channelIdContext: string;
+  maxComments: number;
 }
 
 export interface GetCardResponse extends RestResponse {
   card: CardDescriptor;
   paymentDelayMsecs: number;
   promotedCard?: CardDescriptor;
+  totalComments: number;
+  comments: CardCommentDescriptor[];
+  commentorInfoById: { [id: string]: CommentorInfo };
+}
+
+export interface CommentorInfo {
+  name: string;
+  handle: string;
+  image?: FileInfo;
+}
+
+export interface CardCommentDescriptor {
+  id: string;
+  at: number;
+  cardId: string;
+  byId: string;
+  text: string;
+  metadata: CardCommentMetadata;
 }
 
 export interface CardStatsHistoryDetails extends Signable {
@@ -1096,3 +1117,25 @@ export interface UpdateChannelCardDetails extends Signable {
 }
 
 export interface UpdateChannelCardResponse extends RestResponse { }
+
+export interface PostCardCommentDetails extends Signable {
+  cardId: string;
+  text: string;
+  metadata: CardCommentMetadata;
+}
+
+export interface PostCardCommentResponse extends RestResponse {
+  commentId: string;
+}
+
+export interface GetCardCommentsDetails extends Signable {
+  cardId: string;
+  before: number;  // timestmap or 0 for all
+  maxCount: number;
+}
+
+export interface GetCardCommentsResponse extends RestResponse {
+  comments: CardCommentDescriptor[];
+  commentorInfoById: { [id: string]: CommentorInfo };
+  moreAvailable: boolean;
+}

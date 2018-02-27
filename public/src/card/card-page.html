@@ -43,6 +43,18 @@
         margin-left: -10px;
       }
 
+      #commentsPanel {
+        padding: 10px;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 20px;
+        box-sizing: border-box;
+      }
+
+      card-comments {
+        max-width: 700px;
+        margin: 0 auto;
+      }
+
       #morePanel {
         padding: 30px 16px;
         border-top: 1px solid #e5e5e5;
@@ -213,6 +225,9 @@
           </div>
         </div>
       </div>
+      <div id="commentsPanel" class="hidden">
+        <card-comments id="comments"></card-comments>
+      </div>
 
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
@@ -361,6 +376,15 @@
         this.$.termsOverlay.show();
       }
 
+      _initializeComments(cardData) {
+        if (this._active) {
+          this._import("../comments/card-comments.html").then(() => {
+            this.$.comments.initialize(cardData);
+            this.$.commentsPanel.classList.remove("hidden");
+          });
+        }
+      }
+
       _loadCard() {
         this._cardOpened = false;
         this._cardContentLoaded = false;
@@ -372,6 +396,7 @@
         }
         this._cardNode = null;
 
+        this.$.commentsPanel.classList.add("hidden");
         this.$.inaccessible.classList.add("hidden");
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
@@ -387,7 +412,7 @@
 
         // Fetch the card and then encure card package
         // Then import the viewer and then insert the viewer
-        $core.getCard(this.cardId, false).then((cardData) => {
+        $core.getCard(this.cardId, false, null, 3).then((cardData) => {
           // set card data
           // If card was opened from a pomoted card, override that flag
           if (this._route.context) {
@@ -398,6 +423,9 @@
           }
           this.data = cardData.card;
           this.promotedCard = cardData.promotedCard;
+          setTimeout(() => {
+            this._initializeComments(cardData);
+          }, 500);
 
           // if refund was awarded on this card, do not show
           if (this.data.userSpecific.openFeeRefunded) {

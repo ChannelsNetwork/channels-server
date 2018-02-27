@@ -39,7 +39,9 @@ export interface UserRecord {
   notifications?: {
     disallowPlatformNotifications?: boolean;
     disallowContentNotifications?: boolean;
+    disallowCommentNotifications?: boolean;
     lastContentNotification?: number;
+    lastCommentNotification?: number;
   };
   homeChannelId: string;
   firstCardPurchasedId: string;
@@ -47,6 +49,8 @@ export interface UserRecord {
   referralBonusPaidToUserId: string;
   lastLanguagePublished: string;
   preferredLangCodes: string[];
+  commentsLastReviewed: number;
+  commentNotificationPending?: boolean;
 }
 
 export type UserCurationType = "blocked" | "discounted";
@@ -448,7 +452,7 @@ export interface UserCardActionReportInfo {
 
 export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
@@ -459,6 +463,7 @@ export interface UserCardInfoRecord {
   lastOpened: number;
   lastClicked: number;
   lastClosed: number;
+  lastCommentsFetch: number;
   paidToAuthor: number;
   paidToReader: number;
   earnedFromAuthor: number;
@@ -466,6 +471,7 @@ export interface UserCardInfoRecord {
   openFeeRefunded: boolean;
   transactionIds: string[];
   like: CardLikeState;
+  commentNotificationPending?: boolean;
 }
 
 export type CardLikeState = "none" | "like" | "dislike";
@@ -686,3 +692,27 @@ export interface AdSlotRecord {
 export type AdSlotType = "impression-ad" | "impression-content" | "open-payment" | "click-payment" | "announcement";
 
 export type AdSlotStatus = "pending" | "impression" | "opened" | "open-paid" | "clicked" | "redemption-failed";
+
+export interface CardCommentRecord {
+  id: string;
+  at: number;
+  cardId: string;
+  byId: string;
+  text: string;
+  metadata: CardCommentMetadata;
+}
+
+export interface CardCommentMetadata {
+  fields: CardCommentFieldDescriptor[];
+}
+
+export interface CardCommentFieldDescriptor {
+  startOffset: number;
+  length: number;
+  text: string;
+  type: CardCommentFieldType;
+  href?: string;
+  handle?: string;
+}
+
+export type CardCommentFieldType = "hyperlink" | "handle";

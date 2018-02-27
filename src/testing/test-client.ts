@@ -514,7 +514,8 @@ class TestClient implements RestServer {
       timestamp: Date.now(),
       cardId: cardId,
       includePromotedCard: false,
-      channelIdContext: null
+      channelIdContext: null,
+      maxComments: 0
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<GetCardDetails> = {

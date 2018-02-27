@@ -1,0 +1,103 @@
+<link rel="import" href="../controls/text-area.html">
+<dom-module id="comment-composer">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      text-area {
+        border-bottom: 1px solid;
+      }
+
+      #buttonsPanel {
+        padding: 10px 5px;
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        letter-spacing: 0.1em;
+      }
+
+      button {
+        min-width: 80px;
+      }
+
+      .negative {
+        color: var(--error-color);
+      }
+    </style>
+    <text-area id="txt" single-line label="" placeholder="[[placeholder]]" on-input="_onInput" on-return-key="_send"></text-area>
+    <div style="min-height: 60px;">
+      <div id="buttonsPanel" class="horizontal layout hidden">
+        <div id="counter" class="flex">[[count]]</div>
+        <button id="btn" on-click="_send">Send</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CommentComposer extends Polymer.Element {
+      static get is() { return 'comment-composer'; }
+      static get properties() {
+        return {
+          count: Number,
+          placeholder: String
+        }
+      }
+
+      get value() {
+        return this.$.txt.value.trim();
+      }
+
+      _onInput() {
+        let v = this.$.txt.value.trim();
+        if (v) {
+          if (!$core.profile || !$core.profile.handle) {
+            setTimeout(() => {
+              try { this.$.txt.textarea.blur() } catch (err) { };
+              $app.showError("You must be signed in to comment.").then(() => {
+                this.clear();
+              });
+            });
+            return;
+          }
+          let count = v.length;
+          count = 280 - count;
+          if (count < 0) {
+            this.$.counter.classList.add("negative");
+            this.$.btn.disabled = true;
+          } else {
+            this.$.counter.classList.remove("negative");
+            this.$.btn.disabled = false;
+          }
+          this.count = count;
+          this.$.buttonsPanel.classList.remove("hidden");
+        } else {
+          this.$.buttonsPanel.classList.add("hidden");
+        }
+      }
+
+      _send(event) {
+        event.stopPropagation();
+        let v = this.$.txt.value.trim();
+        if (v) {
+          if (!$core.profile || !$core.profile.handle) {
+            setTimeout(() => {
+              try { this.$.txt.textarea.blur() } catch (err) { };
+              $app.showError("You must be signed in to comment.").then(() => {
+                this.clear();
+              });
+            });
+            return;
+          }
+          this.dispatchEvent(new CustomEvent('send', { bubbles: true, composed: true, detail: { value: v } }));
+        }
+      }
+
+      clear() {
+        this.$.txt.value = "";
+        this._onInput();
+      }
+    }
+    window.customElements.define(CommentComposer.is, CommentComposer);
+  </script>
+</dom-module>
