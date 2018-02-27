@@ -51,6 +51,15 @@
       _onInput() {
         let v = this.$.txt.value.trim();
         if (v) {
+          if (!$core.profile || !$core.profile.handle) {
+            setTimeout(() => {
+              try { this.$.txt.textarea.blur() } catch (err) { };
+              $app.showError("You must be signed in to comment.").then(() => {
+                this.clear();
+              });
+            });
+            return;
+          }
           let count = v.length;
           count = 280 - count;
           if (count < 0) {
@@ -71,6 +80,15 @@
         event.stopPropagation();
         let v = this.$.txt.value.trim();
         if (v) {
+          if (!$core.profile || !$core.profile.handle) {
+            setTimeout(() => {
+              try { this.$.txt.textarea.blur() } catch (err) { };
+              $app.showError("You must be signed in to comment.").then(() => {
+                this.clear();
+              });
+            });
+            return;
+          }
           this.dispatchEvent(new CustomEvent('send', { bubbles: true, composed: true, detail: { value: v } }));
         }
       }
