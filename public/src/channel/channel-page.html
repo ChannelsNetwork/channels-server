@@ -368,6 +368,11 @@
           this._onResize();
           this._moreAvailable = false;
 
+          // check if pending actions
+          if (route && route.context && route.context.action) {
+            this._handleContextAction(route.context);
+          }
+
           // fetch only if route is different
           let fetchNewContent = true;
           if (!window.__dirtyFeed) {
@@ -399,6 +404,25 @@
       onDeactivate() {
         this.$.cbar.deactivate();
         window.removeEventListener("resize", this._resizeListener);
+      }
+
+      _handleContextAction(context) {
+        switch (context.action) {
+          case "subscribe":
+            if ($core.profile && $core.profile.handle) {
+              let channelId = context.data.channel;
+              if (channelId) {
+                $core.updateChannelSubscription(channelId, 'subscribed').then(() => {
+                  return this._refreshChannel(true);
+                }).catch((err) => {
+                  console.error(err);
+                });
+              }
+            }
+            break;
+          default:
+            break;
+        }
       }
 
       _onHeaderCollapse(event) {
@@ -585,7 +609,19 @@
       _onSubscribe() {
         let channelUrl = "/channel/" + encodeURIComponent(this._handle);
         if (!$core.profile || !$core.profile.handle) {
-          $router.goto("/register", { message: "Before you subscribe to this channel, you must first register an identity.", returnRoute: { success: channelUrl, cancel: channelUrl } });
+          $router.goto("/register", {
+            message: "Before you subscribe to this channel, you must first register an identity.",
+            returnRoute: {
+              success: channelUrl,
+              cancel: channelUrl,
+              context: {
+                action: 'subscribe',
+                data: {
+                  channel: this.channel.id
+                }
+              }
+            }
+          });
           return;
         }
         $core.updateChannelSubscription(this.channel.id, 'subscribed').then(() => {
