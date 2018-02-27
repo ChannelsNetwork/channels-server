@@ -164,17 +164,26 @@
           }
         }
         let sections = [];
+        let adDist = Math.max(1, Math.floor(list.length / (plist.length + 1)));
+        let distCount = 0;
         while (true) {
           let a = list.shift();
-          let b = plist.shift();
-          if ((!a) && (!b)) {
-            break;
-          }
-          if (a) {
-            sections.push(a);
-          }
-          if (b) {
+          if (!a) {
+            let b = plist.shift();
+            if (!b) {
+              break;
+            }
             sections.push(b);
+          } else {
+            sections.push(a);
+            distCount++;
+            if (distCount === adDist) {
+              distCount = 0;
+              let b = plist.shift();
+              if (b) {
+                sections.push(b);
+              }
+            }
           }
         }
         return sections;
