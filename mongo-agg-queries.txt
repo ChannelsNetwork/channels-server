@@ -1574,3 +1574,46 @@ db.channelUsers.aggregate([
           { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
 
+
+db.cards.aggregate([
+  {$match: { state: "active", "pricing.openFeeUnits": {$gt: 0}, "stats.uniqueOpens.value": {$gt: 0}}},
+  {$project: {_id: 0, id: "$id", units: "$pricing.openFeeUnits", opens: "$stats.uniqueOpens.value"}},
+  {$lookup: {
+    from: "userCardActions", 
+    localField: "id",
+    foreignField: "cardId",
+    as: "action"
+  }},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay"}},
+  {$group: {_id: "$id", purchases: {$sum: 1}, units: {$first: "$units"}, opens: {$first: "$opens"}}},
+  {$group: {_id: "$units", opens: {$sum: "$opens"}, purchases: {$sum: "$purchases"}}},
+  {$project: {_id: 0, priceLevel: "$_id", opens: 1, purchases: 1, ratio: {$divide: ["$purchases", "$opens"]}}},
+  {$sort: {priceLevel: 1}}
+])
+
+
+
+  {$project: {units: "$units", opens: "$opens", purchases: {$size: "$action"}}}
+
+  {$group: {
+    _id: "$units",
+    purchases: {$sum: 1},
+    opens: {$sum: "$opens"},
+  }}
+
+{$lookup: {
+    from: "userCardActions", 
+    let: {cardId: "$id"},
+    pipeline: [
+      {$match: {action: "pay", $eq: ["$cardId", "$$cardId"]}},
+      {$group: {_id: "all", count: {$sum: 1}}}
+    ],
+    as: "purchases"
+  }},
+  {$unwind: "$purchases"},  
+  {$group: {
+    _id: {level: "$pricing.openFeeUnits"}, 
+    opens: { $sum: "$stats.uniqueOpens.value"},    
+    purchases: {$sum: "$purchases.count"}
+  }},
