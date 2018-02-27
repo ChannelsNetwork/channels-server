@@ -1574,7 +1574,6 @@ db.channelUsers.aggregate([
           { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
 
-<<<<<<< HEAD
 
 
 db.cards.aggregate([
@@ -1639,8 +1638,6 @@ id: {$in: ["f88bf796-96ca-4584-bc3f-cc230ab06b32",
 "acd6344b-c31e-4579-a1fe-69070c6e1f6a",
 "49b28937-9423-485f-8e86-f6c544a25514"]}				
 }
-=======
-<<<<<<< HEAD
 
 db.cards.aggregate([
   {$match: { state: "active", "pricing.openFeeUnits": {$gt: 0}, "stats.uniqueOpens.value": {$gt: 0}}},
@@ -1684,7 +1681,6 @@ db.cards.aggregate([
     opens: { $sum: "$stats.uniqueOpens.value"},    
     purchases: {$sum: "$purchases.count"}
   }},
-=======
 db.userCardActions.aggregate([
   {$match: {action: "pay", at: {$gt: 1519086911000}}},
   {$group: {_id: {purchaser: "$userId"}, count: {$sum: 1}}},
@@ -1697,5 +1693,35 @@ db.userCardActions.aggregate([
   {$group: {_id: "$userId"}},
   {$group: {_id: "all", count: {$sum: 1}}}
 ])
->>>>>>> f474ebe29c239c74d2e2bb5fc606f5cec7669bf1
->>>>>>> 2f3f1475964bae5c6d7bd35f85743122138821a8
+
+db.users.aggregate([
+  {$match: {lastContact: {$gt: 1519086911000}}},
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "userId", as: "action"}},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay"}},
+  {$group: {_id: "$id", purchases: {$sum: 1}}},
+  {$group: {_id: "$purchases", users: {$sum: 1}}},
+  {$sort: {_id: 1}},
+])
+
+Which are the best publishers for us?  (The ones with lots of repeat customers)
+
+db.users.aggregate([
+  {$match: {lastContact: {$gt: 1519086911000}, lastPosted: {$gt: 0}}},
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "authorId", as: "action"}},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay", "action.at": {$gt: 1519086911000}, fraudReason: {$exists: false}}},
+  {$group: {_id: {author: "$id", handle: "$identity.handle", buyer: "$action.userId"}, purchases: {$sum: 1}, revenue: {$sum: "$action.payment.amount"}}},
+  {$match: {purchases: {$gt: 1}}},
+  {$group: {_id: {author: "$_id.author", handle: "$_id.handle"}, buyers: {$sum: 1}, revenue: {$sum: "$revenue"}}},
+  {$sort: {buyers: -1}},
+])
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "90eb7f93-9da4-4c24-a407-fdbe14f764ef", action: "pay", at: {$gt: 1517877311000}}},
+  {$group: {_id: "$userId", purchases: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 0, userId: "$_id", purchases: 1, revenue: 1, handle: "$user.identity.handle", country: "$user.country", city: "$user.city", landing: "$user.originalLandingPage", referrer: "$user.originalReferrer", balance: "$user.balance"}},
+  {$sort: {purchases: -1}}
+])
