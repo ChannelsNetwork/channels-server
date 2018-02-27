@@ -4,7 +4,6 @@
 <link rel="import" href="open-card-header.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="card-terms-overlay.html">
-<link rel="import" href="../comments/card-comments.html">
 
 <dom-module id="card-page">
   <template>
@@ -377,6 +376,15 @@
         this.$.termsOverlay.show();
       }
 
+      _initializeComments(cardData) {
+        if (this._active) {
+          this._import("../comments/card-comments.html").then(() => {
+            this.$.comments.initialize(cardData);
+            this.$.commentsPanel.classList.remove("hidden");
+          });
+        }
+      }
+
       _loadCard() {
         this._cardOpened = false;
         this._cardContentLoaded = false;
@@ -415,8 +423,9 @@
           }
           this.data = cardData.card;
           this.promotedCard = cardData.promotedCard;
-          this.$.comments.initialize(cardData);
-          this.$.commentsPanel.classList.remove("hidden");
+          setTimeout(() => {
+            this._initializeComments(cardData);
+          }, 500);
 
           // if refund was awarded on this card, do not show
           if (this.data.userSpecific.openFeeRefunded) {
