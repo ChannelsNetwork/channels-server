@@ -1,0 +1,211 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="card-list.html">
+
+<dom-module id="sectioned-card-list">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        box-sizing: border-box;
+      }
+
+      card-list {
+        max-width: 1264px;
+        margin: 10px auto;
+        box-sizing: border-box;
+      }
+
+      .promotedPanel {
+        background: #fafafa;
+        padding: 2px 0 10px;
+        border-top: 1px solid #f0f0f0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      #more {
+        box-sizing: border-box;
+        padding: 30px 0 20px;
+      }
+
+      #moreButton {
+        text-align: center;
+        width: 85px;
+        height: 85px;
+        cursor: pointer;
+        margin: 0 auto;
+        border-radius: 50%;
+        font-size: 16px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        color: var(--highlight-green);
+        background: transparent;
+        border: 3px solid;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
+        }
+      }
+    </style>
+    <dom-repeat items="[[sections]]">
+      <template>
+        <div class$="{{getPanelClass(item)}}">
+          <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]"></card-list>
+        </div>
+      </template>
+    </dom-repeat>
+    <div id="more" class="horizontal layout center hidden">
+      <div id="moreButton" class="horizontal layout center" on-click="_onMore">
+        <div style="width: 100%; box-sizing: border-box;">
+          <div>More</div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class SectionedCardList extends Polymer.Element {
+      static get is() { return 'sectioned-card-list'; }
+      static get properties() {
+        return {
+          items: {
+            type: Array,
+            observer: '_onItems'
+          },
+          sections: Array,
+          more: {
+            type: Boolean,
+            observer: '_refreshMore'
+          },
+          label: String
+        };
+      }
+
+      constructor() {
+        super();
+        this._resizeListener = _debounce(() => {
+          this._onResize();
+        }, 350);
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        window.removeEventListener("resize", this._resizeListener);
+      }
+
+      _refreshMore() {
+        if (this.more) {
+          this.$.more.classList.remove("hidden");
+        } else {
+          this.$.more.classList.add("hidden");
+        }
+      }
+
+      _onMore(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('more', { bubbles: true, composed: true }));
+      }
+
+      getPanelClass(item) {
+        return item.promoted ? "promotedPanel" : "";
+      }
+
+      _onResize() {
+        if (this.sections && this.sections.length) {
+          let colsPerRow = Math.min(4, Math.floor(this.offsetWidth / 312));
+          if (colsPerRow != this._colsPerRow) {
+            this._relayout();
+          }
+        }
+      }
+
+      _relayout() {
+        this.sections = this._createSections(this.items, true);
+      }
+
+      _createSections(items, useLabel) {
+        let colsPerRow = Math.min(4, Math.floor(this.offsetWidth / 312));
+        this._colsPerRow = colsPerRow;
+        let list = [];
+        let plist = [];
+        let current = { cards: [], more: false, label: useLabel ? this.label : "" };
+        let pcurrent = { label: 'Promoted', cards: [], more: false, promoted: true };
+        for (let i = 0; i < items.length; i++) {
+          let item = items[i];
+          if (item.promoted) {
+            if (pcurrent.cards.length === 0) {
+              plist.push(pcurrent);
+            } else if (pcurrent.cards.length === colsPerRow) {
+              pcurrent = { label: 'Promoted', cards: [], more: false, promoted: true };
+              plist.push(pcurrent);
+            }
+            pcurrent.cards.push(item);
+          } else {
+            if (current.cards.length === 0) {
+              list.push(current);
+            } else if (current.cards.length === colsPerRow) {
+              current = { cards: [], more: false };
+              list.push(current);
+            }
+            current.cards.push(item);
+          }
+        }
+        let sections = [];
+        while (true) {
+          let a = list.shift();
+          let b = plist.shift();
+          if ((!a) && (!b)) {
+            break;
+          }
+          if (a) {
+            sections.push(a);
+          }
+          if (b) {
+            sections.push(b);
+          }
+        }
+        return sections;
+      }
+
+      _onItems() {
+        window.removeEventListener("resize", this._resizeListener);
+        if (this.items && this.items.length) {
+          this._relayout();
+          window.addEventListener("resize", this._resizeListener);
+        } else {
+          this.sections = [];
+        }
+      }
+
+      append(newItems) {
+        if (this.items && this.items.length) {
+          if (newItems && newItems.length) {
+            for (let i = 0; i < newItems.length; i++) {
+              this.items.push(newItems[i]);
+            }
+            let newSections = this._createSections(newItems, false) || [];
+            for (let i = 0; i < newSections.length; i++) {
+              this.push("sections", newSections[i]);
+            }
+          }
+        } else {
+          this.items = newItems;
+        }
+      }
+    }
+    window.customElements.define(SectionedCardList.is, SectionedCardList);
+  </script>
+</dom-module>
