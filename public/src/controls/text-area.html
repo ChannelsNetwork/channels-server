@@ -209,6 +209,7 @@
       _onKeydown(event) {
         if (this.singleLine && (event.keyCode === 13)) {
           event.preventDefault();
+          this.dispatchEvent(new CustomEvent('return-key', { bubbles: true, composed: true }));
         }
       }
     }

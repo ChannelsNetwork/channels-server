@@ -394,8 +394,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getCard(cardId, includePromotedCard, channelIdContext) {
-    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard, channelIdContext);
+  getCard(cardId, includePromotedCard, channelIdContext, commentCount) {
+    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard, channelIdContext, commentCount);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card";
     return this.rest.post(url, request);

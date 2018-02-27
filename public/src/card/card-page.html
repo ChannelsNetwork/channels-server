@@ -4,6 +4,7 @@
 <link rel="import" href="open-card-header.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="card-terms-overlay.html">
+<link rel="import" href="../comments/card-comments.html">
 
 <dom-module id="card-page">
   <template>
@@ -41,6 +42,18 @@
       soso-spinner {
         margin-top: 20px;
         margin-left: -10px;
+      }
+
+      #commentsPanel {
+        padding: 10px;
+        border-top: 1px solid #e5e5e5;
+        margin-top: 20px;
+        box-sizing: border-box;
+      }
+
+      card-comments {
+        max-width: 700px;
+        margin: 0 auto;
       }
 
       #morePanel {
@@ -213,6 +226,9 @@
           </div>
         </div>
       </div>
+      <div id="commentsPanel" class="hidden">
+        <card-comments id="comments"></card-comments>
+      </div>
 
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
@@ -372,6 +388,7 @@
         }
         this._cardNode = null;
 
+        this.$.commentsPanel.classList.add("hidden");
         this.$.inaccessible.classList.add("hidden");
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
@@ -387,7 +404,7 @@
 
         // Fetch the card and then encure card package
         // Then import the viewer and then insert the viewer
-        $core.getCard(this.cardId, false).then((cardData) => {
+        $core.getCard(this.cardId, false, null, 3).then((cardData) => {
           // set card data
           // If card was opened from a pomoted card, override that flag
           if (this._route.context) {
@@ -398,6 +415,8 @@
           }
           this.data = cardData.card;
           this.promotedCard = cardData.promotedCard;
+          this.$.comments.initialize(cardData);
+          this.$.commentsPanel.classList.remove("hidden");
 
           // if refund was awarded on this card, do not show
           if (this.data.userSpecific.openFeeRefunded) {
