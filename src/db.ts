@@ -877,8 +877,12 @@ export class Database {
     return this.users.findOne<UserRecord>({ "identity.emailConfirmationCode": code });
   }
 
-  async updateUserEmailConfirmation(userId: string): Promise<void> {
-    await this.users.updateOne({ id: userId }, { $set: { "identity.emailConfirmed": true, "identity.emailLastConfirmed": Date.now() }, $unset: { "identity.emailConfirmationCode": 1 } });
+  async updateUserEmailConfirmation(user: UserRecord): Promise<void> {
+    const now = Date.now();
+    await this.users.updateOne({ id: user.id }, { $set: { "identity.emailConfirmed": true, "identity.emailLastConfirmed": now }, $unset: { "identity.emailConfirmationCode": 1 } });
+    user.identity.emailConfirmed = true;
+    user.identity.emailLastConfirmed = now;
+    delete user.identity.emailConfirmationCode;
   }
 
   async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
