@@ -187,7 +187,7 @@
             this.$.chkGeneral.checked = !(this.profile.accountSettings.disallowPlatformEmailAnnouncements);
             this.$.chkSubscription.checked = !(this.profile.accountSettings.disallowContentEmailAnnouncements);
             this.$.emailSettingsPanel.classList.remove("hidden");
-            this._refreshLanguages(this.profile.accountSettings.preferredLangCodes);
+            this._refreshLanguages(this.profile.accountSettings ? this.profile.accountSettings.preferredLangCodes : null);
           });
         }).catch((err) => {
           console.error(err);
