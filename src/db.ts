@@ -1454,7 +1454,8 @@ export class Database {
     if (skip > 0) {
       cursor = cursor.skip(skip);
     }
-    const result = cursor.next();
+    const result = await cursor.next();
+    console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
     await cursor.close();
     return result;
   }
@@ -1470,7 +1471,8 @@ export class Database {
     if (skip > 0) {
       cursor = cursor.skip(skip);
     }
-    const result = cursor.next();
+    const result = await cursor.next();
+    console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
     await cursor.close();
     return result;
   }
