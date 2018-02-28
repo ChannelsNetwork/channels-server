@@ -1,8 +1,8 @@
 <link rel="import" href="../../controls/dialog-view.html">
 <link rel="import" href="../../controls/image-upload.html">
+<link rel="import" href="../../controls/lang-select.html">
 <link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
-<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 
 <dom-module id="edit-card-dialog">
   <template>
@@ -48,23 +48,6 @@
         color: var(--dark-green);
         margin-right: 10px;
       }
-
-      #languageSelect {
-        font-size: 16px;
-        font-family: inherit;
-        font-weight: inherit;
-        outline: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        border: 0;
-        padding: 5px 3px;
-        border: none;
-        border-radius: 0;
-        background: none;
-        border-bottom: 1px solid;
-        letter-spacing: 0.03em;
-        color: inherit;
-      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <h3>Edit Card</h3>
@@ -77,11 +60,7 @@
       <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
       <div class="languageSelection">
         <span class="languageLabel">Language:</span>
-        <select id="languageSelect">
-          <template is="dom-repeat" items="[[languages]]">
-            <option value$="[[item.code]]" selected$="{{item.selected}}">[[item.name]]</option>
-          </template>
-        </select>
+        <lang-select id="languageSelect"></lang-select>
       </div>
       <soso-checkbox id="private" label="Keep this card private"></soso-checkbox>
     </dialog-view>
@@ -92,8 +71,7 @@
       static get properties() {
         return {
           _buttons: Array,
-          iconMap: Object,
-          languages: Array
+          iconMap: Object
         };
       }
 
@@ -134,27 +112,9 @@
         this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
         this.$.filePicker.image = card.summary.imageURL;
-        this._refreshLanguageList(card.summary.langCode);
-
+        this.$.languageSelect.selection = card.summary.langCode || 'en';
         return this.$.dlg.show();
       }
-
-      _refreshLanguageList(selectedLanguage) {
-        const languages = [];
-        const map = $core.languages;
-        if (!selectedLanguage) {
-          selectedLanguage = 'en';
-        }
-        for (const key of Object.keys(map)) {
-          languages.push({
-            code: key,
-            name: map[key],
-            selected: key === selectedLanguage
-          });
-        }
-        this.set('languages', languages);
-      }
-
 
       hide() {
         return this.$.dlg.hide();
@@ -226,7 +186,7 @@
           imgURL = null;
         }
         let keywords = this._getKeywords();
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.options[this.$.languageSelect.selectedIndex].value, null, imgId, imgURL, keywords).then((summary) => {
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.selection || 'en', null, imgId, imgURL, keywords).then((summary) => {
           this._summary = summary;
           this._summary.keywords = keywords;
         });

@@ -1,7 +1,7 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
-<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/lang-select.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -84,12 +84,12 @@
         margin-bottom: 25px;
       }
 
-      select {
-        font-size: 18px;
-      }
-
       .languageSelection {
         margin: 25px 0;
+      }
+
+      #languageSelect {
+        margin-left: 5px;
       }
 
       @media (max-width: 600px) {
@@ -126,11 +126,7 @@
           <div>
             <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Add up to 5 keywords"></soso-text-input>
             <div class="languageSelection">This card is in
-              <select id="languageSelect">
-                <template is="dom-repeat" items="[[languages]]">
-                  <option value$="[[item.code]]" selected$="{{item.selected}}">[[item.name]]</option>
-                </template>
-              </select>
+              <lang-select id="languageSelect"></lang-select>
             </div>
             <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
           </div>
@@ -172,8 +168,7 @@
         return {
           wizard: Object,
           cardData: Object,
-          cardDeveloperRoyalty: String,
-          languages: Array
+          cardDeveloperRoyalty: String
         };
       }
 
@@ -192,7 +187,7 @@
         this.wizard.data.summary.text = this.cardData.summary.text;
         this.wizard.data.summary.linkURL = this.cardData.summary.linkURL;
         this.wizard.data.summary.iframeUrl = this.cardData.summary.iframeUrl;
-        this.wizard.data.summary.langCode = this.$.languageSelect.options[this.$.languageSelect.selectedIndex].value;
+        this.wizard.data.summary.langCode = this.$.languageSelect.selection || 'en';
         this.wizard.data.keywords = this._getKeywords();
         this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
       }
@@ -273,7 +268,7 @@
           }
           cardData.promoted = true;
         }
-        this._refreshLanguageList(cardData.summary.langCode || $core.lastLanguagePublished);
+        this.$.languageSelect.selection = cardData.summary.langCode || $core.lastLanguagePublished || "en";
         this.$.preview.disabled = cardData.summary.linkURL ? true : false;
         this.set('cardData', cardData);
         if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
@@ -283,22 +278,6 @@
           this.$.cardDeveloper.style.display = "none";
         }
         this._import('../card/card-view.html');
-      }
-
-      _refreshLanguageList(selectedLanguage) {
-        const languages = [];
-        const map = $core.languages;
-        if (!selectedLanguage) {
-          selectedLanguage = 'en';
-        }
-        for (const key of Object.keys(map)) {
-          languages.push({
-            code: key,
-            name: map[key],
-            selected: key === selectedLanguage
-          });
-        }
-        this.set('languages', languages);
       }
 
       _onEdit() {
@@ -311,7 +290,7 @@
             linkURL: this.cardData.summary.linkURL,
             iframeUrl: this.cardData.summary.iframeUrl,
             keywords: this._getKeywords(),
-            langCode: this.$.languageSelect.options[this.$.languageSelect.selectedIndex].value
+            langCode: this.$.languageSelect.selection || "en"
           };
           this.wizard.headerVisible = false;
           this.$.editDialog.show(editSummary).then((result) => {
@@ -322,7 +301,7 @@
               this.cardData.summary = result.summary;
               this.$.keywords.value = result.keywords.join(', ');
               this.cardData.keywords = result.keywords;
-              this._refreshLanguageList(result.langCode);
+              this.$.languageSelect.selection = result.summary.langCode;
               if (result.summary.imageId || result.summary.imageURL) {
                 this.wizard.data.imageSetByUser = true;
               } else {
