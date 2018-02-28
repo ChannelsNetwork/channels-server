@@ -1,0 +1,95 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<dom-module id="lang-select">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: inline-block;
+      }
+
+      select {
+        font-size: 16px;
+        font-family: inherit;
+        font-weight: inherit;
+        outline: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        border: 0;
+        padding: 5px 3px;
+        border: none;
+        border-radius: 0;
+        background: none;
+        border-bottom: 1px solid;
+        letter-spacing: 0.03em;
+        color: inherit;
+      }
+    </style>
+    <select id="select">
+      <template is="dom-repeat" items="[[languages]]">
+        <option value$="[[item.code]]">[[item.name]]</option>
+      </template>
+    </select>
+  </template>
+  <script>
+    class LangSelect extends Polymer.Element {
+      static get is() { return 'lang-select'; }
+      static get properties() {
+        return {
+          languages: {
+            type: Array,
+            value: () => {
+              return [
+                { code: 'ar', name: 'Arabic' },
+                { code: 'hy', name: 'Armenian' },
+                { code: 'zh', name: 'Chinese' },
+                { code: 'cs', name: 'Czech' },
+                { code: 'da', name: 'Danish' },
+                { code: 'nl', name: 'Dutch' },
+                { code: 'en', name: 'English' },
+                { code: 'eo', name: 'Esperanto' },
+                { code: 'fi', name: 'Finnish' },
+                { code: 'fr', name: 'French' },
+                { code: 'ka', name: 'Georgian' },
+                { code: 'de', name: 'German' },
+                { code: 'el', name: 'Greek' },
+                { code: 'id', name: 'Indonesian' },
+                { code: 'it', name: 'Italian' },
+                { code: 'ja', name: 'Japanese' },
+                { code: 'ko', name: 'Korean' },
+                { code: 'ku', name: 'Kurdish' },
+                { code: 'fa', name: 'Persian' },
+                { code: 'pl', name: 'Polish' },
+                { code: 'pt', name: 'Portuguese' },
+                { code: 'ro', name: 'Romanian' },
+                { code: 'ru', name: 'Russian' },
+                { code: 'es', name: 'Spanish' },
+                { code: 'sv', name: 'Swedish' },
+                { code: 'tr', name: 'Turkish' },
+                { code: 'ur', name: 'Urdu' },
+                { code: 'other', name: 'Other' }
+              ];
+            }
+          }
+        }
+      }
+
+      get selection() {
+        let index = this.$.select.selectedIndex;
+        if (index >= 0) {
+          return this.$.select.options[index].value;
+        }
+        return null;
+      }
+
+      set selection(value) {
+        let options = this.$.select.options;
+        for (let i = 0; i < options.length; i++) {
+          if (options[i].value === value) {
+            this.$.select.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+    window.customElements.define(LangSelect.is, LangSelect);
+  </script>
+</dom-module>
