@@ -1725,3 +1725,10 @@ db.userCardActions.aggregate([
   {$project: {_id: 0, userId: "$_id", purchases: 1, revenue: 1, handle: "$user.identity.handle", country: "$user.country", city: "$user.city", landing: "$user.originalLandingPage", referrer: "$user.originalReferrer", balance: "$user.balance"}},
   {$sort: {purchases: -1}}
 ])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1519173311000}}},
+  {$group: {_id: "$userId", purchases: {$sum: 1}}},
+  {$match: {purchases: {$gt: 1}}},
+  {$group: {_id: "all", count: {$sum: 1}}}
+])
