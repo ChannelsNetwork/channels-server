@@ -1718,7 +1718,7 @@ db.users.aggregate([
 ])
 
 db.userCardActions.aggregate([
-  {$match: {authorId: "90eb7f93-9da4-4c24-a407-fdbe14f764ef", action: "pay", at: {$gt: 1517877311000}}},
+  {$match: {authorId: "ff898aa7-51db-40d0-9fca-067ab718e763", action: "pay", at: {$gt: 1517877311000}}},
   {$group: {_id: "$userId", purchases: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
   {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}}, 
   {$unwind: "$user"},
