@@ -57,7 +57,7 @@
         <comment-view data="[[item]]"></comment-view>
       </template>
     </dom-repeat>
-    <comment-composer id="composer" placeholder="[[placeholder]]" on-send="_send"></comment-composer>
+    <comment-composer id="composer" placeholder="[[placeholder]]" on-send="_send" on-unregistered-input="_showRegisterDialog"></comment-composer>
   </template>
   <script>
     class CardComments extends Polymer.Element {
@@ -146,6 +146,22 @@
             $app.showError(err);
           });
         }
+      }
+
+      _showRegisterDialog() {
+        this._import('register-to-comment-dlg.html').then(() => {
+          $dialogs.open("register-to-comment-dlg", this.card)
+        });
+      }
+
+      _import(url) {
+        return new Promise((resolve, reject) => {
+          Polymer.importHref(this.resolveUrl(url), () => {
+            resolve();
+          }, (err) => {
+            reject(err);
+          });
+        });
       }
     }
     window.customElements.define(CardComments.is, CardComments);
