@@ -1,4 +1,5 @@
 <link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../controls/lang-select.html">
 <link rel="import" href="../../bower_components/soso-file-picker/soso-file-picker.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
 
@@ -12,12 +13,25 @@
       soso-text-input {
         margin: 25px 0;
       }
+
+      .languageSelection {
+        margin: 25px 0;
+      }
+
+      .languageLabel {
+        color: var(--dark-green);
+        margin-right: 10px;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <soso-file-picker id="filePicker" label="Drag an image file" accept="image/*" on-files="_onFile"></soso-file-picker>
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
       <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
+      <div class="languageSelection">
+        <span class="languageLabel">Language:</span>
+        <lang-select id="languageSelect"></lang-select>
+      </div>
     </dialog-view>
   </template>
   <script>
@@ -39,6 +53,7 @@
         this.$.title.value = summary.title;
         this.$.text.value = summary.text;
         this.$.keywords.value = summary.keywords ? summary.keywords.join(', ') : "";
+        this.$.languageSelect.selection = summary.langCode || "en";
         this._buttons = [
           { id: 'cancel', label: "Cancel" },
           { id: 'update', label: "Update" }
@@ -57,6 +72,7 @@
           case "update":
             this.summary.title = this.$.title.value;
             this.summary.text = this.$.text.value;
+            this.summary.langCode = this.$.languageSelect.selection || "en";
             if (this._file) {
               return $core.uploadImageFile(this._file).then((fileInfo) => {
                 this.summary.imageId = fileInfo.fileId;

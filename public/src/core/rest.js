@@ -227,7 +227,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
     const result = {
       address: address,
       fingerprint: fingerprint,
@@ -237,6 +237,7 @@ class RestUtils {
       iframeUrl: iframeUrl,
       title: title,
       text: text,
+      langCode: langCode,
       private: isPrivate,
       cardType: packageName,            // same as sent to ensure-component
       pricing: {
@@ -278,10 +279,11 @@ class RestUtils {
     return result;
   }
 
-  static cardStateSummary(title, text, linkURL, imageId, imageURL) {
+  static cardStateSummary(title, text, langCode, linkURL, imageId, imageURL) {
     return {
       title: title,
       text: text,
+      langCode: langCode,
       linkUrl: linkURL,
       imageId: imageId,
       imageURL: imageURL
@@ -777,10 +779,11 @@ class RestUtils {
     };
   }
 
-  static accountSettings(disallowPlatformNotifications, disallowContentNotifications) {
+  static accountSettings(disallowPlatformNotifications, disallowContentNotifications, preferredlangCodes) {
     return {
       disallowPlatformNotifications: disallowPlatformNotifications ? true : false,
-      disallowContentNotifications: disallowContentNotifications ? true : false
+      disallowContentNotifications: disallowContentNotifications ? true : false,
+      preferredlangCodes: preferredLangCodes
     };
   }
 

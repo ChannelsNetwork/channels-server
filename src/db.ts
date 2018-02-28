@@ -214,6 +214,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "pricing.openFeeUnits": 1, postedAt: -1 });
+    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.openPayment": 1, id: 1 }, { name: "promoted-open-payment" });
+    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.promotionFee": 1, id: 1 }, { name: "promoted-impression" });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
 
     await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
@@ -553,6 +555,8 @@ export class Database {
       firstCardPurchasedId: null,
       firstArrivalCardId: firstArrivalCardId,
       referralBonusPaidToUserId: null,
+      lastLanguagePublished: null,
+      preferredLangCodes: null,
       commentsLastReviewed: 0
     };
     if (identity) {
@@ -585,8 +589,8 @@ export class Database {
     await this.users.updateOne({ id: userId }, { $set: { homeChannelId: channelId } });
   }
 
-  async updateUserLastPosted(userId: string, value: number): Promise<void> {
-    await this.users.updateOne({ id: userId }, { $set: { lastPosted: value } });
+  async updateUserLastPosted(userId: string, value: number, language: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { lastPosted: value, lastLanguagePublished: language } });
   }
 
   async updateUserLastWithdrawal(user: UserRecord, value: number): Promise<void> {
@@ -629,18 +633,26 @@ export class Database {
     await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastContentNotification": Date.now() } });
   }
 
-  async updateUserCommentNotification(user: UserRecord): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastCommentNotification": Date.now() } });
-  }
-
-  async updateUserNotificationSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean, disallowCommentNotifications: boolean): Promise<void> {
-    await this.users.updateOne({ id: user.id }, { $set: { "notifications.disallowPlatformNotifications": disallowPlatformNotifications, "notifications.disallowContentNotifications": disallowContentNotifications, "notifications.disallowCommentNotifications": disallowCommentNotifications } });
+  async updateUserAccountSettings(user: UserRecord, disallowPlatformNotifications: boolean, disallowContentNotifications: boolean, disallowCommentNotifications: boolean, preferredLangCodes: string[]): Promise<void> {
+    await this.users.updateOne({ id: user.id }, {
+      $set: {
+        "notifications.disallowPlatformNotifications": disallowPlatformNotifications,
+        "notifications.disallowContentNotifications": disallowContentNotifications,
+        "notifications.disallowCommentNotifications": disallowCommentNotifications,
+        preferredLangCodes: preferredLangCodes
+      }
+    });
     if (!user.notifications) {
       user.notifications = {};
     }
     user.notifications.disallowPlatformNotifications = disallowPlatformNotifications;
     user.notifications.disallowContentNotifications = disallowContentNotifications;
     user.notifications.disallowCommentNotifications = disallowCommentNotifications;
+    user.preferredLangCodes = preferredLangCodes;
+  }
+
+  async updateUserCommentNotification(user: UserRecord): Promise<void> {
+    await this.users.updateOne({ id: user.id }, { $set: { "notifications.lastCommentNotification": Date.now() } });
   }
 
   async updateUserFirstCardPurchased(userId: string, cardId: string): Promise<void> {
@@ -957,7 +969,7 @@ export class Database {
     return this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, langCode: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -980,6 +992,7 @@ export class Database {
         iframeUrl: iframeUrl,
         title: title,
         text: text,
+        langCode: langCode
       },
       keywords: this.cleanKeywords(keywords),
       private: isPrivate,
@@ -1258,11 +1271,12 @@ export class Database {
     card.promotionScores = promotionScores;
   }
 
-  async updateCardSummary(card: CardRecord, title: string, text: string, linkUrl: string, imageId: string, keywords: string[]): Promise<void> {
+  async updateCardSummary(card: CardRecord, title: string, text: string, langCode: string, linkUrl: string, imageId: string, keywords: string[]): Promise<void> {
     const update: any = {
       summary: {
         title: title,
         text: text,
+        langCode: langCode,
         linkUrl: linkUrl,
         imageId: imageId
       }
@@ -1390,7 +1404,7 @@ export class Database {
     return this.cards.find<CardRecord>({ createdById: userId }, { searchText: 0 });
   }
 
-  async findCardsByUserAndTime(before: number, after: number, maxCount: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean, excludeDeleted: boolean): Promise<CardRecord[]> {
+  getCardsByUserAndTime(before: number, after: number, byUserId: string, excludePrivate: boolean, excludeBlocked: boolean, excludeDeleted: boolean): Cursor<CardRecord> {
     const query: any = excludeDeleted ? { state: "active" } : {};
     if (excludeBlocked) {
       query["curation.block"] = false;
@@ -1406,12 +1420,57 @@ export class Database {
     if (excludePrivate) {
       query.private = false;
     }
-    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
   async findCardsByTime(limit: number): Promise<CardRecord[]> {
     limit = limit || 500;
     return this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
+  }
+
+  async findRandomPayToOpenCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
+    const count = await cursor.count();
+    if (count === 0) {
+      return null;
+    }
+    const skip = Math.floor(Math.random() * count);
+    if (skip > 0) {
+      cursor = cursor.skip(skip);
+    }
+    const result = await cursor.next();
+    await cursor.close();
+    return result;
+  }
+
+  async findRandomImpressionAdCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+    const count = await cursor.count();
+    if (count === 0) {
+      return null;
+    }
+    const skip = Math.floor(Math.random() * count);
+    if (skip > 0) {
+      cursor = cursor.skip(skip);
+    }
+    const result = cursor.next();
+    await cursor.close();
+    return result;
+  }
+
+  async findRandomPromotedCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+    const count = await cursor.count();
+    if (count === 0) {
+      return null;
+    }
+    const skip = Math.floor(Math.random() * count);
+    if (skip > 0) {
+      cursor = cursor.skip(skip);
+    }
+    const result = cursor.next();
+    await cursor.close();
+    return result;
   }
 
   getCardCursorByPostedAt(from: number, to: number): Cursor<CardRecord> {
@@ -1426,7 +1485,7 @@ export class Database {
     return null;
   }
 
-  async findAccessibleCardsByTime(before: number, after: number, maxCount: number, userId: string): Promise<CardRecord[]> {
+  getAccessibleCardsByTime(before: number, after: number, userId: string): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     if (before && after) {
@@ -1436,7 +1495,7 @@ export class Database {
     } else if (after) {
       query.postedAt = { $gt: after };
     }
-    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 }).limit(maxCount).toArray();
+    return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
   async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {

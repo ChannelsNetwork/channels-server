@@ -157,9 +157,11 @@ export class FeedManager implements Initializable, RestServer {
     let count = 0;
     while (await cursor.hasNext()) {
       const card = await cursor.next();
-      feedCards.push(await this.populateCard(request, card, false, null, null, user));
-      if (++count >= maxCount) {
-        break;
+      if (this.isCardLanguageInterest(user, card)) {
+        feedCards.push(await this.populateCard(request, card, false, null, null, user));
+        if (++count >= maxCount) {
+          break;
+        }
       }
     }
     await cursor.close();
@@ -195,6 +197,9 @@ export class FeedManager implements Initializable, RestServer {
           if (card.pricing.openFeeUnits === 0) {
             continue;
           }
+          if (!this.isCardLanguageInterest(user, card)) {
+            continue;
+          }
           const descriptor = await this.populateCard(request, card, false, null, channel.id, user);
           result.push(descriptor);
         }
@@ -205,6 +210,16 @@ export class FeedManager implements Initializable, RestServer {
       await cursor.close();
     }
     return result;
+  }
+
+  private isCardLanguageInterest(user: UserRecord, card: CardRecord): boolean {
+    if (!card.summary.langCode) {
+      return true;
+    }
+    if (!user.preferredLangCodes || user.preferredLangCodes.length === 0) {
+      return true;
+    }
+    return user.preferredLangCodes.indexOf(card.summary.langCode) >= 0;
   }
 
   private async populateHomePromotedContent(request: Request, user: UserRecord, reply: GetHomePageResponse): Promise<void> {
@@ -501,6 +516,97 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
+    // To get the next ad card, we are going to randomly decide on a weighted basis between a pays-to-open/click ad, an impression ad, and a promoted pay-for card,
+    // then we'll randomly pick one of these that is eligible.
+    // If the one we choose is not eligible for some reason, we'll do it again until we find one, or we run out of steam.
+    const excludedCardIds: string[] = [];
+    for (const id of alreadyPopulatedAdCardIds) {
+      excludedCardIds.push(id);
+    }
+    for (const id of existingPromotedCardIds) {
+      excludedCardIds.push(id);
+    }
+    for (const id of earnedAdCardIds) {
+      excludedCardIds.push(id);
+    }
+    for (const existing of existingCards) {
+      excludedCardIds.push(existing.id);
+    }
+    if (existingAnnouncementId) {
+      excludedCardIds.push(existingAnnouncementId);
+    }
+    let tries = 0;
+    let noPayToOpens = false;
+    let noImpressions = false;
+    let noPromoted = false;
+    while (tries++ < 200 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+      const value = Math.random();
+      let card: CardRecord;
+      if (value < 0.25 && !noPayToOpens) {
+        // 25% pays-to-open/click
+        card = await db.findRandomPayToOpenCard(user.id, excludedCardIds);
+        if (!card) {
+          noPayToOpens = true;
+          console.warn("Feed.getNextAdCard: Found no eligible pays-to-open/click candidate");
+        }
+      } else if (value < 0.5 && !noImpressions) {
+        // 25% pays-per-impression
+        card = await db.findRandomImpressionAdCard(user.id, excludedCardIds);
+        if (!card) {
+          noImpressions = true;
+          console.warn("Feed.getNextAdCard: Found no eligible impression-ad candidate");
+        }
+      } else if (!noPromoted) {
+        // 50% promoted content
+        card = await db.findRandomPromotedCard(user.id, excludedCardIds);
+        if (!card) {
+          noPromoted = true;
+          console.warn("Feed.getNextAdCard: Found no eligible promoted-card candidate");
+        }
+      }
+      if (card) {
+        const author = await userManager.getUser(card.createdById, false);
+        if (!author || author.balance < card.pricing.openPayment + card.pricing.promotionFee) {
+          // author doesn't have enough money to pay the reader
+          continue;
+        }
+        let info = await this.getUserCardInfo(user.id, card.id, false);
+        if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+          // This card is not eligible because the user has already been paid to open it (based on our cache)
+          earnedAdCardIds.push(card.id);
+        } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
+          // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
+          earnedAdCardIds.push(card.id);
+        } else if (card.pricing.openPayment === 0 && info.userCardInfo && Date.now() - info.userCardInfo.lastImpression < MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
+          // This isn't eligible because it is impression-based and the user recently saw it
+          continue;
+        } else if (info.fromCache) {
+          // We got this userInfo from cache, so it may be out of date.  Check again before committing to this
+          // card
+          info = await this.getUserCardInfo(user.id, card.id, true);
+          if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+            // Check that it is still eligible based on having been paid
+            earnedAdCardIds.push(card.id);
+          } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
+            // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
+            earnedAdCardIds.push(card.id);
+          } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
+            // Check again based on a recent impression
+            alreadyPopulatedAdCardIds.push(card.id);
+            return card;
+          }
+        } else {
+          // We can use it because it passes eligibility and the userCardInfo came directly from mongo
+          alreadyPopulatedAdCardIds.push(card.id);
+          return card;
+        }
+      }
+    }
+    console.warn("Feed.getNextAdCard: Found no available ads");
+    return null;
+  }
+
+  private async getNextAdCard_original(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
     while (await adCursor.hasNext()) {
       const card = await adCursor.next();
       if (card.pricing.promotionFee === 0 && card.pricing.openPayment === 0) {
@@ -523,6 +629,9 @@ export class FeedManager implements Initializable, RestServer {
         continue;
       }
       if (existingAnnouncementId && card.id === existingAnnouncementId) {
+        continue;
+      }
+      if (!this.isCardLanguageInterest(user, card)) {
         continue;
       }
       let found = false;
@@ -665,6 +774,9 @@ export class FeedManager implements Initializable, RestServer {
         if (cardByScore.stats && cardByScore.stats.reports && cardByScore.stats.reports.value > 0 && (!cardByScore.curation || !cardByScore.curation.overrideReports)) {
           continue;  // exclude cards that have been reported and not overridden by an admin
         }
+        if (!this.isCardLanguageInterest(user, cardByScore)) {
+          continue;
+        }
         if (cardIds.indexOf(cardByScore.id) < 0) {
           if (authorIds.indexOf(cardByScore.createdById) < 0) {  // include at most one card from any given author
             cards.push(cardByScore);
@@ -755,7 +867,18 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findAccessibleCardsByTime(before || Date.now(), 0, limit + 1, user.id);
+    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id);
+    const cards: CardRecord[] = [];
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      if (this.isCardLanguageInterest(user, card)) {
+        cards.push(card);
+        if (cards.length > limit) {
+          break;
+        }
+      }
+    }
+    await cursor.close();
     const result = await this.populateCards(request, cards, false, null, null, user, startWithCardId);
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
@@ -781,7 +904,18 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cards = await db.findCardsByUserAndTime(before || Date.now(), 0, limit + 1, user.id, false, false, true);
+    const cursor = db.getCardsByUserAndTime(before || Date.now(), 0, user.id, false, false, true);
+    const cards: CardRecord[] = [];
+    while (await cursor.hasNext()) {
+      const card = await cursor.next();
+      if (this.isCardLanguageInterest(user, card)) {
+        cards.push(card);
+        if (cards.length > limit) {
+          break;
+        }
+      }
+    }
+    await cursor.close();
     const result = await this.populateCards(request, cards, false, null, null, user, startWithCardId);
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
@@ -813,7 +947,7 @@ export class FeedManager implements Initializable, RestServer {
           }
           cards.push(card);
         }
-        if (cards.length >= limit) {
+        if (cards.length > limit) {
           break;
         }
       }
@@ -1159,6 +1293,7 @@ export class FeedManager implements Initializable, RestServer {
         null,
         sample.title,
         sample.text,
+        'en',
         false,
         "ChannelsNetwork/card-hello-world",
         './icon.png',

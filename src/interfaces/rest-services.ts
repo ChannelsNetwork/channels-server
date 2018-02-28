@@ -72,6 +72,7 @@ export interface UserStatus {
   totalCardDeveloperRevenue: number;
   publisherSubsidies: PublisherSubsidiesInfo;
   firstCardPurchasedId: string;
+  lastLanguagePublished: string;
 }
 
 export interface PublisherSubsidiesInfo {
@@ -126,6 +127,7 @@ export interface GetUserIdentityResponse extends RestResponse {
 export interface AccountSettings {
   disallowPlatformEmailAnnouncements: boolean;
   disallowContentEmailAnnouncements: boolean;
+  preferredLangCodes: string[];
   disallowCommentEmailAnnouncements: boolean;
 }
 
@@ -250,6 +252,7 @@ export interface CardSummary {
   iframeUrl: string;  // only for iframe ad cards
   title: string;
   text: string;
+  langCode: string;
 }
 
 export interface CardDescriptorStatistics {
@@ -369,6 +372,7 @@ export interface PostCardDetails extends Signable {
   iframeUrl?: string;
   title?: string;
   text: string;
+  langCode: string; // IOS 639-1 code such as 'en'
   keywords: string[];
   searchText: string;
   private: boolean;

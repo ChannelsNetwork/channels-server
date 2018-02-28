@@ -1574,6 +1574,113 @@ db.channelUsers.aggregate([
           { $project: { totalSubscribers: { $size: "$subscribers" }, totalSubscriptions: "$totalSubscriptions", totalChannels: { $size: "$channels" }, bonuses: "$bonuses" } }
     ])
 
+
+
+db.cards.aggregate([
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},
+  {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},
+  {$group: {
+    _id: "$country",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+countryCards = db.cards.aggregate([
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},
+  {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},
+  {$match: {country: "United States"}},
+])
+
+countryCards.forEach(function(x) {
+  db.cards.update({id: x.id}, {$set: {"summary.langCode": "en"}})
+})
+
+var r = db.cards.aggregate([   {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},   {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},   {$match: {country: "GB"}}, ])
+r.map(function(x) { db.cards.updateOne({_id: x.id}, {"$set": {"summary.langCode": "en" }}); })
+
+var r = db.cards.aggregate([
+  {$match: {"summary.langCode": {$exists: false}, state: "active", "curation.block": false}},
+  {$group: {_id: "$createdById", count: {$sum: 1}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {handle: "$user.identity.handle", country: "$user.country", count: "$count"}},
+  {$sort: {count: -1}}
+])
+
+var r = db.cards.aggregate([   
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}},   
+  {$project: {id: "$id", title: "$summary.title", authorId: "$user.id", handle: "$user.identity.handle", country: "$user.country"}},   
+  {$match: {handle: {$in: ["ezequielgomes", "igalapagos", "teologia", "patymassa", "moiseslugli", "aldenio", "massola", "marcosalvez", "gutohill", "thomasblum", "croniquista", "maicondecapreo", "pedagogia", "guidutra"]}}}
+])
+
+db.cards.aggregate([
+  {$match: {"summary.langCode": {$exists: false}, state: "active", "curation.block": false}},
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 0, id: "$id", handle: "$user.identity.handle", country: "$user.country", title: "$summary.title"}},
+  {$sort: {handle: 1}}
+])
+
+
+var r = db.cards.aggregate([
+  {$match: {"summary.langCode": {$exists: false}, state: "active", "curation.block": false}},
+  {$project: {id: "$id", createdById: "$createdById", title: "$summary.title"}},
+  {$sort: {createdById: 1}}
+])
+
+{
+id: {$in: ["f88bf796-96ca-4584-bc3f-cc230ab06b32",
+"1e1dc6f7-a5dc-4034-972b-0b78792c2881",
+"ed961441-c21e-4ca9-979e-0a6ca3f251a2",
+"98567f21-0b98-4e90-bd13-2760290b9c06",
+"98ee5289-46c6-4e6f-b7e7-90e004289564"
+"acd6344b-c31e-4579-a1fe-69070c6e1f6a",
+"49b28937-9423-485f-8e86-f6c544a25514"]}				
+}
+
+db.cards.aggregate([
+  {$match: { state: "active", "pricing.openFeeUnits": {$gt: 0}, "stats.uniqueOpens.value": {$gt: 0}}},
+  {$project: {_id: 0, id: "$id", units: "$pricing.openFeeUnits", opens: "$stats.uniqueOpens.value"}},
+  {$lookup: {
+    from: "userCardActions", 
+    localField: "id",
+    foreignField: "cardId",
+    as: "action"
+  }},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay"}},
+  {$group: {_id: "$id", purchases: {$sum: 1}, units: {$first: "$units"}, opens: {$first: "$opens"}}},
+  {$group: {_id: "$units", opens: {$sum: "$opens"}, purchases: {$sum: "$purchases"}}},
+  {$project: {_id: 0, priceLevel: "$_id", opens: 1, purchases: 1, ratio: {$divide: ["$purchases", "$opens"]}}},
+  {$sort: {priceLevel: 1}}
+])
+
+
+
+  {$project: {units: "$units", opens: "$opens", purchases: {$size: "$action"}}}
+
+  {$group: {
+    _id: "$units",
+    purchases: {$sum: 1},
+    opens: {$sum: "$opens"},
+  }}
+
+{$lookup: {
+    from: "userCardActions", 
+    let: {cardId: "$id"},
+    pipeline: [
+      {$match: {action: "pay", $eq: ["$cardId", "$$cardId"]}},
+      {$group: {_id: "all", count: {$sum: 1}}}
+    ],
+    as: "purchases"
+  }},
+  {$unwind: "$purchases"},  
+  {$group: {
+    _id: {level: "$pricing.openFeeUnits"}, 
+    opens: { $sum: "$stats.uniqueOpens.value"},    
+    purchases: {$sum: "$purchases.count"}
+  }},
 db.userCardActions.aggregate([
   {$match: {action: "pay", at: {$gt: 1519086911000}}},
   {$group: {_id: {purchaser: "$userId"}, count: {$sum: 1}}},
@@ -1585,4 +1692,36 @@ db.userCardActions.aggregate([
   {$match: {action: "pay", at: {$gt: 1519086911000}}},
   {$group: {_id: "$userId"}},
   {$group: {_id: "all", count: {$sum: 1}}}
+])
+
+db.users.aggregate([
+  {$match: {lastContact: {$gt: 1519086911000}}},
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "userId", as: "action"}},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay"}},
+  {$group: {_id: "$id", purchases: {$sum: 1}}},
+  {$group: {_id: "$purchases", users: {$sum: 1}}},
+  {$sort: {_id: 1}},
+])
+
+Which are the best publishers for us?  (The ones with lots of repeat customers)
+
+db.users.aggregate([
+  {$match: {lastContact: {$gt: 1519086911000}, lastPosted: {$gt: 0}}},
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "authorId", as: "action"}},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay", "action.at": {$gt: 1519086911000}, fraudReason: {$exists: false}}},
+  {$group: {_id: {author: "$id", handle: "$identity.handle", buyer: "$action.userId"}, purchases: {$sum: 1}, revenue: {$sum: "$action.payment.amount"}}},
+  {$match: {purchases: {$gt: 1}}},
+  {$group: {_id: {author: "$_id.author", handle: "$_id.handle"}, buyers: {$sum: 1}, revenue: {$sum: "$revenue"}}},
+  {$sort: {buyers: -1}},
+])
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "ff898aa7-51db-40d0-9fca-067ab718e763", action: "pay", at: {$gt: 1517877311000}}},
+  {$group: {_id: "$userId", purchases: {$sum: 1}, revenue: {$sum: "$payment.amount"}}},
+  {$lookup: {from: "users", localField: "_id", foreignField: "id", as: "user"}}, 
+  {$unwind: "$user"},
+  {$project: {_id: 0, userId: "$_id", purchases: 1, revenue: 1, handle: "$user.identity.handle", country: "$user.country", city: "$user.city", landing: "$user.originalLandingPage", referrer: "$user.originalReferrer", balance: "$user.balance"}},
+  {$sort: {purchases: -1}}
 ])

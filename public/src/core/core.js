@@ -401,7 +401,7 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
+  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
     let coupon;
     if (promotionFee + openPayment > 0) {
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (linkURL ? "card-click-payment" : "card-open-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
@@ -411,14 +411,14 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
   }
 
-  updateCardSummary(cardId, title, text, linkURL, imageId, imageURL, keywords) {
-    const cardSummary = RestUtils.cardStateSummary(title, text, linkURL, imageId, imageURL);
+  updateCardSummary(cardId, title, text, langCode, linkURL, imageId, imageURL, keywords) {
+    const cardSummary = RestUtils.cardStateSummary(title, text, langCode, linkURL, imageId, imageURL);
     const details = RestUtils.updateCardStateDetails(this._keys.address, this._fingerprint, cardId, cardSummary, null, keywords);
     let request = this._createRequest(details);
     const url = this.restBase + "/card-state-update";
@@ -906,6 +906,13 @@ class CoreService extends Polymer.Element {
     return this._userStatus.totalPublisherRevenue;
   }
 
+  get lastLanguagePublished() {
+    if (!this._userStatus) {
+      return null;
+    }
+    return this._userStatus.lastLanguagePublished;
+  }
+
   get networkTotalCardDeveloperRevenue() {
     if (!this._userStatus) {
       return 0;
@@ -1021,6 +1028,39 @@ class CoreService extends Polymer.Element {
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-channels";
     return this.rest.post(url, request);
+  }
+
+  get languages() {
+    const result = {};
+    result.ar = "Arabic";
+    result.hy = "Armenian";
+    result.zh = "Chinese";
+    result.cs = "Czech";
+    result.da = "Danish";
+    result.nl = "Dutch";
+    result.en = "English";
+    result.eo = "Esperanto";
+    result.fi = "Finnish";
+    result.fr = "French";
+    result.ka = "Georgian";
+    result.de = "German";
+    result.el = "Greek";
+    result.id = "Indonesian";
+    result.it = "Italian";
+    result.ja = "Japanese";
+    result.ko = "Korean";
+    result.ku = "Kurdish";
+    result.fa = "Persian";
+    result.pl = "Polish";
+    result.pt = "Portuguese";
+    result.ro = "Romanian";
+    result.ru = "Russian";
+    result.es = "Spanish";
+    result.sv = "Swedish";
+    result.tr = "Turkish";
+    result.ur = "Urdu";
+    result.other = "Other";
+    return result;
   }
 }
 window.customElements.define(CoreService.is, CoreService);

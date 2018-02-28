@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../controls/lang-select.html">
 
 <dom-module id="compose-card-publish">
   <template>
@@ -83,6 +84,14 @@
         margin-bottom: 25px;
       }
 
+      .languageSelection {
+        margin: 25px 0;
+      }
+
+      #languageSelect {
+        margin-left: 5px;
+      }
+
       @media (max-width: 600px) {
         .container {
           padding: 20px 16px 20px;
@@ -115,7 +124,10 @@
           <h2>Review and Publish</h2>
           <p>This is how your card will look to others when you post it.</p>
           <div>
-            <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
+            <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Add up to 5 keywords"></soso-text-input>
+            <div class="languageSelection">This card is in
+              <lang-select id="languageSelect"></lang-select>
+            </div>
             <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
           </div>
           <div id="cardDeveloper" style="display:none;">
@@ -175,6 +187,7 @@
         this.wizard.data.summary.text = this.cardData.summary.text;
         this.wizard.data.summary.linkURL = this.cardData.summary.linkURL;
         this.wizard.data.summary.iframeUrl = this.cardData.summary.iframeUrl;
+        this.wizard.data.summary.langCode = this.$.languageSelect.selection || 'en';
         this.wizard.data.keywords = this._getKeywords();
         this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
       }
@@ -218,7 +231,8 @@
             title: data.summary.title,
             text: data.summary.text,
             linkURL: data.summary.linkURL,
-            iframeUrl: data.summary.iframeUrl
+            iframeUrl: data.summary.iframeUrl,
+            langCode: data.summary.langCode
           },
           stats: {
             likes: 0,
@@ -254,6 +268,7 @@
           }
           cardData.promoted = true;
         }
+        this.$.languageSelect.selection = cardData.summary.langCode || $core.lastLanguagePublished || "en";
         this.$.preview.disabled = cardData.summary.linkURL ? true : false;
         this.set('cardData', cardData);
         if (this.wizard.data.cardInfo && this.wizard.data.cardInfo.channelComponent && this.wizard.data.cardInfo.channelComponent.developerFraction) {
@@ -274,7 +289,8 @@
             text: this.cardData.summary.text,
             linkURL: this.cardData.summary.linkURL,
             iframeUrl: this.cardData.summary.iframeUrl,
-            keywords: this._getKeywords()
+            keywords: this._getKeywords(),
+            langCode: this.$.languageSelect.selection || "en"
           };
           this.wizard.headerVisible = false;
           this.$.editDialog.show(editSummary).then((result) => {
@@ -285,6 +301,7 @@
               this.cardData.summary = result.summary;
               this.$.keywords.value = result.keywords.join(', ');
               this.cardData.keywords = result.keywords;
+              this.$.languageSelect.selection = result.summary.langCode;
               if (result.summary.imageId || result.summary.imageURL) {
                 this.wizard.data.imageSetByUser = true;
               } else {

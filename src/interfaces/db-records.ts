@@ -47,6 +47,8 @@ export interface UserRecord {
   firstCardPurchasedId: string;
   firstArrivalCardId: string;
   referralBonusPaidToUserId: string;
+  lastLanguagePublished: string;
+  preferredLangCodes: string[];
   commentsLastReviewed: number;
   commentNotificationPending?: boolean;
 }
@@ -135,6 +137,7 @@ export interface CardRecord {
     iframeUrl: string;
     title: string;
     text: string;
+    langCode: string; // ISO 639-1 code such as 'en'
   };
   keywords: string[];
   private: boolean;

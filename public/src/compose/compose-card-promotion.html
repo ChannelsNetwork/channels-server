@@ -48,7 +48,7 @@
             <span>[[paymentAction]]</span>?</div>
           <div class="row">
             ℂ
-            <soso-number-input id="amount" value="0.010" step="0.001" min="0.001" fixed="3" max="[[maxBudget]]"></soso-number-input>
+            <soso-number-input id="amount" value="0.005" step="0.001" min="[[minAmount]]" fixed="3" max="[[maxBudget]]"></soso-number-input>
             <span class="recommendation">(Recommended: ℂ
               <span>[[minimumRecommendation]]</span> to ℂ[[maximumRecommendation]])
             </span>
@@ -84,6 +84,7 @@
       static get properties() {
         return {
           wizard: Object,
+          minAmount: Number,
           minimumRecommendation: Number,
           maximumRecommendation: Number,
           paymentAction: String,
@@ -109,12 +110,14 @@
             notValid = true;
           }
           if (pricing.pay && pricing.pay.basedOn === 'clicks') {
-            this.set('minimumRecommendation', 0.35);
-            this.set('maximumRecommendation', 0.74);
+            this.set('minAmount', 0.25);
+            this.set('minimumRecommendation', 0.25);
+            this.set('maximumRecommendation', 0.35);
             this.set('paymentAction', "to keep this card open for 10 seconds");
           } else {
-            this.set('minimumRecommendation', 0.008);
-            this.set('maximumRecommendation', 0.015);
+            this.set('minAmount', 0.005);
+            this.set('minimumRecommendation', 0.005);
+            this.set('maximumRecommendation', 0.01);
             this.set('paymentAction', "to see this card in his or her feed");
           }
           if (Number(this.$.amount.value) < this.minimumRecommendation || Number(this.$.amount.value) > this.maximumRecommendation) {

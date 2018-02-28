@@ -574,7 +574,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       console.log("UserManager.update-account-settings", requestBody.detailsObject);
-      await db.updateUserNotificationSettings(user, requestBody.detailsObject.settings.disallowPlatformEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowContentEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowCommentEmailAnnouncements ? true : false);
+      await db.updateUserAccountSettings(user, requestBody.detailsObject.settings.disallowPlatformEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowContentEmailAnnouncements ? true : false, requestBody.detailsObject.settings.disallowCommentEmailAnnouncements ? true : false, requestBody.detailsObject.settings.preferredLangCodes);
       await this.announceUserUpdated(user);
       const reply: UpdateAccountSettingsResponse = {
         serverVersion: SERVER_VERSION,
@@ -705,7 +705,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const result: AccountSettings = {
       disallowPlatformEmailAnnouncements: user.notifications && user.notifications.disallowPlatformNotifications ? true : false,
       disallowContentEmailAnnouncements: user.notifications && user.notifications.disallowContentNotifications ? true : false,
-      disallowCommentEmailAnnouncements: user.notifications && user.notifications.disallowCommentNotifications ? true : false
+      disallowCommentEmailAnnouncements: user.notifications && user.notifications.disallowCommentNotifications ? true : false,
+      preferredLangCodes: user.preferredLangCodes
     };
     return result;
   }
@@ -869,15 +870,21 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       console.log("UserManager.admin-get-users", user.id, requestBody.detailsObject);
       const usersWithData: AdminUserInfo[] = [];
       for (const userInfo of users) {
-        const cards = await db.findCardsByUserAndTime(0, 0, 500, userInfo.id, false, false, false);
+        const cursor = db.getCardsByUserAndTime(0, 0, userInfo.id, false, false, false);
+        const totalPosts = await cursor.count();
+        let count = 0;
         let privateCards = 0;
         let cardRevenue = 0;
         let cardsDeleted = 0;
-        for (const card of cards) {
+        while (await cursor.hasNext()) {
+          const card = await cursor.next();
           privateCards += card.private ? 1 : 0;
           cardRevenue += card.stats.revenue.value;
           if (card.state !== 'active') {
             cardsDeleted++;
+          }
+          if (count++ > 500) {
+            break;
           }
         }
         let cardsBought = 0;
@@ -894,7 +901,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         const cardsSold = await this.countUserPaidOpens(userInfo, 0, Date.now());
         const item: AdminUserInfo = {
           user: userInfo,
-          cardsPosted: cards.length,
+          cardsPosted: totalPosts,
           privateCards: privateCards,
           cardRevenue: cardRevenue,
           cardsBought: cardsBought,
@@ -1067,7 +1074,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
       publisherSubsidies: await networkEntity.getPublisherSubsidies(),
       timeUntilNextAllowedWithdrawal: timeUntilNextAllowedWithdrawal,
-      firstCardPurchasedId: user.firstCardPurchasedId
+      firstCardPurchasedId: user.firstCardPurchasedId,
+      lastLanguagePublished: user.lastLanguagePublished
     };
     return result;
   }
