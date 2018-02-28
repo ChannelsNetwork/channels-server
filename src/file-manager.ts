@@ -269,14 +269,18 @@ export class FileManager implements RestServer {
       s3Request.Range = range.toString();
     }
     let completed = false;
-    const s3Fetch = this.s3.getObject(s3Request).on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
-      for (const key of Object.keys(headers)) {
-        this.transferHeader(response, headers, key);
-      }
-      response.setHeader("Server", 'Channels');
-      response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 30);
-      response.status(statusCode);
-    });
+    const s3Fetch = this.s3.getObject(s3Request)
+      .on('httpHeaders', (statusCode: number, headers: { [key: string]: string }) => {
+        for (const key of Object.keys(headers)) {
+          this.transferHeader(response, headers, key);
+        }
+        response.setHeader("Server", 'Channels');
+        response.setHeader("Cache-Control", 'public, max-age=' + 60 * 60 * 24 * 30);
+        response.status(statusCode);
+      })
+      .on('error', (err) => {
+        console.warn("File.handleFetch2 Error on S3 fetch", err);
+      });
     // Since we're piping the content through, if the request stream closes, we need to
     // abort the request to S3 so we don't keep pulling down content we don't want.
     request.on('close', (err: any) => {
@@ -289,6 +293,9 @@ export class FileManager implements RestServer {
       .on('end', () => {
         completed = true;
         console.log("FileManager.handleFetch completed");
+      })
+      .on('error', (err) => {
+        console.warn("FileManager.handleFetch2 readStream failed", err);
       })
       .pipe(response);
   }
