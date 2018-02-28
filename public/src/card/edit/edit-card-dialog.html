@@ -40,12 +40,30 @@
         height: 18px;
       }
 
-      select {
-        font-size: 18px;
-      }
-
       .languageSelection {
         margin: 25px 0;
+      }
+
+      .languageLabel {
+        color: var(--dark-green);
+        margin-right: 10px;
+      }
+
+      #languageSelect {
+        font-size: 16px;
+        font-family: inherit;
+        font-weight: inherit;
+        outline: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        border: 0;
+        padding: 5px 3px;
+        border: none;
+        border-radius: 0;
+        background: none;
+        border-bottom: 1px solid;
+        letter-spacing: 0.03em;
+        color: inherit;
       }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
@@ -57,7 +75,8 @@
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
       <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
-      <div class="languageSelection">Language:
+      <div class="languageSelection">
+        <span class="languageLabel">Language:</span>
         <select id="languageSelect">
           <template is="dom-repeat" items="[[languages]]">
             <option value$="[[item.code]]" selected$="{{item.selected}}">[[item.name]]</option>
