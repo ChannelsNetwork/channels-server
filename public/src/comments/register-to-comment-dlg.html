@@ -1,0 +1,56 @@
+<link rel="import" href="../controls/dialog-view.html">
+
+<dom-module id="register-to-comment-dlg">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <div style="font-size: 16px;">[[message]]</div>
+    </dialog-view>
+  </template>
+  <script>
+    class RegisterToCommentDlg extends Polymer.Element {
+      static get is() { return 'register-to-comment-dlg'; }
+      static get properties() {
+        return {
+          message: {
+            type: String,
+            value: 'You must be registered with Channels to comment.'
+          },
+          _buttons: {
+            type: Array,
+            value: () => {
+              return [
+                { id: 'cancel', label: 'Cancel' },
+                { id: 'register', label: 'Register' }
+              ];
+            }
+          }
+        };
+      }
+      show(card) {
+        this._card = card;
+        return this.$.dlg.show();
+      }
+      hide() {
+        return this.$.dlg.hide();
+      }
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case 'register':
+            $dialogs.hide(this);
+            let path = "/c/" + encodeURIComponent(this._card);
+            $router.goto("/register", { message: "Before you comment on a card, you must first register an identity.", returnRoute: { success: path, cancel: path } });
+            break;
+          default:
+            $dialogs.hide(this);
+            break;
+        }
+      }
+    }
+    window.customElements.define(RegisterToCommentDlg.is, RegisterToCommentDlg);
+  </script>
+</dom-module>

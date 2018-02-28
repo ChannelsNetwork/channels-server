@@ -53,10 +53,9 @@
         if (v) {
           if (!$core.profile || !$core.profile.handle) {
             setTimeout(() => {
+              this.clear();
               try { this.$.txt.textarea.blur() } catch (err) { };
-              $app.showError("You must be signed in to comment.").then(() => {
-                this.clear();
-              });
+              this.dispatchEvent(new CustomEvent('unregistered-input', { bubbles: true, composed: true }));
             });
             return;
           }
@@ -82,10 +81,9 @@
         if (v) {
           if (!$core.profile || !$core.profile.handle) {
             setTimeout(() => {
+              this.clear();
               try { this.$.txt.textarea.blur() } catch (err) { };
-              $app.showError("You must be signed in to comment.").then(() => {
-                this.clear();
-              });
+              this.dispatchEvent(new CustomEvent('unregistered-input', { bubbles: true, composed: true }));
             });
             return;
           }
