@@ -1988,7 +1988,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
         sourceChannelId: sourceChannelId,
-        commentCount: await db.countCardComments(cardId, user.id)
+        commentCount: await db.countCardComments(cardId, user ? user.id : null)
       };
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);

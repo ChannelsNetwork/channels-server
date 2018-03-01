@@ -3157,10 +3157,12 @@ export class Database {
 
   async countCardComments(cardId: string, byId: string, before = 0): Promise<number> {
     const query: any = { cardId: cardId };
-    query.$or = [
-      { curation: { $ne: "blocked" } },
-      { byId: byId },
-    ];
+    if (byId) {
+      query.$or = [
+        { curation: { $ne: "blocked" } },
+        { byId: byId },
+      ];
+    }
     if (before) {
       query.at = { $lt: before };
     }
