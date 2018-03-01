@@ -1732,3 +1732,92 @@ db.userCardActions.aggregate([
   {$match: {purchases: {$gt: 1}}},
   {$group: {_id: "all", count: {$sum: 1}}}
 ])
+
+How many successful publishers and what was their cumulative revenue as of a specific point in time?
+
+db.users.aggregate([
+  {$match: {lastPosted: {$gt: 0}, added: {$lt: 1513730111000}, "curation": {$exists: false}}},
+  {$project: {
+    _id: 0,
+    id: 1,
+    handle: "$identity.handle",
+    country: "$country"
+  }},
+  {$lookup: {from: "userCardActions", localField: "id", foreignField: "authorId", as: "action"}},
+  {$unwind: "$action"},
+  {$match: {"action.action": "pay", "action.at": {$lt: 1513730111000}, "action.fraudReason": {$exists: false}}},
+  {$project: {
+    id: 1,
+    handle: 1,
+    country: 1,
+    buyer: "$action.userId",
+    amount: "$action.payment.amount",
+    category: "$action.payment.category"
+  }},
+  {$group: {
+    _id: {id: "$id", handle: "$handle", country: "$country", buyer: "$buyer"},
+    revenueFromBuyer: {$sum: "$amount"},
+    categories: {$addToSet: "$category"}
+  }},
+  {$project: {
+    revenueFromBuyer: 1,
+    category: {$cond: {
+      if: {$in: ["fan", "$categories"]}, 
+      then: "fan", 
+      else: {
+        $cond: {
+          if: {$in: ["normal", "$categories"]},
+          then: "normal",
+          else: "firstTime"
+        }
+      }
+    }}
+  }},
+  {$group: {
+    _id: {id: "$_id.id", handle: "$_id.handle", country: "$_id.country"},
+    revenue: {$sum: "$revenueFromBuyer"},
+    buyers: {$sum: 1},
+    fans: {$sum: {$cond: {if: {$eq: ["$category", "fan"]}, then: 1, else: 0}}},
+    normals: {$sum: {$cond: {if: {$eq: ["$category", "normal"]}, then: 1, else: 0}}},
+    firstTimes: {$sum: {$cond: {if: {$eq: ["$category", "firstTime"]}, then: 1, else: 0}}},
+  }},
+  {$match: {fans: {$gt: 3}, revenue: {$gt: 5}}},
+  {$group: {
+    _id: "all",
+    publishers: {$sum: 1},
+    revenue: {$sum: "$revenue"}
+  }},
+])
+
+
+
+db.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $bucket: {
+          groupBy: "$at",
+          boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+          default: -1,
+          output: {
+            purchases: { $sum: 1 },
+            revenue: { $sum: "$payment.amount" },
+            weightedRevenue: { $sum: "$payment.weightedRevenue" },
+            fraud: { $sum: { $cond: { if: { $eq: ["$payment.category", "fraud"] }, then: 1, else: 0 } } },
+            firstTime: { $sum: { $cond: { if: { $eq: ["$payment.category", "first"] }, then: 1, else: 0 } } },
+            purchasers: { $addToSet: "$userId" },
+            sellers: { $addToSet: "$authorId" }
+          }
+        }
+      },
+      {
+        $project: {
+          purchases: "$purchases",
+          revenue: "$revenue",
+          weightedRevenue: "$weightedRevenue",
+          fraud: "$fraud",
+          firstTime: "$firstTime",
+          purchasers: { $size: "$purchasers" },
+          sellers: { $size: "$sellers" }
+        }
+      }
+    ])
