@@ -1821,3 +1821,147 @@ db.userCardActions.aggregate([
         }
       }
     ])
+
+What is happening with ads?
+
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}, created: {$gt: 1519259711000}, authorId: {$in: ["bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "81b62690-81e0-4561-9eba-1b0c84dcc9ab"]}}},
+  {$group: {_id: {type: "$type", status: "$status", redeemed: "$redeemed"}, count: {$sum: 1}}},
+  {$sort: {"_id.type": 1, "_id.redeemed": 1, "_id.status": 1}}
+])
+
+db.adSlots.aggregate([
+  {$match: {type: "open-payment", redeemed: false, created: {$gt: 1518654911000}}},
+  {$bucket: {
+    groupBy: "$userBalance",
+    boundaries: [0, 0.1, 0.25, 0.50, 0.75, 1, 1.5, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 4.5, 5],
+    default: -1,
+    output: {
+      total: { $sum: 1 },
+    }
+  }},
+])
+
+By week, how many cards were published, by how many publishers?
+
+db.cards.aggregate([
+  {$match: {state: "active"}},
+  {$lookup: {from: "users", localField: "createdById", foreignField: "id", as: "publisher"}},
+  {$unwind: "$publisher"},
+  {$project: {  
+    postedAt: "$postedAt",  
+    revenue: "$stats.revenue.value",
+    publisherId: "$publisher.id",
+    publisherHandle: "$publisher.identity.handle",
+    country: "$publisher.country"
+  }},
+  {$bucket: {
+      groupBy: "$postedAt",
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      default: -1,
+      output: {
+        cards: {$sum: 1},
+        publishers: { $addToSet: "$publisherId" },
+        countries: {$addToSet: "$country"},
+        revenue: {$sum: "$revenue"}
+      }
+  }},
+  {$project: {
+    cards: 1, publishers: {$size: "$publishers"}, revenue: "$revenue", countries: {$size: "$countries"}
+  }}
+])
+
+By week, tell me about consumers
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", fraudReason: {$exists: false}}},
+  {$lookup: {from: "users", localField: "userId", foreignField: "id", as: "consumer"}},
+  {$unwind: "$consumer"},
+  {$project: {  
+    postedAt: "$at",  
+    cardId: "$cardId",
+    expenses: "$payment.amount",
+    consumerId: "$consumer.id",
+    country: "$consumer.country"
+  }},
+  {$bucket: {
+      groupBy: "$postedAt",
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      default: -1,
+      output: {
+        purchases: {$sum: 1},
+        cards: {$addToSet: "$cardId"},
+        consumers: { $addToSet: "$consumerId" },
+        countries: {$addToSet: "$country"},
+        expenses: {$sum: "$expenses"},
+      }
+  }},
+  {$project: {
+    purchases: 1, cards: {$size: "$cards"}, consumers: {$size: "$consumers"}, expenses: "$expenses", countries: {$size: "$countries"}
+  }}
+])
+
+By week, tell me about advertisers, including content promotion
+
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}}},
+  {$lookup: {from: "users", localField: "authorId", foreignField: "id", as: "advertiser"}},
+  {$unwind: "$advertiser"},
+  {$project: {  
+    created: "$created",  
+    cardId: "$cardId",    
+    advertiserId: "$advertiser.id",
+    country: "$advertiser.country",
+    redeemed: "$redeemed",
+    expense: { $cond: { if: "$redeemed", then: "$amount", else: 0 } },
+  }},
+  {$bucket: {
+      groupBy: "$created",
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      default: -1,
+      output: {
+        adslots: {$sum: 1},
+        redemptions: {$sum: { $cond: { if: "$redeemed" , then: 1, else: 0 } }},
+        advertisers: { $addToSet: "$advertiserId" },
+        cards: {$addToSet: "$cardId"},
+        countries: {$addToSet: "$country"},
+        expenses: {$sum: "$expense"},
+      }
+  }},
+  {$project: {
+    adslots: 1, redemptions: 1, advertisers: {$size: "$advertisers"}, cards: {$size: "$cards"}, expenses: 1, countries: {$size: "$countries"}
+  }}  
+])
+
+Now, only pure advertisements
+
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}, type: {$in: ["announcement", "impression-ad", "open-payment"]}}},
+  {$lookup: {from: "users", localField: "authorId", foreignField: "id", as: "advertiser"}},
+  {$unwind: "$advertiser"},
+  {$project: {  
+    created: "$created",  
+    cardId: "$cardId",    
+    advertiserId: "$advertiser.id",
+    country: "$advertiser.country",
+    redeemed: "$redeemed",
+    expense: { $cond: { if: "$redeemed", then: "$amount", else: 0 } },
+  }},
+  {$bucket: {
+      groupBy: "$created",
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      default: -1,
+      output: {
+        adslots: {$sum: 1},
+        redemptions: {$sum: { $cond: { if: "$redeemed" , then: 1, else: 0 } }},
+        advertisers: { $addToSet: "$advertiserId" },
+        cards: {$addToSet: "$cardId"},
+        countries: {$addToSet: "$country"},
+        expenses: {$sum: "$expense"},
+      }
+  }},
+  {$project: {
+    adslots: 1, redemptions: 1, advertisers: {$size: "$advertisers"}, cards: {$size: "$cards"}, expenses: 1, countries: {$size: "$countries"}
+  }}  
+])
+
