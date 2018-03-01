@@ -3128,7 +3128,7 @@ export class Database {
     return this.cardComments.findOne<CardCommentRecord>({ id: id });
   }
 
-  async findCardCommentsForCard(cardId: string, before: number, since: number, maxCount: number): Promise<CardCommentRecord[]> {
+  getCardCommentsForCard(cardId: string, before: number, since: number): Cursor<CardCommentRecord> {
     const query: any = {
       cardId: cardId
     };
@@ -3139,7 +3139,7 @@ export class Database {
     } else if (since) {
       query.at = { $gt: since };
     }
-    return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 }).limit(maxCount || 10).toArray();
+    return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 });
   }
 
   async countCardComments(cardId: string, before = 0): Promise<number> {

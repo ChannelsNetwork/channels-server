@@ -310,7 +310,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserCardCommentNotificationPending(user.id, userCard.cardId, false);
       // We're looking for comments that were added after the last time the user was notified, but also
       // later than the last time the user saw those comments on screen.
-      const comments = await db.findCardCommentsForCard(userCard.cardId, 0, Math.max(userCard.lastCommentsFetch, user.notifications && user.notifications.lastCommentNotification ? user.notifications.lastCommentNotification : 0), 64);
+      const comments = await this.findCardCommentsForCard(user, userCard.cardId, 0, Math.max(userCard.lastCommentsFetch, user.notifications && user.notifications.lastCommentNotification ? user.notifications.lastCommentNotification : 0), 64);
       if (comments.length > 0) {
         const card = await db.findCardById(userCard.cardId, false);
         if (card) {
@@ -367,6 +367,30 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, subject, "comment-notification", info, [button]);
     }
     await userCardCursor.close();
+  }
+
+  private async findCardCommentsForCard(user: UserRecord, cardId: string, before: number, since: number, maxCount: number): Promise<CardCommentRecord[]> {
+    const cursor = db.getCardCommentsForCard(cardId, before, since);
+    const results: CardCommentRecord[] = [];
+    if (!maxCount) {
+      maxCount = 10;
+    }
+    while (await cursor.hasNext()) {
+      const comment = await cursor.next();
+      if (comment.byId === user.id) {
+        results.push(comment);
+      } else {
+        const commentor = await userManager.getUser(comment.byId, false);
+        if (commentor.curation !== 'blocked') {
+          results.push(comment);
+        }
+      }
+      if (results.length >= maxCount) {
+        break;
+      }
+    }
+    await cursor.close();
+    return results;
   }
 
   private async generateCommentEmail(user: UserRecord, messages: string[]): Promise<string> {
@@ -460,7 +484,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       if (requestBody.detailsObject.maxComments) {
         reply.totalComments = await db.countCardComments(card.id);
-        const cardComments = await db.findCardCommentsForCard(card.id, 0, 0, requestBody.detailsObject.maxComments);
+        const cardComments = await this.findCardCommentsForCard(user, card.id, 0, 0, requestBody.detailsObject.maxComments);
         for (const cardComment of cardComments) {
           reply.comments.push(await this.populateCardComment(request, user, cardComment, reply.commentorInfoById));
         }
@@ -2265,7 +2289,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           notificationIds.push(card.createdById);
         }
       }
-      const comments = await db.findCardCommentsForCard(card.id, 0, 0, 100);
+      const comments = await this.findCardCommentsForCard(user, card.id, 0, 0, 100);
       for (const comment of comments) {
         if (comment.byId !== user.id) {
           if (notificationIds.indexOf(comment.byId) < 0) {
@@ -2308,7 +2332,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card-comments", requestBody.detailsObject);
-      const comments = await db.findCardCommentsForCard(card.id, requestBody.detailsObject.before, 0, requestBody.detailsObject.maxCount);
+      const comments = await this.findCardCommentsForCard(user, card.id, requestBody.detailsObject.before, 0, requestBody.detailsObject.maxCount);
       const count = await db.countCardComments(card.id, requestBody.detailsObject.before);
       const reply: GetCardCommentsResponse = {
         serverVersion: SERVER_VERSION,
