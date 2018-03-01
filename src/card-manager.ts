@@ -690,10 +690,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Invalid coupon: author mismatch");
           return;
         }
-        if (coupon.amount !== card.pricing.promotionFee) {
-          response.status(400).send("Invalid coupon: promotion fee mismatch: " + coupon.amount + " vs " + card.pricing.promotionFee);
-          return;
-        }
+        // if (coupon.amount !== card.pricing.promotionFee) {
+        //   response.status(400).send("Invalid coupon: promotion fee mismatch: " + coupon.amount + " vs " + card.pricing.promotionFee);
+        //   return;
+        // }
         if (coupon.reason !== 'card-promotion') {
           response.status(400).send("Invalid coupon: invalid type");
           return;
