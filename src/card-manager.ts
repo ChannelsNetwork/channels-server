@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -136,6 +136,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('get-card-comments'), (request: Request, response: Response) => {
       void this.handleGetCardComments(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-comments'), (request: Request, response: Response) => {
+      void this.handleAdminGetComments(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-set-comment-curation'), (request: Request, response: Response) => {
+      void this.handleAdminSetCommentCuration(request, response);
     });
   }
 
@@ -310,7 +316,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserCardCommentNotificationPending(user.id, userCard.cardId, false);
       // We're looking for comments that were added after the last time the user was notified, but also
       // later than the last time the user saw those comments on screen.
-      const comments = await db.findCardCommentsForCard(userCard.cardId, 0, Math.max(userCard.lastCommentsFetch, user.notifications && user.notifications.lastCommentNotification ? user.notifications.lastCommentNotification : 0), 64);
+      const comments = await this.findCardCommentsForCard(user, userCard.cardId, 0, Math.max(userCard.lastCommentsFetch, user.notifications && user.notifications.lastCommentNotification ? user.notifications.lastCommentNotification : 0), 64);
       if (comments.length > 0) {
         const card = await db.findCardById(userCard.cardId, false);
         if (card) {
@@ -367,6 +373,30 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await emailManager.sendUsingTemplate("Channels.cc", "no-reply@channels.cc", user.identity.name, user.identity.emailAddress, subject, "comment-notification", info, [button]);
     }
     await userCardCursor.close();
+  }
+
+  private async findCardCommentsForCard(user: UserRecord, cardId: string, before: number, since: number, maxCount: number): Promise<CardCommentRecord[]> {
+    const cursor = db.getCardCommentsForCard(cardId, before, since, user.id);
+    const results: CardCommentRecord[] = [];
+    if (!maxCount) {
+      maxCount = 10;
+    }
+    while (await cursor.hasNext()) {
+      const comment = await cursor.next();
+      if (comment.byId === user.id) {
+        results.push(comment);
+      } else {
+        const commentor = await userManager.getUser(comment.byId, false);
+        if (commentor.curation !== 'blocked') {
+          results.push(comment);
+        }
+      }
+      if (results.length >= maxCount) {
+        break;
+      }
+    }
+    await cursor.close();
+    return results;
   }
 
   private async generateCommentEmail(user: UserRecord, messages: string[]): Promise<string> {
@@ -459,8 +489,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         commentorInfoById: {}
       };
       if (requestBody.detailsObject.maxComments) {
-        reply.totalComments = await db.countCardComments(card.id);
-        const cardComments = await db.findCardCommentsForCard(card.id, 0, 0, requestBody.detailsObject.maxComments);
+        reply.totalComments = await db.countCardComments(card.id, user.id);
+        const cardComments = await this.findCardCommentsForCard(user, card.id, 0, 0, requestBody.detailsObject.maxComments);
         for (const cardComment of cardComments) {
           reply.comments.push(await this.populateCardComment(request, user, cardComment, reply.commentorInfoById));
         }
@@ -1958,7 +1988,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
         sourceChannelId: sourceChannelId,
-        commentCount: await db.countCardComments(cardId)
+        commentCount: await db.countCardComments(cardId, user.id)
       };
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);
@@ -2256,7 +2286,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.post-card-comment", requestBody.detailsObject);
       const now = Date.now();
-      const commentRecord = await db.insertCardComment(user.id, now, card.id, requestBody.detailsObject.text, requestBody.detailsObject.metadata);
+      const commentRecord = await db.insertCardComment(user.id, now, card.id, requestBody.detailsObject.text, requestBody.detailsObject.metadata, user.curation === "blocked" ? "blocked" : null);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "comment", null, 0, null, 0, null, null, null);
       const notificationIds: string[] = [];
       if (card.createdById !== user.id) {
@@ -2265,7 +2295,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           notificationIds.push(card.createdById);
         }
       }
-      const comments = await db.findCardCommentsForCard(card.id, 0, 0, 100);
+      const comments = await this.findCardCommentsForCard(user, card.id, 0, 0, 100);
       for (const comment of comments) {
         if (comment.byId !== user.id) {
           if (notificationIds.indexOf(comment.byId) < 0) {
@@ -2308,8 +2338,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card-comments", requestBody.detailsObject);
-      const comments = await db.findCardCommentsForCard(card.id, requestBody.detailsObject.before, 0, requestBody.detailsObject.maxCount);
-      const count = await db.countCardComments(card.id, requestBody.detailsObject.before);
+      const comments = await this.findCardCommentsForCard(user, card.id, requestBody.detailsObject.before, 0, requestBody.detailsObject.maxCount);
+      const count = await db.countCardComments(card.id, user.id, requestBody.detailsObject.before);
       const reply: GetCardCommentsResponse = {
         serverVersion: SERVER_VERSION,
         comments: [],
@@ -2322,6 +2352,66 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleGetCardComments: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleAdminGetComments(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetCommentsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      const comments = await db.findCardCommentsRecent(200);
+      console.log("CardManager.admin-get-comments", requestBody.detailsObject);
+      const reply: AdminGetCommentsResponse = {
+        serverVersion: SERVER_VERSION,
+        comments: []
+      };
+      for (const comment of comments) {
+        const item: AdminCommentInfo = {
+          comment: comment,
+          by: await userManager.getUser(comment.byId, false),
+          card: await this.getCardById(comment.cardId, false)
+        };
+        reply.comments.push(item);
+      }
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminGetComments: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleAdminSetCommentCuration(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminSetCommentCurationDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      const comment = await db.findCardCommentById(requestBody.detailsObject.commentId);
+      if (!comment) {
+        response.status(404).send("No such comment");
+        return;
+      }
+      await db.updateCardCommentCuration(comment.id, requestBody.detailsObject.curation);
+      console.log("CardManager.admin-set-comment-curation", requestBody.detailsObject);
+      const reply: AdminSetCommentCurationResponse = {
+        serverVersion: SERVER_VERSION,
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminSetCommentCuration: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

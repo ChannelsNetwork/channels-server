@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -480,7 +480,11 @@ export class Database {
   private async initializeCardComments(): Promise<void> {
     this.cardComments = this.db.collection('cardComments');
     await this.cardComments.createIndex({ id: 1 }, { unique: true });
-    await this.cardComments.createIndex({ cardId: 1, at: -1 });
+    await this.cardComments.createIndex({ cardId: 1, curation: 1, byId: 1, at: -1 });
+    await this.cardComments.createIndex({ at: -1 });
+    await this.cardComments.createIndex({ byId: 1, at: -1 });
+
+    await this.cardComments.updateMany({ curation: { $exists: false } }, { $set: { curation: null } });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -3110,7 +3114,7 @@ export class Database {
     await this.adSlots.updateOne({ id: id }, { $set: update });
   }
 
-  async insertCardComment(byId: string, at: number, cardId: string, text: string, metadata: CardCommentMetadata): Promise<CardCommentRecord> {
+  async insertCardComment(byId: string, at: number, cardId: string, text: string, metadata: CardCommentMetadata, curation: CommentCurationType): Promise<CardCommentRecord> {
     const now = Date.now();
     const record: CardCommentRecord = {
       id: uuid.v4(),
@@ -3118,7 +3122,8 @@ export class Database {
       at: at,
       cardId: cardId,
       text: text,
-      metadata: metadata
+      metadata: metadata,
+      curation: curation
     };
     await this.cardComments.insertOne(record);
     return record;
@@ -3128,10 +3133,14 @@ export class Database {
     return this.cardComments.findOne<CardCommentRecord>({ id: id });
   }
 
-  async findCardCommentsForCard(cardId: string, before: number, since: number, maxCount: number): Promise<CardCommentRecord[]> {
+  getCardCommentsForCard(cardId: string, before: number, since: number, byId: string): Cursor<CardCommentRecord> {
     const query: any = {
       cardId: cardId
     };
+    query.$or = [
+      { curation: { $ne: "blocked" } },
+      { byId: byId },
+    ];
     if (before && since) {
       query.at = { $lt: before, $gt: since };
     } else if (before) {
@@ -3139,15 +3148,31 @@ export class Database {
     } else if (since) {
       query.at = { $gt: since };
     }
-    return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 }).limit(maxCount || 10).toArray();
+    return this.cardComments.find<CardCommentRecord>(query).sort({ at: -1 });
   }
 
-  async countCardComments(cardId: string, before = 0): Promise<number> {
+  async findCardCommentsRecent(maxCount: number): Promise<CardCommentRecord[]> {
+    return this.cardComments.find<CardCommentRecord>().sort({ at: -1 }).limit(maxCount || 100).toArray();
+  }
+
+  async countCardComments(cardId: string, byId: string, before = 0): Promise<number> {
     const query: any = { cardId: cardId };
+    query.$or = [
+      { curation: { $ne: "blocked" } },
+      { byId: byId },
+    ];
     if (before) {
       query.at = { $lt: before };
     }
     return this.cardComments.count(query);
+  }
+
+  async updateCardCommentCuration(commentId: string, curation: CommentCurationType): Promise<void> {
+    await this.cardComments.updateOne({ id: commentId }, { $set: { curation: curation } });
+  }
+
+  async updateCardCommentCurationForUser(userId: string, curation: CommentCurationType): Promise<void> {
+    await this.cardComments.updateMany({ byId: userId }, { $set: { curation: curation } });
   }
 
   async binUsersByAddedDate(periodsStarting: number[]): Promise<BinnedUserData[]> {

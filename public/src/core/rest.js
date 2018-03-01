@@ -668,6 +668,24 @@ class RestUtils {
     };
   }
 
+  static admin_getComments(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static admin_setCommentCuration(address, fingerprint, commentId, curation) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      commentId: commentId,
+      curation: curation
+    };
+  }
+
   static queryPage(address, fingerprint, url) {
     return {
       address: address,
