@@ -45,6 +45,16 @@
         white-space: nowrap;
       }
 
+      .widecell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+        max-width: 450px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
       .center {
         text-align: center;
       }
@@ -103,7 +113,7 @@
             <div class="cell">[[item.at]]</div>
             <div class="cell">[[item.commentByHandle]]</div>
             <div class="cell">[[item.commentByName]]</div>
-            <div class="cell">[[item.comment]]</div>
+            <div class="widecell">[[item.comment]]</div>
             <div class="cell">[[item.commentorCuration]]</div>
             <div class="cell">[[item.commentCuration]]</div>
             <div class="cell center toggle" on-click="_onBlockActionClick">[[item.blockAction]]</div>
