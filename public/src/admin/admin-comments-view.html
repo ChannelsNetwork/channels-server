@@ -1,0 +1,193 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+
+<dom-module id="admin-comments-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 30px 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+        max-width: 150px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <h1>Card Comments</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">Card</div>
+          <div class="headerCell">Card By</div>
+          <div class="headerCell">At</div>
+          <div class="headerCell">By Handle</div>
+          <div class="headerCell">By Name</div>
+          <div class="headerCell">Comment</div>
+          <div class="headerCell center">Commentor Curation</div>
+          <div class="headerCell center">Comment Curation</div>
+          <div class="headerCell center"></div>
+        </div>
+        <template is="dom-repeat" items="[[comments]]">
+          <div class="row">
+            <div class="cell">
+              <a href="[[item.cardUrl]]">[[item.cardTitle]]</a>
+            </div>
+            <div class="cell">[[item.cardAuthor]]</div>
+            <div class="cell">[[item.at]]</div>
+            <div class="cell">[[item.commentByHandle]]</div>
+            <div class="cell">[[item.commentByName]]</div>
+            <div class="cell">[[item.comment]]</div>
+            <div class="cell">[[item.commentorCuration]]</div>
+            <div class="cell">[[item.commentCuration]]</div>
+            <div class="cell center toggle" on-click="_onBlockActionClick">[[item.blockAction]]</div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminCommentsView extends Polymer.Element {
+      static get is() { return 'admin-comments-view'; }
+      static get properties() {
+        return {
+          comments: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('comments', []);
+        $core.admin_getComments().then((response) => {
+          const comments = [];
+          for (const commentInfo of response.comments) {
+            comments.push({
+              commentInfo: commentInfo,
+              cardUrl: '/c/' + commentInfo.card.id,
+              cardTitle: this._truncate(commentInfo.card.summary.title, 32),
+              cardAuthor: commentInfo.card.by.handle,
+              at: this._displayTimestamp(commentInfo.comment.at),
+              commentByHandle: commentInfo.by.identity.handle,
+              commentByName: commentInfo.by.identity.name,
+              comment: this._truncate(commentInfo.comment.text, 140),
+              commentorCuration: commentInfo.by.curation,
+              commentCuration: commentInfo.comment.curation,
+              blockAction: commentInfo.comment.curation ? "" : "block"
+            });
+          }
+          this.set('comments', comments);
+        });
+      }
+
+      _truncate(text, limit) {
+        if ((!text) || (text.length <= limit)) {
+          return text || "";
+        }
+        return (text.substring(0, limit - 3).trim() + "...");
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onBlockActionClick(event) {
+        $core.admin_setCommentCuration(event.model.item.commentInfo.comment.id, "blocked").then(() => {
+          this._refresh();
+        });
+      }
+    }
+    window.customElements.define(AdminCommentsView.is, AdminCommentsView);
+  </script>
+</dom-module>

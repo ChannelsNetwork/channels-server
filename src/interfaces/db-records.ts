@@ -55,6 +55,8 @@ export interface UserRecord {
 
 export type UserCurationType = "blocked" | "discounted";
 
+export type CommentCurationType = "blocked";
+
 export type UserStatus = "active" | "deleted";
 
 export interface UserMarketingInfo {
@@ -700,6 +702,7 @@ export interface CardCommentRecord {
   byId: string;
   text: string;
   metadata: CardCommentMetadata;
+  curation: CommentCurationType;
 }
 
 export interface CardCommentMetadata {

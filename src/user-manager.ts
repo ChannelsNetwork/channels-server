@@ -987,6 +987,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.updateCardsLastScoredByAuthor(user.id, true);
       }
       await db.updateUserCuration(user.id, requestBody.detailsObject.curation);
+      if (requestBody.detailsObject.curation === "blocked") {
+        await db.updateCardCommentCurationForUser(user.id, "blocked");
+      }
       await this.announceUserUpdated(user);
       const reply: AdminSetUserCurationResponse = {
         serverVersion: SERVER_VERSION

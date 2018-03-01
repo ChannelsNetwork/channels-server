@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -644,6 +644,18 @@ export interface AdminGetChannelsResponse extends RestResponse {
   channels: AdminChannelInfo[];
 }
 
+export interface AdminGetCommentsDetails extends Signable { }
+
+export interface AdminGetCommentsResponse extends RestResponse {
+  comments: AdminCommentInfo[];
+}
+
+export interface AdminCommentInfo {
+  comment: CardCommentRecord;
+  by: UserRecord;
+  card: CardRecord;
+}
+
 export interface AdminChannelInfo {
   channel: ChannelRecord;
   descriptor: ChannelDescriptor;
@@ -930,6 +942,13 @@ export interface AdminSetUserCurationDetails extends Signable {
 }
 
 export interface AdminSetUserCurationResponse extends RestResponse { }
+
+export interface AdminSetCommentCurationDetails extends Signable {
+  commentId: string;
+  curation: CommentCurationType;
+}
+
+export interface AdminSetCommentCurationResponse extends RestResponse { }
 
 export interface QueryPageDetails extends Signable {
   url: string;

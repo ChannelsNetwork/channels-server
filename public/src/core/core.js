@@ -796,7 +796,7 @@ class CoreService extends Polymer.Element {
     if (/^[0-9]{10,16}$/.test(phoneNumber)) {
       return true;
     }
-    const rePaypalMeLink = /^(https?\:\/\/)?paypal\.me\/\S+$/i;
+    const rePaypalMeLink = /^(https?\:\/\/)?(www\.)?paypal\.me\/\S+$/i;
     if (rePaypalMeLink.test(value)) {
       return true;
     }
@@ -1027,6 +1027,20 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.admin_getChannels(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-channels";
+    return this.rest.post(url, request);
+  }
+
+  admin_getComments() {
+    let details = RestUtils.admin_getComments(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-comments";
+    return this.rest.post(url, request);
+  }
+
+  admin_setCommentCuration(commentId, curation) {
+    let details = RestUtils.admin_setCommentCuration(this._keys.address, this._fingerprint, commentId, curation);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-set-comment-curation";
     return this.rest.post(url, request);
   }
 
