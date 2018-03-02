@@ -184,18 +184,19 @@ export class FeedManager implements Initializable, RestServer {
     const result: CardDescriptor[] = [];
     if (channel && channel.state === 'active') {
       let cursor = db.getChannelCardsPinnedByChannel(channel.id);
-      const pinned = true;
+      let pinned = true;
       while (true) {
         if (!await cursor.hasNext()) {
           if (pinned) {
             await cursor.close();
             cursor = db.getChannelCardsUnpinnedByChannel(channel.id, 0);
+            pinned = false;
+            if (!await cursor.hasNext()) {
+              break;
+            }
           } else {
             break;
           }
-        }
-        if (!await cursor.hasNext()) {
-          break;
         }
         const channelCard = await cursor.next();
         const card = await db.findCardById(channelCard.cardId, false);
@@ -961,12 +962,12 @@ export class FeedManager implements Initializable, RestServer {
             await cursor.close();
             cursor = channelManager.getCardsInChannelUnpinned(channel.id, 0, 0);
             pinned = false;
+            if (!await cursor.hasNext()) {
+              break;
+            }
           } else {
             break;
           }
-        }
-        if (!await cursor.hasNext()) {
-          break;
         }
         const channelCard = await cursor.next();
         const card = await db.findCardById(channelCard.cardId, false);
