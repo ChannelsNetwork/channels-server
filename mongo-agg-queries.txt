@@ -2001,3 +2001,62 @@ db.adSlots.aggregate([
 ])
 
 
+What is the fraud from a given publisher?
+
+db.userCardActions.aggregate([
+  {$match: {
+    authorId: "75013838-fc15-45f2-ac71-a34f3ebe46a4",
+    cardId: "7dd03b1d-7388-4cd7-b7bf-593f9a1d5a4a",
+    action: "pay",
+    fraudReason: {$exists: true}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "userId",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    buyerId: "$user.id",
+    city: "$user.city",
+    country: "$user.country",
+    originalReferrer: "$user.originalReferrer"
+  }},
+  {$group: {
+    _id: "$originalReferrer",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    authorId: "75013838-fc15-45f2-ac71-a34f3ebe46a4",
+    cardId: "7dd03b1d-7388-4cd7-b7bf-593f9a1d5a4a",
+    action: "pay",
+    fraudReason: {$exists: true}
+  }},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "userId",
+    foreignField: "userId",
+    as: "registration"
+  }},
+  {$unwind: "$registration"},
+  {$project: {
+    buyerId: "$userId",
+    agent: "$registration.userAgent",
+  }},
+  {$group: {
+    _id: "$agent",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+  {$group: {
+    _id: "$agent",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
