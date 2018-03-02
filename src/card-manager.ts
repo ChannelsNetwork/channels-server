@@ -457,24 +457,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (cardState.pricing.openFeeUnits > 1 && user.firstCardPurchasedId) {
         delay += (cardState.pricing.openFeeUnits - 1) * CARD_PAYMENT_DELAY_PER_LEVEL;
       }
-      const now = Date.now();
-      if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
-        const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
-        // Here, we're seeing if this is a new user and there have been a lot of other new users from the same
-        // IP address recently, in which case, this may be someone using incognito windows to fraudulently
-        // purchase cards.  So we slow down payment based on how recently other users from the same IP
-        // address were registered
-        for (const otherUser of otherUsers) {
-          if (otherUser.id === user.id) {
-            continue;
-          }
-          if (now - otherUser.added > MINIMUM_USER_FRAUD_AGE) {
-            break;
-          }
-          delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
-          errorManager.warning("Card.handleGetCard: imposing extra delay penalty", request, delay);
-        }
-      }
+      // const now = Date.now();
+      // if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
+      //   const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
+      //   // Here, we're seeing if this is a new user and there have been a lot of other new users from the same
+      //   // IP address recently, in which case, this may be someone using incognito windows to fraudulently
+      //   // purchase cards.  So we slow down payment based on how recently other users from the same IP
+      //   // address were registered
+      //   for (const otherUser of otherUsers) {
+      //     if (otherUser.id === user.id) {
+      //       continue;
+      //     }
+      //     if (now - otherUser.added > MINIMUM_USER_FRAUD_AGE) {
+      //       break;
+      //     }
+      //     delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
+      //     errorManager.warning("Card.handleGetCard: imposing extra delay penalty", request, delay);
+      //   }
+      // }
       let promotedCard: CardDescriptor;
       if (requestBody.detailsObject.includePromotedCard && !cardState.promoted) {
         promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, cardState, requestBody.detailsObject.channelIdContext);

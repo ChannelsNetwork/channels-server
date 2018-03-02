@@ -1457,7 +1457,7 @@ export class Database {
   async findRandomImpressionAdCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
     let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
-    console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
+    // console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
       return null;
     }
@@ -1466,7 +1466,7 @@ export class Database {
       cursor = cursor.skip(skip);
     }
     const result = await cursor.next();
-    console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
+    // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
     await cursor.close();
     return result;
   }
@@ -1474,7 +1474,7 @@ export class Database {
   async findRandomPromotedCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
     let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
-    console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
+    // console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
       return null;
     }
@@ -1483,7 +1483,7 @@ export class Database {
       cursor = cursor.skip(skip);
     }
     const result = await cursor.next();
-    console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
+    // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
     await cursor.close();
     return result;
   }
