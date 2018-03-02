@@ -126,7 +126,7 @@ class CoreService extends Polymer.Element {
     return new Promise((resolve, reject) => {
       new Fingerprint2().get((result, components) => {
         let touch = this._isTouchScreen();
-        let mobile = this._isMobile();
+        let mobile = this._isMobile(userAgent);
         this._fingerprint = result + (touch ? "&" : '') + ((touch && mobile) ? "@" : '');
         resolve();
       });
