@@ -122,13 +122,30 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  _generateFingerprint() {
+  _generateFingerprint(userAgent) {
     return new Promise((resolve, reject) => {
       new Fingerprint2().get((result, components) => {
-        this._fingerprint = result;
+        if (this._isMobile(userAgent)) {
+          this._fingerprint = result + "@";
+        } else {
+          this._fingerprint = result;
+        }
         resolve();
       });
     });
+  }
+
+  _isMobile(userAgent) {
+    if (!userAgent) {
+      return false;
+    }
+    userAgent = userAgent.toLowerCase();
+    for (const value of ['iphone', 'ipad', 'android']) {
+      if (userAgent.indexOf(value) >= 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   register(inviteCode, retrying) {
@@ -149,14 +166,14 @@ class CoreService extends Polymer.Element {
       if (!this._keys) {
         throw "No private key found";
       }
-      return this._generateFingerprint().then(() => {
+      const userAgent = window.navigator ? window.navigator.userAgent : null;
+      return this._generateFingerprint(userAgent).then(() => {
         const referrer = document.referrer;
         const landingPageUrl = window.location.href;
         let landingCardId = null;
         if (landingPageUrl && /\/c\/\S+$/i.test(landingPageUrl)) {
           landingCardId = landingPageUrl.toLowerCase().split("/c/")[1].split("?")[0];
         }
-        const userAgent = window.navigator ? window.navigator.userAgent : null;
         let details = RestUtils.registerUserDetails(this._keys.address, this._fingerprint, this._keys.publicKeyPem, inviteCode, referrer, landingPageUrl, userAgent, landingCardId);
         let request = this._createRequest(details);
         const url = this.restBase + "/register-user";

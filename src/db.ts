@@ -463,7 +463,12 @@ export class Database {
     this.userRegistrations = this.db.collection('userRegistrations');
     await this.userRegistrations.createIndex({ userId: 1, at: -1 });
     await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
-    await this.userRegistrations.createIndex({ userId: 1, fingerprint: 1 });
+    await this.userRegistrations.createIndex({ mobile: 1, userId: 1, fingerprint: 1 });
+
+    const result = await this.userRegistrations.updateMany({ mobile: { $exists: false } }, { $set: { isMobile: false } });
+    if (result.matchedCount > 0) {
+      await this.userRegistrations.updateMany({ userAgent: /(iphone|ipad|android)/i }, { $set: { isMobile: true } });
+    }
   }
 
   private async initializeChannelKeywords(): Promise<void> {
@@ -3022,12 +3027,13 @@ export class Database {
     }
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
-  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
+  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, isMobile: boolean, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,
       at: Date.now(),
       ipAddress: ipAddress ? ipAddress.toLowerCase() : null,
       fingerprint: fingerprint,
+      isMobile: isMobile,
       address: address,
       referrer: referrer,
       landingPage: landingPage,
@@ -3043,7 +3049,7 @@ export class Database {
   }
 
   async findUserRegistrationDistinctFingerprints(userId: string): Promise<string[]> {
-    return this.userRegistrations.distinct('fingerprint', { userId: userId, fingerprint: { $ne: null } });
+    return this.userRegistrations.distinct('fingerprint', { mobile: false, userId: userId, fingerprint: { $ne: null } });
   }
 
   async findUserIdsByFingerprint(fingerprints: string[]): Promise<string[]> {

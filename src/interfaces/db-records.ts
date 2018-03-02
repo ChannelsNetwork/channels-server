@@ -663,6 +663,7 @@ export interface UserRegistrationRecord {
   at: number;
   ipAddress: string;
   fingerprint: string;
+  isMobile: boolean;
   address: string;
   referrer: string;
   landingPage: string;
