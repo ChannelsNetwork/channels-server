@@ -469,8 +469,24 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
 
-  getCardsInChannels(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
-    return db.getChannelCardsInChannels(channelIds, postedBefore, postedAfter);
+  getCardsInChannelsPinned(channelIds: string[]): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsPinnedInChannels(channelIds);
+  }
+
+  getCardsInChannelsUnpinned(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsUnpinnedInChannels(channelIds, postedBefore, postedAfter);
+  }
+
+  getCardsInChannelPinned(channelId: string): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsPinnedByChannel(channelId);
+  }
+
+  getCardsInChannelUnpinned(channelId: string, postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsUnpinnedInChannel(channelId, postedBefore, postedAfter);
+  }
+
+  getCardsInChannelsAll(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsAllInChannels(channelIds, postedBefore, postedAfter);
   }
 
   async findSubscribedChannelIdsForUser(user: UserRecord, force: boolean): Promise<string[]> {
@@ -527,15 +543,15 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
 
-  private async populateChannelCardsSince(request: Request, user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
-    const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
-    const result: CardDescriptor[] = [];
-    for (const channelCard of channelCards) {
-      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, channel.id, user);
-      result.push(descriptor);
-    }
-    return result;
-  }
+  // private async populateChannelCardsSince(request: Request, user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
+  //   const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
+  //   const result: CardDescriptor[] = [];
+  //   for (const channelCard of channelCards) {
+  //     const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, channel.id, user);
+  //     result.push(descriptor);
+  //   }
+  //   return result;
+  // }
   private async getSubscribedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     return this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference, false);
   }
@@ -1008,7 +1024,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
     const since = Math.max(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
-    const cursor = await db.getChannelCardsInChannels(channelIds, Date.now(), since);
+    const cursor = await db.getChannelCardsAllInChannels(channelIds, Date.now(), since);
     const cards: CardDescriptor[] = [];
     const sentChannelIds: string[] = [];
     while (await cursor.hasNext()) {
@@ -1026,7 +1042,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
             const cardUser = await db.findUserCardInfo(user.id, card.id);
             if (!cardUser || cardUser.lastOpened === 0) {
-              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, user);
+              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, null, user);
               cards.push(descriptor);
               if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
                 sentChannelIds.push(channelCard.channelId);

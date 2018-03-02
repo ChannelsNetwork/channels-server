@@ -242,6 +242,12 @@ export interface CardDescriptor {
   reasons: ReportCardReason[];
   sourceChannelId: string;
   commentCount: number;
+  pinning?: ChannelCardPinInfo;
+}
+
+export interface ChannelCardPinInfo {
+  pinned: boolean;
+  order: number;
 }
 
 export interface CardSummary {
