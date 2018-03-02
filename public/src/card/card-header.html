@@ -56,6 +56,10 @@
         font-size: 14px;
         z-index: 2;
       }
+
+      .menuDivider {
+        border-top: 1px solid #d8d8d8;
+      }
     </style>
     <div class="horizontal layout center bar">
       <user-image id="authorImage" on-click="_openUserChannel"></user-image>
@@ -70,14 +74,11 @@
 
       <!-- Drop downs -->
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
-        <li on-click="_editCard">Edit Card</li>
-        <!-- <li on-click="_editPricing">Card Pricing</li> -->
+        <li on-click="_togglePin">[[pinActionLabel]]</li>
+        <li on-click="_editCard" class="menuDivider">Edit Card</li>
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
-      <!-- <soso-dropdown for="authorImage" alignment="left" offset="5">
-        <li on-click="_openUserChannel">More by [[data.by.name]]</li>
-      </soso-dropdown> -->
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
         <li on-click="_facebook">Share on Facebook</li>
@@ -106,7 +107,8 @@
             observer: '_refresh'
           },
           iconMap: Object,
-          noShare: Boolean
+          noShare: Boolean,
+          pinActionLabel: String
         };
       }
 
@@ -124,6 +126,7 @@
 
       _refresh() {
         if (this._attached && this.data) {
+          this.pinActionLabel = "Pin to top";
           if (!this.data.postedAtDisplay) {
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
@@ -180,26 +183,6 @@
         this._refreshPrivate();
       }
 
-      // _makePrivate() {
-      //   this._updatePrivate(true);
-      // }
-
-      // _makePublic() {
-      //   this._updatePrivate(false);
-      // }
-
-      // _updatePrivate(isPrivate) {
-      //   if (this.data) {
-      //     $core.updateCardPrivate(this.data.id, isPrivate).then((response) => {
-      //       this.data.private = response.newValue;
-      //       this._refreshPrivate();
-      //     }).catch((err) => {
-      //       console.error("Failed to updated private flag", err);
-      //       $app.showError("Failed to updated private flag.");
-      //     });
-      //   }
-      // }
-
       _deleteCard() {
         $app.confirm("This will delete this card permanently.  Are you sure?", null, "Delete").then((result) => {
           if (result) {
@@ -211,6 +194,11 @@
             });
           }
         });
+      }
+
+      _togglePin() {
+        // TODO: = preet
+        console.log('Pin');
       }
 
       _analytics() {
