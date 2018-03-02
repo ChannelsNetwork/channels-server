@@ -90,7 +90,7 @@
     <div id="container" class="horizontal layout wrap">
       <dom-repeat items="[[items]]">
         <template>
-          <card-container data="[[item]]"></card-container>
+          <card-container data="[[item]]" show-pin-action="[[showPinAction]]"></card-container>
         </template>
       </dom-repeat>
       <div id="more" class="horizontal layout center hidden">
@@ -123,7 +123,8 @@
           clickableLabel: {
             type: Boolean,
             observer: '_refreshClickableLabel'
-          }
+          },
+          showPinAction: Boolean
         };
       }
 

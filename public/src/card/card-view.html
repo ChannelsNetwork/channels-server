@@ -259,7 +259,7 @@
               <div id="posBar"></div>
             </div>
           </div>
-          <card-header id="cardHeader" data="[[data]]" on-summary-updated="_onSummaryUpdated"></card-header>
+          <card-header id="cardHeader" data="[[data]]" show-pin-action="[[showPinAction]]" on-summary-updated="_onSummaryUpdated"></card-header>
         </div>
       </div>
       <div id="price">
@@ -292,7 +292,8 @@
           priceTip: String,
           priceTipPosition: String,
           promotedTip: String,
-          iconMap: Object
+          iconMap: Object,
+          showPinAction: Boolean
         };
       }
 
