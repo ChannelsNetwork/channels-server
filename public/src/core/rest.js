@@ -872,6 +872,17 @@ class RestUtils {
     };
   }
 
+  static setChannelCardPinning(address, fingerprint, channelId, cardId, pinned) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      cardId: cardId,
+      pinned: pinned
+    };
+  }
+
   static cardCommentMetadata(fields) {
     return {
       fields: fields

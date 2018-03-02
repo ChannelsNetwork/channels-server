@@ -1164,3 +1164,11 @@ export interface GetCardCommentsResponse extends RestResponse {
   commentorInfoById: { [id: string]: CommentorInfo };
   moreAvailable: boolean;
 }
+
+export interface SetChannelCardPinningDetails extends Signable {
+  channelId: string;
+  cardId: string;
+  pinned: boolean;
+}
+
+export interface SetChannelCardPinningResponse extends RestResponse { }

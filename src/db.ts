@@ -3063,6 +3063,10 @@ export class Database {
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
 
+  async updateChannelCardPinning(channelId: string, cardId: string, pinned: boolean, pinPriority: number): Promise<void> {
+    await this.channelCards.updateOne({channelId: channelId, cardId: cardId}, {$set: {pinned: pinned, pinPriority: pinPriority}});
+  }
+
   async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,
