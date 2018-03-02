@@ -1736,7 +1736,7 @@ db.userCardActions.aggregate([
 How many successful publishers and what was their cumulative revenue as of a specific point in time?
 
 db.users.aggregate([
-  {$match: {lastPosted: {$gt: 0}, added: {$lt: 1513730111000}, "curation": {$exists: false}}},
+  {$match: {lastPosted: {$gt: 0}, added: {$lt: 1519953731000}, "curation": {$exists: false}}},
   {$project: {
     _id: 0,
     id: 1,
@@ -1745,7 +1745,7 @@ db.users.aggregate([
   }},
   {$lookup: {from: "userCardActions", localField: "id", foreignField: "authorId", as: "action"}},
   {$unwind: "$action"},
-  {$match: {"action.action": "pay", "action.at": {$lt: 1513730111000}, "action.fraudReason": {$exists: false}}},
+  {$match: {"action.action": "pay", "action.at": {$lt: 1519953731000}, "action.fraudReason": {$exists: false}}},
   {$project: {
     id: 1,
     handle: 1,
@@ -1857,7 +1857,7 @@ db.cards.aggregate([
   }},
   {$bucket: {
       groupBy: "$postedAt",
-      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000, 1520382911000],
       default: -1,
       output: {
         cards: {$sum: 1},
@@ -1886,7 +1886,7 @@ db.userCardActions.aggregate([
   }},
   {$bucket: {
       groupBy: "$postedAt",
-      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000, 1520382911000],
       default: -1,
       output: {
         purchases: {$sum: 1},
@@ -1917,7 +1917,7 @@ db.adSlots.aggregate([
   }},
   {$bucket: {
       groupBy: "$created",
-      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000, 1520382911000],
       default: -1,
       output: {
         adslots: {$sum: 1},
@@ -1936,12 +1936,13 @@ db.adSlots.aggregate([
 Now, only pure advertisements
 
 db.adSlots.aggregate([
-  {$match: {status: {$ne: "pending"}, type: {$in: ["announcement", "impression-ad", "open-payment"]}}},
+  {$match: {status: {$ne: "pending"}, type: {$in: ["impression-ad", "open-payment"]}}},
   {$lookup: {from: "users", localField: "authorId", foreignField: "id", as: "advertiser"}},
   {$unwind: "$advertiser"},
   {$project: {  
     created: "$created",  
-    cardId: "$cardId",    
+    cardId: "$cardId",  
+    type: "$type",  
     advertiserId: "$advertiser.id",
     country: "$advertiser.country",
     redeemed: "$redeemed",
@@ -1949,11 +1950,13 @@ db.adSlots.aggregate([
   }},
   {$bucket: {
       groupBy: "$created",
-      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000],
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000, 1520382911000],
       default: -1,
       output: {
         adslots: {$sum: 1},
-        redemptions: {$sum: { $cond: { if: "$redeemed" , then: 1, else: 0 } }},
+        payImpressions: {$sum: { $cond: { if: {$eq: ["$type", "impression-ad"]} , then: 1, else: 0 } }},
+        payToOpens: {$sum: { $cond: { if: {$eq: ["$type", "open-payment"]} , then: 1, else: 0 } }},
+        openRedemptions: {$sum: { $cond: { if: {$and: ["$redeemed", {$eq: ["$type", "open-payment"]}]} , then: 1, else: 0 } }},
         advertisers: { $addToSet: "$advertiserId" },
         cards: {$addToSet: "$cardId"},
         countries: {$addToSet: "$country"},
@@ -1961,7 +1964,40 @@ db.adSlots.aggregate([
       }
   }},
   {$project: {
-    adslots: 1, redemptions: 1, advertisers: {$size: "$advertisers"}, cards: {$size: "$cards"}, expenses: 1, countries: {$size: "$countries"}
+    adslots: 1, payImpressions: 1, payToOpens: 1, openRedemptions: 1, advertisers: {$size: "$advertisers"}, cards: {$size: "$cards"}, expenses: 1, countries: {$size: "$countries"}
   }}  
 ])
+
+Now, tell me about advertisement consumers
+
+db.adSlots.aggregate([
+  {$match: {status: {$ne: "pending"}}},
+  {$lookup: {from: "users", localField: "userId", foreignField: "id", as: "consumer"}},
+  {$unwind: "$consumer"},
+  {$project: {  
+    created: "$created",  
+    cardId: "$cardId",    
+    consumerId: "$consumer.id",
+    country: "$consumer.country",
+    redeemed: "$redeemed",
+    revenue: { $cond: { if: "$redeemed", then: "$amount", else: 0 } },
+  }},
+  {$bucket: {
+      groupBy: "$created",
+      boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000, 1520382911000],
+      default: -1,
+      output: {
+        adslots: {$sum: 1},
+        redemptions: {$sum: { $cond: { if: "$redeemed" , then: 1, else: 0 } }},
+        consumers: { $addToSet: "$consumerId" },
+        cards: {$addToSet: "$cardId"},
+        countries: {$addToSet: "$country"},
+        revenue: {$sum: "$revenue"},
+      }
+  }},
+  {$project: {
+    adslots: 1, redemptions: 1, consumers: {$size: "$consumers"}, cards: {$size: "$cards"}, revenue: 1, countries: {$size: "$countries"}
+  }}  
+])
+
 
