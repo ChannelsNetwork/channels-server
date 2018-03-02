@@ -317,7 +317,8 @@
       <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
     </soso-app-header>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
-    <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest" on-more="_onMore"></sectioned-card-list>
+    <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action on-card-open-request="_onCardOpenRequest"
+      on-more="_onMore"></sectioned-card-list>
     <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
   </template>
   <script>

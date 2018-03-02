@@ -58,7 +58,7 @@
       }
 
       .menuDivider {
-        border-top: 1px solid #d8d8d8;
+        border-bottom: 1px solid #d8d8d8;
       }
     </style>
     <div class="horizontal layout center bar">
@@ -74,8 +74,8 @@
 
       <!-- Drop downs -->
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
-        <li on-click="_togglePin">[[pinActionLabel]]</li>
-        <li on-click="_editCard" class="menuDivider">Edit Card</li>
+        <li id="pinAction" on-click="_togglePin" class="menuDivider">[[pinActionLabel]]</li>
+        <li on-click="_editCard">Edit Card</li>
         <li on-click="_analytics">Analytics</li>
         <li on-click="_deleteCard">Delete</li>
       </soso-dropdown>
@@ -108,7 +108,11 @@
           },
           iconMap: Object,
           noShare: Boolean,
-          pinActionLabel: String
+          pinActionLabel: String,
+          showPinAction: {
+            type: Boolean,
+            observer: '_refreshPinned'
+          }
         };
       }
 
@@ -126,7 +130,6 @@
 
       _refresh() {
         if (this._attached && this.data) {
-          this.pinActionLabel = "Pin to top";
           if (!this.data.postedAtDisplay) {
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
           }
@@ -141,11 +144,24 @@
           this._refreshRevenue();
           this._refreshPrivate();
           this._refreshMore();
+          this._refreshPinned();
           if (this.noShare) {
             this.$.shareIcon.classList.add("hidden");
           } else {
             this.$.shareIcon.classList.remove("hidden");
           }
+        }
+      }
+
+      _refreshPinned() {
+        if (this.data) {
+          this._pinned = this.data.pinning && this.data.pinning.pinned;
+          this.pinActionLabel = this._pinned ? "Unpin" : "Pin to top";
+        }
+        if (this.showPinAction && this.data) {
+          this.$.pinAction.classList.remove("hidden");
+        } else {
+          this.$.pinAction.classList.add("hidden");
         }
       }
 
@@ -197,6 +213,11 @@
       }
 
       _togglePin() {
+        if (this._pinned) {
+
+        } else {
+
+        }
         // TODO: = preet
         console.log('Pin');
       }
