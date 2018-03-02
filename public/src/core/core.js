@@ -52,8 +52,9 @@ class CoreService extends Polymer.Element {
     this._pendingRegistrations = [];
   }
 
-  _isMobile(userAgent) {
-    return ((userAgent || '').toLowerCase().indexOf('mobi') >= 0) && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+  _isMobile() {
+    const userAgent = window.navigator ? window.navigator.userAgent : '';
+    return (userAgent.toLowerCase().indexOf('mobi') >= 0) && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
   }
 
   agreeToTnCs() {
