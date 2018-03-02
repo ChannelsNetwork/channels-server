@@ -125,27 +125,20 @@ class CoreService extends Polymer.Element {
   _generateFingerprint(userAgent) {
     return new Promise((resolve, reject) => {
       new Fingerprint2().get((result, components) => {
-        if (this._isMobile(userAgent)) {
-          this._fingerprint = result + "@";
-        } else {
-          this._fingerprint = result;
-        }
+        let touch = this._isTouchScreen();
+        let mobile = this._isMobile();
+        this._fingerprint = result + (touch ? "&" : '') + ((touch && mobile) ? "@" : '');
         resolve();
       });
     });
   }
 
+  _isTouchScreen() {
+    return (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+  }
+
   _isMobile(userAgent) {
-    if (!userAgent) {
-      return false;
-    }
-    userAgent = userAgent.toLowerCase();
-    for (const value of ['iphone', 'ipad', 'android']) {
-      if (userAgent.indexOf(value) >= 0) {
-        return true;
-      }
-    }
-    return false;
+    return (userAgent || '').toLowerCase().indexOf('mobi') >= 0;
   }
 
   register(inviteCode, retrying) {
