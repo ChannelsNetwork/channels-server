@@ -3093,7 +3093,7 @@ export class Database {
     if (mobile) {
       query.ipAddress = ipAddress;
     }
-    const record = await this.userRegistrations.find<UserRegistrationRecord>().limit(1).toArray();
+    const record = await this.userRegistrations.find<UserRegistrationRecord>(query).limit(1).toArray();
     return record.length > 0 ? true : false;
   }
 
