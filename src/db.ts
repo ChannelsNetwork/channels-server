@@ -448,8 +448,9 @@ export class Database {
     await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
     await this.channelCards.createIndex({ state: 1, channelId: 1, cardId: 1 });
     await this.channelCards.createIndex({ state: 1, cardId: 1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, pinned: -1, pinPriority: -1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, pinned: 1, cardLastPosted: -1 });
     await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: -1 });
-    await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: 1 });
 
     await this.channelCards.updateMany({ state: { $exists: false } }, {
       $set: {
@@ -457,6 +458,7 @@ export class Database {
         removed: 0
       }
     });
+    await this.channelCards.updateMany({ pinned: { $exists: false } }, { $set: { pinned: false, pinPriority: 0 } });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
@@ -2941,7 +2943,9 @@ export class Database {
       state: 'inactive',
       cardPostedAt: 0,
       added: 0,
-      removed: 0
+      removed: 0,
+      pinned: false,
+      pinPriority: 0
     };
     await this.channelCards.insertOne(record);
     return record;
@@ -2952,14 +2956,14 @@ export class Database {
     return this.channelCards.findOne<ChannelCardRecord>(query);
   }
 
-  async findChannelCardFirstByChannel(channelId: string): Promise<ChannelCardRecord> {
-    const result = await this.channelCards.find<ChannelCardRecord>({ state: 'active', channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
-    if (result.length > 0) {
-      return result[0];
-    } else {
-      return null;
-    }
-  }
+  // async findChannelCardFirstByChannel(channelId: string): Promise<ChannelCardRecord> {
+  //   const result = await this.channelCards.find<ChannelCardRecord>({ state: 'active', channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
+  //   if (result.length > 0) {
+  //     return result[0];
+  //   } else {
+  //     return null;
+  //   }
+  // }
 
   async findChannelCardsByCard(cardId: string, maxCount: number): Promise<ChannelCardRecord[]> {
     if (maxCount === 0) {
@@ -3000,14 +3004,14 @@ export class Database {
     });
   }
 
-  async findChannelCardsByChannel(channelId: string, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
-    if (maxCount === 0) {
-      return [];
-    }
-    return this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
-  }
+  // async findChannelCardsByChannel(channelId: string, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
+  //   if (maxCount === 0) {
+  //     return [];
+  //   }
+  //   return this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
+  // }
 
-  getChannelCardsInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
+  getChannelCardsAllInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
     const query: any = { state: 'active', channelId: { $in: channelIds } };
     const cardPostedAt: any = { $gt: after };
     if (before && after) {
@@ -3020,13 +3024,54 @@ export class Database {
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
 
-  getChannelCardsByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
-    const query: any = { state: 'active', channelId: channelId };
+  getChannelCardsPinnedInChannels(channelIds: string[]): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: { $in: channelIds }, pinned: true };
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ pinPriority: -1, cardPostedAt: -1 });
+  }
+
+  getChannelCardsUnpinnedInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: { $in: channelIds }, pinned: false };
+    const cardPostedAt: any = { $gt: after };
+    if (before && after) {
+      query.cardPostedAt = { $gt: after, $lte: before };
+    } else if (before) {
+      query.cardPostedAt = { $lte: before };
+    } else if (after) {
+      query.cardPostedAt = { $gt: after };
+    }
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
+  }
+
+  getChannelCardsPinnedByChannel(channelId: string): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId, pinned: true };
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ pinPriority: -1 });
+  }
+
+  getChannelCardsUnpinnedByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId, pinned: false };
     if (since) {
       query.since = { $gte: since };
     }
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
+
+  getChannelCardsUnpinnedInChannel(channelId: string, before: number, after: number): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId, pinned: false };
+    const cardPostedAt: any = { $gt: after };
+    if (before && after) {
+      query.cardPostedAt = { $gt: after, $lte: before };
+    } else if (before) {
+      query.cardPostedAt = { $lte: before };
+    } else if (after) {
+      query.cardPostedAt = { $gt: after };
+    }
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
+  }
+
+  async updateChannelCardPinning(channelId: string, cardId: string, pinned: boolean, pinPriority: number): Promise<void> {
+    await this.channelCards.updateOne({ channelId: channelId, cardId: cardId }, { $set: { pinned: pinned, pinPriority: pinPriority } });
+  }
+
   async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, isMobile: boolean, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,

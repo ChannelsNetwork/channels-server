@@ -758,6 +758,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  setChannelCardPinning(channelId, cardId, pinned) {
+    let details = RestUtils.setChannelCardPinning(this._keys.address, this._fingerprint, channelId, cardId, pinned);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/set-channel-card-pinning";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
