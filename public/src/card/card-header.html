@@ -213,13 +213,7 @@
       }
 
       _togglePin() {
-        if (this._pinned) {
-
-        } else {
-
-        }
-        // TODO: = preet
-        console.log('Pin');
+        this.dispatchEvent(new CustomEvent('update-pinning', { bubbles: true, composed: true, detail: { card: this.data.id, pinned: !this._pinned } }));
       }
 
       _analytics() {

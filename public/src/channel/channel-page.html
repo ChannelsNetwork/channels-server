@@ -318,7 +318,7 @@
     </soso-app-header>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
     <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action on-card-open-request="_onCardOpenRequest"
-      on-more="_onMore"></sectioned-card-list>
+      on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
     <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
   </template>
   <script>
@@ -518,14 +518,19 @@
         this._moreAvailable = false;
         this._lastCardId = null;
         this._fetchTimestamp = (new Date()).getTime();
+        this._pinnedCount = 0;
         return $core.getFeed("channel", 60, null, null, this._handle, []).then((feed) => {
           let list = [];
           for (let i = 0; i < feed.cards.length; i++) {
-            list.push(feed.cards[i]);
-            if (feed.cards[i].promoted) {
-              this._promotedCardIds.push(feed.cards[i].id);
+            let card = feed.cards[i];
+            list.push(card);
+            if (card.promoted) {
+              this._promotedCardIds.push(card.id);
             } else {
-              this._lastCardId = feed.cards[i].id;
+              this._lastCardId = card.id;
+            }
+            if (card.pinning && card.pinning.pinned) {
+              this._pinnedCount++;
             }
           }
           this.items = list;
@@ -670,6 +675,23 @@
           context.returnPath = "/channel/" + encodeURIComponent(this._handle);
         }
         $router.goto("/compose", context);
+      }
+
+      _updateCradPinning(event) {
+        let card = event.detail.card;
+        let pinned = event.detail.pinned;
+        if (this.channel && card) {
+          if (pinned && (this._pinnedCount >= 4)) {
+            $app.showError("You can only pin four cards in a channel. Unpin one of your other cards and try again.");
+            return;
+          }
+          $core.setChannelCardPinning(this.channel.id, card, pinned).then(() => {
+            this._refreshFeed();
+          }).catch(err => {
+            console.error(err);
+            $app.showError(err);
+          });
+        }
       }
     }
     window.customElements.define(ChannelPage.is, ChannelPage);
