@@ -328,7 +328,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           userRecord.balance += inviteeReward;
         }
       }
-      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, requestBody.detailsObject.fingerprint && requestBody.detailsObject.fingerprint.endsWith('@'), requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
+      const isMobile = requestBody.detailsObject.userAgent && requestBody.detailsObject.userAgent.toLowerCase().indexOf('mobi') >= 0;
+      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
 
       const userStatus = await this.getUserStatus(request, userRecord, true);
       const registerResponse: RegisterUserResponse = {

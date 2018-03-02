@@ -518,7 +518,7 @@ class CoreService extends Polymer.Element {
     const transaction = RestUtils.bankTransaction(this._keys.address, this._fingerprint, "transfer", "card-open-fee", cardId, null, amount, recipients);
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
-    let details = RestUtils.cardPayDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
+    let details = RestUtils.cardPayDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature, this._isMobile());
     let request = this._createRequest(details);
     const url = this.restBase + "/card-pay";
     return this.rest.post(url, request).then((response) => {

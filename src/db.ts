@@ -3043,8 +3043,12 @@ export class Database {
     return record;
   }
 
-  async existsUserRegistrationByFingerprint(userId: string, fingerprint: string): Promise<boolean> {
-    const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, fingerprint: fingerprint }).limit(1).toArray();
+  async existsUserRegistrationByFingerprint(userId: string, fingerprint: string, mobile: boolean, ipAddress: string): Promise<boolean> {
+    const query: any = { userId: userId, fingerprint: fingerprint };
+    if (mobile) {
+      query.ipAddress = ipAddress;
+    }
+    const record = await this.userRegistrations.find<UserRegistrationRecord>().limit(1).toArray();
     return record.length > 0 ? true : false;
   }
 

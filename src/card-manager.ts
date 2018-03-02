@@ -984,8 +984,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (card.curation && card.curation.block) {
         skipMoneyTransfer = true;
         paymentCategory = "blocked";
-      } else if (requestBody.detailsObject.fingerprint && !this.isFingerprintMobile(requestBody.detailsObject.fingerprint)) {
-        const authorRegistrationFound = await db.existsUserRegistrationByFingerprint(author.id, requestBody.detailsObject.fingerprint);
+      } else if (requestBody.detailsObject.fingerprint) {
+        const authorRegistrationFound = await db.existsUserRegistrationByFingerprint(author.id, requestBody.detailsObject.fingerprint, requestBody.detailsObject.mobile, ipAddress);
         if (authorRegistrationFound) {
           discountReason = "author-fingerprint";
           errorManager.warning("Card.payCard: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
@@ -1056,13 +1056,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       errorManager.error("User.handleCardPay: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
-  }
-
-  private isFingerprintMobile(fingerprint: string): boolean {
-    if (!fingerprint) {
-      return false;
-    }
-    return fingerprint.endsWith('@');
   }
 
   private getPurchaseWeight(priorPurchases: number): number {

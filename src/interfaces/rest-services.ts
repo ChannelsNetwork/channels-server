@@ -458,6 +458,7 @@ export interface CardClickedResponse extends RestResponseWithUserStatus {
 
 export interface CardPayDetails extends Signable {
   transaction: SignedObject;
+  mobile: boolean;
 }
 
 export interface CardPayResponse extends RestResponseWithUserStatus {

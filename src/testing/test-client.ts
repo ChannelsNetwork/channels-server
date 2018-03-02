@@ -632,7 +632,8 @@ class TestClient implements RestServer {
       transaction: {
         objectString: transactionString,
         signature: transactionSignature
-      }
+      },
+      mobile: false
     };
     const detailsString = JSON.stringify(details);
     const request: RestRequest<CardPayDetails> = {
