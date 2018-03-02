@@ -442,6 +442,7 @@ export interface UserCardActionPaymentInfo {
   category: CardPaymentCategory;
   weight: number;
   weightedRevenue: number;
+  mobile: boolean;
 }
 
 export interface UserCardActionReportInfo {

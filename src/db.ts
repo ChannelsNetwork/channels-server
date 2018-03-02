@@ -2135,8 +2135,12 @@ export class Database {
     return this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
   }
 
-  async countUserCardsPaidFromFingerprint(cardId: string, fromFingerprint: string): Promise<number> {
-    return this.userCardActions.count({ cardId: cardId, action: "pay", fromFingerprint: fromFingerprint });
+  async countUserCardsPaidFromFingerprint(cardId: string, fromFingerprint: string, ipAddress: string): Promise<number> {
+    const query: any = { cardId: cardId, action: "pay", fromFingerprint: fromFingerprint };
+    if (ipAddress) {
+      query.fromIpAddress = ipAddress;
+    }
+    return this.userCardActions.count(query);
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {

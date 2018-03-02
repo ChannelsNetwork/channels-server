@@ -992,7 +992,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           skipMoneyTransfer = true;
           paymentCategory = "fraud";
         } else {
-          const alreadyFromThisBrowser = await db.countUserCardsPaidFromFingerprint(card.id, requestBody.detailsObject.fingerprint);
+          const alreadyFromThisBrowser = await db.countUserCardsPaidFromFingerprint(card.id, requestBody.detailsObject.fingerprint, requestBody.detailsObject.mobile ? ipAddress : null);
           if (alreadyFromThisBrowser > 0) {
             discountReason = "prior-payor-fingerprint";
             errorManager.warning("Card.payCard: Silently skipping payment because already purchased from this address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
@@ -1030,7 +1030,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         transactionId: transactionResult.record.id,
         category: paymentCategory,
         weight: weight,
-        weightedRevenue: weight * amount
+        weightedRevenue: weight * amount,
+        mobile: requestBody.detailsObject.mobile ? true : false
       };
       await db.updateUserFirstCardPurchased(user.id, card.id);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason, null);
