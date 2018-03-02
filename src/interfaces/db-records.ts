@@ -654,6 +654,8 @@ export interface ChannelCardRecord {
   cardPostedAt: number;
   added: number;
   removed: number;
+  pinned: boolean;
+  pinPriority: number;
 }
 
 export type ChannelCardState = "active" | "inactive";

@@ -242,6 +242,12 @@ export interface CardDescriptor {
   reasons: ReportCardReason[];
   sourceChannelId: string;
   commentCount: number;
+  pinning?: ChannelCardPinInfo;
+}
+
+export interface ChannelCardPinInfo {
+  pinned: boolean;
+  order: number;
 }
 
 export interface CardSummary {
@@ -1158,3 +1164,11 @@ export interface GetCardCommentsResponse extends RestResponse {
   commentorInfoById: { [id: string]: CommentorInfo };
   moreAvailable: boolean;
 }
+
+export interface SetChannelCardPinningDetails extends Signable {
+  channelId: string;
+  cardId: string;
+  pinned: boolean;
+}
+
+export interface SetChannelCardPinningResponse extends RestResponse { }
