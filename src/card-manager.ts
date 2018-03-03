@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -448,7 +448,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, null, null, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -457,24 +457,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (cardState.pricing.openFeeUnits > 1 && user.firstCardPurchasedId) {
         delay += (cardState.pricing.openFeeUnits - 1) * CARD_PAYMENT_DELAY_PER_LEVEL;
       }
-      const now = Date.now();
-      if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
-        const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
-        // Here, we're seeing if this is a new user and there have been a lot of other new users from the same
-        // IP address recently, in which case, this may be someone using incognito windows to fraudulently
-        // purchase cards.  So we slow down payment based on how recently other users from the same IP
-        // address were registered
-        for (const otherUser of otherUsers) {
-          if (otherUser.id === user.id) {
-            continue;
-          }
-          if (now - otherUser.added > MINIMUM_USER_FRAUD_AGE) {
-            break;
-          }
-          delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
-          errorManager.warning("Card.handleGetCard: imposing extra delay penalty", request, delay);
-        }
-      }
+      // const now = Date.now();
+      // if (user.ipAddresses.length > 0 && now - user.added < MINIMUM_USER_FRAUD_AGE) {
+      //   const otherUsers = await db.findUsersByIpAddress(user.ipAddresses[user.ipAddresses.length - 1]);
+      //   // Here, we're seeing if this is a new user and there have been a lot of other new users from the same
+      //   // IP address recently, in which case, this may be someone using incognito windows to fraudulently
+      //   // purchase cards.  So we slow down payment based on how recently other users from the same IP
+      //   // address were registered
+      //   for (const otherUser of otherUsers) {
+      //     if (otherUser.id === user.id) {
+      //       continue;
+      //     }
+      //     if (now - otherUser.added > MINIMUM_USER_FRAUD_AGE) {
+      //       break;
+      //     }
+      //     delay += REPEAT_CARD_PAYMENT_DELAY * (MINIMUM_USER_FRAUD_AGE - (now - otherUser.added)) / MINIMUM_USER_FRAUD_AGE;
+      //     errorManager.warning("Card.handleGetCard: imposing extra delay penalty", request, delay);
+      //   }
+      // }
       let promotedCard: CardDescriptor;
       if (requestBody.detailsObject.includePromotedCard && !cardState.promoted) {
         promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, cardState, requestBody.detailsObject.channelIdContext);
@@ -985,14 +985,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         skipMoneyTransfer = true;
         paymentCategory = "blocked";
       } else if (requestBody.detailsObject.fingerprint) {
-        const authorRegistrationFound = await db.existsUserRegistrationByFingerprint(author.id, requestBody.detailsObject.fingerprint);
+        const authorRegistrationFound = await db.existsUserRegistrationByFingerprint(author.id, requestBody.detailsObject.fingerprint, requestBody.detailsObject.mobile, ipAddress);
         if (authorRegistrationFound) {
           discountReason = "author-fingerprint";
           errorManager.warning("Card.payCard: Silently skipping payment because viewer IP address and fingerprint is same as author's IP address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
           skipMoneyTransfer = true;
           paymentCategory = "fraud";
         } else {
-          const alreadyFromThisBrowser = await db.countUserCardsPaidFromFingerprint(card.id, requestBody.detailsObject.fingerprint);
+          const alreadyFromThisBrowser = await db.countUserCardsPaidFromFingerprint(card.id, requestBody.detailsObject.fingerprint, requestBody.detailsObject.mobile ? ipAddress : null);
           if (alreadyFromThisBrowser > 0) {
             discountReason = "prior-payor-fingerprint";
             errorManager.warning("Card.payCard: Silently skipping payment because already purchased from this address and fingerprint", request, ipAddress, requestBody.detailsObject.fingerprint);
@@ -1030,7 +1030,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         transactionId: transactionResult.record.id,
         category: paymentCategory,
         weight: weight,
-        weightedRevenue: weight * amount
+        weightedRevenue: weight * amount,
+        mobile: requestBody.detailsObject.mobile ? true : false
       };
       await db.updateUserFirstCardPurchased(user.id, card.id);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason, null);
@@ -1877,7 +1878,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, user);
+    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, null, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -1902,7 +1903,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1990,6 +1991,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         sourceChannelId: sourceChannelId,
         commentCount: await db.countCardComments(cardId, user ? user.id : null)
       };
+      if (pinInfo) {
+        card.pinning = pinInfo;
+      }
       if (card.stats.reports > 0) {
         const cardReports = await db.findUserCardActionReports(card.id, 5);
         for (const report of cardReports) {
@@ -2344,7 +2348,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         serverVersion: SERVER_VERSION,
         comments: [],
         commentorInfoById: {},
-        moreAvailable: comments.length < count
+        moreAvailable: comments.length < count && comments.length > 0
       };
       for (const comment of comments) {
         reply.comments.push(await this.populateCardComment(request, user, comment, reply.commentorInfoById));

@@ -64,7 +64,7 @@
     <dom-repeat items="[[sections]]">
       <template>
         <div class$="{{getPanelClass(item)}}">
-          <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]"></card-list>
+          <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" show-pin-action="[[showPinAction]]"></card-list>
         </div>
       </template>
     </dom-repeat>
@@ -90,7 +90,8 @@
             type: Boolean,
             observer: '_refreshMore'
           },
-          label: String
+          label: String,
+          showPinAction: Boolean
         };
       }
 

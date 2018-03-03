@@ -28,7 +28,8 @@
           data: {
             type: Object,
             observer: '_onData'
-          }
+          },
+          showPinAction: Boolean
         };
       }
 
@@ -64,6 +65,7 @@
           view = new CardView();
         }
         view.data = this.data;
+        view.showPinAction = this.showPinAction;
         this.$.container.appendChild(view);
       }
 

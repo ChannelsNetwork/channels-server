@@ -442,6 +442,7 @@ export interface UserCardActionPaymentInfo {
   category: CardPaymentCategory;
   weight: number;
   weightedRevenue: number;
+  mobile: boolean;
 }
 
 export interface UserCardActionReportInfo {
@@ -654,6 +655,8 @@ export interface ChannelCardRecord {
   cardPostedAt: number;
   added: number;
   removed: number;
+  pinned: boolean;
+  pinPriority: number;
 }
 
 export type ChannelCardState = "active" | "inactive";
@@ -663,6 +666,7 @@ export interface UserRegistrationRecord {
   at: number;
   ipAddress: string;
   fingerprint: string;
+  isMobile: boolean;
   address: string;
   referrer: string;
   landingPage: string;
