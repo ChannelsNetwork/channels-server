@@ -1059,6 +1059,7 @@ class CoreService extends Polymer.Element {
     result.ka = "Georgian";
     result.de = "German";
     result.el = "Greek";
+    result.hi = "Hindi";
     result.id = "Indonesian";
     result.it = "Italian";
     result.ja = "Japanese";
