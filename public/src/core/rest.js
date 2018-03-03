@@ -356,7 +356,7 @@ class RestUtils {
     };
   }
 
-  static cardPayDetails(address, fingerprint, cardId, transactionString, transactionSignature) {
+  static cardPayDetails(address, fingerprint, cardId, transactionString, transactionSignature, mobile) {
     return {
       address: address,
       fingerprint: fingerprint,
@@ -364,7 +364,8 @@ class RestUtils {
       transaction: {
         objectString: transactionString,  // serialized bankTransaction
         signature: transactionSignature
-      }
+      },
+      mobile: mobile
     };
   }
 
@@ -869,6 +870,17 @@ class RestUtils {
       cardId: cardId,
       before: before,
       maxCount: maxCount
+    };
+  }
+
+  static setChannelCardPinning(address, fingerprint, channelId, cardId, pinned) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      cardId: cardId,
+      pinned: pinned
     };
   }
 

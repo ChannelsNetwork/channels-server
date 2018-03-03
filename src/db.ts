@@ -448,8 +448,9 @@ export class Database {
     await this.channelCards.createIndex({ channelId: 1, cardId: 1 }, { unique: true });
     await this.channelCards.createIndex({ state: 1, channelId: 1, cardId: 1 });
     await this.channelCards.createIndex({ state: 1, cardId: 1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, pinned: -1, pinPriority: -1 });
+    await this.channelCards.createIndex({ state: 1, channelId: 1, pinned: 1, cardLastPosted: -1 });
     await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: -1 });
-    await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: 1 });
 
     await this.channelCards.updateMany({ state: { $exists: false } }, {
       $set: {
@@ -457,13 +458,19 @@ export class Database {
         removed: 0
       }
     });
+    await this.channelCards.updateMany({ pinned: { $exists: false } }, { $set: { pinned: false, pinPriority: 0 } });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
     this.userRegistrations = this.db.collection('userRegistrations');
     await this.userRegistrations.createIndex({ userId: 1, at: -1 });
     await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
-    await this.userRegistrations.createIndex({ userId: 1, fingerprint: 1 });
+    await this.userRegistrations.createIndex({ mobile: 1, userId: 1, fingerprint: 1 });
+
+    const result = await this.userRegistrations.updateMany({ mobile: { $exists: false } }, { $set: { isMobile: false } });
+    if (result.matchedCount > 0) {
+      await this.userRegistrations.updateMany({ userAgent: /(iphone|ipad|android)/i }, { $set: { isMobile: true } });
+    }
   }
 
   private async initializeChannelKeywords(): Promise<void> {
@@ -1450,7 +1457,7 @@ export class Database {
   async findRandomImpressionAdCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
     let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
-    console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
+    // console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
       return null;
     }
@@ -1459,7 +1466,7 @@ export class Database {
       cursor = cursor.skip(skip);
     }
     const result = await cursor.next();
-    console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
+    // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
     await cursor.close();
     return result;
   }
@@ -1467,7 +1474,7 @@ export class Database {
   async findRandomPromotedCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
     let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
-    console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
+    // console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
       return null;
     }
@@ -1476,7 +1483,7 @@ export class Database {
       cursor = cursor.skip(skip);
     }
     const result = await cursor.next();
-    console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
+    // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
     await cursor.close();
     return result;
   }
@@ -2128,8 +2135,12 @@ export class Database {
     return this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
   }
 
-  async countUserCardsPaidFromFingerprint(cardId: string, fromFingerprint: string): Promise<number> {
-    return this.userCardActions.count({ cardId: cardId, action: "pay", fromFingerprint: fromFingerprint });
+  async countUserCardsPaidFromFingerprint(cardId: string, fromFingerprint: string, ipAddress: string): Promise<number> {
+    const query: any = { cardId: cardId, action: "pay", fromFingerprint: fromFingerprint };
+    if (ipAddress) {
+      query.fromIpAddress = ipAddress;
+    }
+    return this.userCardActions.count(query);
   }
 
   async countUserCardsPaidInTimeframe(userId: string, from: number, to: number): Promise<number> {
@@ -2936,7 +2947,9 @@ export class Database {
       state: 'inactive',
       cardPostedAt: 0,
       added: 0,
-      removed: 0
+      removed: 0,
+      pinned: false,
+      pinPriority: 0
     };
     await this.channelCards.insertOne(record);
     return record;
@@ -2947,14 +2960,14 @@ export class Database {
     return this.channelCards.findOne<ChannelCardRecord>(query);
   }
 
-  async findChannelCardFirstByChannel(channelId: string): Promise<ChannelCardRecord> {
-    const result = await this.channelCards.find<ChannelCardRecord>({ state: 'active', channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
-    if (result.length > 0) {
-      return result[0];
-    } else {
-      return null;
-    }
-  }
+  // async findChannelCardFirstByChannel(channelId: string): Promise<ChannelCardRecord> {
+  //   const result = await this.channelCards.find<ChannelCardRecord>({ state: 'active', channelId: channelId }).sort({ cardPostedAt: 1 }).limit(1).toArray();
+  //   if (result.length > 0) {
+  //     return result[0];
+  //   } else {
+  //     return null;
+  //   }
+  // }
 
   async findChannelCardsByCard(cardId: string, maxCount: number): Promise<ChannelCardRecord[]> {
     if (maxCount === 0) {
@@ -2995,14 +3008,14 @@ export class Database {
     });
   }
 
-  async findChannelCardsByChannel(channelId: string, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
-    if (maxCount === 0) {
-      return [];
-    }
-    return this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
-  }
+  // async findChannelCardsByChannel(channelId: string, since: number, maxCount: number): Promise<ChannelCardRecord[]> {
+  //   if (maxCount === 0) {
+  //     return [];
+  //   }
+  //   return this.getChannelCardsByChannel(channelId, since).limit(maxCount || 100).toArray();
+  // }
 
-  getChannelCardsInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
+  getChannelCardsAllInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
     const query: any = { state: 'active', channelId: { $in: channelIds } };
     const cardPostedAt: any = { $gt: after };
     if (before && after) {
@@ -3015,19 +3028,61 @@ export class Database {
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
 
-  getChannelCardsByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
-    const query: any = { state: 'active', channelId: channelId };
+  getChannelCardsPinnedInChannels(channelIds: string[]): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: { $in: channelIds }, pinned: true };
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ pinPriority: -1, cardPostedAt: -1 });
+  }
+
+  getChannelCardsUnpinnedInChannels(channelIds: string[], before: number, after: number): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: { $in: channelIds }, pinned: false };
+    const cardPostedAt: any = { $gt: after };
+    if (before && after) {
+      query.cardPostedAt = { $gt: after, $lte: before };
+    } else if (before) {
+      query.cardPostedAt = { $lte: before };
+    } else if (after) {
+      query.cardPostedAt = { $gt: after };
+    }
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
+  }
+
+  getChannelCardsPinnedByChannel(channelId: string): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId, pinned: true };
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ pinPriority: -1 });
+  }
+
+  getChannelCardsUnpinnedByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId, pinned: false };
     if (since) {
       query.since = { $gte: since };
     }
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
-  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
+
+  getChannelCardsUnpinnedInChannel(channelId: string, before: number, after: number): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId, pinned: false };
+    const cardPostedAt: any = { $gt: after };
+    if (before && after) {
+      query.cardPostedAt = { $gt: after, $lte: before };
+    } else if (before) {
+      query.cardPostedAt = { $lte: before };
+    } else if (after) {
+      query.cardPostedAt = { $gt: after };
+    }
+    return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
+  }
+
+  async updateChannelCardPinning(channelId: string, cardId: string, pinned: boolean, pinPriority: number): Promise<void> {
+    await this.channelCards.updateOne({ channelId: channelId, cardId: cardId }, { $set: { pinned: pinned, pinPriority: pinPriority } });
+  }
+
+  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, isMobile: boolean, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
       userId: userId,
       at: Date.now(),
       ipAddress: ipAddress ? ipAddress.toLowerCase() : null,
       fingerprint: fingerprint,
+      isMobile: isMobile,
       address: address,
       referrer: referrer,
       landingPage: landingPage,
@@ -3037,13 +3092,17 @@ export class Database {
     return record;
   }
 
-  async existsUserRegistrationByFingerprint(userId: string, fingerprint: string): Promise<boolean> {
-    const record = await this.userRegistrations.find<UserRegistrationRecord>({ userId: userId, fingerprint: fingerprint }).limit(1).toArray();
+  async existsUserRegistrationByFingerprint(userId: string, fingerprint: string, mobile: boolean, ipAddress: string): Promise<boolean> {
+    const query: any = { userId: userId, fingerprint: fingerprint };
+    if (mobile) {
+      query.ipAddress = ipAddress;
+    }
+    const record = await this.userRegistrations.find<UserRegistrationRecord>(query).limit(1).toArray();
     return record.length > 0 ? true : false;
   }
 
   async findUserRegistrationDistinctFingerprints(userId: string): Promise<string[]> {
-    return this.userRegistrations.distinct('fingerprint', { userId: userId, fingerprint: { $ne: null } });
+    return this.userRegistrations.distinct('fingerprint', { mobile: false, userId: userId, fingerprint: { $ne: null } });
   }
 
   async findUserIdsByFingerprint(fingerprints: string[]): Promise<string[]> {

@@ -52,6 +52,11 @@ class CoreService extends Polymer.Element {
     this._pendingRegistrations = [];
   }
 
+  _isMobile() {
+    const userAgent = window.navigator ? window.navigator.userAgent : '';
+    return (userAgent.toLowerCase().indexOf('mobi') >= 0) && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+  }
+
   agreeToTnCs() {
     this.storage.setItem(_CKeys.AGREED_TERMS, true, true);
   }
@@ -513,7 +518,7 @@ class CoreService extends Polymer.Element {
     const transaction = RestUtils.bankTransaction(this._keys.address, this._fingerprint, "transfer", "card-open-fee", cardId, null, amount, recipients);
     const transactionString = JSON.stringify(transaction);
     const transactionSignature = this._sign(transactionString);
-    let details = RestUtils.cardPayDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature);
+    let details = RestUtils.cardPayDetails(this._keys.address, this._fingerprint, cardId, transactionString, transactionSignature, this._isMobile());
     let request = this._createRequest(details);
     const url = this.restBase + "/card-pay";
     return this.rest.post(url, request).then((response) => {
@@ -750,6 +755,13 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.getCardComments(this._keys.address, this._fingerprint, cardId, before, maxCount);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card-comments";
+    return this.rest.post(url, request);
+  }
+
+  setChannelCardPinning(channelId, cardId, pinned) {
+    let details = RestUtils.setChannelCardPinning(this._keys.address, this._fingerprint, channelId, cardId, pinned);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/set-channel-card-pinning";
     return this.rest.post(url, request);
   }
 

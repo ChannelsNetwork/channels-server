@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults, AdminGetChannelsDetails, AdminGetChannelsResponse, AdminChannelInfo, AdminUpdateChannelDetails, AdminUpdateChannelResponse, UpdateChannelCardDetails, UpdateChannelCardResponse, GetChannelCardDetails, GetChannelCardResponse, ChannelCardInfo } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, GetChannelDetails, GetChannelResponse, ChannelDescriptor, GetChannelsDetails, GetChannelsResponse, ChannelFeedType, UpdateChannelDetails, UpdateChannelResponse, UpdateChannelSubscriptionDetails, UpdateChannelSubscriptionResponse, ChannelDescriptorWithCards, CardDescriptor, ReportChannelVisitDetails, ReportChannelVisitResponse, SearchChannelResults, AdminGetChannelsDetails, AdminGetChannelsResponse, AdminChannelInfo, AdminUpdateChannelDetails, AdminUpdateChannelResponse, UpdateChannelCardDetails, UpdateChannelCardResponse, GetChannelCardDetails, GetChannelCardResponse, ChannelCardInfo, SetChannelCardPinningDetails, SetChannelCardPinningResponse } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
@@ -154,6 +154,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     });
     this.app.post(this.urlManager.getDynamicUrl('update-channel-card'), (request: Request, response: Response) => {
       void this.handleUpdateChannelCard(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('set-channel-card-pinning'), (request: Request, response: Response) => {
+      void this.handleSetChannelCardPinning(request, response);
     });
   }
 
@@ -469,8 +472,24 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
 
-  getCardsInChannels(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
-    return db.getChannelCardsInChannels(channelIds, postedBefore, postedAfter);
+  getCardsInChannelsPinned(channelIds: string[]): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsPinnedInChannels(channelIds);
+  }
+
+  getCardsInChannelsUnpinned(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsUnpinnedInChannels(channelIds, postedBefore, postedAfter);
+  }
+
+  getCardsInChannelPinned(channelId: string): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsPinnedByChannel(channelId);
+  }
+
+  getCardsInChannelUnpinned(channelId: string, postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsUnpinnedInChannel(channelId, postedBefore, postedAfter);
+  }
+
+  getCardsInChannelsAll(channelIds: string[], postedBefore: number, postedAfter: number): Cursor<ChannelCardRecord> {
+    return db.getChannelCardsAllInChannels(channelIds, postedBefore, postedAfter);
   }
 
   async findSubscribedChannelIdsForUser(user: UserRecord, force: boolean): Promise<string[]> {
@@ -527,15 +546,15 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return result;
   }
 
-  private async populateChannelCardsSince(request: Request, user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
-    const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
-    const result: CardDescriptor[] = [];
-    for (const channelCard of channelCards) {
-      const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, channel.id, user);
-      result.push(descriptor);
-    }
-    return result;
-  }
+  // private async populateChannelCardsSince(request: Request, user: UserRecord, channel: ChannelRecord, since: number, maxCards: number): Promise<CardDescriptor[]> {
+  //   const channelCards = await db.findChannelCardsByChannel(channel.id, since, maxCards);
+  //   const result: CardDescriptor[] = [];
+  //   for (const channelCard of channelCards) {
+  //     const descriptor = await cardManager.populateCardState(request, channelCard.cardId, false, false, null, channel.id, user);
+  //     result.push(descriptor);
+  //   }
+  //   return result;
+  // }
   private async getSubscribedChannels(user: UserRecord, maxChannels: number, maxCardsPerChannel: number, nextPageReference: string): Promise<ChannelsRecordsInfo> {
     return this.getChannelsByState(user, maxChannels, maxCardsPerChannel, "subscribed", nextPageReference, false);
   }
@@ -893,6 +912,45 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
+  private async handleSetChannelCardPinning(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<SetChannelCardPinningDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      requestBody.detailsObject = JSON.parse(requestBody.details);
+      if (!requestBody.detailsObject.channelId || !requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing channel and/or card");
+        return;
+      }
+      const channel = await db.findChannelById(requestBody.detailsObject.channelId);
+      if (!channel || channel.state !== 'active') {
+        response.status(404).send("No such channel");
+        return;
+      }
+      const card = await db.findCardById(requestBody.detailsObject.cardId, false);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      if (channel.ownerId !== user.id) {
+        response.status(401).send("You are not the channel owner");
+        return;
+      }
+      console.log("ChannelManager.set-channel-card-pinning:", request.headers, requestBody.detailsObject);
+      const channelCard = await db.ensureChannelCard(channel.id, card.id);
+      await db.updateChannelCardPinning(channel.id, card.id, requestBody.detailsObject.pinned ? true : false, requestBody.detailsObject.pinned ? Date.now() : 0);
+      const result: SetChannelCardPinningResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(result);
+    } catch (err) {
+      errorManager.error("ChannelManager.handleSetChannelCardPinning: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleReportChannelVisit(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<ReportChannelVisitDetails>;
@@ -1008,7 +1066,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
     const since = Math.max(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
-    const cursor = await db.getChannelCardsInChannels(channelIds, Date.now(), since);
+    const cursor = await db.getChannelCardsAllInChannels(channelIds, Date.now(), since);
     const cards: CardDescriptor[] = [];
     const sentChannelIds: string[] = [];
     while (await cursor.hasNext()) {
@@ -1026,7 +1084,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
             const cardUser = await db.findUserCardInfo(user.id, card.id);
             if (!cardUser || cardUser.lastOpened === 0) {
-              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, user);
+              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, null, user);
               cards.push(descriptor);
               if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
                 sentChannelIds.push(channelCard.channelId);
