@@ -2348,7 +2348,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         serverVersion: SERVER_VERSION,
         comments: [],
         commentorInfoById: {},
-        moreAvailable: comments.length < count
+        moreAvailable: comments.length < count && comments.length > 0
       };
       for (const comment of comments) {
         reply.comments.push(await this.populateCardComment(request, user, comment, reply.commentorInfoById));
