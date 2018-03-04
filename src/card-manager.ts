@@ -479,6 +479,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (requestBody.detailsObject.includePromotedCard && !cardState.promoted) {
         promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, cardState, requestBody.detailsObject.channelIdContext);
       }
+      if (requestBody.detailsObject.maxComments > 0) {
+        await db.updateUserCardLastCommentFetch(user.id, card.id, Date.now());
+      }
       const reply: GetCardResponse = {
         serverVersion: SERVER_VERSION,
         card: cardState,
@@ -2344,6 +2347,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.get-card-comments", requestBody.detailsObject);
       const comments = await this.findCardCommentsForCard(user, card.id, requestBody.detailsObject.before, 0, requestBody.detailsObject.maxCount);
       const count = await db.countCardComments(card.id, user.id, requestBody.detailsObject.before);
+      await db.updateUserCardLastCommentFetch(user.id, card.id, Date.now());
       const reply: GetCardCommentsResponse = {
         serverVersion: SERVER_VERSION,
         comments: [],
