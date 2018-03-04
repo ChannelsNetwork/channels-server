@@ -1867,7 +1867,11 @@ db.cards.aggregate([
       }
   }},
   {$project: {
-    cards: 1, publishers: {$size: "$publishers"}, revenue: "$revenue", countries: {$size: "$countries"}
+    cards: 1, 
+    publishers: {$size: "$publishers"}, 
+    revenue: "$revenue", 
+    countries: {$size: "$countries"},
+    cardsPerPublisher: {$divide: ["$cards", {$size: "$publishers"}]}
   }}
 ])
 
@@ -2001,6 +2005,9 @@ db.adSlots.aggregate([
 ])
 
 
+
+
+
 What is the fraud from a given publisher?
 
 db.userCardActions.aggregate([
@@ -2060,3 +2067,179 @@ db.userCardActions.aggregate([
     count: {$sum: 1}
   }},
   {$sort: {count: -1}}
+
+How many users have purchased at least one card?
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    fraudReason: {$exists: false}    
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$group: {
+    _id: "all",
+    count: {$sum: 1},
+    revenue: {$sum: "$revenue"}
+  }}
+])
+
+db.channelCards.aggregate([
+  {$match: {
+    pinned: true
+  }},
+  {$group: {
+    _id: "$channelId",
+    count: {$sum: 1}
+  }},
+  {$lookup: {
+    from: "channels",
+    localField: "_id",
+    foreignField: "id",
+    as: "channel"
+  }},
+  {$unwind: "$channel"},
+  {$project: {
+    count: 1,
+    handle: "$channel.handle"
+  }},
+  {$sort: {
+    count: -1
+  }}
+])
+
+db.adSlots.aggregate([
+  {$match: {
+    redeemed: true,
+    type: {$in: ["open-payment", "click-payment"]}
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$project: {
+    count: 1, 
+    revenue: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance"
+  }},
+  {$sort: {count: -1}}
+])
+
+db.adSlots.aggregate([
+  {$match: {
+    redeemed: true,
+    type: {$in: ["open-payment", "click-payment"]}
+  }},
+  {$bucket: {
+    groupBy: "$userBalance",
+    boundaries: [0, 0.1, 0.25, 0.50, 0.75, 1, 1.5, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 4.5, 5, 6, 8, 10, 15, 25, 100],
+    default: -1,
+    output: {
+      total: { $sum: 1 },
+    }
+  }},
+])
+
+db.users.aggregate([
+  {$match: {
+    type: "normal",
+    lastContact: {$gt: 1518830524000}
+  }},
+  {$bucket: {
+    groupBy: "$balance",
+    boundaries: [-100, 0, 0.1, 0.25, 0.50, 0.75, 1, 1.5, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 4.5, 5, 6, 8, 10, 15, 25, 100, 1000],
+    default: -999,
+    output: {
+      total: { $sum: 1 },
+    }
+  }},
+])
+
+db.users.aggregate([
+  {$match: {
+    type: "normal",
+    lastContact: {$gt: 1518830524000}
+  }},
+  {$bucket: {
+    groupBy: "$added",
+    boundaries: [1513125311000, 1513730111000, 1514334911000, 1514939711000, 1515544511000, 1516149311000, 1516754111000, 1517358911000, 1517963711000, 1518568511000,1519173311000, 1519778111000, 1520382911000],
+    default: -1,
+    output: {
+      total: { $sum: 1 },
+    }
+  }},
+])
+
+What much advertising revenue is available to users?
+
+db.cards.aggregate([
+  {$match: {
+    "pricing.openPayment": {$gt: 0},
+	  "budget.available": true
+  }},
+  {$group: {
+    _id: {createdById: "$createdById", handle: "$by.handle"},
+    count: {$sum: 1},
+    potential: {$sum: "$pricing.openPayment"},
+    budget: {$sum: "$budget.amount"},
+    spent: {$sum: "$budget.spent"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id.createdById",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1, 
+    potential: 1,
+    budget: 1,
+    spent: 1,
+    balance: "$user.balance"
+  }},
+  {$sort: {count: -1}},
+  {$group: {
+    _id: "all",
+    advertisers: {$sum: 1},
+    potential: {$sum: "$potential"}
+  }}
+])
+
+Who has spent the most on content?
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay"    
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    spent: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1, 
+    spent: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance"
+  }},
+  {$sort: {spent: -1}}
+])
