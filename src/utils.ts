@@ -136,4 +136,35 @@ export class Utils {
     value = value / Math.pow(10, places);
     return value;
   }
+
+  static interpolateRanges(rangeValues: RangeValue[], input: number): number {
+    if (input < rangeValues[0].lowerBound) {
+      return rangeValues[0].value;
+    }
+    for (let i = 1; i < rangeValues.length; i++) {
+      if (input < rangeValues[i].lowerBound) {
+        return this.interpolateValues(rangeValues[i - 1], rangeValues[i], input);
+      }
+    }
+    return rangeValues[rangeValues.length - 1].value;
+  }
+
+  static interpolateValues(lower: RangeValue, upper: RangeValue, input: number): number {
+    const range = upper.lowerBound - lower.lowerBound;
+    if (range === 0) {
+      return (upper.value + lower.value) / 2;
+    }
+    if (input < lower.lowerBound) {
+      return lower.value;
+    }
+    if (input > upper.lowerBound) {
+      return upper.value;
+    }
+    return lower.value * (input - lower.lowerBound) / range + upper.value * (upper.lowerBound - input) / range;
+  }
+}
+
+export interface RangeValue {
+  lowerBound: number;
+  value: number;
 }

@@ -24,7 +24,7 @@ import * as path from "path";
 import * as fs from 'fs';
 import { Cursor } from "mongodb";
 import { channelsComponentManager } from "./channels-component-manager";
-import { Utils } from "./utils";
+import { Utils, RangeValue } from "./utils";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 
@@ -59,6 +59,34 @@ const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
+
+const adToContentRatioByBalance: RangeValue[] = [
+  { lowerBound: 0, value: 0.25 },
+  { lowerBound: 1, value: 0.25 },
+  { lowerBound: 2.5, value: 0.15 },
+  { lowerBound: 5, value: 0 },
+];
+
+const payToOpenFractionByBalance: RangeValue[] = [
+  { lowerBound: 0, value: 1 },
+  { lowerBound: 1, value: 0.50 },
+  { lowerBound: 2.5, value: 0.25 },
+  { lowerBound: 5, value: 0 },
+];
+
+const adImpressionFractionByBalance: RangeValue[] = [
+  { lowerBound: 0, value: 0 },
+  { lowerBound: 1, value: 0.25 },
+  { lowerBound: 2.5, value: 0.30 },
+  { lowerBound: 5, value: 0.35 },
+];
+
+const contentImpressionFractionByBalance: RangeValue[] = [
+  { lowerBound: 0, value: 0 },
+  { lowerBound: 1, value: 0.25 },
+  { lowerBound: 2.5, value: 0.45 },
+  { lowerBound: 5, value: 0.65 },
+];
 
 export class FeedManager implements Initializable, RestServer {
   private app: express.Application;
@@ -390,13 +418,19 @@ export class FeedManager implements Initializable, RestServer {
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
   private positionAdSlots(user: UserRecord, cardCount: number, more: boolean): AdSlotInfo {
-    if (user.balance >= user.targetBalance || cardCount === 0) {
+    if (user.balance >= user.targetBalance || cardCount <= 1) {
       return { slotCount: 0, slotSeparation: 0, firstSlotIndex: 0 };
     }
-    const revenueNeedRatio = 1 - user.balance / user.targetBalance;
-    const adRatio = MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO + (MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO - MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO) * revenueNeedRatio;
-    const slotCount = Math.max(Math.round(cardCount * adRatio), 1);
-    const firstSlotIndex = more ? 0 : Math.round((1 / adRatio) * (1 - revenueNeedRatio));
+    // Based on the user balance, we choose the appropriate ratio between ads and
+    // content
+    const adRatio = Utils.interpolateRanges(adToContentRatioByBalance, user.balance);
+    const count = cardCount * adRatio;
+    const slotCount = user.balance < 2.5 ? Math.ceil(count) : Math.floor(count);
+
+    // const revenueNeedRatio = 1 - user.balance / user.targetBalance;
+    // const adRatio = MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO + (MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO - MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO) * revenueNeedRatio;
+    // const slotCount = Math.max(Math.round(cardCount * adRatio), 1);
+    const firstSlotIndex = more ? 0 : Math.round((1 / adRatio));
     const slotSeparation = Math.ceil(1 / adRatio);
     return {
       slotCount: slotCount,
@@ -552,25 +586,25 @@ export class FeedManager implements Initializable, RestServer {
     let noPayToOpens = false;
     let noImpressions = false;
     let noPromoted = false;
+    const payToOpenFraction = Utils.interpolateRanges(payToOpenFractionByBalance, user.balance);
+    const adImpressionFraction = Utils.interpolateRanges(adImpressionFractionByBalance, user.balance);
+    // const contentImpressionFraction = Utils.interpolateRanges(contentImpressionFractionByBalance, user.balance);
     while (tries++ < 200 && (!noPayToOpens || !noImpressions || !noPromoted)) {
       const value = Math.random();
       let card: CardRecord;
-      if (value < 0.25 && !noPayToOpens) {
-        // 25% pays-to-open/click
+      if (value < payToOpenFraction && !noPayToOpens) {
         card = await db.findRandomPayToOpenCard(user.id, excludedCardIds);
         if (!card) {
           noPayToOpens = true;
           console.warn("Feed.getNextAdCard: Found no eligible pays-to-open/click candidate");
         }
-      } else if (value < 0.5 && !noImpressions) {
-        // 25% pays-per-impression
+      } else if (value < (payToOpenFraction + adImpressionFraction) && !noImpressions) {
         card = await db.findRandomImpressionAdCard(user.id, excludedCardIds);
         if (!card) {
           noImpressions = true;
           console.warn("Feed.getNextAdCard: Found no eligible impression-ad candidate");
         }
       } else if (!noPromoted) {
-        // 50% promoted content
         card = await db.findRandomPromotedCard(user.id, excludedCardIds);
         if (!card) {
           noPromoted = true;
