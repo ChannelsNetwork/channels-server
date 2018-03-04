@@ -2186,7 +2186,9 @@ What much advertising revenue is available to users?
 db.cards.aggregate([
   {$match: {
     "pricing.openPayment": {$gt: 0},
-	  "budget.available": true
+	  "budget.available": true,
+    private: false,
+    state: "active",
   }},
   {$group: {
     _id: {createdById: "$createdById", handle: "$by.handle"},
@@ -2210,12 +2212,13 @@ db.cards.aggregate([
     balance: "$user.balance"
   }},
   {$sort: {count: -1}},
+])
+
   {$group: {
     _id: "all",
     advertisers: {$sum: 1},
     potential: {$sum: "$potential"}
   }}
-])
 
 Who has spent the most on content?
 
@@ -2242,4 +2245,56 @@ db.userCardActions.aggregate([
     balance: "$user.balance"
   }},
   {$sort: {spent: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    at: {$gt: 1518916924000},
+    fraudReason: {$exists: false}
+  }},
+  {$group: {
+    _id: {buyer: "$userId", seller: "$authorId"},
+    count: {$sum: 1},
+    spent: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id.buyer",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$project: {
+    count: 1,
+    buyerHandle: "$buyer.identity.handle",
+    buyerLastPosted: "$buyer.lastPosted",
+    buyerBalance: "$buyer.balance",
+    buyerSpent: {$sum: "$spent"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id.seller",
+    foreignField: "id",
+    as: "seller"
+  }},
+  {$unwind: "$seller"},
+  {$project: {
+    count: 1,
+    buyerHandle: 1,
+    buyerLastPosted: 1,
+    buyerBalance: 1,
+    buyerSpent: 1,
+    sellerHandle: "$seller.identity.handle"
+  }},
+  {$match: {
+    buyerLastPosted: 0
+  }},
+  {$group: {
+    _id: {userId: "$_id.buyer", handle: "$buyerHandle", balance: "$buyerBalance", spent: {$sum: "$buyerSpent"}},
+    sellerCount: {$sum: 1},
+    cardCount: {$sum: "$count"},
+    sellers: {$addToSet: "$sellerHandle"}
+  }},
+  {$sort: {cardCount: -1}}
 ])
