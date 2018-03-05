@@ -175,9 +175,10 @@
 
       _refreshMore() {
         let owner = this.data && (this.data.by.address === $core.address);
-        if (owner || this.showPinAction) {
+        let showPin = this.showPinAction && (!this.data.promoted);
+        if (owner || showPin) {
           this.$.moreIcon.classList.remove("hidden");
-          if (this.showPinAction) {
+          if (showPin) {
             this.$.pinAction.classList.remove("hidden");
           } else {
             this.$.pinAction.classList.add("hidden");
