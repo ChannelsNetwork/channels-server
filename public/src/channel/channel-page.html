@@ -225,7 +225,7 @@
       }
 
       #linkPanel {
-        margin-top: 5px;
+        margin-top: 10px;
       }
 
       #composeButton {
@@ -246,6 +246,37 @@
         background: var(--bg-dark);
       }
 
+      .socialLink {
+        background: white;
+        border: 1px solid #e5e5e5;
+        padding: 5px 10px;
+        display: inline-block;
+        border-radius: 2px;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        margin: 3px 3px 3px 0;
+        white-space: nowrap;
+      }
+
+      .socialLink:hover {
+        box-shadow: none;
+        border-color: var(--highlight-green);
+      }
+
+      .socialLink img {
+        height: 1.3em;
+        width: auto;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 5px;
+      }
+
+      .socialLink span {
+        display: inline-block;
+        vertical-align: middle;
+        color: #000;
+      }
+
       @media (max-width: 600px) {
         #statusBarButton {
           display: none;
@@ -258,6 +289,12 @@
         #composeButton {
           bottom: 24px;
           right: 16px;
+        }
+      }
+
+      @media (max-width: 370px) {
+        .socialLink {
+          display: block;
         }
       }
     </style>
@@ -280,7 +317,14 @@
           <div class="name">[[channel.name]]</div>
           <div class="description">[[channel.about]]</div>
           <div id="linkPanel" class="hidden">
-            <a class="channelLink" href$="[[channelWebsite]]" target="_blank">[[channel.linkUrl]]</a>
+            <dom-repeat items="[[socialLinks]]">
+              <template>
+                <a target="_blank" href$="[[item.url]]" class="socialLink">
+                  <img src$="[[item.icon]]">
+                  <span>[[item.type]]</span>
+                </a>
+              </template>
+            </dom-repeat>
           </div>
         </div>
       </div>
@@ -324,7 +368,7 @@
           stats: Array,
           items: Array,
           _moreAvailable: Boolean,
-          channelWebsite: String
+          socialLinks: Array
         };
       }
 
@@ -426,6 +470,7 @@
         if (!preventClear) {
           this.channel = null;
           this.stats = [];
+          this.socialLinks = [];
         }
         return $core.getChannelByOwnerHandle(this._handle).then(response => {
           this.channel = response.channel;
@@ -474,16 +519,53 @@
         }
       }
 
+      _ensureLinkScheme(link) {
+        let l = link.trim();
+        if ((l.indexOf("http://") != 0) && (l.indexOf("https://") != 0) && (l.indexOf("HTTP://") != 0) && (l.indexOf("HTTPS://") != 0)) {
+          l = "http://" + l;
+        }
+        return l;
+      }
+
+      _getSocialLink(sl) {
+        let isLink = url => {
+          let lower = url.trim().toLowerCase();
+          return (lower.indexOf("http:") === 0) || (lower.indexOf("https:") === 0);
+        }
+        if (isLink(sl.link)) {
+          return sl.link.trim();
+        }
+        switch (sl.network) {
+          case 'Twitter':
+            return 'https://twitter.com/' + (sl.link.trim());
+          case 'Instagram':
+            return 'https://www.instagram.com/' + (sl.link.trim());
+          default:
+            return this._ensureLinkScheme(sl.link);
+            break;
+        }
+      }
+
       _refreshLinks() {
+        let socialLinks = [];
         if (this.channel.linkUrl) {
-          let l = this.channel.linkUrl.trim().toLowerCase();
-          if ((l.indexOf("http://") != 0) && (l.indexOf("https://") != 0)) {
-            l = "http://" + l;
-          }
-          this.channelWebsite = l;
+          socialLinks.push({
+            type: 'Website',
+            icon: '/s/images/social/link.png',
+            url: this._ensureLinkScheme(this.channel.linkUrl)
+          })
+        }
+        for (let sl of (this.channel.socialLinks || [])) {
+          socialLinks.push({
+            type: sl.network,
+            icon: '/s/images/social/' + sl.network.toLowerCase() + ".png",
+            url: this._getSocialLink(sl)
+          });
+        }
+        this.socialLinks = socialLinks;
+        if (socialLinks.length) {
           this.$.linkPanel.classList.remove("hidden");
         } else {
-          this.channelWebsite = "";
           this.$.linkPanel.classList.add("hidden");
         }
       }
