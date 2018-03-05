@@ -1,0 +1,154 @@
+<dom-module id="admin-stats-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 25px;
+        max-width: 1200px;
+        margin: 0 auto;
+        text-align: left;
+      }
+
+      .statBlock {
+        display: inline-block;
+        width: 250px;
+        text-align: center;
+        margin: 25px;
+      }
+
+      .statValue {
+        font-size: 70px;
+      }
+
+      .statValueSmall {
+        font-size: 50px;
+      }
+
+      .statName {
+        font-size: 18px;
+      }
+    </style>
+    <div class="container">
+      <h1>Channels Key Metrics</h1>
+      <div style="text-align:center;">
+        <div class="statBlock">
+          <div class="statValue">[[stats.purchasers]]</div>
+          <div class="statName">purchasers</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.publishers]]</div>
+          <div class="statName">publishers</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.registrants]]</div>
+          <div class="statName">registrants</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.purchases]]</div>
+          <div class="statName">card purchases</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.cards]]</div>
+          <div class="statName">cards</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValueSmall">[[stats.cardPayments]]</div>
+          <div class="statName">card payments</div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminStatsView extends Polymer.Element {
+      static get is() { return 'admin-stats-view'; }
+      static get properties() {
+        return {
+          stats: Object
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._setup();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      onDeactivate() {
+        if (this._pollTimer) {
+          clearInterval(this._pollTimer);
+        }
+      }
+
+      _setup() {
+        this._lastPoll = 0;
+        this._response = null;
+        this._lastResponse = null;
+        this._pollTimer = setInterval(() => {
+          this._poll();
+        }, 1000);
+        this._poll();
+      }
+
+      _poll() {
+        const now = Date.now();
+        if (now - this._lastPoll > 10000) {
+          this._lastPoll = now;
+          $core.admin_getRealtimeStats().then((response) => {
+            response.at = now;
+            this._lastResponse = this._response;
+            this._response = response;
+          });
+        } else {
+          let stats = {};
+          if (this._lastResponse) {
+            // If we have both, we're going to interpolate and make counter run up to value
+            stats.purchasers = this._interpolate(this._response.purchasers, this._lastResponse.purchasers, this._response.at, this._lastResponse.at, now, true)
+            stats.registrants = this._interpolate(this._response.registrants, this._lastResponse.registrants, this._response.at, this._lastResponse.at, now, true)
+            stats.publishers = this._interpolate(this._response.publishers, this._lastResponse.publishers, this._response.at, this._lastResponse.at, now, true)
+            stats.cards = this._interpolate(this._response.cards, this._lastResponse.cards, this._response.at, this._lastResponse.at, now, true)
+            stats.purchases = this._interpolate(this._response.purchases, this._lastResponse.purchases, this._response.at, this._lastResponse.at, now, true)
+            const cp = this._interpolate(this._response.cardPayments, this._lastResponse.cardPayments, this._response.at, this._lastResponse.at, now, false);
+            stats.cardPayments = "ℂ" + cp.toFixed(2);
+          } else if (this._response) {
+            stats.purchasers = this._response.purchasers;
+            stats.registrants = this._response.registrants;
+            stats.publishers = this._response.publishers;
+            stats.cards = this._response.cards;
+            stats.purchases = this._response.purchases;
+            stats.cardPayments = "ℂ" + this._response.cardPayments.toFixed(2);
+          }
+          this.set('stats', stats);
+        }
+      }
+
+      _interpolate(newValue, oldValue, newTime, oldTime, now, round) {
+        if (newTime <= oldTime) {
+          return newValue;
+        }
+        const rate = (newValue - oldValue) / (newTime - oldTime);
+        if (rate === 0) {
+          return newValue;
+        }
+        const result = oldValue + (now - newTime) * rate;
+        return round ? Math.round(result) : result;
+      }
+
+    }
+    window.customElements.define(AdminStatsView.is, AdminStatsView);
+  </script>
+</dom-module>

@@ -573,6 +573,13 @@ export interface NetworkCardStats {
   fanPaidOpens: number;
   grossRevenue: number;
   weightedRevenue: number;
+  purchasers: number;
+  registrants: number;
+  publishers: number;
+  purchases: number;
+  cards: number;
+  cardPayments: number;
+
 }
 
 export interface IpAddressRecord {

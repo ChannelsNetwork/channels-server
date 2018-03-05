@@ -1173,3 +1173,15 @@ export interface SetChannelCardPinningDetails extends Signable {
 }
 
 export interface SetChannelCardPinningResponse extends RestResponse { }
+
+export interface AdminGetRealtimeStatsDetails extends Signable { }
+
+export interface AdminGetRealtimeStatsResponse extends RestResponse {
+  at: number;
+  purchasers: number;
+  registrants: number;
+  publishers: number;
+  purchases: number;
+  cards: number;
+  cardPayments: number;
+}

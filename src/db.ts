@@ -404,16 +404,37 @@ export class Database {
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
-    await this.networkCardStats.updateMany({ "stats.blockedPaidOpens": { $exists: false } }, { $set: { "stats.blockedPaidOpens": 0 } });
+    const existing = await this.ensureNetworkCardStats(true);
+    if (existing && !existing.stats.purchases) {
+      // Some of these stats were added later, so we need to initialize their values
+      // based on other queries
 
-    await this.networkCardStats.updateMany({ "stats.firstTimePaidOpens": { $exists: false } }, {
-      $set: {
-        "stats.firstTimePaidOpens": 0,
-        "stats.fanPaidOpens": 0,
-        "stats.grossRevenue": 0,
-        "stats.weightedRevenue": 0
-      }
-    });
+      console.log("Db.initializeNetworkCardStats: Generating missing stats...");
+      const purchaserInfo = await this.userCardActions.aggregate([
+        { $match: { action: "pay", fraudReason: { $exists: false } } },
+        {
+          $group: {
+            _id: "$userId",
+            revenue: { $sum: "$payment.amount" }
+          }
+        },
+        {
+          $group: {
+            _id: "all",
+            count: { $sum: 1 },
+            revenue: { $sum: "$revenue" }
+          }
+        }
+      ]).toArray();
+      const purchasers = purchaserInfo[0].count as number;
+      const registrants = await this.users.count({ "identity.handle": { $exists: true } });
+      const publishers = await this.users.count({ lastPosted: { $gt: 0 } });
+      const purchases = await this.userCardActions.count({ action: "pay", fraudReason: { $exists: false } });
+      const cards = await this.cards.count({});
+      const cardPayments = purchaserInfo[0].revenue as number;
+      await this.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, purchasers, registrants, publishers, purchases, cards, cardPayments);
+      console.log("Db.initializeNetworkCardStats: Done");
+    }
   }
 
   private async initializeIpAddresses(): Promise<void> {
@@ -2533,7 +2554,13 @@ export class Database {
       firstTimePaidOpens: 0,
       fanPaidOpens: 0,
       grossRevenue: 0,
-      weightedRevenue: 0
+      weightedRevenue: 0,
+      purchasers: 0,
+      registrants: 0,
+      publishers: 0,
+      purchases: 0,
+      cards: 0,
+      cardPayments: 0
     };
     return stats;
   }
@@ -2556,7 +2583,7 @@ export class Database {
     }
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number, firstTimePaidOpens: number, fanPaidOpens: number, grossRevenue: number, weightedRevenue: number, reports: number, refunds: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number, firstTimePaidOpens: number, fanPaidOpens: number, grossRevenue: number, weightedRevenue: number, reports: number, refunds: number, purchasers: number, registrants: number, publishers: number, purchases: number, cards: number, cardPayments: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
@@ -2602,6 +2629,24 @@ export class Database {
     }
     if (refunds) {
       update["stats.refunds"] = refunds;
+    }
+    if (purchasers) {
+      update["stats.purchasers"] = purchasers;
+    }
+    if (purchases) {
+      update["stats.purchases"] = purchases;
+    }
+    if (registrants) {
+      update["stats.registrants"] = registrants;
+    }
+    if (publishers) {
+      update["stats.publishers"] = publishers;
+    }
+    if (cards) {
+      update["stats.cards"] = cards;
+    }
+    if (cardPayments) {
+      update["stats.cardPayments"] = cardPayments;
     }
     let retries = 0;
     while (retries++ < 5) {
