@@ -100,13 +100,13 @@
         this._lastResponse = null;
         this._pollTimer = setInterval(() => {
           this._poll();
-        }, 1000);
+        }, 250);
         this._poll();
       }
 
       _poll() {
         const now = Date.now();
-        if (now - this._lastPoll > 10000) {
+        if (now - this._lastPoll > 15000) {
           this._lastPoll = now;
           $core.admin_getRealtimeStats().then((response) => {
             response.at = now;
