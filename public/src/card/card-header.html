@@ -75,9 +75,9 @@
       <!-- Drop downs -->
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
         <li id="pinAction" on-click="_togglePin" class="menuDivider">[[pinActionLabel]]</li>
-        <li on-click="_editCard">Edit Card</li>
-        <li on-click="_analytics">Analytics</li>
-        <li on-click="_deleteCard">Delete</li>
+        <li id="editAction" on-click="_editCard">Edit Card</li>
+        <li id="analyticsAction" on-click="_analytics">Analytics</li>
+        <li id="deleteAction" on-click="_deleteCard">Delete</li>
       </soso-dropdown>
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
@@ -111,7 +111,7 @@
           pinActionLabel: String,
           showPinAction: {
             type: Boolean,
-            observer: '_refreshPinned'
+            observer: '_refreshMore'
           }
         };
       }
@@ -144,24 +144,11 @@
           this._refreshRevenue();
           this._refreshPrivate();
           this._refreshMore();
-          this._refreshPinned();
           if (this.noShare) {
             this.$.shareIcon.classList.add("hidden");
           } else {
             this.$.shareIcon.classList.remove("hidden");
           }
-        }
-      }
-
-      _refreshPinned() {
-        if (this.data) {
-          this._pinned = this.data.pinning && this.data.pinning.pinned;
-          this.pinActionLabel = this._pinned ? "Unpin" : "Pin to top";
-        }
-        if (this.showPinAction && this.data) {
-          this.$.pinAction.classList.remove("hidden");
-        } else {
-          this.$.pinAction.classList.add("hidden");
         }
       }
 
@@ -188,10 +175,33 @@
 
       _refreshMore() {
         let owner = this.data && (this.data.by.address === $core.address);
-        if (owner) {
+        let showPin = this.showPinAction && (!this.data.promoted);
+        if (owner || showPin) {
           this.$.moreIcon.classList.remove("hidden");
+          if (showPin) {
+            this.$.pinAction.classList.remove("hidden");
+          } else {
+            this.$.pinAction.classList.add("hidden");
+          }
+          if (owner) {
+            this.$.editAction.classList.remove("hidden");
+            this.$.analyticsAction.classList.remove("hidden");
+            this.$.deleteAction.classList.remove("hidden");
+          } else {
+            this.$.editAction.classList.add("hidden");
+            this.$.analyticsAction.classList.add("hidden");
+            this.$.deleteAction.classList.add("hidden");
+          }
         } else {
           this.$.moreIcon.classList.add("hidden");
+        }
+        this._refreshPinned();
+      }
+
+      _refreshPinned() {
+        if (this.data) {
+          this._pinned = this.data.pinning && this.data.pinning.pinned;
+          this.pinActionLabel = this._pinned ? "Unpin" : "Pin to top";
         }
       }
 

@@ -350,7 +350,7 @@
       </div>
     </div>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
-    <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action on-card-open-request="_onCardOpenRequest"
+    <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action="[[showPinAction]]" on-card-open-request="_onCardOpenRequest"
       on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
     <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
   </template>
@@ -368,7 +368,8 @@
           stats: Array,
           items: Array,
           _moreAvailable: Boolean,
-          socialLinks: Array
+          socialLinks: Array,
+          showPinAction: Boolean
         };
       }
 
@@ -486,6 +487,7 @@
           this.channelImage = (this.channel.owner.image ? this.channel.owner.image.url : null) || $core.userManager.getFallbackUserImage(this.channel.owner.handle);
           this._refreshLinks();
           this._refreshButtons();
+          this.showPinAction = $core.profile && ($core.profile.handle == this.channel.owner.handle);
           let stats = [];
           stats.push({
             label: "Revenue",
