@@ -782,7 +782,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       reason: "referral-bonus"
     });
     console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
-    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null);
+    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null, Date.now());
     await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
     await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
   }
@@ -1156,7 +1156,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
     result += '<table width="300" style="font-size:15px;color:black;">\n';
     result += '<tr>\n';
-    if (card.by.image) {
+    if (card.by.image && card.by.image.id) {
       result += '<td style="border:0;padding:0;width:48px;">\n';
       const userUrl = fileManager.getCircularImageUrl(card.by.image.id, 42);
       result += '<img src="' + userUrl + '" style="width:40px;height:auto;">\n';

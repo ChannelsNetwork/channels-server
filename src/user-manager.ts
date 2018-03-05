@@ -289,7 +289,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [rewardRecipient]
           };
-          await networkEntity.performBankTransaction(request, reward, null, true, false, "Invitation reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
+          await networkEntity.performBankTransaction(request, reward, null, true, false, "Invitation reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
           inviteeReward = INVITEE_REWARD;
         }
         const inviteCode = await this.generateInviteCode();
@@ -310,7 +310,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [grantRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, true, false, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
+        await networkEntity.performBankTransaction(request, grant, null, true, false, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
         userRecord.balance = INITIAL_BALANCE;
         if (inviteeReward > 0) {
           const inviteeRewardDetails: BankTransactionDetails = {
@@ -324,7 +324,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
+          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
           userRecord.balance += inviteeReward;
         }
       }
@@ -535,6 +535,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           sendConfirmation = true;
           emailConfirmed = false;
         }
+      }
+      if (!user.identity || !user.identity.handle) {
+        await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
       await channelManager.ensureUserHomeChannel(user);
@@ -851,7 +854,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       relatedCouponId: null,
       toRecipients: [grantRecipient]
     };
-    await networkEntity.performBankTransaction(request, grant, null, true, false, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint);
+    await networkEntity.performBankTransaction(request, grant, null, true, false, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
     user.balance += REGISTRATION_BONUS;
     console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
@@ -979,7 +982,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
         const todayPaidOpens = await this.countUserPaidOpens(user, yesterday, Date.now());
         if (todayPaidOpens) {
-          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0, 0, 0);
+          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
       }
       if (requestBody.detailsObject.curation === 'blocked') {
@@ -1152,7 +1155,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false, "User subsidy", null, null);
+        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false, "User subsidy", null, null, Date.now());
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1175,7 +1178,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, true, false, "Interest", null, null);
+        await networkEntity.performBankTransaction(request, grant, null, true, false, "Interest", null, null, now);
       }
     }
   }

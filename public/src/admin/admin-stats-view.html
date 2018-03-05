@@ -1,0 +1,185 @@
+<dom-module id="admin-stats-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 25px;
+        max-width: 1200px;
+        margin: 0 auto;
+        text-align: left;
+        line-height: 1.3;
+      }
+
+      .statBlock {
+        display: inline-block;
+        width: 250px;
+        text-align: center;
+        margin: 25px;
+        padding: 5px;
+      }
+
+      .statValue {
+        font-size: 70px;
+      }
+
+      .statValuePast24 {
+        font-size: 36px;
+      }
+
+      .statValueSmall {
+        font-size: 50px;
+      }
+
+      .statName {
+        font-size: 18px;
+        color: #555;
+      }
+    </style>
+    <div class="container">
+      <h1>Channels Key Metrics</h1>
+      <div style="text-align:center;">
+        <div class="statBlock">
+          <div class="statValue">[[stats.total.purchases]]</div>
+          <div class="statName">card purchases</div>
+          <div class="statValuePast24">[[stats.past24Hours.purchases]]</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValueSmall">[[stats.total.cardPayments]]</div>
+          <div class="statName">card payments</div>
+          <div class="statValuePast24">[[stats.past24Hours.cardPayments]]</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.total.purchasers]]</div>
+          <div class="statName">purchasers</div>
+          <div class="statValuePast24">[[stats.past24Hours.purchasers]]</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.total.registrants]]</div>
+          <div class="statName">registrants</div>
+          <div class="statValuePast24">[[stats.past24Hours.registrants]]</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.total.publishers]]</div>
+          <div class="statName">publishers</div>
+          <div class="statValuePast24">[[stats.past24Hours.publishers]]</div>
+        </div>
+        <div class="statBlock">
+          <div class="statValue">[[stats.total.cards]]</div>
+          <div class="statName">cards</div>
+          <div class="statValuePast24">[[stats.past24Hours.cards]]</div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminStatsView extends Polymer.Element {
+      static get is() { return 'admin-stats-view'; }
+      static get properties() {
+        return {
+          stats: Object
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._setup();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      onDeactivate() {
+        if (this._pollTimer) {
+          clearInterval(this._pollTimer);
+        }
+      }
+
+      _setup() {
+        this._lastPoll = 0;
+        this._response = null;
+        this._lastResponse = null;
+        this._pollTimer = setInterval(() => {
+          this._poll();
+        }, 250);
+        this._poll();
+      }
+
+      _poll() {
+        const now = Date.now();
+        if (now - this._lastPoll > 15000) {
+          this._lastPoll = now;
+          $core.admin_getRealtimeStats().then((response) => {
+            response.at = now;
+            this._lastResponse = this._response;
+            this._response = response;
+          });
+        } else {
+          let stats = {
+            total: {},
+            past24Hours: {}
+          };
+          if (this._lastResponse) {
+            // If we have both, we're going to interpolate and make counter run up to value
+            stats.total.purchasers = this._interpolate(this._response.total.purchasers, this._lastResponse.total.purchasers, this._response.at, this._lastResponse.at, now, true)
+            stats.total.registrants = this._interpolate(this._response.total.registrants, this._lastResponse.total.registrants, this._response.at, this._lastResponse.at, now, true)
+            stats.total.publishers = this._interpolate(this._response.total.publishers, this._lastResponse.total.publishers, this._response.at, this._lastResponse.at, now, true)
+            stats.total.cards = this._interpolate(this._response.total.cards, this._lastResponse.total.cards, this._response.at, this._lastResponse.at, now, true)
+            stats.total.purchases = this._interpolate(this._response.total.purchases, this._lastResponse.total.purchases, this._response.at, this._lastResponse.at, now, true)
+            const cpt = this._interpolate(this._response.total.cardPayments, this._lastResponse.total.cardPayments, this._response.at, this._lastResponse.at, now, false);
+            stats.total.cardPayments = "ℂ" + cpt.toFixed(2);
+
+            stats.past24Hours.purchasers = this._interpolate(this._response.past24Hours.purchasers, this._lastResponse.past24Hours.purchasers, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.registrants = this._interpolate(this._response.past24Hours.registrants, this._lastResponse.past24Hours.registrants, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.publishers = this._interpolate(this._response.past24Hours.publishers, this._lastResponse.past24Hours.publishers, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.cards = this._interpolate(this._response.past24Hours.cards, this._lastResponse.past24Hours.cards, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.purchases = this._interpolate(this._response.past24Hours.purchases, this._lastResponse.past24Hours.purchases, this._response.at, this._lastResponse.at, now, true)
+            const cpp = this._interpolate(this._response.past24Hours.cardPayments, this._lastResponse.past24Hours.cardPayments, this._response.at, this._lastResponse.at, now, false);
+            stats.past24Hours.cardPayments = "ℂ" + cpp.toFixed(2);
+          } else if (this._response) {
+            stats.total.purchasers = this._response.total.purchasers;
+            stats.total.registrants = this._response.total.registrants;
+            stats.total.publishers = this._response.total.publishers;
+            stats.total.cards = this._response.total.cards;
+            stats.total.purchases = this._response.total.purchases;
+            stats.total.cardPayments = "ℂ" + this._response.total.cardPayments.toFixed(2);
+
+            stats.past24Hours.purchasers = this._response.past24Hours.purchasers;
+            stats.past24Hours.registrants = this._response.past24Hours.registrants;
+            stats.past24Hours.publishers = this._response.past24Hours.publishers;
+            stats.past24Hours.cards = this._response.past24Hours.cards;
+            stats.past24Hours.purchases = this._response.past24Hours.purchases;
+            stats.past24Hours.cardPayments = "ℂ" + this._response.past24Hours.cardPayments.toFixed(2);
+          }
+          this.set('stats', stats);
+        }
+      }
+
+      _interpolate(newValue, oldValue, newTime, oldTime, now, round) {
+        if (newTime <= oldTime) {
+          return newValue;
+        }
+        const rate = (newValue - oldValue) / (newTime - oldTime);
+        if (rate === 0) {
+          return newValue;
+        }
+        const result = oldValue + (now - newTime) * rate;
+        return round ? Math.round(result) : result;
+      }
+
+    }
+    window.customElements.define(AdminStatsView.is, AdminStatsView);
+  </script>
+</dom-module>

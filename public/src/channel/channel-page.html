@@ -1,7 +1,6 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
-<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../card/sectioned-card-list.html">
 
@@ -217,15 +216,6 @@
         text-align: center;
       }
 
-      #titleBar {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        pointer-events: none;
-        opacity: 0;
-      }
-
       .channelLink,
       .channelLink:visited,
       .channelLink:hover {
@@ -235,7 +225,7 @@
       }
 
       #linkPanel {
-        margin-top: 5px;
+        margin-top: 10px;
       }
 
       #composeButton {
@@ -256,6 +246,37 @@
         background: var(--bg-dark);
       }
 
+      .socialLink {
+        background: white;
+        border: 1px solid #e5e5e5;
+        padding: 5px 10px;
+        display: inline-block;
+        border-radius: 2px;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        margin: 3px 3px 3px 0;
+        white-space: nowrap;
+      }
+
+      .socialLink:hover {
+        box-shadow: none;
+        border-color: var(--highlight-green);
+      }
+
+      .socialLink img {
+        height: 1.3em;
+        width: auto;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 5px;
+      }
+
+      .socialLink span {
+        display: inline-block;
+        vertical-align: middle;
+        color: #000;
+      }
+
       @media (max-width: 600px) {
         #statusBarButton {
           display: none;
@@ -270,52 +291,64 @@
           right: 16px;
         }
       }
+
+      @media (max-width: 370px) {
+        .socialLink {
+          display: block;
+        }
+      }
     </style>
-    <soso-app-header id="header" collapse-height="50" on-collapse-change="_onHeaderCollapse">
+    <soso-app-header id="header">
       <channels-bar id="cbar" show-menu></channels-bar>
-      <div id="banner">
-        <div id="bannerButtons">
-          <button id="btnBS" class="hidden" on-click="_onSubscribe">Subscribe</button>
-          <button id="btnBU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
-          <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
-        </div>
+    </soso-app-header>
+    <div id="banner">
+      <div id="bannerButtons">
+        <button id="btnBS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+        <button id="btnBU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+        <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
       </div>
-      <div id="userContent">
-        <div class="maxWidth horizontal layout">
-          <div id="imagePanel">
-            <user-image image="[[channelImage]]"></user-image>
-          </div>
-          <div id="contentPanel" class="flex">
-            <div class="name">[[channel.name]]</div>
-            <div class="description">[[channel.about]]</div>
-            <div id="linkPanel" class="hidden">
-              <a class="channelLink" href$="[[channelWebsite]]" target="_blank">[[channel.linkUrl]]</a>
-            </div>
-          </div>
+    </div>
+    <div id="userContent">
+      <div class="maxWidth horizontal layout">
+        <div id="imagePanel">
+          <user-image image="[[channelImage]]"></user-image>
         </div>
-        <div id="statsBarContainer">
-          <div id="statsBar" class="maxWidth horizontal layout center">
-            <div class="flex"></div>
-            <dom-repeat items="[[stats]]">
+        <div id="contentPanel" class="flex">
+          <div class="name">[[channel.name]]</div>
+          <div class="description">[[channel.about]]</div>
+          <div id="linkPanel" class="hidden">
+            <dom-repeat items="[[socialLinks]]">
               <template>
-                <div class="statItem">
-                  <div class$="[[item.class]]">
-                    <div class="statLabel">[[item.label]]</div>
-                    <div class="statValue">[[item.value]]</div>
-                  </div>
-                </div>
+                <a target="_blank" href$="[[item.url]]" class="socialLink">
+                  <img src$="[[item.icon]]">
+                  <span>[[item.type]]</span>
+                </a>
               </template>
             </dom-repeat>
-            <div id="statusBarButton">
-              <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
-              <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
-              <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
-            </div>
           </div>
         </div>
       </div>
-      <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
-    </soso-app-header>
+      <div id="statsBarContainer">
+        <div id="statsBar" class="maxWidth horizontal layout center">
+          <div class="flex"></div>
+          <dom-repeat items="[[stats]]">
+            <template>
+              <div class="statItem">
+                <div class$="[[item.class]]">
+                  <div class="statLabel">[[item.label]]</div>
+                  <div class="statValue">[[item.value]]</div>
+                </div>
+              </div>
+            </template>
+          </dom-repeat>
+          <div id="statusBarButton">
+            <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+            <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+            <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
     <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action on-card-open-request="_onCardOpenRequest"
       on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
@@ -335,7 +368,7 @@
           stats: Array,
           items: Array,
           _moreAvailable: Boolean,
-          channelWebsite: String
+          socialLinks: Array
         };
       }
 
@@ -426,19 +459,6 @@
         }
       }
 
-      _onHeaderCollapse(event) {
-        let ratio = event.detail.ratio;
-        if (ratio > 0.9) {
-          this.$.userContent.style.opacity = 9 - (9 * ratio);
-          this.$.titleBar.style.opacity = (9 * ratio) - 8;
-          this.$.titleBar.style.pointerEvents = "auto";
-        } else {
-          this.$.userContent.style.opacity = 1;
-          this.$.titleBar.style.opacity = 0;
-          this.$.titleBar.style.pointerEvents = "none";
-        }
-      }
-
       _onResize() {
         this.$.header.measureHeader();
         setTimeout(() => {
@@ -450,6 +470,7 @@
         if (!preventClear) {
           this.channel = null;
           this.stats = [];
+          this.socialLinks = [];
         }
         return $core.getChannelByOwnerHandle(this._handle).then(response => {
           this.channel = response.channel;
@@ -498,16 +519,53 @@
         }
       }
 
+      _ensureLinkScheme(link) {
+        let l = link.trim();
+        if ((l.indexOf("http://") != 0) && (l.indexOf("https://") != 0) && (l.indexOf("HTTP://") != 0) && (l.indexOf("HTTPS://") != 0)) {
+          l = "http://" + l;
+        }
+        return l;
+      }
+
+      _getSocialLink(sl) {
+        let isLink = url => {
+          let lower = url.trim().toLowerCase();
+          return (lower.indexOf("http:") === 0) || (lower.indexOf("https:") === 0);
+        }
+        if (isLink(sl.link)) {
+          return sl.link.trim();
+        }
+        switch (sl.network) {
+          case 'Twitter':
+            return 'https://twitter.com/' + (sl.link.trim());
+          case 'Instagram':
+            return 'https://www.instagram.com/' + (sl.link.trim());
+          default:
+            return this._ensureLinkScheme(sl.link);
+            break;
+        }
+      }
+
       _refreshLinks() {
+        let socialLinks = [];
         if (this.channel.linkUrl) {
-          let l = this.channel.linkUrl.trim().toLowerCase();
-          if ((l.indexOf("http://") != 0) && (l.indexOf("https://") != 0)) {
-            l = "http://" + l;
-          }
-          this.channelWebsite = l;
+          socialLinks.push({
+            type: 'Website',
+            icon: '/s/images/social/link.png',
+            url: this._ensureLinkScheme(this.channel.linkUrl)
+          })
+        }
+        for (let sl of (this.channel.socialLinks || [])) {
+          socialLinks.push({
+            type: sl.network,
+            icon: '/s/images/social/' + sl.network.toLowerCase() + ".png",
+            url: this._getSocialLink(sl)
+          });
+        }
+        this.socialLinks = socialLinks;
+        if (socialLinks.length) {
           this.$.linkPanel.classList.remove("hidden");
         } else {
-          this.channelWebsite = "";
           this.$.linkPanel.classList.add("hidden");
         }
       }

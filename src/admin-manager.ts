@@ -6,12 +6,13 @@ import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { SERVER_VERSION } from "./server-version";
-import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo, AdminGetPublishersDetails, AdminGetPublishersResponse, AdminPublisherInfo } from "./interfaces/rest-services";
+import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo, AdminGetPublishersDetails, AdminGetPublishersResponse, AdminPublisherInfo, AdminGetRealtimeStatsDetails, AdminGetRealtimeStatsResponse, AdminGetDepositsDetails, AdminGetDepositsResponse, AdminDepositInfo } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
 import { errorManager } from "./error-manager";
 import { Utils } from "./utils";
+import { userManager } from "./user-manager";
 export class AdminManager implements RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -34,6 +35,12 @@ export class AdminManager implements RestServer {
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-update-withdrawal'), (request: Request, response: Response) => {
       void this.handleUpdateWithdrawal(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-realtime-stats'), (request: Request, response: Response) => {
+      void this.handleGetRealtimeStats(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-deposits'), (request: Request, response: Response) => {
+      void this.handleGetDeposits(request, response);
     });
   }
   private async handleGetAdminGoals(request: Request, response: Response): Promise<void> {
@@ -293,6 +300,48 @@ export class AdminManager implements RestServer {
     }
   }
 
+  private async handleGetRealtimeStats(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetRealtimeStatsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      console.log("AdminManager.admin-realtime-stats", user.id, requestBody.detailsObject);
+      const now = Date.now();
+      const stats = await db.ensureNetworkCardStats(false);
+      const yesterday = await db.getNetworkCardStatsAt(now - 1000 * 60 * 60 * 24);
+      const reply: AdminGetRealtimeStatsResponse = {
+        serverVersion: SERVER_VERSION,
+        at: now,
+        total: {
+          purchasers: stats.stats.purchasers,
+          registrants: stats.stats.registrants,
+          publishers: stats.stats.publishers,
+          cards: stats.stats.cards,
+          purchases: stats.stats.purchases,
+          cardPayments: stats.stats.cardPayments
+        },
+        past24Hours: {
+          purchasers: stats.stats.purchasers - (yesterday.stats.purchasers || 0),
+          registrants: stats.stats.registrants - (yesterday.stats.registrants || 0),
+          publishers: stats.stats.publishers - (yesterday.stats.publishers || 0),
+          cards: stats.stats.cards - (yesterday.stats.cards || 0),
+          purchases: stats.stats.purchases - (yesterday.stats.purchases || 0),
+          cardPayments: stats.stats.cardPayments - (yesterday.stats.cardPayments || 0)
+        }
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("AdminManager.handleGetRealtimeStats: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleUpdateWithdrawal(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminUpdateWithdrawalDetails>;
@@ -404,6 +453,38 @@ export class AdminManager implements RestServer {
     }
   }
 
+  private async handleGetDeposits(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetDepositsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      console.log("AdminManager.admin-get-deposits", user.id, requestBody.detailsObject);
+      const deposits: AdminDepositInfo[] = [];
+      const records = await db.listDeposits(100);
+      for (const record of records) {
+        const depositor = await userManager.getUser(record.userId, false);
+        const info: AdminDepositInfo = {
+          deposit: record,
+          depositor: depositor
+        };
+        deposits.push(info);
+      }
+      const reply: AdminGetDepositsResponse = {
+        serverVersion: SERVER_VERSION,
+        deposits: deposits
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("AdminManager.handleGetDeposits: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
 }
 
 const adminManager = new AdminManager();
