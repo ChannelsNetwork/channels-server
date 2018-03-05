@@ -56,6 +56,14 @@
         display: inline-block;
       }
 
+      .promotedSection {
+        background: #fafafa;
+        padding: 0 0 10px;
+        border-top: 1px solid #f0f0f0;
+        border-bottom: 1px solid #f0f0f0;
+        margin: 20px 0;
+      }
+
       @media (max-width: 1264px) {
         card-list {
           max-width: 948px;
@@ -98,8 +106,10 @@
 
     <dom-repeat items="[[channelList]]">
       <template>
-        <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" clickable-label="[[item.more]]" on-card-open-request="_onCardOpenRequest"
-          on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
+        <div class$="[[item.sectionClass]]">
+          <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" clickable-label="[[item.more]]" on-card-open-request="_onCardOpenRequest"
+            on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
+        </div>
       </template>
     </dom-repeat>
 
@@ -197,6 +207,7 @@
               for (let i = 0; i < panelCount; i++) {
                 let p = {
                   label: "Promoted",
+                  sectionClass: 'promotedSection',
                   more: false,
                   cards: []
                 };
