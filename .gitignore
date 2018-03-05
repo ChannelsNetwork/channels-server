@@ -6,3 +6,4 @@ dev.config.json
 npm-debug.log
 shadow-public
 amazon-ad-cards.txt
+.DS_Store
