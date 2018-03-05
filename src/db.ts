@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -48,6 +48,7 @@ export class Database {
   private channelKeywords: Collection;
   private adSlots: Collection;
   private cardComments: Collection;
+  private deposits: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -85,6 +86,7 @@ export class Database {
     await this.initializeChannelKeywords();
     await this.initializeAdSlots();
     await this.initializeCardComments();
+    await this.initializeDeposits();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -511,8 +513,17 @@ export class Database {
     await this.cardComments.createIndex({ cardId: 1, curation: 1, byId: 1, at: -1 });
     await this.cardComments.createIndex({ at: -1 });
     await this.cardComments.createIndex({ byId: 1, at: -1 });
+  }
 
-    await this.cardComments.updateMany({ curation: { $exists: false } }, { $set: { curation: null } });
+  private async initializeDeposits(): Promise<void> {
+    this.deposits = this.db.collection('deposits');
+    const withoutId = await this.deposits.find<DepositRecord>({ id: { $exists: false } }).toArray();
+    for (const deposit of withoutId) {
+      await this.deposits.updateOne({ at: deposit.at }, { $set: { id: uuid.v4() } });
+    }
+    await this.deposits.createIndex({ id: 1 }, { unique: true });
+    await this.deposits.createIndex({ at: -1 });
+    await this.deposits.createIndex({ status: 1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -3940,6 +3951,40 @@ export class Database {
       }
     }
     return result;
+  }
+
+  async insertDeposit(at: number, status: DepositStatus, receivedBy: string, fromHandle: string, userId: string, amount: number, currency: string, net: number, paypalReference: string, transactionId: string): Promise<DepositRecord> {
+    const record: DepositRecord = {
+      id: uuid.v4(),
+      at: at,
+      status: status,
+      receivedBy: receivedBy,
+      fromHandle: fromHandle,
+      userId: userId,
+      amount: amount,
+      currency: currency,
+      net: net,
+      paypalReference: paypalReference,
+      transactionId: transactionId
+    };
+    await this.deposits.insertOne(record);
+    return record;
+  }
+
+  async listDeposits(limit: number): Promise<DepositRecord[]> {
+    return this.deposits.find<DepositRecord>().sort({ at: -1 }).limit(limit || 100).toArray();
+  }
+
+  async findUnprocessedDeposits(): Promise<DepositRecord[]> {
+    return this.deposits.find<DepositRecord>({ status: "completed", transactionId: { $exists: false } }).toArray();
+  }
+
+  async updateDepositTransaction(depositId: string, userId: string, transactionId: string): Promise<void> {
+    await this.deposits.updateOne({ id: depositId }, { $set: { userId: userId, transactionId: transactionId } });
+  }
+
+  async updateDepositComplete(depositId: string, status: DepositStatus, transactionId: string): Promise<void> {
+    await this.deposits.updateOne({ id: depositId }, { $set: { status: status, transactionId: transactionId } });
   }
 }
 

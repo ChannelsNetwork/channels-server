@@ -695,6 +695,27 @@ class RestUtils {
     };
   }
 
+  static admin_getDeposits(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static admin_bankDeposit(address, fingerprint, fromHandle, amount, currency, net, paypalReference) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      fromHandle: fromHandle,
+      amount: amount,
+      currency: currency,
+      net: net,
+      paypalReference: paypalReference
+    };
+  }
+
   static queryPage(address, fingerprint, url) {
     return {
       address: address,
