@@ -1,7 +1,6 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../app/channels-bar.html">
-<link rel="import" href="../app/title-bar.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../card/sectioned-card-list.html">
 
@@ -217,15 +216,6 @@
         text-align: center;
       }
 
-      #titleBar {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        pointer-events: none;
-        opacity: 0;
-      }
-
       .channelLink,
       .channelLink:visited,
       .channelLink:hover {
@@ -271,51 +261,50 @@
         }
       }
     </style>
-    <soso-app-header id="header" collapse-height="50" on-collapse-change="_onHeaderCollapse">
+    <soso-app-header id="header">
       <channels-bar id="cbar" show-menu></channels-bar>
-      <div id="banner">
-        <div id="bannerButtons">
-          <button id="btnBS" class="hidden" on-click="_onSubscribe">Subscribe</button>
-          <button id="btnBU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
-          <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
-        </div>
-      </div>
-      <div id="userContent">
-        <div class="maxWidth horizontal layout">
-          <div id="imagePanel">
-            <user-image image="[[channelImage]]"></user-image>
-          </div>
-          <div id="contentPanel" class="flex">
-            <div class="name">[[channel.name]]</div>
-            <div class="description">[[channel.about]]</div>
-            <div id="linkPanel" class="hidden">
-              <a class="channelLink" href$="[[channelWebsite]]" target="_blank">[[channel.linkUrl]]</a>
-            </div>
-          </div>
-        </div>
-        <div id="statsBarContainer">
-          <div id="statsBar" class="maxWidth horizontal layout center">
-            <div class="flex"></div>
-            <dom-repeat items="[[stats]]">
-              <template>
-                <div class="statItem">
-                  <div class$="[[item.class]]">
-                    <div class="statLabel">[[item.label]]</div>
-                    <div class="statValue">[[item.value]]</div>
-                  </div>
-                </div>
-              </template>
-            </dom-repeat>
-            <div id="statusBarButton">
-              <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
-              <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
-              <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <title-bar id="titleBar" text="[[channel.name]]"></title-bar>
     </soso-app-header>
+    <div id="banner">
+      <div id="bannerButtons">
+        <button id="btnBS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+        <button id="btnBU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+        <button id="btnBE" class="hidden" on-click="_onEdit">Edit Channel</button>
+      </div>
+    </div>
+    <div id="userContent">
+      <div class="maxWidth horizontal layout">
+        <div id="imagePanel">
+          <user-image image="[[channelImage]]"></user-image>
+        </div>
+        <div id="contentPanel" class="flex">
+          <div class="name">[[channel.name]]</div>
+          <div class="description">[[channel.about]]</div>
+          <div id="linkPanel" class="hidden">
+            <a class="channelLink" href$="[[channelWebsite]]" target="_blank">[[channel.linkUrl]]</a>
+          </div>
+        </div>
+      </div>
+      <div id="statsBarContainer">
+        <div id="statsBar" class="maxWidth horizontal layout center">
+          <div class="flex"></div>
+          <dom-repeat items="[[stats]]">
+            <template>
+              <div class="statItem">
+                <div class$="[[item.class]]">
+                  <div class="statLabel">[[item.label]]</div>
+                  <div class="statValue">[[item.value]]</div>
+                </div>
+              </div>
+            </template>
+          </dom-repeat>
+          <div id="statusBarButton">
+            <button id="btnS" class="hidden" on-click="_onSubscribe">Subscribe</button>
+            <button id="btnU" class="hidden" on-click="_onUnsubscribe">Unsubscribe</button>
+            <button id="btnE" class="hidden" on-click="_onEdit">Edit Channel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="noItems" class="hidden">There are no cards in this channel.</div>
     <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action on-card-open-request="_onCardOpenRequest"
       on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
@@ -423,19 +412,6 @@
             break;
           default:
             break;
-        }
-      }
-
-      _onHeaderCollapse(event) {
-        let ratio = event.detail.ratio;
-        if (ratio > 0.9) {
-          this.$.userContent.style.opacity = 9 - (9 * ratio);
-          this.$.titleBar.style.opacity = (9 * ratio) - 8;
-          this.$.titleBar.style.pointerEvents = "auto";
-        } else {
-          this.$.userContent.style.opacity = 1;
-          this.$.titleBar.style.opacity = 0;
-          this.$.titleBar.style.pointerEvents = "none";
         }
       }
 
