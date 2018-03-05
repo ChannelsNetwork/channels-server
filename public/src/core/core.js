@@ -1063,6 +1063,20 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getDeposits() {
+    let details = RestUtils.admin_getDeposits(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-deposits";
+    return this.rest.post(url, request);
+  }
+
+  admin_bankDeposit(fromHandle, amount, currency, net, paypalReference) {
+    let details = RestUtils.admin_bankDeposit(this._keys.address, this._fingerprint, fromHandle, amount, currency, net, paypalReference);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-bank-deposit";
+    return this.rest.post(url, request);
+  }
+
   get languages() {
     const result = {};
     result.ar = "Arabic";

@@ -8,7 +8,7 @@ import { KeyUtils } from "./key-utils";
 import { ErrorWithStatusCode } from "./interfaces/error-with-code";
 import { BankTransactionResult } from "./interfaces/socket-messages";
 import { RestServer } from "./interfaces/rest-server";
-import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankGenerateClientTokenResponse } from "./interfaces/rest-services";
+import { RestRequest, BankWithdrawDetails, BankWithdrawResponse, BankStatementDetails, BankStatementResponse, BankTransactionDetails, BankTransactionRecipientDirective, Currency, BankTransactionDetailsWithId, BankGenerateClientTokenResponse, AdminBankDepositDetails, AdminBankDepositResponse } from "./interfaces/rest-services";
 import { RestHelper } from "./rest-helper";
 import { SignedObject } from "./interfaces/signed-object";
 import * as paypal from 'paypal-rest-sdk';
@@ -64,7 +64,34 @@ export class Bank implements RestServer, Initializable {
   }
 
   async initialize2(): Promise<void> {
-    // noop
+    // handle deposits that have not yet been processed
+    const unprocessed = await db.findUnprocessedDeposits();
+    for (const deposit of unprocessed) {
+      const user = await userManager.getUserByHandle(deposit.fromHandle);
+      if (user) {
+        const recipient: BankTransactionRecipientDirective = {
+          address: user.address,
+          portion: "remainder",
+          reason: "depositor"
+        };
+        const details: BankTransactionDetails = {
+          address: null,
+          fingerprint: null,
+          timestamp: null,
+          type: "deposit",
+          reason: "paypal-payment-received",
+          relatedCardId: null,
+          relatedCouponId: null,
+          amount: deposit.net,
+          toRecipients: [recipient]
+        };
+        console.log("Bank.initialize2: Adding transaction for pre-existing manual deposit record", deposit, details);
+        const transaction = await networkEntity.performBankTransaction(null, details, null, false, false, "Paypal coin purchase", null, null, Date.now(), true);
+        await db.updateDepositTransaction(deposit.id, user.id, transaction.record.id);
+      } else {
+        errorManager.error("Bank.initialize2: Invalid deposit record", null, deposit);
+      }
+    }
   }
 
   private registerHandlers(): void {
@@ -76,6 +103,9 @@ export class Bank implements RestServer, Initializable {
     });
     this.app.post(this.urlManager.getDynamicUrl('bank-client-token'), (request: Request, response: Response) => {
       void this.handleClientTokenRequest(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-bank-deposit'), (request: Request, response: Response) => {
+      void this.handleBankDeposit(request, response);
     });
   }
 
@@ -197,6 +227,63 @@ export class Bank implements RestServer, Initializable {
     }
   }
 
+  private async handleBankDeposit(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminBankDepositDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.fromHandle || !requestBody.detailsObject.amount || !requestBody.detailsObject.currency || !requestBody.detailsObject.net || !requestBody.detailsObject.paypalReference) {
+        response.status(404).send("Missing one or more mandatory parameters");
+        return;
+      }
+      const depositor = await db.findUserByHandle(requestBody.detailsObject.fromHandle);
+      if (!depositor) {
+        response.status(404).send("No such handle for depositor");
+        return;
+      }
+      if (requestBody.detailsObject.amount <= 0 || requestBody.detailsObject.net <= 0) {
+        response.status(404).send("Illegal amount or net");
+        return;
+      }
+      console.log("Bank.bank-deposit", requestBody.detailsObject);
+      const now = Date.now();
+      const deposit = await db.insertDeposit(now, "pending", user.id, depositor.identity.handle, depositor.id, requestBody.detailsObject.amount, requestBody.detailsObject.currency, requestBody.detailsObject.net, requestBody.detailsObject.paypalReference, null);
+      const recipient: BankTransactionRecipientDirective = {
+        address: depositor.address,
+        portion: "remainder",
+        reason: "depositor"
+      };
+      const details: BankTransactionDetails = {
+        address: null,
+        fingerprint: null,
+        timestamp: null,
+        type: "deposit",
+        reason: "paypal-payment-received",
+        relatedCardId: null,
+        relatedCouponId: null,
+        amount: deposit.net,
+        toRecipients: [recipient]
+      };
+      console.log("Bank.handleBankDeposit: Adding transaction for deposit", deposit, details);
+      const transactionResult = await networkEntity.performBankTransaction(request, details, null, false, false, "ChannelCoin purchase via Paypal", null, null, now);
+      await db.updateDepositComplete(deposit.id, "completed", transactionResult.record.id);
+      const reply: AdminBankDepositResponse = {
+        serverVersion: SERVER_VERSION,
+        transactionId: transactionResult.record.id
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("Bank.handleBankDeposit: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleStatement(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<BankStatementDetails>;
@@ -265,7 +352,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false): Promise<BankTransactionResult> {
+  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false, doNotIncrementBalance = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -288,7 +375,7 @@ export class Bank implements RestServer, Initializable {
     if (["transfer", "deposit"].indexOf(details.type) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction type");
     }
-    if (["card-open-fee", "interest", "subsidy", "grant", "deposit", "publisher-subsidy", "referral-bonus", "registration-bonus"].indexOf(details.reason) < 0) {
+    if (["card-open-fee", "interest", "subsidy", "grant", "deposit", "publisher-subsidy", "referral-bonus", "registration-bonus", "paypal-payment-received"].indexOf(details.reason) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction reasons");
     }
     switch (details.reason) {
@@ -413,10 +500,12 @@ export class Bank implements RestServer, Initializable {
         default:
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
-      console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
-      await db.incrementUserBalance(recipientUser, creditAmount, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
-      if (recipientUser.id === user.id) {
-        user.balance += creditAmount;
+      if (!doNotIncrementBalance) {
+        console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
+        await db.incrementUserBalance(recipientUser, creditAmount, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
+        if (recipientUser.id === user.id) {
+          user.balance += creditAmount;
+        }
       }
       amountByRecipientReason[recipient.reason.toString()] = creditAmount;
     }
@@ -637,3 +726,14 @@ interface PaypalPayoutResponse {
     batch_status: string;
   };
 }
+
+// db.deposits.insert({
+//   "at": 1520092430000,
+//   "status": "completed",
+//   "receivedBy": "14cc0db5-1122-4a45-9123-1c1291b8d268",
+//   "fromHandle": "kduffie2",
+//   "amount": 2.22,
+//   "currency": "USD",
+//   "net": 2.05,
+//   "paypalReference": "AAAAAAAAAAAAAA1"
+// })

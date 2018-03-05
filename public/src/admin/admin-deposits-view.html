@@ -1,0 +1,181 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+<link rel="import" href="admin-deposit-dialog.html">
+
+<dom-module id="admin-deposits-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 0 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <div class="horizontal layout">
+        <h1>Deposits</h1>
+        <div class="flex"></div>
+        <div style="text-align:right;">
+          <button on-click="_onAdd">New Deposit</button>
+        </div>
+      </div>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">Deposit Id</div>
+          <div class="headerCell">Transaction Id</div>
+          <div class="headerCell">At</div>
+          <div class="headerCell">Handle</div>
+          <div class="headerCell">Name</div>
+          <div class="headerCell">Email</div>
+          <div class="headerCell right">Balance</div>
+          <div class="headerCell right">Amount</div>
+          <div class="headerCell right">Currency</div>
+          <div class="headerCell right">Net</div>
+          <div class="headerCell">Paypal Reference</div>
+        </div>
+        <template is="dom-repeat" items="[[items]]">
+          <div class="row">
+            <div class="cell">[[item.deposit.id]]</div>
+            <div class="cell">[[item.deposit.transactionId]]</div>
+            <div class="cell">[[item.at]]</div>
+            <div class="cell">[[item.deposit.fromHandle]]</div>
+            <div class="cell">[[item.depositor.identity.name]]</div>
+            <div class="cell">[[item.depositor.identity.emailAddress]]</div>
+            <div class="cell right">[[item.depositor.balance]]</div>
+            <div class="cell right">[[item.deposit.amount]]</div>
+            <div class="cell">[[item.deposit.currency]]</div>
+            <div class="cell right">[[item.deposit.net]]</div>
+            <div class="cell">[[item.deposit.paypalReference]]</div>
+          </div>
+        </template>
+      </div>
+      <admin-deposit-dialog id="addDialog"></admin-deposit-dialog>
+    </div>
+  </template>
+  <script>
+    class AdminDepositsView extends Polymer.Element {
+      static get is() { return 'admin-deposits-view'; }
+      static get properties() {
+        return {
+          items: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('items', []);
+        $core.admin_getDeposits().then((response) => {
+          for (const item of response.deposits) {
+            item.at = this._displayTimestamp(item.deposit.at);
+          }
+          this.set('items', response.deposits);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onAdd() {
+        this.$.addDialog.show().then((result) => {
+          if (result) {
+            this._refresh();
+          }
+        });
+      }
+    }
+    window.customElements.define(AdminDepositsView.is, AdminDepositsView);
+  </script>
+</dom-module>

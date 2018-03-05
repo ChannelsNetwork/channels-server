@@ -94,7 +94,7 @@ export class NetworkEntity implements Initializable {
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
-        await this.performBankTransaction(null, grant, null, true, false, null, null, null);
+        await this.performBankTransaction(null, grant, null, true, false, null, null, null, Date.now());
         const interest = Math.max(user.balance - grant.amount, 0);
         if (interest > 0) {
           const interestPayment: BankTransactionDetails = {
@@ -108,7 +108,7 @@ export class NetworkEntity implements Initializable {
             relatedCouponId: null,
             toRecipients: [recipient]
           };
-          await this.performBankTransaction(null, interestPayment, null, true, false, null, null, null);
+          await this.performBankTransaction(null, interestPayment, null, true, false, null, null, null, Date.now());
         }
       }
     }
@@ -161,9 +161,9 @@ export class NetworkEntity implements Initializable {
     return 0.02;
   }
 
-  async performBankTransaction(request: Request, details: BankTransactionDetails, relatedCardTitle: string, increaseTargetBalance: boolean, increaseWithdrawableBalance: boolean, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionResult> {
+  async performBankTransaction(request: Request, details: BankTransactionDetails, relatedCardTitle: string, increaseTargetBalance: boolean, increaseWithdrawableBalance: boolean, description: string, fromIpAddress: string, fromFingerprint: string, at: number, doNotIncrementUserBalance = false): Promise<BankTransactionResult> {
     details.address = this.networkEntityKeyInfo.address;
-    details.timestamp = Date.now();
+    details.timestamp = at;
     const detailsString = JSON.stringify(details);
     const signature = KeyUtils.signString(detailsString, this.networkEntityKeyInfo);
     const networkUser = await db.findNetworkUser();
@@ -171,7 +171,7 @@ export class NetworkEntity implements Initializable {
       objectString: detailsString,
       signature: signature
     };
-    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, description, fromIpAddress, fromFingerprint, true, increaseTargetBalance, increaseWithdrawableBalance);
+    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, description, fromIpAddress, fromFingerprint, true, increaseTargetBalance, increaseWithdrawableBalance, false, doNotIncrementUserBalance);
   }
 }
 
