@@ -1156,7 +1156,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
     result += '<table width="300" style="font-size:15px;color:black;">\n';
     result += '<tr>\n';
-    if (card.by.image) {
+    if (card.by.image && card.by.image.id) {
       result += '<td style="border:0;padding:0;width:48px;">\n';
       const userUrl = fileManager.getCircularImageUrl(card.by.image.id, 42);
       result += '<img src="' + userUrl + '" style="width:40px;height:auto;">\n';
