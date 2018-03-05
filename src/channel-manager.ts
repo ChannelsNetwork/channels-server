@@ -782,7 +782,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       reason: "referral-bonus"
     });
     console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
-    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null);
+    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null, Date.now());
     await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
     await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
   }

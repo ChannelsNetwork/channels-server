@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -1184,4 +1184,27 @@ export interface AdminGetRealtimeStatsResponse extends RestResponse {
   purchases: number;
   cards: number;
   cardPayments: number;
+}
+
+export interface AdminBankDepositDetails extends Signable {
+  fromHandle: string;
+  amount: number;
+  currency: string;
+  net: number;
+  paypalReference: string;
+}
+
+export interface AdminBankDepositResponse extends RestResponse {
+  transactionId: string;
+}
+
+export interface AdminGetDepositsDetails extends Signable { }
+
+export interface AdminGetDepositsResponse extends RestResponse {
+  deposits: AdminDepositInfo[];
+}
+
+export interface AdminDepositInfo {
+  deposit: DepositRecord;
+  depositor: UserRecord;
 }

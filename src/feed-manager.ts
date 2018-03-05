@@ -1641,7 +1641,7 @@ export class FeedManager implements Initializable, RestServer {
       portion: "remainder",
       reason: "grant-recipient"
     });
-    await networkEntity.performBankTransaction(null, grantDetails, null, true, false, null, null, null);
+    await networkEntity.performBankTransaction(null, grantDetails, null, true, false, null, null, null, Date.now());
     user.balance += 10;
     user.targetBalance += 10;
     return {

@@ -495,7 +495,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -730,3 +730,19 @@ export interface CardCommentFieldDescriptor {
 }
 
 export type CardCommentFieldType = "hyperlink" | "handle";
+
+export interface DepositRecord {
+  id: string;
+  at: number;
+  receivedBy: string;
+  status: DepositStatus;
+  fromHandle: string;
+  userId: string;
+  amount: number;
+  currency: string;
+  net: number;
+  paypalReference: string;
+  transactionId: string;
+}
+
+export type DepositStatus = "pending" | "completed";
