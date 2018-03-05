@@ -1178,6 +1178,11 @@ export interface AdminGetRealtimeStatsDetails extends Signable { }
 
 export interface AdminGetRealtimeStatsResponse extends RestResponse {
   at: number;
+  total: RealtimeStats;
+  past24Hours: RealtimeStats;
+}
+
+export interface RealtimeStats {
   purchasers: number;
   registrants: number;
   publishers: number;

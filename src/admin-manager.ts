@@ -314,15 +314,26 @@ export class AdminManager implements RestServer {
       console.log("AdminManager.admin-realtime-stats", user.id, requestBody.detailsObject);
       const now = Date.now();
       const stats = await db.ensureNetworkCardStats(false);
+      const yesterday = await db.getNetworkCardStatsAt(now - 1000 * 60 * 60 * 24);
       const reply: AdminGetRealtimeStatsResponse = {
         serverVersion: SERVER_VERSION,
         at: now,
-        purchasers: stats.stats.purchasers,
-        registrants: stats.stats.registrants,
-        publishers: stats.stats.publishers,
-        cards: stats.stats.cards,
-        purchases: stats.stats.purchases,
-        cardPayments: stats.stats.cardPayments
+        total: {
+          purchasers: stats.stats.purchasers,
+          registrants: stats.stats.registrants,
+          publishers: stats.stats.publishers,
+          cards: stats.stats.cards,
+          purchases: stats.stats.purchases,
+          cardPayments: stats.stats.cardPayments
+        },
+        past24Hours: {
+          purchasers: stats.stats.purchasers - (yesterday.stats.purchasers || 0),
+          registrants: stats.stats.registrants - (yesterday.stats.registrants || 0),
+          publishers: stats.stats.publishers - (yesterday.stats.publishers || 0),
+          cards: stats.stats.cards - (yesterday.stats.cards || 0),
+          purchases: stats.stats.purchases - (yesterday.stats.purchases || 0),
+          cardPayments: stats.stats.cardPayments - (yesterday.stats.cardPayments || 0)
+        }
       };
       response.json(reply);
     } catch (err) {
