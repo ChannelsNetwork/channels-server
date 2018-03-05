@@ -687,6 +687,14 @@ class RestUtils {
     };
   }
 
+  static admin_getRealtimeStats(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
   static queryPage(address, fingerprint, url) {
     return {
       address: address,

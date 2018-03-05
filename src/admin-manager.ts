@@ -6,7 +6,7 @@ import { RestServer } from './interfaces/rest-server';
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { SERVER_VERSION } from "./server-version";
-import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo, AdminGetPublishersDetails, AdminGetPublishersResponse, AdminPublisherInfo } from "./interfaces/rest-services";
+import { RestRequest, QueryPageDetails, QueryPageResponse, AdminGetGoalsDetails, AdminGetGoalsResponse, AdminGoalsInfo, AdminUserGoalsInfo, AdminCardGoalsInfo, AdminGetWithdrawalsDetails, AdminGetWithdrawalsResponse, ManualWithdrawalInfo, AdminUpdateWithdrawalDetails, AdminUpdateWithdrawalResponse, AdminPublisherRevenueGoalsInfo, AdminAdRevenueGoalsInfo, AdminPublisherGoalsInfo, AdminGetPublishersDetails, AdminGetPublishersResponse, AdminPublisherInfo, AdminGetRealtimeStatsDetails, AdminGetRealtimeStatsResponse } from "./interfaces/rest-services";
 import * as moment from "moment-timezone";
 import { db } from "./db";
 import { CardRecord, UserRecord, UserCardActionRecord } from "./interfaces/db-records";
@@ -34,6 +34,9 @@ export class AdminManager implements RestServer {
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-update-withdrawal'), (request: Request, response: Response) => {
       void this.handleUpdateWithdrawal(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-realtime-stats'), (request: Request, response: Response) => {
+      void this.handleGetRealtimeStats(request, response);
     });
   }
   private async handleGetAdminGoals(request: Request, response: Response): Promise<void> {
@@ -289,6 +292,37 @@ export class AdminManager implements RestServer {
       response.json(reply);
     } catch (err) {
       errorManager.error("AdminManager.handleGetWithdrawals: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleGetRealtimeStats(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetRealtimeStatsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      console.log("AdminManager.admin-realtime-stats", user.id, requestBody.detailsObject);
+      const now = Date.now();
+      const stats = await db.ensureNetworkCardStats(false);
+      const reply: AdminGetRealtimeStatsResponse = {
+        serverVersion: SERVER_VERSION,
+        at: now,
+        purchasers: stats.stats.purchasers,
+        registrants: stats.stats.registrants,
+        publishers: stats.stats.publishers,
+        cards: stats.stats.cards,
+        purchases: stats.stats.purchases,
+        cardPayments: stats.stats.cardPayments
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("AdminManager.handleGetRealtimeStats: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
