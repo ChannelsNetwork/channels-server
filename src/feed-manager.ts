@@ -348,8 +348,14 @@ export class FeedManager implements Initializable, RestServer {
       case 'new':
         batch = await this.getRecentlyAddedFeed(request, user, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
         break;
-      case 'top':
-        batch = await this.getTopFeed(request, user, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
+      case 'top-all-time':
+        batch = await this.getTopFeed(request, user, feed.maxCount, feed.afterCardId, existingPromotedCardIds, 0);
+        break;
+      case 'top-past-week':
+        batch = await this.getTopFeed(request, user, feed.maxCount, feed.afterCardId, existingPromotedCardIds, Date.now() - 1000 * 60 * 60 * 24 * 7);
+        break;
+      case 'top-past-month':
+        batch = await this.getTopFeed(request, user, feed.maxCount, feed.afterCardId, existingPromotedCardIds, Date.now() - 1000 * 60 * 60 * 24 * 30);
         break;
       case 'mine':
         batch = await this.getRecentlyPostedFeed(request, user, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
@@ -930,7 +936,7 @@ export class FeedManager implements Initializable, RestServer {
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
-  private async getTopFeed(request: Request, user: UserRecord, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getTopFeed(request: Request, user: UserRecord, limit: number, afterCardId: string, existingPromotedCardIds: string[], since: number): Promise<CardBatch> {
     let revenue = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -938,7 +944,7 @@ export class FeedManager implements Initializable, RestServer {
         revenue = afterCard && afterCard.stats && afterCard.stats.revenue ? afterCard.stats.revenue.value : 0;
       }
     }
-    const cards = await db.findCardsByRevenue(limit + 1, user.id, revenue);
+    const cards = await db.findCardsByRevenue(limit + 1, user.id, revenue, since);
     const result = await this.populateCards(request, cards, null, false, null, null, user);
     return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }

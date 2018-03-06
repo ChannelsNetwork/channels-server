@@ -1546,11 +1546,15 @@ export class Database {
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
-  async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {
-    const query: any = { state: "active" };
-    this.addAuthorClause(query, userId);
-    query["stats.revenue.value"] = lessThan > 0 ? { $lt: lessThan, $gt: 0 } : { $gt: 0 };
-    return this.cards.find(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
+  async findCardsByRevenue(maxCount: number, userId: string, lessThan: number, since: number): Promise<CardRecord[]> {
+    const query: any = { state: "active", private: false, "curation.block": false };
+    if (lessThan) {
+      query["stats.revenue.value"] = { $lt: lessThan };
+    }
+    if (since) {
+      query.postedAt = { $gt: since };
+    }
+    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount || 100).toArray();
   }
 
   private addAuthorClause(query: any, userId: string): void {
@@ -2897,7 +2901,7 @@ export class Database {
   }
 
   async findChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState): Promise<ChannelUserRecord> {
-    const query: any = { channelId: channelId, userId: userId};
+    const query: any = { channelId: channelId, userId: userId };
     if (subscriptionState) {
       query.subscriptionState = subscriptionState;
     }
@@ -2910,7 +2914,7 @@ export class Database {
   }
 
   async findChannelSubscribers(channelId: string, subscriptionState: ChannelSubscriptionState, maxCount: number): Promise<ChannelUserRecord[]> {
-    return this.channelUsers.find<ChannelUserRecord>({channelId: channelId, subscriptionState: subscriptionState}).sort({lastUpdated: -1}).limit(maxCount || 100).toArray();
+    return this.channelUsers.find<ChannelUserRecord>({ channelId: channelId, subscriptionState: subscriptionState }).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
   }
 
   async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {

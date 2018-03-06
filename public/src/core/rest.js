@@ -182,6 +182,19 @@ class RestUtils {
     };
   }
 
+  static getTopFeedsDetails(address, fingerprint, maxCount) {
+    const feeds = [];
+    feeds.push({ type: 'top-all-time', maxCount: maxCount });
+    feeds.push({ type: 'top-past-week', maxCount: maxCount });
+    feeds.push({ type: 'top-past-month', maxCount: maxCount });
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      feeds: feeds
+    };
+  }
+
   static getFeedsDetails(address, fingerprint, maxCount, type, startWithCardId, afterCardId, channelHandle, existingPromotedCardIds) {  // type = "recommended" | "top" | "new" | "mine" | "opened"  OR null for all categories
     const feeds = [];
     if (type) {
@@ -192,7 +205,7 @@ class RestUtils {
       feeds.push(feed);
     } else {
       feeds.push({ type: 'recommended', maxCount: maxCount });
-      feeds.push({ type: 'top', maxCount: maxCount });
+      feeds.push({ type: 'top-all-time', maxCount: maxCount });
       feeds.push({ type: 'new', maxCount: maxCount });
       feeds.push({ type: 'mine', maxCount: maxCount });
       feeds.push({ type: 'opened', maxCount: maxCount });

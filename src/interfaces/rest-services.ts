@@ -179,7 +179,7 @@ export interface RequestedFeedDescriptor {
   afterCardId?: string;
 }
 
-export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel' | 'subscribed';
+export type CardFeedType = 'recommended' | 'new' | 'top-all-time' | 'top-past-week' | 'top-past-month' | 'mine' | 'opened' | 'channel' | 'subscribed';
 
 export interface GetFeedsResponse extends RestResponse {
   feeds: CardFeedSet[];
