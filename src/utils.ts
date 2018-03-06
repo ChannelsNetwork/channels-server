@@ -160,7 +160,7 @@ export class Utils {
     if (input > upper.lowerBound) {
       return upper.value;
     }
-    return lower.value * (input - lower.lowerBound) / range + upper.value * (upper.lowerBound - input) / range;
+    return upper.value * (input - lower.lowerBound) / range + lower.value * (upper.lowerBound - input) / range;
   }
 }
 
