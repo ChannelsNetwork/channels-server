@@ -2298,3 +2298,107 @@ db.userCardActions.aggregate([
   }},
   {$sort: {cardCount: -1}}
 ])
+
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", authorId: "75013838-fc15-45f2-ac71-a34f3ebe46a4"}},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$project: {
+    count: 1,
+    revenue: 1,
+    city: "$buyer.city",
+    country: "$buyer.country",
+    buyerHandle: "$buyer.identity.handle",
+    buyerBalance: "$buyer.balance",    
+  }},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    authorId: "75013838-fc15-45f2-ac71-a34f3ebe46a4",
+    at: {$gt: 1520126524000},
+    action: "pay",
+  }},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "userId",
+    foreignField: "userId",
+    as: "registration"
+  }},
+  {$unwind: "$registration"},
+  {$project: {
+    buyerId: "$userId",
+    agent: "$registration.userAgent",
+  }},
+  {$group: {
+    _id: "$agent",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    authorId: "75013838-fc15-45f2-ac71-a34f3ebe46a4",
+    cardId: "7dd03b1d-7388-4cd7-b7bf-593f9a1d5a4a",
+    action: "pay",
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "userId",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    buyerId: "$user.id",
+    city: "$user.city",
+    country: "$user.country",
+    originalReferrer: "$user.originalReferrer"
+  }},
+  {$group: {
+    _id: "$originalReferrer",
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", authorId: "75013838-fc15-45f2-ac71-a34f3ebe46a4"}},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"},
+    timestamps: {$push: "$at"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$match: {count: {$gt: 1}}},
+  {$project: {
+    count: 1,
+    revenue: 1,
+    city: "$buyer.city",
+    country: "$buyer.country",
+    buyerHandle: "$buyer.identity.handle",
+    buyerBalance: "$buyer.balance", 
+    delta: {$subtract: [{$arrayElemAt: ["$timestamps", 0]}, {$arrayElemAt: ["$timestamps", 1]}]}   
+  }},
+  {$sort: {delta: -1}}
+])
