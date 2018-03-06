@@ -929,4 +929,14 @@ class RestUtils {
       handle: handle
     };
   }
+
+  static getChannelSubscribers(address, fingerprint, channelId, maxCount) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      channelId: channelId,
+      maxCount: maxCount
+    };
+  }
 }

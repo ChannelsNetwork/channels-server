@@ -1213,3 +1213,17 @@ export interface AdminDepositInfo {
   deposit: DepositRecord;
   depositor: UserRecord;
 }
+
+export interface GetChannelSubscribersDetails extends Signable {
+  channelId: string;
+  maxCount: number;
+}
+
+export interface GetChannelSubscribersResponse extends RestResponse {
+  subscribers: ChannelSubscriberInfo[];
+}
+
+export interface ChannelSubscriberInfo {
+  user: UserDescriptor;
+  homeChannel: ChannelDescriptor;
+}

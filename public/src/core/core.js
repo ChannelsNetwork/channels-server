@@ -765,6 +765,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getChannelSubscribers(channelId, maxCount) {
+    let details = RestUtils.getChannelSubscribers(this._keys.address, this._fingerprint, channelId, maxCount);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel-subscribers";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
