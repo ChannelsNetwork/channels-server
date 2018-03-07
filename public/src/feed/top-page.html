@@ -1,0 +1,155 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="../card/card-list.html">
+
+<dom-module id="top-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .container {
+        padding: 0 0 20px;
+      }
+
+      #noItems {
+        padding: 16px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      card-list {
+        max-width: 1264px;
+        margin: 20px auto 0;
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
+        }
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
+    <div class="container">
+      <dom-repeat items="[[items]]">
+        <template>
+          <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.moreAvailable]]" on-card-open-request="_onCardOpenRequest"
+            on-more="_onMore"></card-list>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class TopPage extends Polymer.Element {
+      static get is() { return 'top-page'; }
+
+      static get properties() {
+        return {
+          items: Array
+        };
+      }
+
+      onActivate(route) {
+        this.$.cbar.activate();
+        this.$.fbar.selected = 'top';
+
+        // check if need to reload
+        let fetchNewContent = true;
+        if ((!window.__dirtyFeed) && this._lastFetchTimestamp && route.context && route.context.scrollTop) {
+          let timeDiff = (new Date()).getTime() - this._lastFetchTimestamp;
+          if (timeDiff < (5 * 60 * 1000)) {
+            fetchNewContent = false;
+          }
+        }
+        if (!fetchNewContent) {
+          $app.scrollTo(route.context.scrollTop);
+          return;
+        }
+
+        this._lastFetchTimestamp = (new Date()).getTime();
+        window.__dirtyFeed = false;
+        this.items = [];
+
+        $core.register().then(() => {
+          return $core.getTopFeeds($core._isMobile() ? 3 : 7).then(response => {
+            let items = [];
+            response = response || [];
+            for (let d of response) {
+              if (d.cards && d.cards.length) {
+                switch (d.type) {
+                  case "top-past-week":
+                    d.label = "Past week";
+                    d.order = 1;
+                    break;
+                  case "top-past-month":
+                    d.label = "Past month";
+                    d.order = 2;
+                    break;
+                  case "top-all-time":
+                    d.label = "All time";
+                    d.order = 3;
+                    break;
+                  default:
+                    order = 100;
+                    break;
+                }
+                items.push(d);
+              }
+            }
+            items.sort((a, b) => {
+              return a.order - b.order;
+            });
+            this.items = items;
+            console.log("items", items)
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          let context = {
+            fromApp: true,
+            card: card,
+            scrollTop: $app.scrollValue,
+            returnPath: '/top'
+          };
+          $router.updateContext({
+            scrollTop: $app.scrollValue
+          });
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
+        }
+      }
+
+      _onMore(event) {
+        let item = event.model.item;
+        console.log("more", item, event.model.index);
+      }
+
+    }
+    window.customElements.define(TopPage.is, TopPage);
+  </script>
+</dom-module>
