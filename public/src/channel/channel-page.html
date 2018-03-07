@@ -649,7 +649,7 @@
         this.subscribers = [];
         this._moreAvailable = false;
         this._lastSubscriber = null;
-        $core.getChannelSubscribers(this.channel.id, 24).then(response => {
+        $core.getChannelSubscribers(this.channel.id, 48).then(response => {
           let subscribers = [];
           let list = (response && response.subscribers) || [];
           for (let s of list) {
@@ -678,7 +678,7 @@
         this._lastCardId = null;
         this._fetchTimestamp = (new Date()).getTime();
         this._pinnedCount = 0;
-        return $core.getFeed("channel", 48, null, null, this._handle, []).then((feed) => {
+        return $core.getFeed("channel", 32, null, null, this._handle, []).then((feed) => {
           let list = [];
           for (let i = 0; i < feed.cards.length; i++) {
             let card = feed.cards[i];
