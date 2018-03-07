@@ -949,13 +949,13 @@ export class FeedManager implements Initializable, RestServer {
     let found = revenue > 0 ? true : false;
     let more = false;
     while (await cursor.hasNext()) {
+      if (cards.length >= limit) {
+        more = await cursor.hasNext();
+        break;
+      }
       const card = await cursor.next();
       if (found) {
         cards.push(card);
-        if (cards.length >= limit) {
-          more = await cursor.hasNext();
-          break;
-        }
       } else {
         if (card.id === afterCardId) {
           found = true;
