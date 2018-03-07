@@ -39,6 +39,7 @@ const promiseLimit = require('promise-limit');
 const CARD_LOCK_TIMEOUT = 1000 * 60;
 const DEFAULT_STAT_SNAPSHOT_INTERVAL = 1000 * 60 * 15;
 const REVENUE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
+const CARD_PURCHASE_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const IMPRESSIONS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
 const PROMOTIONS_PAID_SNAPSHOT_INTERVAL = DEFAULT_STAT_SNAPSHOT_INTERVAL;
@@ -270,6 +271,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     // await paymentCursor.close();
 
     setInterval(this.poll.bind(this), 1000 * 60 * 5);
+
+    const network = await db.getNetwork();
+    if (!network.cardPurchaseStatsUpdated) {
+      console.log("Kicking off job to update card purchase stats...");
+      await db.updateNetworkCardPurchaseStatsUpdated(true);
+      await this.updateCardPurchaseStats();
+    }
   }
 
   private async poll(): Promise<void> {
@@ -1039,6 +1047,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserFirstCardPurchased(user.id, card.id);
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
+      const statName = skipMoneyTransfer ? "fraudPurchases" : (isFirstUserCardPurchase ? "firstTimePurchases" : "normalPurchases");
+      await this.incrementStat(card, statName, 1, now, CARD_PURCHASE_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue, 0, 0, isFirstUserCardPurchase ? 1 : 0, 0, 0, discountReason ? 0 : 1, 0, amount);
       const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
       if (card.budget && card.budget.available !== newBudgetAvailable) {
@@ -1439,7 +1449,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         opens: [],
         uniqueOpens: [],
         likes: [],
-        dislikes: []
+        dislikes: [],
+        normalPurchases: [],
+        firstTimePurchases: []
       };
       for (const key of Object.keys(reply)) {
         const items = await db.findCardStatsHistory(card.id, key, requestBody.detailsObject.historyLimit);
@@ -1973,7 +1985,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           likes: record.stats.likes.value,
           dislikes: record.stats.dislikes.value,
           reports: record.stats.reports ? record.stats.reports.value : 0,
-          refunds: record.stats.refunds ? record.stats.refunds.value : 0
+          refunds: record.stats.refunds ? record.stats.refunds.value : 0,
+          firstTimePurchases: record.stats.firstTimePurchases ? record.stats.firstTimePurchases.value : 0,
+          normalPurchases: record.stats.normalPurchases ? record.stats.normalPurchases.value : 0,
         },
         score: record.score,
         userSpecific: {
@@ -2423,6 +2437,32 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       errorManager.error("User.handleAdminSetCommentCuration: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  private async updateCardPurchaseStats(): Promise<void> {
+    // This is a one-time utility to go back through all card purchases and update the card stats
+    // to reflect them.  Since this will be running parallel with live operations, we record the
+    // current timestamp, and only process userCardAction records before this point.
+    const paymentsByCard = await db.aggregateUserCardPayments(Date.now());
+    let counter = paymentsByCard.length;
+    const now = Date.now();
+    for (const info of paymentsByCard) {
+      if (info.firstTimePurchases + info.fraudPurchases + info.normalPurchases > 0) {
+        const card = await this.getCardById(info._id, true);
+        if (card) {
+          console.log("Card.updateCardPurchaseStats", counter--, info);
+          // We add one history record, so they look like they all happened just when posted, so not recent
+          await db.setCardPaymentStats(info._id, info.normalPurchases, info.firstTimePurchases, info.fraudPurchases);
+          await db.insertCardStatsHistory(info._id, "normalPurchases", info.normalPurchases, card.postedAt);
+          await db.insertCardStatsHistory(info._id, "firstTimePurchases", info.firstTimePurchases, card.postedAt);
+          await db.insertCardStatsHistory(info._id, "fraudPurchases", info.fraudPurchases, card.postedAt);
+          await db.insertCardStatsHistory(info._id, "normalPurchases", info.normalPurchases, now);
+          await db.insertCardStatsHistory(info._id, "firstTimePurchases", info.firstTimePurchases, now);
+          await db.insertCardStatsHistory(info._id, "fraudPurchases", info.fraudPurchases, now);
+        }
+      }
+    }
+    console.log("Card.updateCardPurchaseStats: Completed");
   }
 }
 

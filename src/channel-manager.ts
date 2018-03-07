@@ -1003,8 +1003,20 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       }
       console.log("ChannelManager.get-channel-subscribers", requestBody.detailsObject);
       const infos: ChannelSubscriberInfo[] = [];
-      const subscribers = await db.findChannelSubscribers(requestBody.detailsObject.channelId, "subscribed", requestBody.detailsObject.maxCount);
+      let lastUpdatedBefore = 0;
+      if (requestBody.detailsObject.afterSubscriberId) {
+        const channelUser = await db.findChannelUser(channel.id, user.id, null);
+        if (channelUser) {
+          lastUpdatedBefore = channelUser.lastUpdated;
+        }
+      }
+      const subscribers = await db.findChannelSubscribers(requestBody.detailsObject.channelId, "subscribed", requestBody.detailsObject.maxCount + 1, lastUpdatedBefore);
+      let more = false;
       for (const subscriber of subscribers) {
+        if (infos.length >= requestBody.detailsObject.maxCount) {
+          more = true;
+          break;
+        }
         const subscriberDescriptor = await userManager.getUserDescriptor(subscriber.userId, false);
         if (subscriberDescriptor) {
           const ownedChannels = await db.findChannelsByOwnerId(subscriberDescriptor.id);
@@ -1017,7 +1029,8 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       }
       const result: GetChannelSubscribersResponse = {
         serverVersion: SERVER_VERSION,
-        subscribers: infos
+        subscribers: infos,
+        moreAvailable: more
       };
       response.json(result);
     } catch (err) {

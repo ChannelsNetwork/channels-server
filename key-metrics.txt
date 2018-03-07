@@ -178,11 +178,11 @@ db.users.aggregate([
     firstTimes: {$sum: {$cond: {if: {$eq: ["$category", "firstTime"]}, then: 1, else: 0}}},
   }},
   {$match: {fans: {$gt: 3}, revenue: {$gt: 5}}},
-  {$sort: {fans: -1}}
-])
-
+  {$sort: {fans: -1}},
   {$group: {
     _id: "all",
     publishers: {$sum: 1},
     revenue: {$sum: "$revenue"}
   }},
+])
+
