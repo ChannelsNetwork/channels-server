@@ -273,6 +273,8 @@ export interface CardDescriptorStatistics {
   dislikes: number;
   reports: number;
   refunds: number;
+  firstTimePurchases: number;
+  normalPurchases: number;
 }
 
 export interface EnsureChannelComponentDetails extends Signable {
@@ -365,6 +367,8 @@ export interface CardStatsHistoryResponse extends RestResponse {
   uniqueOpens: CardStatDatapoint[];
   likes: CardStatDatapoint[];
   dislikes: CardStatDatapoint[];
+  normalPurchases: CardStatDatapoint[];
+  firstTimePurchases: CardStatDatapoint[];
 }
 
 export interface CardStatDatapoint {

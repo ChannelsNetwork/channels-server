@@ -116,6 +116,7 @@ export interface NetworkRecord {
   totalWithdrawals: number;
   totalPublisherSubsidies: number;
   maxPayoutPerBaseFeePeriod: number;
+  cardPurchaseStatsUpdated: boolean;
 }
 
 export interface CardRecord {
@@ -211,6 +212,9 @@ export interface CardStatistics {
   dislikes: CardStatistic;
   reports: CardStatistic;
   refunds: CardStatistic;
+  fraudPurchases: CardStatistic;
+  normalPurchases: CardStatistic;
+  firstTimePurchases: CardStatistic;
 }
 
 export interface CardStatistic {

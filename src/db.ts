@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb";
+import { MongoClient, Db, Collection, Cursor, MongoClientOptions, AggregationCursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
@@ -109,7 +109,8 @@ export class Database {
         totalDeposits: 0,
         totalWithdrawals: 0,
         totalPublisherSubsidies: 0,
-        maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD
+        maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD,
+        cardPurchaseStatsUpdated: true,
       };
       await this.networks.insert(record);
     }
@@ -529,6 +530,10 @@ export class Database {
 
   async getNetwork(): Promise<NetworkRecord> {
     return this.networks.findOne({ id: '1' });
+  }
+
+  async updateNetworkCardPurchaseStatsUpdated(value: boolean): Promise<void> {
+    await this.networks.updateOne({ id: "1" }, { $set: { cardPurchaseStatsUpdated: value } });
   }
 
   async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrPublisherSubsidies: number): Promise<void> {
@@ -1073,7 +1078,10 @@ export class Database {
         likes: { value: 0, lastSnapshot: 0 },
         dislikes: { value: 0, lastSnapshot: 0 },
         reports: { value: 0, lastSnapshot: 0 },
-        refunds: { value: 0, lastSnapshot: 0 }
+        refunds: { value: 0, lastSnapshot: 0 },
+        fraudPurchases: { value: 0, lastSnapshot: 0 },
+        normalPurchases: { value: 0, lastSnapshot: 0 },
+        firstTimePurchases: { value: 0, lastSnapshot: 0 },
       },
       score: 0,
       promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
@@ -1406,6 +1414,16 @@ export class Database {
     if (promotionScores) {
       card.promotionScores = promotionScores;
     }
+  }
+
+  async setCardPaymentStats(cardId: string, normal: number, firstTime: number, fraud: number): Promise<void> {
+    const now = Date.now();
+    const update: any = {
+      "stats.normalPurchases": {value: normal, lastSnapshot: now},
+      "stats.firstTimePurchases": {value: firstTime, lastSnapshot: now},
+      "stats.fraudPurchases": {value: fraud, lastSnapshot: now},
+    };
+    await this.cards.updateOne({id: cardId}, {$set: update});
   }
 
   async updateCardPrivate(card: CardRecord, isPrivate: boolean): Promise<void> {
@@ -2132,6 +2150,10 @@ export class Database {
     return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: from, $lte: to } });
   }
 
+  getUserCardPayments(before: number): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $lt: before } });
+  }
+
   getUserCardPayActionsWithoutAuthor(): Cursor<UserCardActionRecord> {
     return this.userCardActions.find<UserCardActionRecord>({ action: "pay", authorId: { $exists: false } }).sort({ at: 1 });
   }
@@ -2244,6 +2266,45 @@ export class Database {
     return this.userCardActions.aggregate([
       { $match: query },
       { $group: { _id: "$payment.category", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
+    ]).toArray();
+  }
+
+  async aggregateUserCardPayments(before: number): Promise<AggregatedCardPaymentInfo[]> {
+    const query: any = { action: "pay", at: { $lt: before } };
+    return this.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $group: {
+          _id: "$cardId",
+          firstTimePurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$payment.category", "first"] },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+          normalPurchases: {
+            $sum: {
+              $cond: {
+                if: { $in: ["$payment.category", ["fan", "normal"]] },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+          fraudPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$payment.category", "fraud"] },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+        }
+      }
     ]).toArray();
   }
 
@@ -4101,4 +4162,11 @@ export interface AggregatedUserActionPaymentInfo {
   purchases: number;
   grossRevenue: number;
   weightedRevenue: number;
+}
+
+export interface AggregatedCardPaymentInfo {
+  _id: string;
+  firstTimePurchases: number;
+  normalPurchases: number;
+  fraudPurchases: number;
 }
