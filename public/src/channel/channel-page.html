@@ -181,6 +181,10 @@
         border-bottom: 2px solid transparent;
       }
 
+      .selected {
+        font-weight: bold;
+      }
+
       .selected .statLabel {
         border-color: var(--highlight-green);
       }
@@ -644,18 +648,20 @@
       _refreshSubscribers() {
         this.subscribers = [];
         this._moreAvailable = false;
-
-        $core.getChannelSubscribers(this.channel.id, 48).then(response => {
+        this._lastSubscriber = null;
+        $core.getChannelSubscribers(this.channel.id, 24).then(response => {
           let subscribers = [];
           let list = (response && response.subscribers) || [];
           for (let s of list) {
             if (s.homeChannel) {
               subscribers.push(s.homeChannel);
+              this._lastSubscriber = s.user.id;
             }
           }
           this.subscribers = subscribers;
           if (subscribers.length) {
             this.$.noSubscribers.classList.add("hidden");
+            this._moreAvailable = response.moreAvailable;
           } else {
             this.$.noSubscribers.classList.remove("hidden");
           }
@@ -704,29 +710,51 @@
           return;
         }
         this._fetchingMore = true;
-        this._fetchTimestamp = (new Date()).getTime();
-        return $core.getFeed("channel", 24, null, this._lastCardId, this._handle, this._promotedCardIds).then((feed) => {
-          this._fetchingMore = false;
-          const cards = feed.cards || [];
-          this._lastCardId = null;
-          let list = [];
-          for (let i = 0; i < cards.length; i++) {
-            list.push(cards[i]);
-            if (cards[i].promoted) {
-              this._promotedCardIds.push(cards[i].id);
-            } else {
-              this._lastCardId = cards[i].id;
+        if (this._feedType === 'subscribers') {
+          // more subscribers
+          $core.getChannelSubscribers(this.channel.id, 24, this._lastSubscriber).then(response => {
+            let subscribers = [];
+            let list = (response && response.subscribers) || [];
+            for (let s of list) {
+              if (s.homeChannel) {
+                subscribers.push(s.homeChannel);
+                this._lastSubscriber = s.user.id;
+              }
             }
-          }
-          this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
-          for (let i = 0; i < list.length; i++) {
-            this.push("items", list[i]);
-          }
-        }).catch((err) => {
-          this._fetchingMore = false;
-          console.error(err);
-          $app.showError(err);
-        });
+            for (let s of subscribers) {
+              this.push("subscribers", s);
+            }
+            this._moreAvailable = response.moreAvailable;
+          }).catch(err => {
+            console.error(err);
+            $app.showError(err);
+          });
+        } else {
+          // more cards
+          this._fetchTimestamp = (new Date()).getTime();
+          return $core.getFeed("channel", 24, null, this._lastCardId, this._handle, this._promotedCardIds).then((feed) => {
+            this._fetchingMore = false;
+            const cards = feed.cards || [];
+            this._lastCardId = null;
+            let list = [];
+            for (let i = 0; i < cards.length; i++) {
+              list.push(cards[i]);
+              if (cards[i].promoted) {
+                this._promotedCardIds.push(cards[i].id);
+              } else {
+                this._lastCardId = cards[i].id;
+              }
+            }
+            this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+            for (let i = 0; i < list.length; i++) {
+              this.push("items", list[i]);
+            }
+          }).catch((err) => {
+            this._fetchingMore = false;
+            console.error(err);
+            $app.showError(err);
+          });
+        }
       }
 
       _refreshButtons() {

@@ -1005,7 +1005,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       const infos: ChannelSubscriberInfo[] = [];
       let lastUpdatedBefore = 0;
       if (requestBody.detailsObject.afterSubscriberId) {
-        const channelUser = await db.findChannelUser(channel.id, user.id, null);
+        const channelUser = await db.findChannelUser(channel.id, requestBody.detailsObject.afterSubscriberId, null);
         if (channelUser) {
           lastUpdatedBefore = channelUser.lastUpdated;
         }
