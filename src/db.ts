@@ -1419,11 +1419,11 @@ export class Database {
   async setCardPaymentStats(cardId: string, normal: number, firstTime: number, fraud: number): Promise<void> {
     const now = Date.now();
     const update: any = {
-      "stats.normalPurchases": {value: normal, lastSnapshot: now},
-      "stats.firstTimePurchases": {value: firstTime, lastSnapshot: now},
-      "stats.fraudPurchases": {value: fraud, lastSnapshot: now},
+      "stats.normalPurchases": { value: normal, lastSnapshot: now },
+      "stats.firstTimePurchases": { value: firstTime, lastSnapshot: now },
+      "stats.fraudPurchases": { value: fraud, lastSnapshot: now },
     };
-    await this.cards.updateOne({id: cardId}, {$set: update});
+    await this.cards.updateOne({ id: cardId }, { $set: update });
   }
 
   async updateCardPrivate(card: CardRecord, isPrivate: boolean): Promise<void> {
@@ -1564,15 +1564,13 @@ export class Database {
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
-  async findCardsByRevenue(maxCount: number, userId: string, lessThan: number, since: number): Promise<CardRecord[]> {
+  getCardsByRevenue(userId: string, lessThanOrEqual: number, since: number): Cursor<CardRecord> {
     const query: any = { state: "active", private: false, "curation.block": false };
-    if (lessThan) {
-      query["stats.revenue.value"] = { $lt: lessThan };
-    }
+    query["stats.revenue.value"] = lessThanOrEqual ? { $lte: lessThanOrEqual, $gt: 0 } : { $gt: 0 };
     if (since) {
       query.postedAt = { $gt: since };
     }
-    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount || 100).toArray();
+    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 });
   }
 
   private addAuthorClause(query: any, userId: string): void {
@@ -2977,7 +2975,7 @@ export class Database {
   async findChannelSubscribers(channelId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, lastUpdatedBefore: number): Promise<ChannelUserRecord[]> {
     const query: any = { channelId: channelId, subscriptionState: subscriptionState };
     if (lastUpdatedBefore) {
-      query.lastUpdated = {$lt: lastUpdatedBefore};
+      query.lastUpdated = { $lt: lastUpdatedBefore };
     }
     return this.channelUsers.find<ChannelUserRecord>(query).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
   }
