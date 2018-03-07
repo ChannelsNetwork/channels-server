@@ -944,9 +944,32 @@ export class FeedManager implements Initializable, RestServer {
         revenue = afterCard && afterCard.stats && afterCard.stats.revenue ? afterCard.stats.revenue.value : 0;
       }
     }
-    const cards = await db.findCardsByRevenue(limit + 1, user.id, revenue, since);
+    const cursor = db.getCardsByRevenue(user.id, revenue, since);
+    const cards: CardRecord[] = [];
+    let found = revenue > 0 ? true : false;
+    let more = false;
+    while (await cursor.hasNext()) {
+      if (cards.length >= limit) {
+        more = await cursor.hasNext();
+        break;
+      }
+      const card = await cursor.next();
+      if (found) {
+        cards.push(card);
+      } else {
+        if (card.id === afterCardId) {
+          found = true;
+          continue; // because
+        } else if (card.stats.revenue.value < revenue) {
+          cards.push(card);
+          found = true;
+          continue; // because
+        }
+      }
+    }
+    await cursor.close();
     const result = await this.populateCards(request, cards, null, false, null, null, user);
-    return this.mergeWithAdCards(request, user, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, user, result, more, limit, existingPromotedCardIds, null);
   }
 
   private async getRecentlyPostedFeed(request: Request, user: UserRecord, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
