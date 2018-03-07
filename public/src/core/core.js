@@ -365,7 +365,7 @@ class CoreService extends Polymer.Element {
     });
   }
 
-  getTopFeeds(maxCardsPerFeed) {  // type = "recommended" | "new" | "mine" | "opened" | "channel"
+  getTopFeeds(maxCardsPerFeed) {
     let details = RestUtils.getTopFeedsDetails(this._keys.address, this._fingerprint, maxCardsPerFeed);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-feeds";

@@ -713,6 +713,7 @@
         if (this._feedType === 'subscribers') {
           // more subscribers
           $core.getChannelSubscribers(this.channel.id, 24, this._lastSubscriber).then(response => {
+            this._fetchingMore = false;
             let subscribers = [];
             let list = (response && response.subscribers) || [];
             for (let s of list) {
@@ -726,6 +727,7 @@
             }
             this._moreAvailable = response.moreAvailable;
           }).catch(err => {
+            this._fetchingMore = false;
             console.error(err);
             $app.showError(err);
           });

@@ -89,6 +89,7 @@
         this._lastFetchTimestamp = (new Date()).getTime();
         window.__dirtyFeed = false;
         this.items = [];
+        this._promotedCardIds = [];
 
         $core.register().then(() => {
           return $core.getTopFeeds($core._isMobile() ? 3 : 7).then(response => {
@@ -113,6 +114,11 @@
                     order = 100;
                     break;
                 }
+                for (let c of d.cards) {
+                  if (c.promoted) {
+                    this._promotedCardIds.push(c.id);
+                  }
+                }
                 items.push(d);
               }
             }
@@ -120,7 +126,6 @@
               return a.order - b.order;
             });
             this.items = items;
-            console.log("items", items)
           });
         }).catch((err) => {
           console.error(err);
@@ -145,8 +150,41 @@
       }
 
       _onMore(event) {
+        if (this._fetchingMore) {
+          return;
+        }
         let item = event.model.item;
-        console.log("more", item, event.model.index);
+        let index = event.model.index;
+        this._fetchingMore = true;
+        this._lastFetchTimestamp = (new Date()).getTime();
+        let lastCardId = null;
+        let cards = item.cards;
+        for (let i = (cards.length - 1); i >= 0; i--) {
+          const c = cards[i];
+          if (!c.promoted) {
+            lastCardId = c.id;
+            break;
+          }
+        }
+        console.log(lastCardId, cards.length);
+        $core.getFeed(item.type, 12, null, lastCardId, null, this._promotedCardIds).then((feed) => {
+          console.log(feed);
+          this._fetchingMore = false;
+          const cards = feed.cards || [];
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].promoted) {
+              this._promotedCardIds.push(cards[i].id);
+            }
+          }
+          this.set('items.' + index + '.moreAvailable', feed.moreAvailable && cards.length);
+          for (let c of cards) {
+            this.push('items.' + index + '.cards', c);
+          }
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
       }
 
     }
