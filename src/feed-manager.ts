@@ -946,7 +946,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     const cursor = db.getCardsByRevenue(user.id, revenue, since);
     const cards: CardRecord[] = [];
-    let found = revenue > 0 ? true : false;
+    let found = revenue <= 0;
     let more = false;
     while (await cursor.hasNext()) {
       if (cards.length >= limit) {

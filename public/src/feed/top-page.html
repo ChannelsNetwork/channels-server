@@ -92,7 +92,7 @@
         this._promotedCardIds = [];
 
         $core.register().then(() => {
-          return $core.getTopFeeds($core._isMobile() ? 3 : 7).then(response => {
+          return $core.getTopFeeds($core._isMobile() ? 3 : 3).then(response => {
             let items = [];
             response = response || [];
             for (let d of response) {
@@ -167,7 +167,7 @@
           }
         }
         console.log(lastCardId, cards.length);
-        $core.getFeed(item.type, 24, null, lastCardId, null, this._promotedCardIds).then((feed) => {
+        $core.getFeed(item.type, 4, null, lastCardId, null, this._promotedCardIds).then((feed) => {
           console.log(feed);
           this._fetchingMore = false;
           const cards = feed.cards || [];
