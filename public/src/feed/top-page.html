@@ -167,7 +167,7 @@
           }
         }
         console.log(lastCardId, cards.length);
-        $core.getFeed(item.type, 12, null, lastCardId, null, this._promotedCardIds).then((feed) => {
+        $core.getFeed(item.type, 24, null, lastCardId, null, this._promotedCardIds).then((feed) => {
           console.log(feed);
           this._fetchingMore = false;
           const cards = feed.cards || [];
