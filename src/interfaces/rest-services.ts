@@ -1221,10 +1221,12 @@ export interface AdminDepositInfo {
 export interface GetChannelSubscribersDetails extends Signable {
   channelId: string;
   maxCount: number;
+  afterSubscriberId: string;
 }
 
 export interface GetChannelSubscribersResponse extends RestResponse {
   subscribers: ChannelSubscriberInfo[];
+  moreAvailable: boolean;
 }
 
 export interface ChannelSubscriberInfo {

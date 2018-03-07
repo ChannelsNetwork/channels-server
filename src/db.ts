@@ -2974,8 +2974,12 @@ export class Database {
     return result.length > 0;
   }
 
-  async findChannelSubscribers(channelId: string, subscriptionState: ChannelSubscriptionState, maxCount: number): Promise<ChannelUserRecord[]> {
-    return this.channelUsers.find<ChannelUserRecord>({ channelId: channelId, subscriptionState: subscriptionState }).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
+  async findChannelSubscribers(channelId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, lastUpdatedBefore: number): Promise<ChannelUserRecord[]> {
+    const query: any = { channelId: channelId, subscriptionState: subscriptionState };
+    if (lastUpdatedBefore) {
+      query.lastUpdated = {$lt: lastUpdatedBefore};
+    }
+    return this.channelUsers.find<ChannelUserRecord>(query).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
   }
 
   async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {

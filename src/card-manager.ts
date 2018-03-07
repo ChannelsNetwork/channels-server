@@ -1451,8 +1451,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         likes: [],
         dislikes: [],
         normalPurchases: [],
-        firstTimePurchases: [],
-        fraudPurchases: []
+        firstTimePurchases: []
       };
       for (const key of Object.keys(reply)) {
         const items = await db.findCardStatsHistory(card.id, key, requestBody.detailsObject.historyLimit);
