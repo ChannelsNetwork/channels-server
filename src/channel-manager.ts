@@ -86,14 +86,16 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
 
     // This code is because if there are no bonuses that have been paid so far,
     // we are migrating from when we were failing to record these bonuses in the ChannelUser collection.
-    const userBonusCount = await db.countUserChannelUserBonusesPaid();
+    const userBonusCount = await db.countAllChannelUserBonusesPaid();
     if (userBonusCount === 0) {
+      console.log("Channel.initialize2: Reprocessing missing channel referral bonus payments");
       const referrees = await db.findUserChannelUserBonusPayers();
       for (const referree of referrees) {
         const referrer = await userManager.getUser(referree.referralBonusPaidToUserId, false);
         if (referrer) {
           const channels = await db.findChannelsByOwnerId(referrer.id);
           if (channels.length > 0) {
+            console.log("Channel.initialize2: Adding bonus indicator", channels[0].handle, referree.id, referrer.id);
             await db.updateChannelUserBonus(channels[0].id, referree.id, 1, 0, false);
           }
         }

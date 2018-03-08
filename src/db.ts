@@ -802,10 +802,6 @@ export class Database {
     return this.users.find<UserRecord>({ id: { $in: userIds }, identity: { $exists: true } }).limit(limit || 10).toArray();
   }
 
-  async countUserChannelUserBonusesPaid(): Promise<number> {
-    return this.users.count({ referralBonusPaidToUserId: { $ne: null } });
-  }
-
   async findUserChannelUserBonusPayers(): Promise<UserRecord[]> {
     return this.users.find<UserRecord>({ referralBonusPaidToUserId: { $ne: null } }).toArray();
   }
@@ -2911,6 +2907,10 @@ export class Database {
 
   async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
     return this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+  }
+
+  async countAllChannelUserBonusesPaid(): Promise<number> {
+    return this.channelUsers.count({ bonusPaid: { $exists: true } });
   }
 
   async countChannelUserReferralBonuses(channelId: string): Promise<number> {
