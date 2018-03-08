@@ -671,6 +671,7 @@ export interface AdminChannelInfo {
   channel: ChannelRecord;
   descriptor: ChannelDescriptor;
   owner: UserRecord;
+  referralBonuses: number;
 }
 
 export interface AdminCardInfo {
