@@ -84,6 +84,21 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
     await userCursor.close();
 
+    // This code is because if there are no bonuses that have been paid so far,
+    // we are migrating from when we were failing to record these bonuses in the ChannelUser collection.
+    const userBonusCount = await db.countUserChannelUserBonusesPaid();
+    if (userBonusCount === 0) {
+      const referrees = await db.findUserChannelUserBonusPayers();
+      for (const referree of referrees) {
+        const referrer = await userManager.getUser(referree.referralBonusPaidToUserId, false);
+        if (referrer) {
+          const channels = await db.findChannelsByOwnerId(referrer.id);
+          if (channels.length > 0) {
+            await db.updateChannelUserBonus(channels[0].id, referree.id, 1, 0, false);
+          }
+        }
+      }
+    }
     setInterval(this.poll.bind(this), 1000 * 60 * 15);
   }
 
@@ -782,8 +797,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       reason: "referral-bonus"
     });
     console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
-    await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null, Date.now());
+    const transaction = await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null, Date.now());
     await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
+    await db.updateChannelUserBonus(channelIds[0], user.id, bonusDetails.amount, transaction.record.at, false);
     await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
   }
 

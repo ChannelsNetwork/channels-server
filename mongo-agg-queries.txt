@@ -2452,3 +2452,56 @@ db.users.aggregate([
 ])
 
 
+db.userCardActions.aggregate([
+  {$match: {authorId: "68caa4ba-17ea-4ee6-b9ec-4ffc1face5fd", action: "pay"}},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$project: {
+    count: 1,
+    revenue: 1,
+    city: "$buyer.city",
+    country: "$buyer.country",
+    buyerHandle: "$buyer.identity.handle",
+    buyerBalance: "$buyer.balance", 
+    referred: "$buyer.originalReferrer",
+    landingPage: "$buyer.originalLandingPage",
+  }},
+  {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
+  {$project: {count: "$count", userAgent: "$registration.userAgent", fingerprint: "$registration.fingerprint", ipAddress: "$registration.ipAddress"}},
+  {$sort: {count: -1}}
+])
+
+db.bankTransactions.aggregate([
+  {$match: {"details.reason": "referral-bonus"}},
+  {$group: {
+    _id: "$participantUserIds",
+    count: {$sum: 1},
+    description: {$push: "$description"}
+  }},  
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1,
+    description: 1,
+    city: "$user.city",
+    country: "$user.country",
+    handle: "$user.identity.handle",
+    balance: "$user.balance"
+  }},
+  {$sort: {count: -1}}
+])

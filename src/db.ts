@@ -802,6 +802,14 @@ export class Database {
     return this.users.find<UserRecord>({ id: { $in: userIds }, identity: { $exists: true } }).limit(limit || 10).toArray();
   }
 
+  async countUserChannelUserBonusesPaid(): Promise<number> {
+    return this.users.count({ referralBonusPaidToUserId: { $ne: null } });
+  }
+
+  async findUserChannelUserBonusPayers(): Promise<UserRecord[]> {
+    return this.users.find<UserRecord>({ referralBonusPaidToUserId: { $ne: null } }).toArray();
+  }
+
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
     await this.users.updateOne({ id: userId }, {
       $unset: { "identity.imageUrl": 1 },
