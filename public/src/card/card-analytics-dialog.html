@@ -117,7 +117,7 @@
         const currencyProcessor = (value) => { return value ? "ℂ" + value.toFixed(value >= 1000 ? 0 : 2) : 0 };
         items.push(this._processStat(response, "impressions", "Impressions", now));
         items.push(this._processStat(response, "uniqueImpressions", "Unique Impressions", now));
-        items.push(this._processStat(response, "opens", "Opens"));
+        items.push(this._processStat(response, "opens", "Opens", now));
         items.push(this._processStat(response, "uniqueOpens", "Unique Opens", now));
         items.push(this._processStat(response, "promotionsPaid", "Impressions Paid", now, currencyProcessor));
         items.push(this._processStat(response, "openFeesPaid", "Open Fees Paid", now, currencyProcessor));
