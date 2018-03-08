@@ -428,12 +428,12 @@ export class Database {
           }
         }
       ]).toArray();
-      const purchasers = purchaserInfo[0].count as number;
+      const purchasers = purchaserInfo.length > 0 ? purchaserInfo[0].count as number : 0;
       const registrants = await this.users.count({ "identity.handle": { $exists: true } });
       const publishers = await this.users.count({ lastPosted: { $gt: 0 } });
       const purchases = await this.userCardActions.count({ action: "pay", fraudReason: { $exists: false } });
       const cards = await this.cards.count({});
-      const cardPayments = purchaserInfo[0].revenue as number;
+      const cardPayments = purchaserInfo.length > 0 ? purchaserInfo[0].revenue as number : 0;
       await this.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, purchasers, registrants, publishers, purchases, cards, cardPayments);
       console.log("Db.initializeNetworkCardStats: Done");
     }
@@ -800,6 +800,14 @@ export class Database {
 
   findUsersWithIdentityAmong(userIds: string[], limit: number): Promise<UserRecord[]> {
     return this.users.find<UserRecord>({ id: { $in: userIds }, identity: { $exists: true } }).limit(limit || 10).toArray();
+  }
+
+  async countUserChannelUserBonusesPaid(): Promise<number> {
+    return this.users.count({ referralBonusPaidToUserId: { $ne: null } });
+  }
+
+  async findUserChannelUserBonusPayers(): Promise<UserRecord[]> {
+    return this.users.find<UserRecord>({ referralBonusPaidToUserId: { $ne: null } }).toArray();
   }
 
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
@@ -1933,6 +1941,9 @@ export class Database {
 
   async incrementCardOpensData(periodStarted: number, additions: CardOpensInfo): Promise<boolean> {
     const increments: any = {};
+    if (!additions.opens && !additions.units) {
+      return true;
+    }
     if (additions.opens) {
       increments["thisPeriod.opens"] = additions.opens;
       increments["total.opens"] = additions.opens;
@@ -2659,6 +2670,9 @@ export class Database {
     if (cardPayments) {
       update["stats.cardPayments"] = cardPayments;
     }
+    if (Object.keys(update).length === 0) {
+      return;
+    }
     let retries = 0;
     while (retries++ < 5) {
       const statsRecord = await this.ensureNetworkCardStats();
@@ -2897,6 +2911,10 @@ export class Database {
 
   async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
     return this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+  }
+
+  async countChannelUserReferralBonuses(channelId: string): Promise<number> {
+    return this.channelUsers.count({ channelId: channelId, bonusPaid: { $exists: true } });
   }
 
   async existsChannelUserSubscriptions(userId: string, channelIds: string[], subscriptionState: ChannelSubscriptionState): Promise<boolean> {
