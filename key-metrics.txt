@@ -188,3 +188,5 @@ db.users.aggregate([
     publishers: {$sum: 1},
     revenue: {$sum: "$revenue"}
   }},
+])
+

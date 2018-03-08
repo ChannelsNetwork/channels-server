@@ -365,6 +365,15 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  getTopFeeds(maxCardsPerFeed) {
+    let details = RestUtils.getTopFeedsDetails(this._keys.address, this._fingerprint, maxCardsPerFeed);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-feeds";
+    return this.rest.post(url, request).then((response) => {
+      return response.feeds;
+    });
+  }
+
   search(searchString, limitCards, limitChannels) {
     let details = RestUtils.search(this._keys.address, this._fingerprint, searchString, limitCards, limitChannels);
     let request = this._createRequest(details);
@@ -762,6 +771,13 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.setChannelCardPinning(this._keys.address, this._fingerprint, channelId, cardId, pinned);
     let request = this._createRequest(details);
     const url = this.restBase + "/set-channel-card-pinning";
+    return this.rest.post(url, request);
+  }
+
+  getChannelSubscribers(channelId, maxCount, afterSubscriberId) {
+    let details = RestUtils.getChannelSubscribers(this._keys.address, this._fingerprint, channelId, maxCount, afterSubscriberId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-channel-subscribers";
     return this.rest.post(url, request);
   }
 

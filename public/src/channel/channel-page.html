@@ -178,6 +178,15 @@
         font-size: 12px;
         letter-spacing: 0.05em;
         color: #555;
+        border-bottom: 2px solid transparent;
+      }
+
+      .selected {
+        font-weight: bold;
+      }
+
+      .selected .statLabel {
+        border-color: var(--highlight-green);
       }
 
       .statValue {
@@ -208,6 +217,7 @@
         padding: 20px 0;
       }
 
+      #noSubscribers,
       #noItems {
         padding: 40px 20px;
         font-size: 16px;
@@ -276,6 +286,36 @@
         color: #000;
       }
 
+      .subscribersStat,
+      .cardStat {
+        cursor: pointer;
+      }
+
+      card-list {
+        max-width: 1264px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding: 20px 0;
+      }
+
+      @media (max-width: 1264px) {
+        card-list {
+          max-width: 948px;
+        }
+      }
+
+      @media (max-width: 948px) {
+        card-list {
+          max-width: 632px;
+        }
+      }
+
+      @media (max-width: 632px) {
+        card-list {
+          max-width: 320px;
+        }
+      }
+
       @media (max-width: 600px) {
         #statusBarButton {
           display: none;
@@ -332,7 +372,7 @@
           <div class="flex"></div>
           <dom-repeat items="[[stats]]">
             <template>
-              <div class="statItem">
+              <div class="statItem" on-click="_onStatClick">
                 <div class$="[[item.class]]">
                   <div class="statLabel">[[item.label]]</div>
                   <div class="statValue">[[item.value]]</div>
@@ -348,10 +388,16 @@
         </div>
       </div>
     </div>
-    <div id="noItems" class="hidden">There are no cards in this channel.</div>
-    <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action="[[showPinAction]]" on-card-open-request="_onCardOpenRequest"
-      on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
-    <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
+    <div id="cardsSection" class="hidden">
+      <div id="noItems" class="hidden">There are no cards in this channel.</div>
+      <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action="[[showPinAction]]" on-card-open-request="_onCardOpenRequest"
+        on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
+      <soso-icon id="composeButton" on-click="_compose" icon="add" class="hidden"></soso-icon>
+    </div>
+    <div id="subscribersSection" class="hidden">
+      <div id="noSubscribers" class="hidden">This channel has no subscribers.</div>
+      <card-list auto-layout label="Subscribers" items="[[subscribers]]" more="[[_moreAvailable]]" on-more="_onMore"></card-list>
+    </div>
   </template>
   <script>
     class ChannelPage extends Polymer.Element {
@@ -366,6 +412,7 @@
           channelImage: String,
           stats: Array,
           items: Array,
+          subscribers: Array,
           _moreAvailable: Boolean,
           socialLinks: Array,
           showPinAction: Boolean
@@ -382,8 +429,13 @@
       onActivate(route) {
         $core.register().then(() => {
           let handle = null;
-          if (route && route.segments && route.segments.length > 1) {
-            handle = route.segments[1];
+          let feedType = "cards";
+          let segments = (route && route.segments) || []
+          if (segments.length > 1) {
+            handle = segments[1];
+          }
+          if (segments.length > 2) {
+            feedType = segments[2].toLowerCase();
           }
           if (!handle) {
             if ($core.profile) {
@@ -409,7 +461,7 @@
 
           // fetch only if route is different
           let fetchNewContent = true;
-          if (!window.__dirtyFeed) {
+          if ((feedType !== 'subscribers') && (!window.__dirtyFeed)) {
             if (this._handle && this._fetchTimestamp) {
               if (this._handle === handle) {
                 let timeDiff = (new Date()).getTime() - this._fetchTimestamp;
@@ -428,9 +480,19 @@
           }
 
           this._handle = handle;
+          this._feedType = feedType;
           window.__dirtyFeed = false;
           this._refreshChannel().then(() => {
-            this._refreshFeed();
+            if (feedType === 'subscribers') {
+              window.__dirtyFeed = true;
+              this.$.subscribersSection.classList.remove('hidden');
+              this.$.cardsSection.classList.add('hidden');
+              this._refreshSubscribers();
+            } else {
+              this.$.subscribersSection.classList.add('hidden');
+              this.$.cardsSection.classList.remove('hidden');
+              this._refreshFeed();
+            }
           })
         });
       }
@@ -438,6 +500,18 @@
       onDeactivate() {
         this.$.cbar.deactivate();
         window.removeEventListener("resize", this._resizeListener);
+      }
+
+      _onStatClick(event) {
+        let item = event.model.item;
+        switch (item.label) {
+          case 'Cards':
+            $router.goto('/channel/' + encodeURIComponent(this._handle));
+            break;
+          case 'Subscribers':
+            $router.goto('/channel/' + encodeURIComponent(this._handle) + "/subscribers");
+            break;
+        }
       }
 
       _handleContextAction(context) {
@@ -496,12 +570,12 @@
           stats.push({
             label: "Cards",
             value: this.channel.stats.cards,
-            class: 'cardStat'
+            class: 'cardStat' + (this._feedType === 'subscribers' ? '' : ' selected')
           });
           stats.push({
             label: "Subscribers",
             value: this.channel.stats.subscribers,
-            class: 'subscribersStat'
+            class: 'subscribersStat' + (this._feedType === 'subscribers' ? ' selected' : '')
           });
           this.stats = stats;
 
@@ -571,6 +645,32 @@
         }
       }
 
+      _refreshSubscribers() {
+        this.subscribers = [];
+        this._moreAvailable = false;
+        this._lastSubscriber = null;
+        $core.getChannelSubscribers(this.channel.id, 48).then(response => {
+          let subscribers = [];
+          let list = (response && response.subscribers) || [];
+          for (let s of list) {
+            if (s.homeChannel) {
+              subscribers.push(s.homeChannel);
+              this._lastSubscriber = s.user.id;
+            }
+          }
+          this.subscribers = subscribers;
+          if (subscribers.length) {
+            this.$.noSubscribers.classList.add("hidden");
+            this._moreAvailable = response.moreAvailable;
+          } else {
+            this.$.noSubscribers.classList.remove("hidden");
+          }
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
       _refreshFeed() {
         this.items = [];
         this._promotedCardIds = [];
@@ -578,7 +678,7 @@
         this._lastCardId = null;
         this._fetchTimestamp = (new Date()).getTime();
         this._pinnedCount = 0;
-        return $core.getFeed("channel", 60, null, null, this._handle, []).then((feed) => {
+        return $core.getFeed("channel", 32, null, null, this._handle, []).then((feed) => {
           let list = [];
           for (let i = 0; i < feed.cards.length; i++) {
             let card = feed.cards[i];
@@ -610,29 +710,53 @@
           return;
         }
         this._fetchingMore = true;
-        this._fetchTimestamp = (new Date()).getTime();
-        return $core.getFeed("channel", 24, null, this._lastCardId, this._handle, this._promotedCardIds).then((feed) => {
-          this._fetchingMore = false;
-          const cards = feed.cards || [];
-          this._lastCardId = null;
-          let list = [];
-          for (let i = 0; i < cards.length; i++) {
-            list.push(cards[i]);
-            if (cards[i].promoted) {
-              this._promotedCardIds.push(cards[i].id);
-            } else {
-              this._lastCardId = cards[i].id;
+        if (this._feedType === 'subscribers') {
+          // more subscribers
+          $core.getChannelSubscribers(this.channel.id, 24, this._lastSubscriber).then(response => {
+            this._fetchingMore = false;
+            let subscribers = [];
+            let list = (response && response.subscribers) || [];
+            for (let s of list) {
+              if (s.homeChannel) {
+                subscribers.push(s.homeChannel);
+                this._lastSubscriber = s.user.id;
+              }
             }
-          }
-          this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
-          for (let i = 0; i < list.length; i++) {
-            this.push("items", list[i]);
-          }
-        }).catch((err) => {
-          this._fetchingMore = false;
-          console.error(err);
-          $app.showError(err);
-        });
+            for (let s of subscribers) {
+              this.push("subscribers", s);
+            }
+            this._moreAvailable = response.moreAvailable;
+          }).catch(err => {
+            this._fetchingMore = false;
+            console.error(err);
+            $app.showError(err);
+          });
+        } else {
+          // more cards
+          this._fetchTimestamp = (new Date()).getTime();
+          return $core.getFeed("channel", 24, null, this._lastCardId, this._handle, this._promotedCardIds).then((feed) => {
+            this._fetchingMore = false;
+            const cards = feed.cards || [];
+            this._lastCardId = null;
+            let list = [];
+            for (let i = 0; i < cards.length; i++) {
+              list.push(cards[i]);
+              if (cards[i].promoted) {
+                this._promotedCardIds.push(cards[i].id);
+              } else {
+                this._lastCardId = cards[i].id;
+              }
+            }
+            this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
+            for (let i = 0; i < list.length; i++) {
+              this.push("items", list[i]);
+            }
+          }).catch((err) => {
+            this._fetchingMore = false;
+            console.error(err);
+            $app.showError(err);
+          });
+        }
       }
 
       _refreshButtons() {

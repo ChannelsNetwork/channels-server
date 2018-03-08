@@ -179,7 +179,7 @@ export interface RequestedFeedDescriptor {
   afterCardId?: string;
 }
 
-export type CardFeedType = 'recommended' | 'new' | 'top' | 'mine' | 'opened' | 'channel' | 'subscribed';
+export type CardFeedType = 'recommended' | 'new' | 'top-all-time' | 'top-past-week' | 'top-past-month' | 'mine' | 'opened' | 'channel' | 'subscribed';
 
 export interface GetFeedsResponse extends RestResponse {
   feeds: CardFeedSet[];
@@ -273,6 +273,8 @@ export interface CardDescriptorStatistics {
   dislikes: number;
   reports: number;
   refunds: number;
+  firstTimePurchases: number;
+  normalPurchases: number;
 }
 
 export interface EnsureChannelComponentDetails extends Signable {
@@ -365,6 +367,8 @@ export interface CardStatsHistoryResponse extends RestResponse {
   uniqueOpens: CardStatDatapoint[];
   likes: CardStatDatapoint[];
   dislikes: CardStatDatapoint[];
+  normalPurchases: CardStatDatapoint[];
+  firstTimePurchases: CardStatDatapoint[];
 }
 
 export interface CardStatDatapoint {
@@ -1213,4 +1217,20 @@ export interface AdminGetDepositsResponse extends RestResponse {
 export interface AdminDepositInfo {
   deposit: DepositRecord;
   depositor: UserRecord;
+}
+
+export interface GetChannelSubscribersDetails extends Signable {
+  channelId: string;
+  maxCount: number;
+  afterSubscriberId: string;
+}
+
+export interface GetChannelSubscribersResponse extends RestResponse {
+  subscribers: ChannelSubscriberInfo[];
+  moreAvailable: boolean;
+}
+
+export interface ChannelSubscriberInfo {
+  user: UserDescriptor;
+  homeChannel: ChannelDescriptor;
 }
