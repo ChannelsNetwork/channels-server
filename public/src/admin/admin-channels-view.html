@@ -91,6 +91,7 @@
           <div class="headerCell">First Card</div>
           <div class="headerCell right">Cards</div>
           <div class="headerCell right toggle" on-click="_onSubscribersClick">Subscribers</div>
+          <div class="headerCell right">Bonuses Paid</div>
           <div class="headerCell right toggle" on-click="_onRevenueClick">Revenue</div>
           <div class="headerCell center toggle" on-click="_onFeaturedClick">Featured</div>
           <div class="headerCell center toggle" on-click="_onListingClick">Listing</div>
@@ -110,6 +111,7 @@
             <div class="cell">[[item.firstCard]]</div>
             <div class="cell right">[[item.cards]]</div>
             <div class="cell right">[[item.subscribers]]</div>
+            <div class="cell right">[[item.bonusesPaid]]</div>
             <div class="cell right">[[item.revenue]]</div>
             <div class="cell center">[[item.featured]]</div>
             <div class="cell center">[[item.listing]]</div>
@@ -168,6 +170,7 @@
               firstCard: this._displayTimestamp(record.firstCardPosted),
               cards: channel.stats.cards,
               subscribers: channel.stats.subscribers,
+              bonusesPaid: channelInfo.referralBonuses,
               revenue: channel.stats.revenue ? channel.stats.revenue.toFixed(2) : "",
               featured: record.featuredWeight ? record.featuredWeight : "",
               listing: record.listingWeight ? record.listingWeight : ""

@@ -357,7 +357,8 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         const item: AdminChannelInfo = {
           channel: channel,
           descriptor: await this.populateChannelDescriptor(user, channel),
-          owner: await userManager.getUser(channel.ownerId, false)
+          owner: await userManager.getUser(channel.ownerId, false),
+          referralBonuses: await db.countChannelUserReferralBonuses(channel.id)
         };
         result.channels.push(item);
         if (result.channels.length > 500) {
