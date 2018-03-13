@@ -412,7 +412,7 @@
 
         // Fetch the card and then encure card package
         // Then import the viewer and then insert the viewer
-        $core.getCard(this.cardId, null, 3).then((cardData) => {
+        $core.getCard(this.cardId, null, 3, true).then((cardData) => {
           // set card data
           // If card was opened from a pomoted card, override that flag
           if (this._route.context) {

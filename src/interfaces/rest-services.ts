@@ -325,6 +325,7 @@ export interface GetCardDetails extends Signable {
   cardId: string;
   channelIdContext: string;
   maxComments: number;
+  includePromotedCards: boolean;
 }
 
 export interface GetCardResponse extends RestResponse {

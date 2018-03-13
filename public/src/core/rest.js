@@ -228,14 +228,15 @@ class RestUtils {
     };
   }
 
-  static getCardDetails(address, fingerprint, cardId, channelIdContext, maxComments) {
+  static getCardDetails(address, fingerprint, cardId, channelIdContext, maxComments, includePromotedCards) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       cardId: cardId,
       channelIdContext: channelIdContext,
-      maxComments: maxComments
+      maxComments: maxComments,
+      includePromotedCards: includePromotedCards
     };
   }
 

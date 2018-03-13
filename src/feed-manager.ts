@@ -287,7 +287,7 @@ export class FeedManager implements Initializable, RestServer {
     if (adSlotInfo.slotCount === 0) {
       return;
     }
-    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
+    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), false);
     const adIds: string[] = [];
     const earnedAdCardIds: string[] = [];
     while (await adCursor.hasNext()) {
@@ -477,7 +477,7 @@ export class FeedManager implements Initializable, RestServer {
         earnedAdCardIds = [];
         this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
       }
-      const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
+      const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), false);
       while ((cardIndex < cards.length && cardIndex < limit) || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
@@ -547,11 +547,17 @@ export class FeedManager implements Initializable, RestServer {
       earnedAdCardIds = [];
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
     }
-    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
+    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), true);
     let adCard: CardRecord;
+    const authorIds: string[] = [];
     while (true) {
       adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, []);
       if (adCard) {
+        // We don't want to serve up more than one ad from the same author in this group (for consumer variety)
+        if (authorIds.indexOf(adCard.createdById) >= 0) {
+          continue;
+        }
+        authorIds.push(adCard.createdById);
         const adSlot = await this.createAdSlot(adCard, user, channelId);
         result.push(await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user));
         if (result.length >= ADSLOTS_PER_PAYBUMP) {

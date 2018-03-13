@@ -1608,10 +1608,14 @@ export class Database {
     return this.cards.find<CardRecord>(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
-  findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
+  findCardsByPromotionScore(bin: CardPromotionBin, openPaymentOnly: boolean): Cursor<CardRecord> {
     const sort: any = {};
     sort["promotionScores." + bin] = -1;
-    return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false }, { searchText: 0 }).sort(sort);
+    const query: any = { state: "active", "curation.block": false, private: false };
+    if (openPaymentOnly) {
+      query["pricing.openPayment"] = {$gt: 0};
+    }
+    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort(sort);
   }
 
   async countCardPostsByUser(userId: string, from: number, to: number): Promise<number> {
