@@ -486,7 +486,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       //   }
       // }
       let promotedCards: CardDescriptor[] = [];
-      if (requestBody.detailsObject.includePromotedCards && !cardState.promoted && user.balance < USER_BALANCE_PAY_BUMP_THRESHOLD) {
+      if (requestBody.detailsObject.includePromotedCards && !cardState.promoted && cardState.pricing.openFeeUnits > 0 && user.balance < USER_BALANCE_PAY_BUMP_THRESHOLD) {
         promotedCards = await feedManager.getPromotedCardsIfAppropriate(request, user, cardState, requestBody.detailsObject.channelIdContext);
       }
       if (requestBody.detailsObject.maxComments > 0) {
