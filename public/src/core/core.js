@@ -448,17 +448,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateCardPricing(cardId, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, isClickBased) {
-    let coupon;
-    if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (isClickBased ? "card-open-payment" : "card-click-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
-      const couponDetailsString = JSON.stringify(couponDetails);
-      coupon = {
-        objectString: couponDetailsString,
-        signature: this._sign(couponDetailsString)
-      }
-    }
-    const details = RestUtils.updateCardState(this._keys.address, this._fingerprint, cardId, RestUtils.cardPricing(promotionFee, openPayment, openFeeUntis, budgetAmount, budgetPlusPercent, coupon));
+  updateCardPricing(cardId, openFeeUnits) {
+    const details = RestUtils.updateCardPricing(this._keys.address, this._fingerprint, cardId, openFeeUnits);
     const url = this.restBase + "/card-pricing-update";
     return this.rest.post(url, request);
   }

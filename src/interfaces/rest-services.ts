@@ -408,7 +408,7 @@ export interface UpdateCardStateResponse extends RestResponse { }
 
 export interface UpdateCardPricingDetails extends Signable {
   cardId: string;
-  pricing: CardPricingInfo;
+  openFeeUnits: number;
 }
 
 export interface CardPricingInfo {

@@ -1368,25 +1368,12 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, { $set: update });
   }
 
-  async updateCardPricing(card: CardRecord, promotionFee: number, openPayment: number, openFeeUnits: number, couponId: string, coupon: SignedObject, budgetAmount: number, plusPercent: number, budgetAvailable: boolean): Promise<void> {
+  async updateCardOpenFee(card: CardRecord, openFeeUnits: number): Promise<void> {
     const update: any = {
       $set: {
-        pricing: {
-          promotionFee: promotionFee,
-          openPayment: openPayment,
-          openFeeUnits: openFeeUnits
-        },
-        "budget.amount": budgetAmount,
-        "budget.plusPercent": plusPercent,
-        "budget.available": budgetAvailable
+        "pricing.openFeeUnits": openFeeUnits
       }
     };
-    if (couponId) {
-      update.$push = {
-        coupons: coupon,
-        couponIds: couponId
-      };
-    }
     await this.cards.updateOne({ id: card.id }, update);
   }
 

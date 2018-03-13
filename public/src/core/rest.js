@@ -303,12 +303,13 @@ class RestUtils {
     };
   }
 
-  static updateCardPricing(address, fingerprint, cardId, pricing) {
+  static updateCardPricing(address, fingerprint, cardId, openFeeUnits) {
     return {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
-      pricing: pricing
+      cardId: cardId,
+      openFeeUnits: openFeeUnits
     };
   }
 

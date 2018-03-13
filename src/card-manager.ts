@@ -1537,31 +1537,26 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(401).send("Only the card author can edit it.");
         return;
       }
-      const pricing = requestBody.detailsObject.pricing;
-      this.validateCardPricing(user, pricing);
+      if (card.state !== 'active') {
+        response.status(404).send("This card is no longer available");
+        return;
+      }
+      if (card.pricing.openFeeUnits === 0) {
+        response.status(400).send("You cannot change the pricing on an ad card.");
+        return;
+      }
+      if (!requestBody.detailsObject.openFeeUnits || requestBody.detailsObject.openFeeUnits < 1 || requestBody.detailsObject.openFeeUnits > 5) {
+        response.status(400).send("Invalid price level");
+        return;
+      }
       console.log("CardManager.card-pricing-update", requestBody.detailsObject);
-      pricing.promotionFee = pricing.promotionFee || 0;
-      pricing.openPayment = pricing.openPayment || 0;
-      pricing.openFeeUnits = pricing.openFeeUnits || 0;
-      let totalBudget = 0;
-      let budgetAvailable = false;
-      if (pricing.budget) {
-        totalBudget = card.budget.spent + pricing.budget.amount;
-        pricing.budget.plusPercent = pricing.budget.plusPercent || 0;
-        budgetAvailable = user.admin || totalBudget > user.balance;
-      }
-      let couponId: string;
-      if (pricing.coupon) {
-        const couponRecord = await bank.registerCoupon(user, card.id, pricing.coupon);
-        couponId = couponRecord.id;
-      }
-      await db.updateCardPricing(card, pricing.promotionFee, pricing.openPayment, pricing.openFeeUnits, couponId, pricing.coupon, totalBudget, pricing.budget.plusPercent, budgetAvailable);
+      await db.updateCardOpenFee(card, Math.floor(requestBody.detailsObject.openFeeUnits));
       const reply: UpdateCardPricingResponse = {
         serverVersion: SERVER_VERSION
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardStateUpdate: Failure", request, err);
+      errorManager.error("User.handleCardPricingUpdate: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
