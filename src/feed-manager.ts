@@ -59,6 +59,7 @@ const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
+const ADSLOTS_PER_PAYBUMP = 3;
 
 const adToContentRatioByBalance: RangeValue[] = [
   { lowerBound: 0, value: 0.25 },
@@ -539,7 +540,8 @@ export class FeedManager implements Initializable, RestServer {
     return db.insertAdSlot(user.id, user.balance, channelId, card.id, type, card.by.id, amount);
   }
 
-  async getOnePromotedCardIfAppropriate(request: Request, user: UserRecord, card: CardDescriptor, channelId: string): Promise<CardDescriptor> {
+  async getPromotedCardsIfAppropriate(request: Request, user: UserRecord, card: CardDescriptor, channelId: string): Promise<CardDescriptor[]> {
+    const result: CardDescriptor[] = [];
     let earnedAdCardIds = this.userEarnedAdCardIds.get(user.id);
     if (!earnedAdCardIds) {
       earnedAdCardIds = [];
@@ -550,22 +552,17 @@ export class FeedManager implements Initializable, RestServer {
     while (true) {
       adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, []);
       if (adCard) {
-        if (adCard.summary.iframeUrl) {
-          continue;
+        const adSlot = await this.createAdSlot(adCard, user, channelId);
+        result.push(await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user));
+        if (result.length >= ADSLOTS_PER_PAYBUMP) {
+          break;
         }
-        break;
       } else {
         break;
       }
     }
     await adCursor.close();
-    if (adCard) {
-      const adSlot = await this.createAdSlotFromDescriptor(card, user, channelId);
-      console.log("FeedManager.getOnePromotedCardIfAppropriate: Populating ad: ", adCard.summary.title, adCard.id, adCard.promotionScores);
-      return this.populateCard(request, adCard, null, true, adSlot.id, channelId, user);
-    } else {
-      return null;
-    }
+    return result;
   }
 
   private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {

@@ -513,7 +513,6 @@ class TestClient implements RestServer {
       fingerprint: null,
       timestamp: Date.now(),
       cardId: cardId,
-      includePromotedCard: false,
       channelIdContext: null,
       maxComments: 0
     };
