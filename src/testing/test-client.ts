@@ -406,7 +406,7 @@ class TestClient implements RestServer {
       fingerprint: null,
       timestamp: Date.now(),
       feeds: [{ type: 'recommended', maxCount: 5 },
-      { type: 'top', maxCount: 5 },
+      { type: 'top-all-time', maxCount: 5 },
       { type: 'new', maxCount: 5 },
       { type: 'mine', maxCount: 5 },
       { type: 'opened', maxCount: 5 }],

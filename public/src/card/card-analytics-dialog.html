@@ -121,6 +121,8 @@
         items.push(this._processStat(response, "uniqueOpens", "Unique Opens", now));
         items.push(this._processStat(response, "promotionsPaid", "Impressions Paid", now, currencyProcessor));
         items.push(this._processStat(response, "openFeesPaid", "Open Fees Paid", now, currencyProcessor));
+        items.push(this._processStat(response, "firstTimePurchases", "Purchases (0.01)", now));
+        items.push(this._processStat(response, "normalPurchases", "Purchases (full)", now));
         items.push(this._processStat(response, "revenue", "Revenue", now, currencyProcessor));
         items.push(this._processStat(response, "likes", "Likes", now));
         items.push(this._processStat(response, "dislikes", "Dislikes", now));
@@ -188,7 +190,7 @@
               break;
             }
           } else {
-            if (statHistory[i].at < before) {
+            if (statHistory[i].at < before && statHistory[i] > after) {
               total = statHistory[i].value;
               recording = true;
             }

@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, Cursor, MongoClientOptions } from "mongodb";
+import { MongoClient, Db, Collection, Cursor, MongoClientOptions, AggregationCursor } from "mongodb";
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
@@ -109,7 +109,8 @@ export class Database {
         totalDeposits: 0,
         totalWithdrawals: 0,
         totalPublisherSubsidies: 0,
-        maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD
+        maxPayoutPerBaseFeePeriod: MAX_PAYOUT_PER_BASE_FEE_PERIOD,
+        cardPurchaseStatsUpdated: true,
       };
       await this.networks.insert(record);
     }
@@ -464,6 +465,7 @@ export class Database {
     await this.channelUsers.createIndex({ channelId: 1, userId: 1 }, { unique: true });
     await this.channelUsers.createIndex({ userId: 1, subscriptionState: 1, lastCardPosted: -1 });
     await this.channelUsers.createIndex({ notificationPending: 1, lastCardPosted: -1 });
+    await this.channelUsers.createIndex({ channelId: 1, subscriptionState: 1, lastUpdated: -1 });
   }
 
   private async initializeChannelCards(): Promise<void> {
@@ -528,6 +530,10 @@ export class Database {
 
   async getNetwork(): Promise<NetworkRecord> {
     return this.networks.findOne({ id: '1' });
+  }
+
+  async updateNetworkCardPurchaseStatsUpdated(value: boolean): Promise<void> {
+    await this.networks.updateOne({ id: "1" }, { $set: { cardPurchaseStatsUpdated: value } });
   }
 
   async incrementNetworkTotals(incrPublisherRev: number, incrCardDeveloperRev: number, incrDeposits: number, incrWithdrawals: number, incrPublisherSubsidies: number): Promise<void> {
@@ -1076,7 +1082,10 @@ export class Database {
         likes: { value: 0, lastSnapshot: 0 },
         dislikes: { value: 0, lastSnapshot: 0 },
         reports: { value: 0, lastSnapshot: 0 },
-        refunds: { value: 0, lastSnapshot: 0 }
+        refunds: { value: 0, lastSnapshot: 0 },
+        fraudPurchases: { value: 0, lastSnapshot: 0 },
+        normalPurchases: { value: 0, lastSnapshot: 0 },
+        firstTimePurchases: { value: 0, lastSnapshot: 0 },
       },
       score: 0,
       promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
@@ -1411,6 +1420,16 @@ export class Database {
     }
   }
 
+  async setCardPaymentStats(cardId: string, normal: number, firstTime: number, fraud: number): Promise<void> {
+    const now = Date.now();
+    const update: any = {
+      "stats.normalPurchases": { value: normal, lastSnapshot: now },
+      "stats.firstTimePurchases": { value: firstTime, lastSnapshot: now },
+      "stats.fraudPurchases": { value: fraud, lastSnapshot: now },
+    };
+    await this.cards.updateOne({ id: cardId }, { $set: update });
+  }
+
   async updateCardPrivate(card: CardRecord, isPrivate: boolean): Promise<void> {
     await this.cards.updateOne({ id: card.id }, { $set: { private: isPrivate } });
     card.private = isPrivate;
@@ -1549,11 +1568,13 @@ export class Database {
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
 
-  async findCardsByRevenue(maxCount: number, userId: string, lessThan = 0): Promise<CardRecord[]> {
-    const query: any = { state: "active" };
-    this.addAuthorClause(query, userId);
-    query["stats.revenue.value"] = lessThan > 0 ? { $lt: lessThan, $gt: 0 } : { $gt: 0 };
-    return this.cards.find(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 }).limit(maxCount).toArray();
+  getCardsByRevenue(userId: string, lessThanOrEqual: number, since: number): Cursor<CardRecord> {
+    const query: any = { state: "active", private: false, "curation.block": false };
+    query["stats.revenue.value"] = lessThanOrEqual ? { $lte: lessThanOrEqual, $gt: 0 } : { $gt: 0 };
+    if (since) {
+      query.postedAt = { $gt: since };
+    }
+    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort({ "stats.revenue.value": -1 });
   }
 
   private addAuthorClause(query: any, userId: string): void {
@@ -2134,6 +2155,10 @@ export class Database {
     return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: from, $lte: to } });
   }
 
+  getUserCardPayments(before: number): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $lt: before } });
+  }
+
   getUserCardPayActionsWithoutAuthor(): Cursor<UserCardActionRecord> {
     return this.userCardActions.find<UserCardActionRecord>({ action: "pay", authorId: { $exists: false } }).sort({ at: 1 });
   }
@@ -2246,6 +2271,45 @@ export class Database {
     return this.userCardActions.aggregate([
       { $match: query },
       { $group: { _id: "$payment.category", purchases: { $sum: 1 }, grossRevenue: { $sum: "$payment.amount" }, weightedRevenue: { $sum: "$payment.weightedRevenue" } } }
+    ]).toArray();
+  }
+
+  async aggregateUserCardPayments(before: number): Promise<AggregatedCardPaymentInfo[]> {
+    const query: any = { action: "pay", at: { $lt: before } };
+    return this.userCardActions.aggregate([
+      { $match: { action: "pay" } },
+      {
+        $group: {
+          _id: "$cardId",
+          firstTimePurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$payment.category", "first"] },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+          normalPurchases: {
+            $sum: {
+              $cond: {
+                if: { $in: ["$payment.category", ["fan", "normal"]] },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+          fraudPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$payment.category", "fraud"] },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+        }
+      }
     ]).toArray();
   }
 
@@ -2905,8 +2969,12 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $set: { featuredWeight: featuredWeight, listingWeight: listingWeight } });
   }
 
-  async findChannelUser(channelId: string, userId: string): Promise<ChannelUserRecord> {
-    return this.channelUsers.findOne<ChannelUserRecord>({ channelId: channelId, userId: userId });
+  async findChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState): Promise<ChannelUserRecord> {
+    const query: any = { channelId: channelId, userId: userId };
+    if (subscriptionState) {
+      query.subscriptionState = subscriptionState;
+    }
+    return this.channelUsers.findOne<ChannelUserRecord>(query);
   }
 
   async countAllChannelUserBonusesPaid(): Promise<number> {
@@ -2918,8 +2986,16 @@ export class Database {
   }
 
   async existsChannelUserSubscriptions(userId: string, channelIds: string[], subscriptionState: ChannelSubscriptionState): Promise<boolean> {
-    const result = await this.channelUsers.find<ChannelUserRecord>({ userId: userId, channelId: { $in: channelIds } }).limit(1).toArray();
+    const result = await this.channelUsers.find<ChannelUserRecord>({ userId: userId, channelId: { $in: channelIds }, subscriptionState: subscriptionState }).limit(1).toArray();
     return result.length > 0;
+  }
+
+  async findChannelSubscribers(channelId: string, subscriptionState: ChannelSubscriptionState, maxCount: number, lastUpdatedBefore: number): Promise<ChannelUserRecord[]> {
+    const query: any = { channelId: channelId, subscriptionState: subscriptionState };
+    if (lastUpdatedBefore) {
+      query.lastUpdated = { $lt: lastUpdatedBefore };
+    }
+    return this.channelUsers.find<ChannelUserRecord>(query).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
   }
 
   async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
@@ -4106,4 +4182,11 @@ export interface AggregatedUserActionPaymentInfo {
   purchases: number;
   grossRevenue: number;
   weightedRevenue: number;
+}
+
+export interface AggregatedCardPaymentInfo {
+  _id: string;
+  firstTimePurchases: number;
+  normalPurchases: number;
+  fraudPurchases: number;
 }
