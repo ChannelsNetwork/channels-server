@@ -2453,7 +2453,7 @@ db.users.aggregate([
 
 
 db.userCardActions.aggregate([
-  {$match: {authorId: "68caa4ba-17ea-4ee6-b9ec-4ffc1face5fd", action: "pay"}},
+  {$match: {authorId: "1d7c5d62-d1ac-4ba7-98fb-33fee1305308", action: "pay"}},
   {$group: {
     _id: "$userId",
     count: {$sum: 1},
@@ -2466,19 +2466,22 @@ db.userCardActions.aggregate([
     as: "buyer"
   }},
   {$unwind: "$buyer"},
-  {$project: {
-    count: 1,
-    revenue: 1,
-    city: "$buyer.city",
-    country: "$buyer.country",
-    buyerHandle: "$buyer.identity.handle",
-    buyerBalance: "$buyer.balance", 
-    referred: "$buyer.originalReferrer",
-    landingPage: "$buyer.originalLandingPage",
-  }},
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
-  {$project: {count: "$count", userAgent: "$registration.userAgent", fingerprint: "$registration.fingerprint", ipAddress: "$registration.ipAddress"}},
-  {$sort: {count: -1}}
+  {$unwind: "$registration"},
+  {$group: {
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
+    registrations: {$sum: 1},
+    fingerprints: {$addToSet: "$registration.fingerprint"},
+    ipAddresses: {$addToSet: "$registration.ipAddress"},
+    userAgents: {$addToSet: "$registration.userAgent"},
+  }},
+  {$project: {
+    registrations: 1,
+    fingerprints: {$size: "$fingerprints"},
+    ipAddresses: {$size: "$ipAddresses"},
+    userAgents: {$size: "$userAgents"},
+  }},
+  {$sort: {"_id.revenue": -1}}
 ])
 
 db.bankTransactions.aggregate([
@@ -2504,4 +2507,46 @@ db.bankTransactions.aggregate([
     balance: "$user.balance"
   }},
   {$sort: {count: -1}}
+])
+
+
+db.channelUsers.aggregate([
+  {$match: {channelId: "441b36c4-e573-45ec-b26e-9dd05cefb645", subscriptionState: "subscribed"}},
+  {$lookup: {
+    from: "users",
+    localField: "userId",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    userId: "$user.id",
+    handle: "$user.identity.handle",
+    email: "$user.identity.emailAddress",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+  }},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "userId",
+    foreignField: "userId",
+    as: "registration"
+  }},
+  {$unwind: "$registration"},
+  {$group: {
+    _id: {userId: "$userId", handle: "$handle", city: "$city", email: "$email", balance: "$balance"},
+    registrations: {$sum: 1},
+    fingerprints: {$addToSet: "$registration.fingerprint"},
+    userAgents: {$addToSet: "$registration.userAgent"}
+  }},
+])
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1520382940000}}},
+  {$group: {
+    _id: "all",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }}
 ])
