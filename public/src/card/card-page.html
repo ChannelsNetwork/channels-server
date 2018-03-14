@@ -13,12 +13,14 @@
         position: relative;
         border-radius: 0 !important;
         box-shadow: none !important;
-        background: white;
+        background: #fafafa;
+        min-height: 100vh;
       }
 
       #header {
         opacity: 0;
         transition: opacity 0.25s ease;
+        border-bottom: 1px solid #f0f0f0;
       }
 
       #inaccessible,
@@ -26,6 +28,10 @@
         text-align: center;
         box-sizing: border-box;
         padding-bottom: 40px;
+      }
+
+      #cardContenPanel {
+        background: white;
       }
 
       #loadingPanel {
@@ -43,10 +49,11 @@
         margin-left: -10px;
       }
 
-      #commentsPanel {
-        padding: 10px;
-        border-top: 1px solid #e5e5e5;
-        margin-top: 20px;
+      #metaPanel {
+        background: white;
+        padding: 25px 10px 10px;
+        border-top: 1px solid #f0f0f0;
+        border-bottom: 1px solid #f0f0f0;
         box-sizing: border-box;
       }
 
@@ -55,9 +62,14 @@
         margin: 0 auto;
       }
 
+      #ratingPanel {
+        text-align: left;
+        max-width: 700px;
+        margin: 0 auto 20px;
+      }
+
       #morePanel {
         padding: 30px 16px;
-        border-top: 1px solid #e5e5e5;
         margin-top: 20px;
         box-sizing: border-box;
         text-align: center;
@@ -191,13 +203,27 @@
         </div>
         <p>Loading card</p>
       </div>
-      <div id="cardView" class="hidden"></div>
+      <div id="cardContenPanel">
+        <div id="cardView" class="hidden"></div>
+        <div id="metaPanel" class="hidden">
+          <div id="ratingPanel" class="horizontal layout center hidden">
+            <div>
+              <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
+            </div>
+            <div>
+              <soso-icon id="downIcon" icon="thumb-down" icon-map="[[iconMap]]" on-click="_onDownVote"></soso-icon>
+            </div>
+            <div id="ratingTip">[[ratingTip]]</div>
+          </div>
+          <card-comments id="comments"></card-comments>
+        </div>
+      </div>
       <div id="morePanel" class="hidden">
         <div id="morePanelContent">
           <div id="refundPanel" class="hidden">
             <a style="cursor: pointer;" on-click="_onRefund">Refund my card payment</a>
           </div>
-          <div id="ratingPanel" class="horizontal layout center hidden" style="margin-bottom: 15px;">
+          <!-- <div id="ratingPanel" class="horizontal layout center hidden" style="margin-bottom: 15px;">
             <div class="flex"></div>
             <div>
               <soso-icon id="upIcon" icon="thumb-up" icon-map="[[iconMap]]" on-click="_onUpVote"></soso-icon>
@@ -207,7 +233,7 @@
             </div>
             <div id="ratingTip">[[ratingTip]]</div>
             <div class="flex"></div>
-          </div>
+          </div> -->
           <div id="channelCardletPanel">
             <div id="channelCardlet" class="horizontal layout">
               <div class="flex channelNameCell horizontal layout center" on-click="_gotoChannel">
@@ -225,10 +251,6 @@
           </div>
         </div>
       </div>
-      <div id="commentsPanel" class="hidden">
-        <card-comments id="comments"></card-comments>
-      </div>
-
     </div>
     <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
     <card-terms-overlay id="termsOverlay" on-accept="_onTermsAccept"></card-terms-overlay>
@@ -380,7 +402,7 @@
         if (this._active) {
           this._import("../comments/card-comments.html").then(() => {
             this.$.comments.initialize(cardData);
-            this.$.commentsPanel.classList.remove("hidden");
+            this.$.metaPanel.classList.remove("hidden");
           });
         }
       }
@@ -396,7 +418,7 @@
         }
         this._cardNode = null;
 
-        this.$.commentsPanel.classList.add("hidden");
+        this.$.metaPanel.classList.add("hidden");
         this.$.inaccessible.classList.add("hidden");
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
