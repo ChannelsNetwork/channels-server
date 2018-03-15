@@ -1613,7 +1613,7 @@ export class Database {
     sort["promotionScores." + bin] = -1;
     const query: any = { state: "active", "curation.block": false, private: false };
     if (openPaymentOnly) {
-      query["pricing.openPayment"] = {$gt: 0};
+      query["pricing.openPayment"] = { $gt: 0 };
     }
     return this.cards.find<CardRecord>(query, { searchText: 0 }).sort(sort);
   }
@@ -3261,6 +3261,16 @@ export class Database {
 
   async findUserIdsByFingerprint(fingerprints: string[]): Promise<string[]> {
     return this.userRegistrations.distinct('userId', { fingerprint: { $in: fingerprints } });
+  }
+
+  async existsFingerprint(fingerprint: string): Promise<boolean> {
+    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint });
+    return existing ? true : false;
+  }
+
+  async existsFingerprintAndIpAddress(fingerprint: string, ipAddress: string): Promise<boolean> {
+    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress }).limit(1).toArray();
+    return existing ? true : false;
   }
 
   async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {
