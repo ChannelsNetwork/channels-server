@@ -59,6 +59,7 @@ export interface UserStatusResponse extends RestResponseWithUserStatus { }
 
 export interface UserStatus {
   goLive: number;
+  initialBalance: number;
   userBalance: number;
   userBalanceAt: number;
   minBalanceAfterWithdrawal: number;

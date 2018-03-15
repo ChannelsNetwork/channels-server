@@ -1083,6 +1083,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     const result: UserStatus = {
       goLive: this.goLiveDate,
+      initialBalance: typeof user.initialBalance === 'number' ? user.initialBalance : 1,
       userBalance: user.balance,
       userBalanceAt: user.balanceLastUpdated,
       minBalanceAfterWithdrawal: MINIMUM_BALANCE_AFTER_WITHDRAWAL,

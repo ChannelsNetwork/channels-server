@@ -912,6 +912,13 @@ class CoreService extends Polymer.Element {
     return this._userStatus.minBalanceAfterWithdrawal;
   }
 
+  get initialBalance() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.initialBalance;
+  }
+
   get baseCardPrice() {
     if (!this._userStatus) {
       return 0;
