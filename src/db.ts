@@ -3269,7 +3269,7 @@ export class Database {
   }
 
   async existsFingerprintAndIpAddress(fingerprint: string, ipAddress: string): Promise<boolean> {
-    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress }).limit(1).toArray();
+    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress });
     return existing ? true : false;
   }
 
