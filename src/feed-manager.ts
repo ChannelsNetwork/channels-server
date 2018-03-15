@@ -290,8 +290,9 @@ export class FeedManager implements Initializable, RestServer {
     const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), false);
     const adIds: string[] = [];
     const earnedAdCardIds: string[] = [];
+    const existingAuthorIds: string[] = [];
     while (await adCursor.hasNext()) {
-      const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, null, []);
+      const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, null, [], existingAuthorIds);
       if (adCard) {
         const adSlot = await this.createAdSlot(adCard, user, null);
         const adDescriptor = await this.populateCard(request, adCard, null, true, adSlot.id, null, user);
@@ -477,11 +478,12 @@ export class FeedManager implements Initializable, RestServer {
         earnedAdCardIds = [];
         this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
       }
+      const existingAuthorIds: string[] = [user.id];
       const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), false);
       while ((cardIndex < cards.length && cardIndex < limit) || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : []);
+          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : [], existingAuthorIds);
           if (adCard) {
             const adSlot = await this.createAdSlot(adCard, user, channelId);
             const adDescriptor = await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user);
@@ -549,15 +551,11 @@ export class FeedManager implements Initializable, RestServer {
     }
     const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), true);
     let adCard: CardRecord;
-    const authorIds: string[] = [];
+    const authorIds: string[] = [user.id];
     while (true) {
-      adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, []);
+      adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, [], authorIds);
       if (adCard) {
         // We don't want to serve up more than one ad from the same author in this group (for consumer variety)
-        if (authorIds.indexOf(adCard.createdById) >= 0) {
-          continue;
-        }
-        authorIds.push(adCard.createdById);
         const adSlot = await this.createAdSlot(adCard, user, channelId);
         result.push(await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user));
         if (result.length >= ADSLOTS_PER_PAYBUMP) {
@@ -571,7 +569,7 @@ export class FeedManager implements Initializable, RestServer {
     return result;
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[], existingAuthorIds: string[]): Promise<CardRecord> {
     // To get the next ad card, we are going to randomly decide on a weighted basis between a pays-to-open/click ad, an impression ad, and a promoted pay-for card,
     // then we'll randomly pick one of these that is eligible.
     // If the one we choose is not eligible for some reason, we'll do it again until we find one, or we run out of steam.
@@ -598,23 +596,24 @@ export class FeedManager implements Initializable, RestServer {
     const payToOpenFraction = Utils.interpolateRanges(payToOpenFractionByBalance, user.balance);
     const adImpressionFraction = Utils.interpolateRanges(adImpressionFractionByBalance, user.balance);
     // const contentImpressionFraction = Utils.interpolateRanges(contentImpressionFractionByBalance, user.balance);
-    while (tries++ < 200 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+    while (tries++ < 100 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+      console.log("Feed.getNextAdCard: tries", tries, noPayToOpens, noImpressions, noPromoted);
       const value = Math.random();
       let card: CardRecord;
       if (value < payToOpenFraction && !noPayToOpens) {
-        card = await db.findRandomPayToOpenCard(user.id, excludedCardIds);
+        card = await db.findRandomPayToOpenCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noPayToOpens = true;
           console.warn("Feed.getNextAdCard: Found no eligible pays-to-open/click candidate");
         }
       } else if (value < (payToOpenFraction + adImpressionFraction) && !noImpressions) {
-        card = await db.findRandomImpressionAdCard(user.id, excludedCardIds);
+        card = await db.findRandomImpressionAdCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noImpressions = true;
           console.warn("Feed.getNextAdCard: Found no eligible impression-ad candidate");
         }
       } else if (!noPromoted) {
-        card = await db.findRandomPromotedCard(user.id, excludedCardIds);
+        card = await db.findRandomPromotedCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noPromoted = true;
           console.warn("Feed.getNextAdCard: Found no eligible promoted-card candidate");
@@ -649,11 +648,13 @@ export class FeedManager implements Initializable, RestServer {
           } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
             // Check again based on a recent impression
             alreadyPopulatedAdCardIds.push(card.id);
+            existingAuthorIds.push(card.createdById);
             return card;
           }
         } else {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
           alreadyPopulatedAdCardIds.push(card.id);
+          existingAuthorIds.push(card.createdById);
           return card;
         }
       }
