@@ -401,6 +401,13 @@
         if (this._route && this._route.context && this._route.context.fromApp) {
           return;
         }
+        let terms = $core.getAgreedToTerms();
+        if (terms && terms.agreed) {
+          let diff = (new Date()).getTime() - (terms.timestamp || 0);
+          if (diff < 30 * 60 * 1000) {
+            return;
+          }
+        }
         this._termsAccepted = false;
         this.$.termsOverlay.show();
       }
@@ -685,6 +692,7 @@
           this._cardNode.active = true;
         }
         $core.analytics.event("card", "accept-terms");
+        $core.setAgreeToTerms();
       }
 
       _onReportDialog(event) {
