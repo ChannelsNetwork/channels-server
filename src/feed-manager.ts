@@ -596,7 +596,7 @@ export class FeedManager implements Initializable, RestServer {
     const payToOpenFraction = Utils.interpolateRanges(payToOpenFractionByBalance, user.balance);
     const adImpressionFraction = Utils.interpolateRanges(adImpressionFractionByBalance, user.balance);
     // const contentImpressionFraction = Utils.interpolateRanges(contentImpressionFractionByBalance, user.balance);
-    while (tries++ < 200 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+    while (tries++ < 100 && (!noPayToOpens || !noImpressions || !noPromoted)) {
       console.log("Feed.getNextAdCard: tries", tries, noPayToOpens, noImpressions, noPromoted);
       const value = Math.random();
       let card: CardRecord;
