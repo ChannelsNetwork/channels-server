@@ -101,14 +101,17 @@
         letter-spacing: initial;
       }
 
-      a.priceLabel {
+      a.priceLabel,
+      a.priceLabel:visited {
         text-decoration: underline;
         font-weight: bold;
+        color: var(--dark-green);
       }
 
       a.priceLabel:hover {
         letter-spacing: 0.03em;
         box-shadow: none;
+        color: var(--dark-green);
       }
 
       .myvote {
@@ -144,6 +147,11 @@
 
       #promotedList {
         margin-top: 20px;
+      }
+
+      #aquiredFundsText,
+      #noFundsText {
+        font-size: 30px;
       }
 
       @media (max-width: 600px) {
@@ -199,10 +207,19 @@
         </div>
       </div>
       <div id="morePanel" class="hidden">
+        <div id="insufficientSection" class="moreSection hidden">
+          <div id="noFundsText">Insufficient funds to view this card.</div>
+          <div id="aquiredFundsText" class="hidden">Your balance has updated.
+            <br>
+            <button on-click="_reload">Reload card</button>
+          </div>
+        </div>
         <div id="unregisteredSection" class="moreSection hidden">
           On
           <a href="/about">Channels</a>, you pay for content using ChannelCoin.
-          <span class="priceLabel">We alloted you ℂ1.00</span> to get started.
+          <span id="allotedMessage">
+            <span class="priceLabel">We alloted you ℂ1.00</span> to get started.
+          </span>
           <a href="/register">Register</a> to create your account.
         </div>
         <div id="refundPanel" class="moreSection hidden">
@@ -219,9 +236,9 @@
         </div>
         <div id="promotionSection" class="moreSection hidden">
           <span>[[lowBalanceMessage]]</span>
-          <a href="/balance" class="priceLabel" style="font-weight: bold;">Buy more ChannelCoin</a>
+          <a href="/balance" class="priceLabel" style="font-weight: bold;">Buy ChannelCoin</a>
           or you can
-          <span class="priceLabel">earn some ChannelCoin</span> by viewing promoted content.
+          <span class="priceLabel" style="white-space: nowrap;">earn some ChannelCoin</span> by viewing promoted content.
           <a href="/">See what else is on Channels</a>.
           <card-list id="promotedList" label="Promoted cards" items="[[promotedCards]]" on-card-open-request="_onCardOpenRequest" class="hidden"></card-list>
         </div>
@@ -253,6 +270,7 @@
         this._cardProgressStartListener = this._onCardProgressStart.bind(this);
         this._cardProgressStopListener = this._onCardProgressStop.bind(this);
         this._visibilityListener = this._visibilityChange.bind(this);
+        this._balaceListener = this._balanceChange.bind(this);
       }
 
       connectedCallback() {
@@ -297,11 +315,13 @@
         }, 1250);
 
         window.addEventListener('visibility-change', this._visibilityListener);
+        window.addEventListener("channels-user-status", this._balaceListener);
       }
 
       onDeactivate() {
         this._active = false;
         window.removeEventListener('visibility-change', this._visibilityListener);
+        window.removeEventListener("channels-user-status", this._balaceListener);
         this.$.cbar.deactivate();
         this._stopPaymentTimer();
         this._clearNode(this.$.cardView);
@@ -309,6 +329,10 @@
         if (this._cardOpened && this.data) {
           $core.cardClosed(this.data.id);
         }
+      }
+
+      _reload() {
+        window.location.reload();
       }
 
       _handleContextAction(context) {
@@ -449,6 +473,13 @@
           this._insufficientFunds = ($core.balance < this.data.pricing.discountedOpenFee && this.data.userSpecific.paidToAuthor === 0);
 
           // bottom sections visibility
+          if (this._insufficientFunds) {
+            this.$.insufficientSection.classList.remove("hidden");
+            this.$.noFundsText.classList.remove("hidden");
+            this.$.aquiredFundsText.classList.add("hidden");
+          } else {
+            this.$.insufficientSection.classList.add("hidden");
+          }
           let promotionSectionVisible = this._insufficientFunds || (this.promotedCards && this.promotedCards.length) || (($core.balance || 0) <= 0.65);
           if (promotionSectionVisible) {
             this.$.promotionSection.classList.remove("hidden");
@@ -461,6 +492,11 @@
             this.$.unregisteredSection.classList.remove("hidden");
           }
           this.lowBalanceMessage = this._insufficientFunds ? "You do not have enough ChannelCoin to view this card." : "Your balance is low!";
+          if ($core.initialBalance) {
+            this.$.allotedMessage.classList.remove('hidden');
+          } else {
+            this.$.allotedMessage.classList.add('hidden');
+          }
           setTimeout(() => {
             this._refreshPromotedCards();
           }, 1000);
@@ -514,6 +550,17 @@
           console.error(err);
           this._onNoCard();
         });
+      }
+
+      _balanceChange() {
+        this.balance = "ℂ" + ($core.balance ? (Math.floor($core.balance * 1000) / 1000).toFixed(3) : "0.000");
+        if (this._insufficientFunds && this.data) {
+          let insufFunds = ($core.balance < this.data.pricing.discountedOpenFee && this.data.userSpecific.paidToAuthor === 0);
+          if (!insufFunds) {
+            this.$.noFundsText.classList.add("hidden");
+            this.$.aquiredFundsText.classList.remove("hidden");
+          }
+        }
       }
 
       _loadChannel() {
@@ -867,6 +914,20 @@
           });
         } else {
           this.$.promotedList.classList.add("hidden");
+        }
+      }
+
+      _onCardOpenRequest(event) {
+        let card = event.detail.item;
+        if (card) {
+          let context = {
+            fromApp: true,
+            card: card,
+            page: "card",
+            scrollTop: $app.scrollValue,
+            returnPath: this.data ? ("/c/" + encodeURIComponent(this.data.id)) : "/"
+          };
+          $router.goto("/c/" + encodeURIComponent(card.id), context);
         }
       }
     }
