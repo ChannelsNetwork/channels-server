@@ -124,6 +124,20 @@ export class Database {
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
 
+    if (await this.users.indexExists("inviterCode_1")) {
+      await this.users.dropIndex('inviterCode_1');
+      // await this.users.updateMany({ inviterCode: { $exists: true } }, {
+      //   $unset: {
+      //     inviterCode: 1,
+      //     inviteeCode: 1,
+      //     invitationsRemaining: 1,
+      //     invitationsAccepted: 1,
+      //     minBalanceAfterWithdrawal: 1,
+      //     targetBalance: 1
+      //   }
+      // });
+    }
+
     await this.users.createIndex({ id: 1 }, { unique: true });
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
@@ -193,6 +207,7 @@ export class Database {
     // }
 
     await this.users.updateMany({ commentsLastReviewed: { $exists: false } }, { $set: { commentsLastReviewed: 0 } });
+
   }
 
   private async initializeCards(): Promise<void> {
