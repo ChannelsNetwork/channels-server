@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions, AggregationCur
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -49,6 +49,7 @@ export class Database {
   private adSlots: Collection;
   private cardComments: Collection;
   private deposits: Collection;
+  private cardCampaigns: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -87,6 +88,7 @@ export class Database {
     await this.initializeAdSlots();
     await this.initializeCardComments();
     await this.initializeDeposits();
+    await this.initializeCardCampaigns();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -526,6 +528,11 @@ export class Database {
     await this.deposits.createIndex({ id: 1 }, { unique: true });
     await this.deposits.createIndex({ at: -1 });
     await this.deposits.createIndex({ status: 1 });
+  }
+
+  private async initializeCardCampaigns(): Promise<void> {
+    this.cardCampaigns = this.db.collection('cardCampaigns');
+    await this.cardCampaigns.createIndex({ id: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -2098,7 +2105,7 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemPromotionCampaignId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
@@ -2118,13 +2125,15 @@ export class Database {
     if (redeemPromotion || redeemPromotionTransactionId) {
       record.redeemPromotion = {
         amount: redeemPromotion,
-        transactionId: redeemPromotionTransactionId
+        transactionId: redeemPromotionTransactionId,
+        cardCampaignId: redeemPromotionCampaignId
       };
     }
     if (redeemOpen || redeemOpenTransactionId) {
       record.redeemOpen = {
         amount: redeemOpen,
-        transactionId: redeemOpenTransactionId
+        transactionId: redeemOpenTransactionId,
+        cardCampaignId: redeemPromotionCampaignId
       };
     }
     if (reportInfo) {
@@ -3275,14 +3284,16 @@ export class Database {
     await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
   }
 
-  async insertAdSlot(userId: string, userBalance: number, channelId: string, cardId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
+  async insertAdSlot(userId: string, geo: GeoLocation, userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
     const now = Date.now();
     const record: AdSlotRecord = {
       id: uuid.v4(),
       userId: userId,
+      geo: geo,
       userBalance: userBalance,
       channelId: channelId,
       cardId: cardId,
+      cardCampaignId: cardCampaignId,
       created: now,
       authorId: authorId,
       type: type,
@@ -4066,6 +4077,62 @@ export class Database {
 
   async updateDepositComplete(depositId: string, status: DepositStatus, transactionId: string): Promise<void> {
     await this.deposits.updateOne({ id: depositId }, { $set: { status: status, transactionId: transactionId } });
+  }
+  async insertCardCampaign(status: CardCampaignStatus, cardId: string, type: CardCampaignType, paymentAmount: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
+    const stats: CardCampaignStats = {
+      served: 0,
+      impressions: 0,
+      redemptions: 0,
+      expenses: 0
+    };
+    const record: CardCampaignRecord = {
+      id: uuid.v4(),
+      created: Date.now(),
+      status: status,
+      cardId: cardId,
+      type: type,
+      paymentAmount: paymentAmount,
+      budget: budget,
+      ends: ends,
+      geoTargets: geoTargets,
+      stats: stats,
+      lastStatsSnapshot: 0
+    };
+    await this.cardCampaigns.insertOne(record);
+    return record;
+  }
+
+  async findCardCampaignById(id: string): Promise<CardCampaignRecord> {
+    return this.cardCampaigns.findOne<CardCampaignRecord>({ id: id });
+  }
+
+  async findSuitableCardCampaignsRandomized(types: CardCampaignType[], geoLocation: GeoLocation, count: number): Promise<CardCampaignRecord[]> {
+    const query: any = {
+      status: "active"
+    };
+    if (types.length === 1) {
+      query.type = types[0];
+    } else if (types.length > 1) {
+      query.type = { $in: types };
+    }
+    if (geoLocation && geoLocation.continentCode) {
+      const codes: string[] = [];
+      codes.push(geoLocation.continentCode);
+      if (geoLocation.countryCode) {
+        codes.push(geoLocation.continentCode + "." + geoLocation.countryCode);
+        if (geoLocation.regionCode) {
+          codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.regionCode);
+        }
+        if (geoLocation.zipCode) {
+          codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
+        }
+      }
+      query.geoTargets = codes.length === 1 ? codes[0] : { $in: codes };
+    }
+    return this.cardCampaigns.aggregate([
+      { $match: query },
+      { $sample: { size: count } }
+    ]).toArray();
   }
 }
 

@@ -433,16 +433,19 @@ export interface UserCardActionRecord {
   redeemPromotion?: {
     amount: number;
     transactionId: string;
+    cardCampaignId: string;
   };
   redeemOpen?: {
     amount: number;
     transactionId: string;
+    cardCampaignId: string;
   };
 }
 
 export interface UserCardActionPaymentInfo {
   amount: number;
   transactionId: string;
+  cardCampaignId: string;
   category: CardPaymentCategory;
   weight: number;
   weightedRevenue: number;
@@ -694,9 +697,11 @@ export interface ChannelKeywordRecord {
 export interface AdSlotRecord {
   id: string;
   userId: string;
+  geo: GeoLocation;
   userBalance: number;
   channelId: string;
   cardId: string;
+  cardCampaignId: string;
   created: number;
   authorId: string;
   type: AdSlotType;
@@ -704,6 +709,17 @@ export interface AdSlotRecord {
   redeemed: boolean;
   statusChanged: number;
   amount: number;
+}
+
+export interface GeoLocation {
+  fingerprint: string;
+  ipAddress: string;
+  continentCode: string;
+  countryCode: string;
+  regionCode: string;
+  zipCode: string;
+  lat: number;
+  lon: number;
 }
 
 export type AdSlotType = "impression-ad" | "impression-content" | "open-payment" | "click-payment" | "announcement";
@@ -750,3 +766,34 @@ export interface DepositRecord {
 }
 
 export type DepositStatus = "pending" | "completed";
+
+export interface CardCampaignRecord {
+  id: string;
+  created: number;
+  status: CardCampaignStatus;
+  cardId: string;
+  type: CardCampaignType;
+  paymentAmount: number;
+  budget: CardCampaignBudget;
+  ends: number;  // date
+  geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.
+  stats: CardCampaignStats;
+  lastStatsSnapshot: number;
+}
+
+export interface CardCampaignStats {
+  served: number;
+  impressions: number;
+  redemptions: number;
+  expenses: number;
+}
+
+export type CardCampaignStatus = "active" | "exhausted" | "expired" | "deleted";
+
+export interface CardCampaignBudget {
+  fixedBase: number;
+  plusPercent: number;
+  maxPerDay: number;
+}
+
+export type CardCampaignType = "content-promotion" | "impression-ad" | "pay-to-open" | "pay-to-click";

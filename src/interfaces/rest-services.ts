@@ -214,6 +214,7 @@ export interface CardDescriptor {
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   promoted: boolean;
+  cardCampaignId: string;
   adSlotId: string;
   couponId: string;
   stats: CardDescriptorStatistics;
@@ -548,6 +549,7 @@ export interface BankTransactionDetails extends Signable {
   type: BankTransactionType;
   reason: BankTransactionReason;
   relatedCardId: string;
+  relatedCardCampaignId: string;
   relatedCouponId: string;
   amount: number;  // ChannelCoin
   toRecipients: BankTransactionRecipientDirective[];

@@ -2451,9 +2451,10 @@ db.users.aggregate([
   {$sort: {count: -1}}
 ])
 
+Author fraud analysis
 
 db.userCardActions.aggregate([
-  {$match: {authorId: "1d7c5d62-d1ac-4ba7-98fb-33fee1305308", action: "pay"}},
+  {$match: {authorId: "1575ff0d-c031-40e7-a24f-6ab477f5dce1", action: "pay"}},
   {$group: {
     _id: "$userId",
     count: {$sum: 1},
@@ -2469,7 +2470,7 @@ db.userCardActions.aggregate([
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
   {$group: {
-    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landing: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
     registrations: {$sum: 1},
     fingerprints: {$addToSet: "$registration.fingerprint"},
     ipAddresses: {$addToSet: "$registration.ipAddress"},
@@ -2549,4 +2550,125 @@ db.userCardActions.aggregate([
     count: {$sum: 1},
     revenue: {$sum: "$payment.amount"}
   }}
+])
+
+// , cardId: "60561583-b147-43b0-869b-485931a122a0"
+// authorId: "f8ee300c-9722-479c-a5b5-74a68d5bd637"
+db.userCardActions.aggregate([
+  {$match: {authorId: "1575ff0d-c031-40e7-a24f-6ab477f5dce1", action: "pay", at: {$gt: 1519891200000}}},
+  {$group: {
+    _id: {fingerprint: "$fromFingerprint", userId: "$userId", ipAddress: "$fromIpAddress"},
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "_id.fingerprint",
+    foreignField: "fingerprint",
+    as: "registration"
+  }},
+  {$unwind: "$registration"},
+  {$match: {"registration.isMobile": false}},
+  {$group: {
+    _id: "$_id",
+    count: {$sum: 1},
+    userIds: {$addToSet: "$registration.userId"},
+    ipAddresses: {$addToSet: "$registration.ipAddress"},
+    userAgents: {$addToSet: "$registration.userAgent"},    
+  }},
+  {$project: {
+    count: 1,
+    userIds: 1,
+    ipAddresses: 1,
+    userAgents: 1,
+    numUserIds: {$size: "$userIds"}
+  }},
+  {$sort: {numUserIds: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "f8ee300c-9722-479c-a5b5-74a68d5bd637", action: "pay", cardId: "60561583-b147-43b0-869b-485931a122a0"}},
+  {$group: {
+    _id: {fingerprint: "$fromFingerprint", userId: "$userId", ipAddress: "$fromIpAddress"},
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$sort: {count: -1}}
+])
+
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "1575ff0d-c031-40e7-a24f-6ab477f5dce1", action: "pay", at: {$gt: 1520496000000}}},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$group: {
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landing: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
+    registrations: {$sum: 1},
+    fingerprints: {$addToSet: "$registration.fingerprint"},
+    ipAddresses: {$addToSet: "$registration.ipAddress"},
+    userAgents: {$addToSet: "$registration.userAgent"},
+  }},
+  {$project: {
+    registrations: 1,
+    fingerprints: {$size: "$fingerprints"},
+    ipAddresses: {$size: "$ipAddresses"},
+    userAgents: {$size: "$userAgents"},
+  }},
+  {$sort: {"_id.revenue": -1}}
+])
+
+  {$group: {
+    _id: "all",
+    count: {$sum: 1},
+    revenue: {$sum: "$_id.revenue"}
+  }},
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "f8ee300c-9722-479c-a5b5-74a68d5bd637", action: "pay", at: {$gt: 1520496000000}}},
+  {$group: {
+    _id: "$cardId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+])
+
+db.userCardActions.aggregate([
+  {$match: {authorId: "1575ff0d-c031-40e7-a24f-6ab477f5dce1", action: "pay", at: {$gt: 1520496000000}}},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$match: {"buyer.balance": {$lt: 0.3}}},
+  {$group: {
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landing: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
+    registrations: {$sum: 1},
+    fingerprints: {$addToSet: "$registration.fingerprint"},
+    ipAddresses: {$addToSet: "$registration.ipAddress"},
+    userAgents: {$addToSet: "$registration.userAgent"},
+  }},
+  {$project: {
+    registrations: 1,
+    fingerprints: {$size: "$fingerprints"},
+    ipAddresses: {$size: "$ipAddresses"},
+    userAgents: {$size: "$userAgents"},
+  }},
+  {$sort: {"_id.revenue": -1}}
 ])

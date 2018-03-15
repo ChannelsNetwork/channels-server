@@ -6,7 +6,7 @@ import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse } from "./interfaces/rest-services";
 import { db } from "./db";
-import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
+import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
@@ -48,11 +48,202 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
+const continentNameByContinentCode: { [continentCode: string]: string } = {
+  "AF": "Africa",
+  "AS": "Asia",
+  "EU": "Europe",
+  "OC": "Oceania",
+  "NA": "North America",
+  "SA": "South America"
+};
+
+const continentCodeByCountryCode: { [countryCode: string]: string } = {
+  "US": "NA",
+  "EC": "SA",
+  "MX": "NA",
+  "CA": "NA",
+  "FR": "EU",
+  "IN": "AS",
+  "GB": "EU",
+  "NZ": "OC",
+  "AU": "OC",
+  "JP": "AS",
+  "BR": "SA",
+  "SG": "AS",
+  "TW": "AS",
+  "GU": "AS",
+  "ZA": "AF",
+  "DE": "EU",
+  "KH": "AS",
+  "EG": "AF",
+  "RU": "AS",
+  "RS": "EU",
+  "DK": "EU",
+  "BG": "EU",
+  "PE": "SA",
+  "EE": "EU",
+  "ES": "EU",
+  "SI": "EU",
+  "FI": "EU",
+  "LU": "EU",
+  "TR": "EU",
+  "AT": "EU",
+  "SE": "EU",
+  "DZ": "AF",
+  "IM": "EU",
+  "PL": "EU",
+  "PT": "EU",
+  "CZ": "EU",
+  "IE": "EU",
+  "BE": "EU",
+  "NO": "EU",
+  "UG": "AF",
+  "SK": "EU",
+  "RO": "EU",
+  "IT": "EU",
+  "UA": "EU",
+  "NL": "EU",
+  "GR": "EU",
+  "CH": "EU",
+  "AR": "SA",
+  "KR": "AS",
+  "HK": "AS",
+  "CM": "AF",
+  "PY": "SA",
+  "NI": "SA",
+  "HR": "EU",
+  "LT": "EU",
+  "AE": "AS",
+  "BA": "EU",
+  "PK": "AS",
+  "XK": "EU",
+  "PH": "AS",
+  "IS": "EU",
+  "GY": "SA",
+  "VN": "AS",
+  "CR": "SA",
+  "MK": "EU",
+  "TH": "AS",
+  "CL": "SA",
+  "TN": "AF",
+  "CO": "SA",
+  "DO": "NA",
+  "MA": "AF",
+  "ET": "AF",
+  "NG": "AF",
+  "GG": "EU",
+  "ID": "AS",
+  "MY": "AS",
+  "LV": "EU",
+  "TT": "NA",
+  "IL": "AS",
+  "CY": "EU",
+  "CN": "AS",
+  "MD": "EU",
+  "UZ": "AS",
+  "MU": "AF",
+  "GT": "SA",
+  "NP": "AS",
+  "HU": "EU",
+  "SN": "AF",
+  "GE": "AS",
+  "UY": "SA",
+  "TZ": "AF",
+  "SA": "AS",
+  "BB": "NA",
+  "BZ": "NA",
+  "KY": "NA",
+  "KW": "AS",
+  "AX": "EU",
+  "KE": "AF",
+  "SC": "NA",
+  "PS": "AS",
+  "LK": "AS",
+  "BN": "AS",
+  "PA": "NA",
+  "LB": "AS",
+  "ME": "EU",
+  "MT": "EU",
+  "BS": "NA",
+  "JE": "EU",
+  "BD": "AS",
+  "AL": "EU",
+  "SV": "NA",
+  "BH": "AS",
+  "HN": "NA",
+  "BW": "AF",
+  "GI": "EU",
+  "ZW": "AF",
+  "QA": "AS",
+  "YE": "AS",
+  "PR": "NA",
+  "VE": "SA",
+  "KZ": "AS",
+  "ZM": "AF",
+  "BY": "AS",
+  "IR": "AS",
+  "JM": "NA",
+  "SD": "AF",
+  "SO": "AF",
+  "VC": "NA",
+  "AF": "AS",
+  "MR": "EU",
+  "GH": "AF",
+  "GP": "NA",
+  "CW": "SA",
+  "HT": "NA",
+  "PF": "AS",
+  "AM": "EU",
+  "IQ": "AS",
+  "MN": "AS",
+  "AW": "SA",
+  "MO": "AS",
+  "BO": "SA",
+  "RE": "AF",
+  "BJ": "AF",
+  "MM": "AS",
+  "MQ": "NA",
+  "SY": "AS",
+  "BT": "AS",
+  "LR": "AF",
+  "GM": "AF",
+  "OM": "AS",
+  "KN": "NA",
+  "MZ": "AF",
+  "AD": "EU",
+  "JO": "AS",
+  "SZ": "AF",
+  "PG": "OC",
+  "MV": "AS",
+  "LI": "EU",
+  "CV": "AF",
+  "CI": "AF",
+  "FK": "SA",
+  "MG": "AF",
+  "NA": "AF",
+  "AO": "AF",
+  "NE": "AF",
+  "DJ": "AF",
+  "MW": "AF",
+  "AZ": "AS",
+  "LY": "AF",
+  "BM": "NA",
+  "SR": "SA",
+  "VI": "NA",
+  "FJ": "AS",
+  "SB": "AS",
+  "FO": "EU",
+  "TG": "AF",
+  "RW": "AF",
+  "GN": "AF",
+};
+
 export class UserManager implements RestServer, UserSocketHandler, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
+  private ipCache = LRU<string, IpAddressRecord>({ max: 10000, maxAge: 1000 * 60 * 60 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -250,7 +441,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const ipAddress = this.getIpAddressFromRequest(request);
       let ipAddressInfo: IpAddressRecord;
       if (ipAddress && ipAddress.length > 0) {
-        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
+        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress, false);
       }
       console.log("UserManager.register-user:", request.headers, ipAddress);
       let userRecord = await this.getUserByAddress(requestBody.detailsObject.address);
@@ -287,6 +478,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: INVITER_REWARD,
             relatedCardId: null,
             relatedCouponId: null,
+            relatedCardCampaignId: null,
             toRecipients: [rewardRecipient]
           };
           await networkEntity.performBankTransaction(request, reward, null, true, false, "Invitation reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
@@ -308,6 +500,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: INITIAL_BALANCE,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [grantRecipient]
         };
         await networkEntity.performBankTransaction(request, grant, null, true, false, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
@@ -322,6 +515,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: inviteeReward,
             relatedCardId: null,
             relatedCouponId: null,
+            relatedCardCampaignId: null,
             toRecipients: [grantRecipient]
           };
           await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
@@ -355,6 +549,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   getIpAddressFromRequest(request: Request): string {
+    if (!request) {
+      return null;
+    }
     const ipAddressHeader = request.headers['x-forwarded-for'] as string;
     let ipAddress: string;
     if (ipAddressHeader) {
@@ -368,11 +565,54 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return ipAddress;
   }
 
-  private async fetchIpAddressInfo(ipAddress: string): Promise<IpAddressRecord> {
+  async getGeoFromRequest(request: Request, fingerprint: string): Promise<GeoLocation> {
+    const ipAddress = this.getIpAddressFromRequest(request);
+    const result: GeoLocation = {
+      ipAddress: ipAddress,
+      fingerprint: fingerprint,
+      continentCode: null,
+      countryCode: null,
+      regionCode: null,
+      zipCode: null,
+      lat: null,
+      lon: null
+    };
+    if (!ipAddress) {
+      return result;
+    }
+    const ipInfo = await this.fetchIpAddressInfo(ipAddress, false);
+    if (ipInfo) {
+      if (ipInfo.countryCode) {
+        result.continentCode = this.getContinentCodeFromCountry(ipInfo.countryCode);
+        if (!result.continentCode) {
+          errorManager.error("Missing continent mapping for country code", request, ipInfo);
+        }
+        result.countryCode = ipInfo.countryCode;
+      }
+      result.regionCode = ipInfo.region;
+      result.zipCode = ipInfo.zip;
+      result.lat = ipInfo.lat;
+      result.lon = ipInfo.lon;
+    }
+    return result;
+  }
+
+  private getContinentCodeFromCountry(countryCode: string): string {
+    if (!countryCode) {
+      return null;
+    }
+    return continentCodeByCountryCode[countryCode];
+  }
+
+  private async fetchIpAddressInfo(ipAddress: string, force: boolean): Promise<IpAddressRecord> {
     if (ipAddress === "::1" || ipAddress === "localhost" || ipAddress === "127.0.0.1") {
       return null;
     }
-    const record = await db.findIpAddress(ipAddress);
+    let record = this.ipCache.get(ipAddress);
+    if (!force && record) {
+      return record;
+    }
+    record = await db.findIpAddress(ipAddress);
     const lifetime = record && record.status === 'success' ? MAX_IP_ADDRESS_LIFETIME : IP_ADDRESS_FAIL_RETRY_INTERVAL;
     if (record && Date.now() - record.lastUpdated < lifetime) {
       return record;
@@ -852,6 +1092,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       amount: REGISTRATION_BONUS,
       relatedCardId: null,
       relatedCouponId: null,
+      relatedCardCampaignId: null,
       toRecipients: [grantRecipient]
     };
     await networkEntity.performBankTransaction(request, grant, null, true, false, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
@@ -1153,6 +1394,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: subsidy,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [subsidyRecipient]
         };
         await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false, "User subsidy", null, null, Date.now());
@@ -1176,6 +1418,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: interest,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [interestRecipient]
         };
         await networkEntity.performBankTransaction(request, grant, null, true, false, "Interest", null, null, now);
