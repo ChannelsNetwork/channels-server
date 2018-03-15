@@ -3,7 +3,6 @@
 <link rel="import" href="../../bower_components/soso-spinner/soso-spinner.html">
 <link rel="import" href="open-card-header.html">
 <link rel="import" href="card-terms-overlay.html">
-<link rel="import" href="../channel/channel-card.html">
 
 <dom-module id="card-page">
   <template>
@@ -530,7 +529,15 @@
               return;
             }
             this.channel = response.channel;
-            this.$.channelCardletPanel.style.opacity = 1;
+            setTimeout(() => {
+              if (this._active) {
+                this._import('../channel/channel-card.html').then(() => {
+                  if (this._active) {
+                    this.$.channelCardletPanel.style.opacity = 1;
+                  }
+                });
+              }
+            }, 1000);
           });
         }
       }
@@ -866,13 +873,13 @@
       }
 
       _refreshPromotedCards() {
-        this._import('../card/card-list.html').then(() => {
-          if (this.promotedCards && this.promotedCards.length) {
+        if (this.promotedCards && this.promotedCards.length) {
+          this._import('../card/card-list.html').then(() => {
             this.$.promotedList.classList.remove("hidden");
-          } else {
-            this.$.promotedList.classList.add("hidden");
-          }
-        });
+          });
+        } else {
+          this.$.promotedList.classList.add("hidden");
+        }
       }
     }
     window.customElements.define(CardPage.is, CardPage);

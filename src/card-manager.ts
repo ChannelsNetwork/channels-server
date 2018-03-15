@@ -63,7 +63,7 @@ const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
-const USER_BALANCE_PAY_BUMP_THRESHOLD = 1.65;
+const USER_BALANCE_PAY_BUMP_THRESHOLD = 0.65;
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
