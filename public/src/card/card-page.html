@@ -218,7 +218,7 @@
           </div>
         </div>
         <div id="promotionSection" class="moreSection hidden">
-          Your balance is low!
+          <span>[[lowBalanceMessage]]</span>
           <a href="/balance" class="priceLabel" style="font-weight: bold;">Buy more ChannelCoin</a>
           or you can
           <span class="priceLabel">earn some ChannelCoin</span> by viewing promoted content.
@@ -230,7 +230,6 @@
         </div>
       </div>
     </div>
-    <insufficient-funds-dialog id="insufficientFunds"></insufficient-funds-dialog>
     <card-terms-overlay id="termsOverlay" on-accept="_onTermsAccept"></card-terms-overlay>
   </template>
   <script>
@@ -244,7 +243,8 @@
           channel: Object,
           balance: String,
           cost: String,
-          promotedCards: Array
+          promotedCards: Array,
+          lowBalanceMessage: String
         };
       }
 
@@ -408,6 +408,7 @@
         this.$.morePanel.classList.add("hidden");
         this.$.refundPanel.classList.add("hidden");
         this.$.header.classList.remove("disabled");
+        this.$.cardContenPanel.classList.remove("hidden");
         this._clearNode(this.$.cardView);
 
         // show loading spinner
@@ -426,7 +427,6 @@
               cardData.card.promoted = card.promoted;
             }
           }
-          console.log("card data", cardData);
           this.data = cardData.card;
 
           // if refund was awarded on this card, do not show
@@ -446,31 +446,27 @@
           let cost = this.data.pricing.discountedOpenFee;
           let absCost = Math.abs(cost).toFixed(2);
           this.cost = 'ℂ' + absCost;
+          this._insufficientFunds = ($core.balance < this.data.pricing.discountedOpenFee && this.data.userSpecific.paidToAuthor === 0);
 
-          let promotionSectionVisible = (this.promotedCards && this.promotedCards.length) || (($core.balance || 0) <= 0.65);
+          // bottom sections visibility
+          let promotionSectionVisible = this._insufficientFunds || (this.promotedCards && this.promotedCards.length) || (($core.balance || 0) <= 0.65);
           if (promotionSectionVisible) {
             this.$.promotionSection.classList.remove("hidden");
           } else {
-            this.$.promotionSection.classList.remove("hidden");
+            this.$.promotionSection.classList.add("hidden");
           }
           if ($core.profile && $core.profile.handle) {
             this.$.unregisteredSection.classList.add("hidden");
           } else {
             this.$.unregisteredSection.classList.remove("hidden");
           }
-
-          // delayed initialization of non essential sections
-          setTimeout(() => {
-            this._initializeComments(cardData);
-          }, 500);
+          this.lowBalanceMessage = this._insufficientFunds ? "You do not have enough ChannelCoin to view this card." : "Your balance is low!";
           setTimeout(() => {
             this._refreshPromotedCards();
           }, 1000);
 
           // show terms panel if needed
           this._showTermsPanel();
-
-
 
           if (this.data.summary && this.data.summary.title) {
             document.title = this.data.summary.title + " - Channels";
@@ -485,17 +481,15 @@
           setTimeout(() => {
             this._loadChannel();
           });
-          if ($core.balance < this.data.pricing.openFee && this.data.userSpecific.paidToAuthor === 0) {
-            this._import("../dialogs/insufficient-funds-dialog.html").then(() => {
-              return this.$.insufficientFunds.show().then((result) => {
-                if (result && result.page && result.page === "balance") {
-                  $router.goto("/balance");
-                } else {
-                  this._doCardClose(this.data.id);
-                }
-              });
-            });
+
+          if (this._insufficientFunds) {
+            this._clearSpinner();
+            this.$.morePanel.classList.remove("hidden");
+            this.$.cardContenPanel.classList.add("hidden");
           } else {
+            setTimeout(() => {
+              this._initializeComments(cardData);
+            }, 500);
             // Import card package
             let packageName = this.data.cardType.package;
             if (!packageName) {
@@ -690,13 +684,7 @@
       }
 
       _startPaymentTimer() {
-        if (!this._termsAccepted) {
-          return;
-        }
-        if (this._paymentTimer) {
-          return;
-        }
-        if ($core.visibility.isHidden()) {
+        if (this._insufficientFunds || this._paymentTimer || $core.visibility.isHidden() || (!this._termsAccepted)) {
           return;
         }
 
