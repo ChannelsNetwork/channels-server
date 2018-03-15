@@ -24,7 +24,8 @@ const braintree = require('braintree');
 import { errorManager } from "./error-manager";
 
 const MAXIMUM_CLOCK_SKEW = 1000 * 60 * 15;
-const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
+export const MINIMUM_BALANCE_AFTER_WITHDRAWAL = 5;
+export const TARGET_BALANCE = 5;
 
 export class Bank implements RestServer, Initializable {
   private app: express.Application;
@@ -86,7 +87,7 @@ export class Bank implements RestServer, Initializable {
           toRecipients: [recipient]
         };
         console.log("Bank.initialize2: Adding transaction for pre-existing manual deposit record", deposit, details);
-        const transaction = await networkEntity.performBankTransaction(null, details, null, false, false, "Paypal coin purchase", null, null, Date.now(), true);
+        const transaction = await networkEntity.performBankTransaction(null, details, null, "Paypal coin purchase", null, null, Date.now(), true);
         await db.updateDepositTransaction(deposit.id, user.id, transaction.record.id);
       } else {
         errorManager.error("Bank.initialize2: Invalid deposit record", null, deposit);
@@ -162,7 +163,7 @@ export class Bank implements RestServer, Initializable {
         response.status(400).send("Invalid withdrawal mechanism.  Currently we only support Paypal.");
         return;
       }
-      if (user.balance - details.amount < user.minBalanceAfterWithdrawal) {
+      if (user.balance - details.amount < MINIMUM_BALANCE_AFTER_WITHDRAWAL) {
         response.status(400).send("Invalid withdrawal amount.  You must maintain a minimum balance in your account.");
         return;
       }
@@ -271,7 +272,7 @@ export class Bank implements RestServer, Initializable {
         toRecipients: [recipient]
       };
       console.log("Bank.handleBankDeposit: Adding transaction for deposit", deposit, details);
-      const transactionResult = await networkEntity.performBankTransaction(request, details, null, false, false, "ChannelCoin purchase via Paypal", null, null, now);
+      const transactionResult = await networkEntity.performBankTransaction(request, details, null, "ChannelCoin purchase via Paypal", null, null, now);
       await db.updateDepositComplete(deposit.id, "completed", transactionResult.record.id);
       const reply: AdminBankDepositResponse = {
         serverVersion: SERVER_VERSION,
@@ -352,7 +353,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false, doNotIncrementBalance = false): Promise<BankTransactionResult> {
+  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, forceAmountToZero = false, doNotIncrementBalance = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
@@ -453,7 +454,7 @@ export class Bank implements RestServer, Initializable {
     if (user.type === 'normal') {
       console.log("Bank.performTransfer: Debiting user account", details.reason, totalAmount, user.id);
     }
-    const balanceBelowTarget = user.balance < 0 ? false : user.balance - totalAmount < user.targetBalance;
+    const balanceBelowTarget = user.balance < 0 ? false : user.balance - totalAmount < TARGET_BALANCE;
 
     // We may need to decrement withdrawable balance to make sure it is never more than your balance
     await db.incrementUserBalance(user, -totalAmount, balanceBelowTarget, now);
@@ -502,7 +503,7 @@ export class Bank implements RestServer, Initializable {
       }
       if (!doNotIncrementBalance) {
         console.log("Bank.performTransfer: Crediting user account as recipient", details.reason, creditAmount, recipientUser.id);
-        await db.incrementUserBalance(recipientUser, creditAmount, recipientUser.balance + creditAmount < recipientUser.targetBalance, now);
+        await db.incrementUserBalance(recipientUser, creditAmount, recipientUser.balance + creditAmount < TARGET_BALANCE, now);
         if (recipientUser.id === user.id) {
           user.balance += creditAmount;
         }
@@ -558,12 +559,12 @@ export class Bank implements RestServer, Initializable {
       throw new ErrorWithStatusCode(401, "This coupon's budget is exhausted");
     }
     const originalBalance = to.balance;
-    const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < from.targetBalance;
+    const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < TARGET_BALANCE;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
     await db.incrementUserBalance(from, -coupon.amount, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null, description, fromIpAddress, fromFingerprint);
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
-    await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < to.targetBalance, now);
+    await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < TARGET_BALANCE, now);
     await db.incrementCouponSpent(coupon.id, coupon.amount);
     const amountByRecipientReason: { [reason: string]: number } = {};
     amountByRecipientReason[transaction.toRecipients[0].reason] = coupon.amount;
@@ -653,7 +654,7 @@ export class Bank implements RestServer, Initializable {
 
   private async initiateWithdrawal(user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionResult> {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
-    await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < user.targetBalance, now);
+    await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < TARGET_BALANCE, now);
     const record = await db.insertBankTransaction(now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism, description, fromIpAddress, fromFingerprint);
     const amountByRecipientReason: { [reason: string]: number } = {};
     const result: BankTransactionResult = {
@@ -689,7 +690,7 @@ export class Bank implements RestServer, Initializable {
       if (refundAmount > 0) {
         const recipientUser = await db.findUserByHistoricalAddress(recipient.address);
         if (recipientUser) {
-          await db.incrementUserBalance(recipientUser, -refundAmount, recipientUser.balance - refundAmount < recipientUser.targetBalance, now);
+          await db.incrementUserBalance(recipientUser, -refundAmount, recipientUser.balance - refundAmount < TARGET_BALANCE, now);
           console.log("Bank.refundTransaction: recipient refund deducted", refundAmount, recipientUser.id, transaction.id);
         } else {
           errorManager.error("Failed to find recipient user for refund", request, transaction.id, recipient);
@@ -698,7 +699,7 @@ export class Bank implements RestServer, Initializable {
     }
     const originatorUser = await db.findUserById(transaction.originatorUserId);
     if (originatorUser) {
-      await db.incrementUserBalance(originatorUser, transaction.details.amount, originatorUser.balance + transaction.details.amount < originatorUser.targetBalance, now);
+      await db.incrementUserBalance(originatorUser, transaction.details.amount, originatorUser.balance + transaction.details.amount < TARGET_BALANCE, now);
       console.log("Bank.refundTransaction: originator refund deducted", transaction.details.amount, originatorUser.id, transaction.id);
     } else {
       errorManager.error("Failed to find originator user for refund", request, transaction.id, transaction.originatorUserId);
