@@ -767,9 +767,9 @@ export class FeedManager implements Initializable, RestServer {
       return "c";
     }
     if (ratio >= 0.2) {
-      return "b";
+      return "d";
     }
-    return "a";
+    return "e";
   }
 
   private async getRecommendedFeed(request: Request, user: UserRecord, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
