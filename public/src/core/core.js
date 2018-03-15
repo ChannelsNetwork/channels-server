@@ -1,7 +1,7 @@
 const _CKeys = {
   KEYS: "channels-identity",
   BACKUP_KEYS: "backup-keys",
-  AGREED_TERMS: "channels-terms-agreed"
+  AGREED_TERMS: "channels-terms-agreed-by-user"
 };
 
 class CoreService extends Polymer.Element {
@@ -57,12 +57,21 @@ class CoreService extends Polymer.Element {
     return (userAgent.toLowerCase().indexOf('mobi') >= 0) && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
   }
 
-  agreeToTnCs() {
-    this.storage.setItem(_CKeys.AGREED_TERMS, true, true);
+  setAgreeToTerms() {
+    this.storage.setItem(_CKeys.AGREED_TERMS, {
+      agreed: true,
+      timestamp: (new Date()).getTime()
+    }, true);
   }
 
-  isAgreedToTnCs() {
-    return this.storage.getItem(_CKeys.AGREED_TERMS, false) ? true : false;
+  getAgreedToTerms() {
+    let terms = this.storage.getItem(_CKeys.AGREED_TERMS, true);
+    if (terms) {
+      return terms;
+    }
+    return {
+      agreed: false
+    };
   }
 
   hasKeys() {
@@ -212,7 +221,7 @@ class CoreService extends Polymer.Element {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
         const newKeys = $keyUtils.generateKey(privateKey);
         this._switchToSignedInKeys(newKeys, trust);
-        this.agreeToTnCs();
+        this.setAgreeToTerms();
         return this.getUserProfile();
       }).catch((err) => {
         throw new Error("Your handle or password is incorrect.");
