@@ -1494,8 +1494,8 @@ export class Database {
     return this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findRandomPayToOpenCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  async findRandomPayToOpenCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
     if (count === 0) {
       return null;
@@ -1509,8 +1509,8 @@ export class Database {
     return result;
   }
 
-  async findRandomImpressionAdCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  async findRandomImpressionAdCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
     // console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
@@ -1526,8 +1526,8 @@ export class Database {
     return result;
   }
 
-  async findRandomPromotedCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  async findRandomPromotedCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
     // console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
