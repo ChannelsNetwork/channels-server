@@ -287,12 +287,11 @@ export class FeedManager implements Initializable, RestServer {
     if (adSlotInfo.slotCount === 0) {
       return;
     }
-    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), false);
     const adIds: string[] = [];
     const earnedAdCardIds: string[] = [];
     const existingAuthorIds: string[] = [];
-    while (await adCursor.hasNext()) {
-      const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, null, [], existingAuthorIds);
+    while (true) {
+      const adCard = await this.getNextAdCard(user, adIds, earnedAdCardIds, cards, null, [], existingAuthorIds, false);
       if (adCard) {
         const adSlot = await this.createAdSlot(adCard, user, null);
         const adDescriptor = await this.populateCard(request, adCard, null, true, adSlot.id, null, user);
@@ -306,7 +305,6 @@ export class FeedManager implements Initializable, RestServer {
         break;
       }
     }
-    await adCursor.close();
   }
 
   private async handleGetFeeds(request: Request, response: Response): Promise<void> {
@@ -479,11 +477,10 @@ export class FeedManager implements Initializable, RestServer {
         this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
       }
       const existingAuthorIds: string[] = [user.id];
-      const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), false);
       while ((cardIndex < cards.length && cardIndex < limit) || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : [], existingAuthorIds);
+          const adCard = await this.getNextAdCard(user, adIds, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : [], existingAuthorIds, false);
           if (adCard) {
             const adSlot = await this.createAdSlot(adCard, user, channelId);
             const adDescriptor = await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user);
@@ -506,7 +503,6 @@ export class FeedManager implements Initializable, RestServer {
         slotIndex++;
       }
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);  // push the list back into the cache
-      await adCursor.close();
       return { cards: amalgamated, moreAvailable: cards.length > limit };
     } else if (announcementAddedId) {
       for (let i = 0; i < cards.length && i < limit; i++) {
@@ -549,11 +545,10 @@ export class FeedManager implements Initializable, RestServer {
       earnedAdCardIds = [];
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
     }
-    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user), true);
     let adCard: CardRecord;
     const authorIds: string[] = [user.id];
     while (true) {
-      adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, [], authorIds);
+      adCard = await this.getNextAdCard(user, [], earnedAdCardIds, [card], null, [], authorIds, true);
       if (adCard) {
         // We don't want to serve up more than one ad from the same author in this group (for consumer variety)
         const adSlot = await this.createAdSlot(adCard, user, channelId);
@@ -565,11 +560,10 @@ export class FeedManager implements Initializable, RestServer {
         break;
       }
     }
-    await adCursor.close();
     return result;
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[], existingAuthorIds: string[]): Promise<CardRecord> {
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[], existingAuthorIds: string[], onlyPayToOpenClick: boolean): Promise<CardRecord> {
     // To get the next ad card, we are going to randomly decide on a weighted basis between a pays-to-open/click ad, an impression ad, and a promoted pay-for card,
     // then we'll randomly pick one of these that is eligible.
     // If the one we choose is not eligible for some reason, we'll do it again until we find one, or we run out of steam.
@@ -600,7 +594,7 @@ export class FeedManager implements Initializable, RestServer {
       console.log("Feed.getNextAdCard: tries", tries, noPayToOpens, noImpressions, noPromoted);
       const value = Math.random();
       let card: CardRecord;
-      if (value < payToOpenFraction && !noPayToOpens) {
+      if (onlyPayToOpenClick || (value < payToOpenFraction && !noPayToOpens)) {
         card = await db.findRandomPayToOpenCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noPayToOpens = true;
