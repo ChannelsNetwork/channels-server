@@ -1034,7 +1034,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const grossRevenue = amount;
       await userManager.updateUserBalance(request, user);
-      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, false, false, skipMoneyTransfer);
+      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();

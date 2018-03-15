@@ -312,7 +312,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(request, grant, null, true, false, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
+          await networkEntity.performBankTransaction(request, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
           userRecord.balance = initialGrant;
           // if (inviteeReward > 0) {
           //   const inviteeRewardDetails: BankTransactionDetails = {
@@ -868,7 +868,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       relatedCouponId: null,
       toRecipients: [grantRecipient]
     };
-    await networkEntity.performBankTransaction(request, grant, null, true, false, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
+    await networkEntity.performBankTransaction(request, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
     user.balance += REGISTRATION_BONUS;
     console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
@@ -1166,7 +1166,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false, "User subsidy", null, null, Date.now());
+        await networkEntity.performBankTransaction(request, subsidyDetails, null, "User subsidy", null, null, Date.now());
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1189,7 +1189,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, true, false, "Interest", null, null, now);
+        await networkEntity.performBankTransaction(request, grant, null, "Interest", null, null, now);
       }
     }
   }

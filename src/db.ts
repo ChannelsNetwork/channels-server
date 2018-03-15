@@ -151,63 +151,6 @@ export class Database {
     await this.users.createIndex({ added: -1 });
     await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
     await this.users.createIndex({ commentNotificationPending: 1 });
-
-    await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
-    await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
-    await this.users.updateMany({ balanceBelowTarget: { $exists: false } }, { $set: { balanceBelowTarget: false } });
-    await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
-    await this.users.updateMany({ withdrawableBalance: { $exists: false } }, { $set: { withdrawableBalance: 0 } });
-    await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
-
-    const noTarget = await this.users.find<UserRecord>({ type: "normal", targetBalance: 0 }).toArray();
-    for (const u of noTarget) {
-      await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
-    }
-
-    const noHistory = await this.users.find<UserRecord>({ addressHistory: { $exists: false } }).toArray();
-    for (const u of noHistory) {
-      await this.users.updateOne({ id: u.id }, { $push: { addressHistory: { address: u.address, publicKey: u.publicKey, added: Date.now() } } });
-    }
-
-    await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
-
-    await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
-
-    const unnamedUsers = await this.users.find<UserRecord>({ identity: { $exists: true }, "identity.firstName": { $exists: false } }).toArray();
-    for (const unnamed of unnamedUsers) {
-      await this.users.updateOne({ id: unnamed.id }, {
-        $set: {
-          "identity.firstName": Utils.getFirstName(unnamed.identity.name),
-          "identity.lastName": Utils.getLastName(unnamed.identity.name)
-        }
-      });
-    }
-
-    const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
-    for (const marketingUser of noMarketing) {
-      const genericUser = marketingUser as any;
-      const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
-      await this.users.updateOne({ id: marketingUser.id }, {
-        $set: {
-          marketing: {
-            includeInMailingList: includeInMailingList
-          }
-        }
-      });
-    }
-
-    // const noLastPostedUsers = await this.users.find<UserRecord>({ lastPosted: { $exists: false } }).toArray();
-    // for (const noLastPosted of noLastPostedUsers) {
-    //   const lastCard = await this.findLastCardByUser(noLastPosted.id);
-    //   let lastPosted = 0;
-    //   if (lastCard) {
-    //     lastPosted = lastCard.postedAt;
-    //   }
-    //   await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
-    // }
-
-    await this.users.updateMany({ commentsLastReviewed: { $exists: false } }, { $set: { commentsLastReviewed: 0 } });
-
   }
 
   private async initializeCards(): Promise<void> {
@@ -230,8 +173,6 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.openPayment": 1, id: 1 }, { name: "promoted-open-payment" });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.promotionFee": 1, id: 1 }, { name: "promoted-impression" });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
-
-    await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {

@@ -87,7 +87,7 @@ export class Bank implements RestServer, Initializable {
           toRecipients: [recipient]
         };
         console.log("Bank.initialize2: Adding transaction for pre-existing manual deposit record", deposit, details);
-        const transaction = await networkEntity.performBankTransaction(null, details, null, false, false, "Paypal coin purchase", null, null, Date.now(), true);
+        const transaction = await networkEntity.performBankTransaction(null, details, null, "Paypal coin purchase", null, null, Date.now(), true);
         await db.updateDepositTransaction(deposit.id, user.id, transaction.record.id);
       } else {
         errorManager.error("Bank.initialize2: Invalid deposit record", null, deposit);
@@ -272,7 +272,7 @@ export class Bank implements RestServer, Initializable {
         toRecipients: [recipient]
       };
       console.log("Bank.handleBankDeposit: Adding transaction for deposit", deposit, details);
-      const transactionResult = await networkEntity.performBankTransaction(request, details, null, false, false, "ChannelCoin purchase via Paypal", null, null, now);
+      const transactionResult = await networkEntity.performBankTransaction(request, details, null, "ChannelCoin purchase via Paypal", null, null, now);
       await db.updateDepositComplete(deposit.id, "completed", transactionResult.record.id);
       const reply: AdminBankDepositResponse = {
         serverVersion: SERVER_VERSION,
@@ -353,7 +353,7 @@ export class Bank implements RestServer, Initializable {
     });
   }
 
-  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, increaseTargetBalance = false, increaseWithdrawableBalance = false, forceAmountToZero = false, doNotIncrementBalance = false): Promise<BankTransactionResult> {
+  async performTransfer(request: Request, user: UserRecord, address: string, signedTransaction: SignedObject, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, networkInitiated = false, forceAmountToZero = false, doNotIncrementBalance = false): Promise<BankTransactionResult> {
     if (user.address !== address) {
       throw new ErrorWithStatusCode(403, "This address is not owned by this user");
     }
