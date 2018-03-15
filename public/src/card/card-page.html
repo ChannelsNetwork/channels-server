@@ -71,7 +71,7 @@
         font-family: sans-serif;
       }
 
-      #moneyTip {
+      #promotionSection {
         padding: 20px 0 0;
       }
 
@@ -100,6 +100,16 @@
       a:hover {
         color: var(--dark-green);
         letter-spacing: initial;
+      }
+
+      a.priceLabel {
+        text-decoration: underline;
+        font-weight: bold;
+      }
+
+      a.priceLabel:hover {
+        letter-spacing: 0.03em;
+        box-shadow: none;
       }
 
       .myvote {
@@ -131,6 +141,10 @@
       .disabled {
         pointer-events: none;
         opacity: 0 !important;
+      }
+
+      #promotedList {
+        margin-top: 20px;
       }
 
       @media (max-width: 600px) {
@@ -186,7 +200,7 @@
         </div>
       </div>
       <div id="morePanel" class="hidden">
-        <div id="unregisteredSection" class="moreSection">
+        <div id="unregisteredSection" class="moreSection hidden">
           On
           <a href="/about">Channels</a>, you pay for content using ChannelCoin.
           <span class="priceLabel">We alloted you ℂ1.00</span> to get started.
@@ -204,10 +218,13 @@
             <a href="#refund" on-click="_onRefund">request a refund</a>.
           </div>
         </div>
-        <div id="moneyTip" class="moreSection">
+        <div id="promotionSection" class="moreSection hidden">
           Your balance is low!
-          <span class="priceLabel">Earn some ChannelCoin</span> by viewing promoted content or see
-          <a href="/">what else is on Channels</a>.
+          <a href="/balance" class="priceLabel" style="font-weight: bold;">Buy more ChannelCoin</a>
+          or you can
+          <span class="priceLabel">earn some ChannelCoin</span> by viewing promoted content.
+          <a href="/">See what else is on Channels</a>.
+          <card-list id="promotedList" label="Promoted cards" items="[[promotedCards]]" on-card-open-request="_onCardOpenRequest" class="hidden"></card-list>
         </div>
         <div id="channelCardletPanel" class="moreSection">
           <channel-card channel="[[channel]]"></channel-card>
@@ -227,7 +244,8 @@
           channelUrl: String,
           channel: Object,
           balance: String,
-          cost: String
+          cost: String,
+          promotedCards: Array
         };
       }
 
@@ -389,7 +407,7 @@
         this.$.nocard.classList.add("hidden");
         this.$.hasCard.classList.remove("hidden");
         this.$.morePanel.classList.add("hidden");
-        this.$.refundPanel.classList.remove("hidden");
+        this.$.refundPanel.classList.add("hidden");
         this.$.header.classList.remove("disabled");
         this._clearNode(this.$.cardView);
 
@@ -411,9 +429,6 @@
           }
           console.log("card data", cardData);
           this.data = cardData.card;
-          setTimeout(() => {
-            this._initializeComments(cardData);
-          }, 500);
 
           // if refund was awarded on this card, do not show
           if (this.data.userSpecific.openFeeRefunded) {
@@ -422,13 +437,41 @@
             return;
           }
 
-          // show terms panel if needed
-          this._showTermsPanel();
-
+          // set cost, balance, promoted cards
+          let promCards = cardData.promotedCards || [];
+          if (promCards.length > 2) {
+            promCards = promCards.slice(0, 2);
+          }
+          this.promotedCards = promCards;
           this.balance = "ℂ" + ($core.balance ? (Math.floor($core.balance * 1000) / 1000).toFixed(3) : "0.000");
           let cost = this.data.pricing.discountedOpenFee;
           let absCost = Math.abs(cost).toFixed(2);
           this.cost = 'ℂ' + absCost;
+
+          let promotionSectionVisible = (this.promotedCards && this.promotedCards.length) || (($core.balance || 0) <= 0.65);
+          if (promotionSectionVisible) {
+            this.$.promotionSection.classList.remove("hidden");
+          } else {
+            this.$.promotionSection.classList.remove("hidden");
+          }
+          if ($core.profile && $core.profile.handle) {
+            this.$.unregisteredSection.classList.add("hidden");
+          } else {
+            this.$.unregisteredSection.classList.remove("hidden");
+          }
+
+          // delayed initialization of non essential sections
+          setTimeout(() => {
+            this._initializeComments(cardData);
+          }, 500);
+          setTimeout(() => {
+            this._refreshPromotedCards();
+          }, 1000);
+
+          // show terms panel if needed
+          this._showTermsPanel();
+
+
 
           if (this.data.summary && this.data.summary.title) {
             document.title = this.data.summary.title + " - Channels";
@@ -819,6 +862,16 @@
               this._closeCard();
             }
           });
+        });
+      }
+
+      _refreshPromotedCards() {
+        this._import('../card/card-list.html').then(() => {
+          if (this.promotedCards && this.promotedCards.length) {
+            this.$.promotedList.classList.remove("hidden");
+          } else {
+            this.$.promotedList.classList.add("hidden");
+          }
         });
       }
     }
