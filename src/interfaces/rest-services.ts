@@ -64,9 +64,6 @@ export interface UserStatus {
   minBalanceAfterWithdrawal: number;
   timeUntilNextAllowedWithdrawal: number;
   targetBalance: number;
-  inviteCode: string;
-  invitationsUsed: number;
-  invitationsRemaining: number;
   cardBasePrice: number;
   totalPublisherRevenue: number;
   totalCardDeveloperRevenue: number;

@@ -123,14 +123,9 @@ export class Database {
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
-    for (const u of noIds) {
-      await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
-    }
 
     await this.users.createIndex({ id: 1 }, { unique: true });
     await this.users.createIndex({ address: 1 }, { unique: true });
-    await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
@@ -568,7 +563,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -580,15 +575,9 @@ export class Database {
       ],
       encryptedPrivateKey: encryptedPrivateKey,
       added: now,
-      inviteeCode: inviteeCode,
-      inviterCode: inviterCode,
       balanceLastUpdated: now,
       balance: 0,
-      targetBalance: targetBalance,
       balanceBelowTarget: false,
-      minBalanceAfterWithdrawal: minBalanceAfterWithdrawal,
-      invitationsRemaining: invitationsRemaining,
-      invitationsAccepted: invitationsAccepted,
       lastContact: now,
       storage: 0,
       admin: false,
@@ -606,7 +595,8 @@ export class Database {
       referralBonusPaidToUserId: null,
       lastLanguagePublished: null,
       preferredLangCodes: null,
-      commentsLastReviewed: 0
+      commentsLastReviewed: 0,
+      initialBalance: initialBalance
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -948,17 +938,6 @@ export class Database {
     user.identity.emailConfirmed = true;
     user.identity.emailLastConfirmed = now;
     delete user.identity.emailConfirmationCode;
-  }
-
-  async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
-    await this.users.updateOne({ id: user.id }, {
-      $inc: {
-        invitationsRemaining: -1,
-        invitationsAccepted: 1
-      }
-    });
-    user.invitationsRemaining--;
-    user.invitationsAccepted++;
   }
 
   async incrementUserStorage(user: UserRecord, size: number): Promise<void> {
