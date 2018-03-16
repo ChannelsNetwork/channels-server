@@ -16,7 +16,7 @@ import { socketServer, UserSocketHandler } from "./socket-server";
 import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
 import { Initializable } from "./interfaces/initializable";
-import { bank } from "./bank";
+import { bank, TARGET_BALANCE, MINIMUM_BALANCE_AFTER_WITHDRAWAL } from "./bank";
 import { emailManager, EmailButton } from "./email-manager";
 import { SERVER_VERSION } from "./server-version";
 import * as uuid from "uuid";
@@ -42,7 +42,6 @@ const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 1;
 const REGISTRATION_BONUS = 1.5;
-const DEFAULT_TARGET_BALANCE = 5;
 
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
@@ -253,6 +252,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
       }
       console.log("UserManager.register-user:", request.headers, ipAddress);
+      const isMobile = requestBody.detailsObject.userAgent && requestBody.detailsObject.userAgent.toLowerCase().indexOf('mobi') >= 0;
       let userRecord = await this.getUserByAddress(requestBody.detailsObject.address);
       if (userRecord) {
         if (ipAddress && userRecord.ipAddresses.indexOf(ipAddress) < 0) {
@@ -269,66 +269,68 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           response.status(409).send("This address was registered previously and cannot be reused.");
           return;
         }
-        const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
-        let inviteeReward = 0;
-        if (inviter && inviter.invitationsRemaining > 0) {
-          await db.incrementInvitationsAccepted(inviter, INVITER_REWARD);
-          const rewardRecipient: BankTransactionRecipientDirective = {
-            address: inviter.address,
+        // const inviter = await db.findUserByInviterCode(requestBody.detailsObject.inviteCode);
+        // let inviteeReward = 0;
+        // if (inviter && inviter.invitationsRemaining > 0) {
+        //   await db.incrementInvitationsAccepted(inviter, INVITER_REWARD);
+        //   const rewardRecipient: BankTransactionRecipientDirective = {
+        //     address: inviter.address,
+        //     portion: "remainder",
+        //     reason: "invitation-reward-recipient"
+        //   };
+        //   const reward: BankTransactionDetails = {
+        //     timestamp: null,
+        //     address: null,
+        //     fingerprint: null,
+        //     type: "transfer",
+        //     reason: "inviter-reward",
+        //     amount: INVITER_REWARD,
+        //     relatedCardId: null,
+        //     relatedCouponId: null,
+        //     toRecipients: [rewardRecipient]
+        //   };
+        //   await networkEntity.performBankTransaction(request, reward, null, true, false, "Invitation reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
+        //   inviteeReward = INVITEE_REWARD;
+        // }
+        // const inviteCode = await this.generateInviteCode();
+        const initialGrant = await this.getInitialBalanceGrantAppropriate(request, ipAddress, requestBody.detailsObject.fingerprint, isMobile);
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, initialGrant);
+        if (initialGrant > 0) {
+          const grantRecipient: BankTransactionRecipientDirective = {
+            address: requestBody.detailsObject.address,
             portion: "remainder",
-            reason: "invitation-reward-recipient"
+            reason: "grant-recipient"
           };
-          const reward: BankTransactionDetails = {
+          const grant: BankTransactionDetails = {
             timestamp: null,
             address: null,
             fingerprint: null,
             type: "transfer",
-            reason: "inviter-reward",
-            amount: INVITER_REWARD,
-            relatedCardId: null,
-            relatedCouponId: null,
-            toRecipients: [rewardRecipient]
-          };
-          await networkEntity.performBankTransaction(request, reward, null, true, false, "Invitation reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
-          inviteeReward = INVITEE_REWARD;
-        }
-        const inviteCode = await this.generateInviteCode();
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, requestBody.detailsObject.inviteCode, inviteCode, INVITATIONS_ALLOWED, 0, DEFAULT_TARGET_BALANCE, DEFAULT_TARGET_BALANCE, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, null);
-        const grantRecipient: BankTransactionRecipientDirective = {
-          address: requestBody.detailsObject.address,
-          portion: "remainder",
-          reason: "invitation-reward-recipient"
-        };
-        const grant: BankTransactionDetails = {
-          timestamp: null,
-          address: null,
-          fingerprint: null,
-          type: "transfer",
-          reason: "grant",
-          amount: INITIAL_BALANCE,
-          relatedCardId: null,
-          relatedCouponId: null,
-          toRecipients: [grantRecipient]
-        };
-        await networkEntity.performBankTransaction(request, grant, null, true, false, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
-        userRecord.balance = INITIAL_BALANCE;
-        if (inviteeReward > 0) {
-          const inviteeRewardDetails: BankTransactionDetails = {
-            timestamp: null,
-            address: null,
-            fingerprint: null,
-            type: "transfer",
-            reason: "invitee-reward",
-            amount: inviteeReward,
+            reason: "grant",
+            amount: initialGrant,
             relatedCardId: null,
             relatedCouponId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
-          userRecord.balance += inviteeReward;
+          await networkEntity.performBankTransaction(request, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
+          userRecord.balance = initialGrant;
+          // if (inviteeReward > 0) {
+          //   const inviteeRewardDetails: BankTransactionDetails = {
+          //     timestamp: null,
+          //     address: null,
+          //     fingerprint: null,
+          //     type: "transfer",
+          //     reason: "invitee-reward",
+          //     amount: inviteeReward,
+          //     relatedCardId: null,
+          //     relatedCouponId: null,
+          //     toRecipients: [grantRecipient]
+          //   };
+          //   await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
+          //   userRecord.balance += inviteeReward;
+          // }
         }
       }
-      const isMobile = requestBody.detailsObject.userAgent && requestBody.detailsObject.userAgent.toLowerCase().indexOf('mobi') >= 0;
       await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
 
       const userStatus = await this.getUserStatus(request, userRecord, true);
@@ -351,6 +353,18 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     } catch (err) {
       errorManager.error("User.handleRegisterUser: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async getInitialBalanceGrantAppropriate(request: Request, ipAddress: string, fingerprint: string, isMobile: boolean): Promise<number> {
+    // We will deny an initial balance if there is already a user registered who used this fingerprint before.
+    // On mobile, we will deny if a user already exists with the same fingerprint and IP address
+    if (isMobile && ipAddress) {
+      const exists = await db.existsFingerprintAndIpAddress(fingerprint, ipAddress);
+      return exists ? 0 : INITIAL_BALANCE;
+    } else {
+      const exists = await db.existsFingerprint(fingerprint);
+      return exists ? 0 : INITIAL_BALANCE;
     }
   }
 
@@ -854,7 +868,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       relatedCouponId: null,
       toRecipients: [grantRecipient]
     };
-    await networkEntity.performBankTransaction(request, grant, null, true, false, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
+    await networkEntity.performBankTransaction(request, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
     user.balance += REGISTRATION_BONUS;
     console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
@@ -1069,13 +1083,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     const result: UserStatus = {
       goLive: this.goLiveDate,
+      initialBalance: typeof user.initialBalance === 'number' ? user.initialBalance : 1,
       userBalance: user.balance,
       userBalanceAt: user.balanceLastUpdated,
-      minBalanceAfterWithdrawal: user.minBalanceAfterWithdrawal,
-      targetBalance: user.targetBalance,
-      inviteCode: user.inviterCode.toUpperCase(),
-      invitationsUsed: user.invitationsAccepted,
-      invitationsRemaining: user.invitationsRemaining,
+      minBalanceAfterWithdrawal: MINIMUM_BALANCE_AFTER_WITHDRAWAL,
+      targetBalance: TARGET_BALANCE,
       cardBasePrice: await priceRegulator.getBaseCardFee(),
       totalPublisherRevenue: network.totalPublisherRevenue,
       totalCardDeveloperRevenue: network.totalCardDeveloperRevenue,
@@ -1133,10 +1145,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (user.balanceBelowTarget) {
       const subsidyRate = await priceRegulator.getUserSubsidyRate();
       subsidy = (now - user.balanceLastUpdated) * subsidyRate;
-      if (user.targetBalance > user.balance + subsidy) {
+      if (TARGET_BALANCE > user.balance + subsidy) {
         balanceBelowTarget = true;
       } else {
-        subsidy = Math.min(subsidy, user.targetBalance - user.balance);
+        subsidy = Math.min(subsidy, TARGET_BALANCE - user.balance);
       }
       if (subsidy > 0) {
         const subsidyRecipient: BankTransactionRecipientDirective = {
@@ -1155,7 +1167,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(request, subsidyDetails, null, false, false, "User subsidy", null, null, Date.now());
+        await networkEntity.performBankTransaction(request, subsidyDetails, null, "User subsidy", null, null, Date.now());
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1178,7 +1190,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCouponId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, true, false, "Interest", null, null, now);
+        await networkEntity.performBankTransaction(request, grant, null, "Interest", null, null, now);
       }
     }
   }

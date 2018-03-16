@@ -123,14 +123,23 @@ export class Database {
 
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
-    const noIds = await this.users.find<UserRecord>({ id: { $exists: false } }).toArray();
-    for (const u of noIds) {
-      await this.users.updateOne({ inviterCode: u.inviterCode }, { $set: { id: uuid.v4() } });
+
+    if (await this.users.indexExists("inviterCode_1")) {
+      await this.users.dropIndex('inviterCode_1');
+      // await this.users.updateMany({ inviterCode: { $exists: true } }, {
+      //   $unset: {
+      //     inviterCode: 1,
+      //     inviteeCode: 1,
+      //     invitationsRemaining: 1,
+      //     invitationsAccepted: 1,
+      //     minBalanceAfterWithdrawal: 1,
+      //     targetBalance: 1
+      //   }
+      // });
     }
 
     await this.users.createIndex({ id: 1 }, { unique: true });
     await this.users.createIndex({ address: 1 }, { unique: true });
-    await this.users.createIndex({ inviterCode: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
@@ -142,62 +151,6 @@ export class Database {
     await this.users.createIndex({ added: -1 });
     await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
     await this.users.createIndex({ commentNotificationPending: 1 });
-
-    await this.users.updateMany({ type: { $exists: false } }, { $set: { type: "normal" } });
-    await this.users.updateMany({ lastContact: { $exists: false } }, { $set: { lastContact: 0 } });
-    await this.users.updateMany({ balanceBelowTarget: { $exists: false } }, { $set: { balanceBelowTarget: false } });
-    await this.users.updateMany({ targetBalance: { $exists: false } }, { $set: { targetBalance: 0 } });
-    await this.users.updateMany({ withdrawableBalance: { $exists: false } }, { $set: { withdrawableBalance: 0 } });
-    await this.users.updateMany({ balanceLastUpdated: { $exists: false } }, { $set: { balanceLastUpdated: Date.now() - 60 * 60 * 1000 } });
-
-    const noTarget = await this.users.find<UserRecord>({ type: "normal", targetBalance: 0 }).toArray();
-    for (const u of noTarget) {
-      await this.users.updateOne({ id: u.id }, { $set: { targetBalance: u.balance, balanceBelowTarget: false } });
-    }
-
-    const noHistory = await this.users.find<UserRecord>({ addressHistory: { $exists: false } }).toArray();
-    for (const u of noHistory) {
-      await this.users.updateOne({ id: u.id }, { $push: { addressHistory: { address: u.address, publicKey: u.publicKey, added: Date.now() } } });
-    }
-
-    await this.users.createIndex({ "addressHistory.address": 1 }, { unique: true });
-
-    await this.users.updateMany({ ipAddresses: { $exists: false } }, { $set: { ipAddresses: [] } });
-
-    const unnamedUsers = await this.users.find<UserRecord>({ identity: { $exists: true }, "identity.firstName": { $exists: false } }).toArray();
-    for (const unnamed of unnamedUsers) {
-      await this.users.updateOne({ id: unnamed.id }, {
-        $set: {
-          "identity.firstName": Utils.getFirstName(unnamed.identity.name),
-          "identity.lastName": Utils.getLastName(unnamed.identity.name)
-        }
-      });
-    }
-
-    const noMarketing = await this.users.find<UserRecord>({ marketing: { $exists: false } }).toArray();
-    for (const marketingUser of noMarketing) {
-      const genericUser = marketingUser as any;
-      const includeInMailingList = !genericUser.sourcing || genericUser.sourcing.mailingList;
-      await this.users.updateOne({ id: marketingUser.id }, {
-        $set: {
-          marketing: {
-            includeInMailingList: includeInMailingList
-          }
-        }
-      });
-    }
-
-    // const noLastPostedUsers = await this.users.find<UserRecord>({ lastPosted: { $exists: false } }).toArray();
-    // for (const noLastPosted of noLastPostedUsers) {
-    //   const lastCard = await this.findLastCardByUser(noLastPosted.id);
-    //   let lastPosted = 0;
-    //   if (lastCard) {
-    //     lastPosted = lastCard.postedAt;
-    //   }
-    //   await this.users.updateOne({ id: noLastPosted.id }, { $set: { lastPosted: lastPosted } });
-    // }
-
-    await this.users.updateMany({ commentsLastReviewed: { $exists: false } }, { $set: { commentsLastReviewed: 0 } });
   }
 
   private async initializeCards(): Promise<void> {
@@ -220,8 +173,6 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.openPayment": 1, id: 1 }, { name: "promoted-open-payment" });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.promotionFee": 1, id: 1 }, { name: "promoted-impression" });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
-
-    await this.cards.updateMany({ "stats.clicks": { $exists: false } }, { $set: { "stats.clicks": { value: 0, lastSnapshot: 0 }, "stats.uniqueClicks": { value: 0, lastSnapshot: 0 } } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -568,7 +519,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, inviteeCode: string, inviterCode: string, invitationsRemaining: number, invitationsAccepted: number, targetBalance: number, minBalanceAfterWithdrawal: number, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -580,15 +531,9 @@ export class Database {
       ],
       encryptedPrivateKey: encryptedPrivateKey,
       added: now,
-      inviteeCode: inviteeCode,
-      inviterCode: inviterCode,
       balanceLastUpdated: now,
       balance: 0,
-      targetBalance: targetBalance,
       balanceBelowTarget: false,
-      minBalanceAfterWithdrawal: minBalanceAfterWithdrawal,
-      invitationsRemaining: invitationsRemaining,
-      invitationsAccepted: invitationsAccepted,
       lastContact: now,
       storage: 0,
       admin: false,
@@ -606,7 +551,8 @@ export class Database {
       referralBonusPaidToUserId: null,
       lastLanguagePublished: null,
       preferredLangCodes: null,
-      commentsLastReviewed: 0
+      commentsLastReviewed: 0,
+      initialBalance: initialBalance
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -948,17 +894,6 @@ export class Database {
     user.identity.emailConfirmed = true;
     user.identity.emailLastConfirmed = now;
     delete user.identity.emailConfirmationCode;
-  }
-
-  async incrementInvitationsAccepted(user: UserRecord, reward: number): Promise<void> {
-    await this.users.updateOne({ id: user.id }, {
-      $inc: {
-        invitationsRemaining: -1,
-        invitationsAccepted: 1
-      }
-    });
-    user.invitationsRemaining--;
-    user.invitationsAccepted++;
   }
 
   async incrementUserStorage(user: UserRecord, size: number): Promise<void> {
@@ -1494,8 +1429,8 @@ export class Database {
     return this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findRandomPayToOpenCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  async findRandomPayToOpenCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
     if (count === 0) {
       return null;
@@ -1509,8 +1444,8 @@ export class Database {
     return result;
   }
 
-  async findRandomImpressionAdCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  async findRandomImpressionAdCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
     // console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
@@ -1526,8 +1461,8 @@ export class Database {
     return result;
   }
 
-  async findRandomPromotedCard(excludeAuthorId: string, excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $ne: excludeAuthorId }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  async findRandomPromotedCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
     const count = await cursor.count();
     // console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
     if (count === 0) {
@@ -1608,10 +1543,14 @@ export class Database {
     return this.cards.find<CardRecord>(query).sort({ score: -1 }).limit(limit).toArray();
   }
 
-  findCardsByPromotionScore(bin: CardPromotionBin): Cursor<CardRecord> {
+  findCardsByPromotionScore(bin: CardPromotionBin, openPaymentOnly: boolean): Cursor<CardRecord> {
     const sort: any = {};
     sort["promotionScores." + bin] = -1;
-    return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false }, { searchText: 0 }).sort(sort);
+    const query: any = { state: "active", "curation.block": false, private: false };
+    if (openPaymentOnly) {
+      query["pricing.openPayment"] = { $gt: 0 };
+    }
+    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort(sort);
   }
 
   async countCardPostsByUser(userId: string, from: number, to: number): Promise<number> {
@@ -3257,6 +3196,16 @@ export class Database {
 
   async findUserIdsByFingerprint(fingerprints: string[]): Promise<string[]> {
     return this.userRegistrations.distinct('userId', { fingerprint: { $in: fingerprints } });
+  }
+
+  async existsFingerprint(fingerprint: string): Promise<boolean> {
+    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint });
+    return existing ? true : false;
+  }
+
+  async existsFingerprintAndIpAddress(fingerprint: string, ipAddress: string): Promise<boolean> {
+    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress });
+    return existing ? true : false;
   }
 
   async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {

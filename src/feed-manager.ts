@@ -16,7 +16,7 @@ import { userManager } from "./user-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
 import * as uuid from "uuid";
 import { SignedObject } from "./interfaces/signed-object";
-import { bank } from "./bank";
+import { bank, TARGET_BALANCE } from "./bank";
 import { networkEntity } from "./network-entity";
 import { SERVER_VERSION } from "./server-version";
 import * as LRU from 'lru-cache';
@@ -59,6 +59,7 @@ const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
+const ADSLOTS_PER_PAYBUMP = 3;
 
 const adToContentRatioByBalance: RangeValue[] = [
   { lowerBound: 0, value: 0.25 },
@@ -264,7 +265,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async populateHomePromotedContent(request: Request, user: UserRecord, reply: GetHomePageResponse): Promise<void> {
-    if (user.balance >= user.targetBalance) {
+    if (user.balance >= TARGET_BALANCE) {
       return;
     }
     const cardIds: string[] = [];
@@ -286,11 +287,11 @@ export class FeedManager implements Initializable, RestServer {
     if (adSlotInfo.slotCount === 0) {
       return;
     }
-    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
     const adIds: string[] = [];
     const earnedAdCardIds: string[] = [];
-    while (await adCursor.hasNext()) {
-      const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, null, []);
+    const existingAuthorIds: string[] = [];
+    while (true) {
+      const adCard = await this.getNextAdCard(user, adIds, earnedAdCardIds, cards, null, [], existingAuthorIds, false);
       if (adCard) {
         const adSlot = await this.createAdSlot(adCard, user, null);
         const adDescriptor = await this.populateCard(request, adCard, null, true, adSlot.id, null, user);
@@ -304,7 +305,6 @@ export class FeedManager implements Initializable, RestServer {
         break;
       }
     }
-    await adCursor.close();
   }
 
   private async handleGetFeeds(request: Request, response: Response): Promise<void> {
@@ -424,7 +424,7 @@ export class FeedManager implements Initializable, RestServer {
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
   private positionAdSlots(user: UserRecord, cardCount: number, more: boolean): AdSlotInfo {
-    if (user.balance >= user.targetBalance || cardCount <= 1) {
+    if (user.balance >= TARGET_BALANCE || cardCount <= 1) {
       return { slotCount: 0, slotSeparation: 0, firstSlotIndex: 0 };
     }
     // Based on the user balance, we choose the appropriate ratio between ads and
@@ -476,11 +476,11 @@ export class FeedManager implements Initializable, RestServer {
         earnedAdCardIds = [];
         this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
       }
-      const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
+      const existingAuthorIds: string[] = [user.id];
       while ((cardIndex < cards.length && cardIndex < limit) || adCount < adSlots.slotCount) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
-          const adCard = await this.getNextAdCard(user, adIds, adCursor, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : []);
+          const adCard = await this.getNextAdCard(user, adIds, earnedAdCardIds, cards, announcementAddedId, existingPromotedCardIds ? existingPromotedCardIds : [], existingAuthorIds, false);
           if (adCard) {
             const adSlot = await this.createAdSlot(adCard, user, channelId);
             const adDescriptor = await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user);
@@ -503,7 +503,6 @@ export class FeedManager implements Initializable, RestServer {
         slotIndex++;
       }
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);  // push the list back into the cache
-      await adCursor.close();
       return { cards: amalgamated, moreAvailable: cards.length > limit };
     } else if (announcementAddedId) {
       for (let i = 0; i < cards.length && i < limit; i++) {
@@ -539,36 +538,32 @@ export class FeedManager implements Initializable, RestServer {
     return db.insertAdSlot(user.id, user.balance, channelId, card.id, type, card.by.id, amount);
   }
 
-  async getOnePromotedCardIfAppropriate(request: Request, user: UserRecord, card: CardDescriptor, channelId: string): Promise<CardDescriptor> {
+  async getPromotedCardsIfAppropriate(request: Request, user: UserRecord, card: CardDescriptor, channelId: string): Promise<CardDescriptor[]> {
+    const result: CardDescriptor[] = [];
     let earnedAdCardIds = this.userEarnedAdCardIds.get(user.id);
     if (!earnedAdCardIds) {
       earnedAdCardIds = [];
       this.userEarnedAdCardIds.set(user.id, earnedAdCardIds);
     }
-    const adCursor = db.findCardsByPromotionScore(this.getUserBalanceBin(user));
     let adCard: CardRecord;
+    const authorIds: string[] = [user.id];
     while (true) {
-      adCard = await this.getNextAdCard(user, [], adCursor, earnedAdCardIds, [card], null, []);
+      adCard = await this.getNextAdCard(user, [], earnedAdCardIds, [card], null, [], authorIds, true);
       if (adCard) {
-        if (adCard.summary.iframeUrl) {
-          continue;
+        // We don't want to serve up more than one ad from the same author in this group (for consumer variety)
+        const adSlot = await this.createAdSlot(adCard, user, channelId);
+        result.push(await this.populateCard(request, adCard, null, true, adSlot.id, channelId, user));
+        if (result.length >= ADSLOTS_PER_PAYBUMP) {
+          break;
         }
-        break;
       } else {
         break;
       }
     }
-    await adCursor.close();
-    if (adCard) {
-      const adSlot = await this.createAdSlotFromDescriptor(card, user, channelId);
-      console.log("FeedManager.getOnePromotedCardIfAppropriate: Populating ad: ", adCard.summary.title, adCard.id, adCard.promotionScores);
-      return this.populateCard(request, adCard, null, true, adSlot.id, channelId, user);
-    } else {
-      return null;
-    }
+    return result;
   }
 
-  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], adCursor: Cursor<CardRecord>, earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[]): Promise<CardRecord> {
+  private async getNextAdCard(user: UserRecord, alreadyPopulatedAdCardIds: string[], earnedAdCardIds: string[], existingCards: CardDescriptor[], existingAnnouncementId: string, existingPromotedCardIds: string[], existingAuthorIds: string[], onlyPayToOpenClick: boolean): Promise<CardRecord> {
     // To get the next ad card, we are going to randomly decide on a weighted basis between a pays-to-open/click ad, an impression ad, and a promoted pay-for card,
     // then we'll randomly pick one of these that is eligible.
     // If the one we choose is not eligible for some reason, we'll do it again until we find one, or we run out of steam.
@@ -595,23 +590,24 @@ export class FeedManager implements Initializable, RestServer {
     const payToOpenFraction = Utils.interpolateRanges(payToOpenFractionByBalance, user.balance);
     const adImpressionFraction = Utils.interpolateRanges(adImpressionFractionByBalance, user.balance);
     // const contentImpressionFraction = Utils.interpolateRanges(contentImpressionFractionByBalance, user.balance);
-    while (tries++ < 200 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+    while (tries++ < 100 && (!noPayToOpens || !noImpressions || !noPromoted)) {
+      console.log("Feed.getNextAdCard: tries", tries, noPayToOpens, noImpressions, noPromoted);
       const value = Math.random();
       let card: CardRecord;
-      if (value < payToOpenFraction && !noPayToOpens) {
-        card = await db.findRandomPayToOpenCard(user.id, excludedCardIds);
+      if (onlyPayToOpenClick || (value < payToOpenFraction && !noPayToOpens)) {
+        card = await db.findRandomPayToOpenCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noPayToOpens = true;
           console.warn("Feed.getNextAdCard: Found no eligible pays-to-open/click candidate");
         }
       } else if (value < (payToOpenFraction + adImpressionFraction) && !noImpressions) {
-        card = await db.findRandomImpressionAdCard(user.id, excludedCardIds);
+        card = await db.findRandomImpressionAdCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noImpressions = true;
           console.warn("Feed.getNextAdCard: Found no eligible impression-ad candidate");
         }
       } else if (!noPromoted) {
-        card = await db.findRandomPromotedCard(user.id, excludedCardIds);
+        card = await db.findRandomPromotedCard(existingAuthorIds, excludedCardIds);
         if (!card) {
           noPromoted = true;
           console.warn("Feed.getNextAdCard: Found no eligible promoted-card candidate");
@@ -646,11 +642,13 @@ export class FeedManager implements Initializable, RestServer {
           } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
             // Check again based on a recent impression
             alreadyPopulatedAdCardIds.push(card.id);
+            existingAuthorIds.push(card.createdById);
             return card;
           }
         } else {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
           alreadyPopulatedAdCardIds.push(card.id);
+          existingAuthorIds.push(card.createdById);
           return card;
         }
       }
@@ -752,7 +750,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private getUserBalanceBin(user: UserRecord): CardPromotionBin {
-    const ratio = user.balance / user.targetBalance;
+    const ratio = user.balance / TARGET_BALANCE;
     if (ratio >= 0.8) {
       return "a";
     }
@@ -763,9 +761,9 @@ export class FeedManager implements Initializable, RestServer {
       return "c";
     }
     if (ratio >= 0.2) {
-      return "b";
+      return "d";
     }
-    return "a";
+    return "e";
   }
 
   private async getRecommendedFeed(request: Request, user: UserRecord, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
@@ -1687,7 +1685,7 @@ export class FeedManager implements Initializable, RestServer {
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, inviteCode, 0, 0, 5, 5, null, null, null, null, null, null, null, null, null, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       fingerprint: null,
@@ -1704,9 +1702,8 @@ export class FeedManager implements Initializable, RestServer {
       portion: "remainder",
       reason: "grant-recipient"
     });
-    await networkEntity.performBankTransaction(null, grantDetails, null, true, false, null, null, null, Date.now());
+    await networkEntity.performBankTransaction(null, grantDetails, null, null, null, null, Date.now());
     user.balance += 10;
-    user.targetBalance += 10;
     return {
       user: user,
       keyInfo: keyInfo
