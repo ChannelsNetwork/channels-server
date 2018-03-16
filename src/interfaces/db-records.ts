@@ -766,28 +766,28 @@ export interface CardCampaignRecord {
   id: string;
   created: number;
   status: CardCampaignStatus;
-  cardId: string;
+  cardIds: string[];
   type: CardCampaignType;
   paymentAmount: number;
   budget: CardCampaignBudget;
   ends: number;  // date
   geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.
-  stats: CardCampaignStats;
+  stats: CardCampaignStats[];
   lastStatsSnapshot: number;
 }
 
 export interface CardCampaignStats {
+  cardId: string;
   served: number;
   impressions: number;
   redemptions: number;
   expenses: number;
 }
 
-export type CardCampaignStatus = "active" | "exhausted" | "expired" | "deleted";
+export type CardCampaignStatus = "active" | "exhausted" | "insufficient-funds" | "expired" | "suspended";
 
 export interface CardCampaignBudget {
-  fixedBase: number;
-  plusPercent: number;
+  plusPercent: number;  // content-promotion only
   maxPerDay: number;
 }
 

@@ -328,7 +328,9 @@ export class FeedManager implements Initializable, RestServer {
     const result: CardDescriptor[] = [];
     const campaigns = await db.findSuitableCardCampaignsRandomized(types, geoLocation, count * 2);
     for (const campaign of campaigns) {
-      const card = await db.findCardById(campaign.cardId, false);
+      // Randomly select one of the cards in the campaign
+      const index = Math.floor(Math.random() * campaign.cardIds.length);
+      const card = await db.findCardById(campaign.cardIds[index], false);
       if (card) {
         if (card.createdById === user.id) {
           continue;

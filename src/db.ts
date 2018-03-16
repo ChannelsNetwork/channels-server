@@ -4029,6 +4029,7 @@ export class Database {
   }
   async insertCardCampaign(status: CardCampaignStatus, cardId: string, type: CardCampaignType, paymentAmount: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
     const stats: CardCampaignStats = {
+      cardId: cardId,
       served: 0,
       impressions: 0,
       redemptions: 0,
@@ -4038,13 +4039,13 @@ export class Database {
       id: uuid.v4(),
       created: Date.now(),
       status: status,
-      cardId: cardId,
+      cardIds: [cardId],
       type: type,
       paymentAmount: paymentAmount,
       budget: budget,
       ends: ends,
       geoTargets: geoTargets,
-      stats: stats,
+      stats: [stats],
       lastStatsSnapshot: 0
     };
     await this.cardCampaigns.insertOne(record);

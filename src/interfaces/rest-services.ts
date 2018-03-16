@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -1233,4 +1233,68 @@ export interface GetChannelSubscribersResponse extends RestResponse {
 export interface ChannelSubscriberInfo {
   user: UserDescriptor;
   homeChannel: ChannelDescriptor;
+}
+
+export interface GetCardCampaignsDetails extends Signable {
+  afterCampaignId: string;
+  maxCount: number;
+}
+
+export interface GetCardCampaignsResponse extends RestResponse {
+  campaigns: CardCampaignDescriptor[];
+  moreAvailable: boolean;
+}
+
+export interface CardCampaignDescriptor {
+  id: string;
+  created: number;
+  status: CardCampaignStatus;
+  type: CardCampaignType;
+  card: CardDescriptor;
+  paymentAmount: number;
+  budget: CardCampaignBudget;
+  ends: number;
+  geoTargets: GeoTargetDescriptor[];
+  statsTotal: CardCampaignStats;
+  statsLast24Hours: CardCampaignStats;
+  statsLast7Days: CardCampaignStats;
+  statsLast30Days: CardCampaignStats;
+}
+
+export interface GeoTargetDescriptor {
+  continentCode: string;
+  continentName: string;
+  countryCode?: string;
+  countryName?: string;
+  regionCodes?: string[];
+  regionNames?: string[];
+  zipCodes?: string[];
+}
+
+export interface UpdateCardCampaignDetails extends Signable {
+  campaignId: string;
+  state: CardCampaignStateDirective;
+  type: CardCampaignTypeDirective;
+  budget: CardCampaignBudget;
+  ends: number;
+  geoTargets: string[];
+}
+
+export interface UpdateCardCampaignResponse extends RestResponse { }
+
+export type CardCampaignStateDirective = "active" | "suspended";
+
+export type CardCampaignTypeDirective = "impression" | "open-click";
+
+export interface GetGeoContinentsAndCountriesDetails extends Signable { }
+
+export interface GetGeoDescriptors extends RestResponse {
+  continents: CodeAndName[];
+  countriesByContinent: { [continentCode: string]: CodeAndName[] };
+  regionsByCountry: { [countryCode: string]: CodeAndName[] };
+}
+
+export interface CodeAndName {
+  code: string;
+  name: string;
 }

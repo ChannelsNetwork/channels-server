@@ -781,6 +781,27 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getCardCampaigns(maxCount, afterCampaignId) {
+    let details = RestUtils.getCardCampaigns(this._keys.address, this._fingerprint, maxCount, afterCampaignId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-card-campaigns";
+    return this.rest.post(url, request);
+  }
+
+  getGeoDescriptors() {
+    let details = RestUtils.getGeoDescriptors(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-geo-descriptors";
+    return this.rest.post(url, request);
+  }
+
+  updateCardCampaign(campaignId, state, type, budget, ends, geoTargets) {
+    let details = RestUtils.updateCardCampaign(this._keys.address, this._fingerprint, campaignId, state, type, budget, ends, geoTargets);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-card-campaign";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

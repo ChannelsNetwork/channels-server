@@ -954,4 +954,36 @@ class RestUtils {
       afterSubscriberId: afterSubscriberId
     };
   }
+
+  static getCardCampaigns(address, fingerprint, maxCount, afterCampaignId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      maxCount: maxCount,
+      afterCampaignId: afterCampaignId
+    };
+  }
+
+  static getGeoDescriptors(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now()
+    };
+  }
+
+  static updateCardCampaign(address, fingerprint, campaignId, state, type, budget, ends, geoTargets) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      campaignId: campaignId,
+      state: state,
+      type: type,
+      budget: budget,
+      ends: ends,
+      geoTargets: geoTargets
+    };
+  }
 }
