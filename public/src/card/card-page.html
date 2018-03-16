@@ -404,7 +404,7 @@
         let terms = $core.getAgreedToTerms();
         if (terms && terms.agreed) {
           let diff = (new Date()).getTime() - (terms.timestamp || 0);
-          if (diff < 30 * 60 * 1000) {
+          if (diff < 4 * 60 * 60 * 1000) {
             return;
           }
         }
