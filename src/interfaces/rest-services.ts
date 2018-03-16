@@ -59,14 +59,12 @@ export interface UserStatusResponse extends RestResponseWithUserStatus { }
 
 export interface UserStatus {
   goLive: number;
+  initialBalance: number;
   userBalance: number;
   userBalanceAt: number;
   minBalanceAfterWithdrawal: number;
   timeUntilNextAllowedWithdrawal: number;
   targetBalance: number;
-  inviteCode: string;
-  invitationsUsed: number;
-  invitationsRemaining: number;
   cardBasePrice: number;
   totalPublisherRevenue: number;
   totalCardDeveloperRevenue: number;
@@ -324,15 +322,15 @@ export interface ChannelComponentDescriptor {
 
 export interface GetCardDetails extends Signable {
   cardId: string;
-  includePromotedCard: boolean;
   channelIdContext: string;
   maxComments: number;
+  includePromotedCards: boolean;
 }
 
 export interface GetCardResponse extends RestResponse {
   card: CardDescriptor;
   paymentDelayMsecs: number;
-  promotedCard?: CardDescriptor;
+  promotedCards: CardDescriptor[];
   totalComments: number;
   comments: CardCommentDescriptor[];
   commentorInfoById: { [id: string]: CommentorInfo };

@@ -743,71 +743,71 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   async payReferralBonusIfAppropriate(user: UserRecord): Promise<void> {
-    if (!user.identity || !user.identity.emailConfirmed) {
-      console.log("Channel.payReferralBonusIfAppropriate: skipping because email not yet confirmed", user.identity);
-      return;
-    }
-    if (user.referralBonusPaidToUserId) {
-      console.log("Channel.payReferralBonusIfAppropriate: skipping because already paid", user.identity);
-      return;
-    }
-    const fraud = await userManager.isMultiuserFromSameBrowser(user);
-    if (fraud) {
-      console.warn("Channel.payReferralBonusIfAppropriate: Skipping referral bonus because fraud detected with multiple registered users from same machine", user.identity);
-      return;
-    }
-    let channelOwner: UserRecord;
-    const originalCard = await db.findCardById(user.firstArrivalCardId, true);
-    let originalChannel: ChannelRecord;
-    if (originalCard) {
-      channelOwner = await userManager.getUser(originalCard.createdById, false);
-    } else {
-      const originalChannelHandle = this.getChannelHandleFromUrl(user.originalLandingPage);
-      if (!originalChannelHandle) {
-        console.log("Channel.payReferralBonusIfAppropriate: skipping because no original card or channel landing page", user.identity);
-        return;
-      }
-      originalChannel = await db.findChannelByHandle(originalChannelHandle);
-      if (originalChannel) {
-        channelOwner = await userManager.getUser(originalChannel.ownerId, true);
-      }
-    }
-    if (!channelOwner || channelOwner.curation) {
-      console.log("Channel.payReferralBonusIfAppropriate: skipping because blocked or no channel", user.identity);
-      return;
-    }
-    const channelIds = await db.findOwnedChannelIds(channelOwner.id);
-    if (channelIds.length === 0) {
-      console.log("Channel.payReferralBonusIfAppropriate: skipping because recipient has no owned channels", user.identity);
-      return;
-    }
-    const subscribed = await db.existsChannelUserSubscriptions(user.id, channelIds, "subscribed");
-    if (!subscribed) {
-      console.log("Channel.payReferralBonusIfAppropriate: skipping because user is not subscribed to one of the owner's channels", user.identity);
-      return;
-    }
-    const bonusDetails: BankTransactionDetails = {
-      address: null,
-      fingerprint: null,
-      timestamp: null,
-      type: "transfer",
-      reason: "referral-bonus",
-      relatedCardId: null,
-      relatedCouponId: null,
-      relatedCardCampaignId: null,
-      amount: PUBLISHER_SUBSCRIPTION_BONUS,
-      toRecipients: [],
-    };
-    bonusDetails.toRecipients.push({
-      address: channelOwner.address,
-      portion: "remainder",
-      reason: "referral-bonus"
-    });
-    console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
-    const transaction = await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null, Date.now());
-    await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
-    await db.updateChannelUserBonus(channelIds[0], user.id, bonusDetails.amount, transaction.record.at, false);
-    await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
+    return;
+    // if (!user.identity || !user.identity.emailConfirmed) {
+    //   console.log("Channel.payReferralBonusIfAppropriate: skipping because email not yet confirmed", user.identity);
+    //   return;
+    // }
+    // if (user.referralBonusPaidToUserId) {
+    //   console.log("Channel.payReferralBonusIfAppropriate: skipping because already paid", user.identity);
+    //   return;
+    // }
+    // const fraud = await userManager.isMultiuserFromSameBrowser(user);
+    // if (fraud) {
+    //   console.warn("Channel.payReferralBonusIfAppropriate: Skipping referral bonus because fraud detected with multiple registered users from same machine", user.identity);
+    //   return;
+    // }
+    // let channelOwner: UserRecord;
+    // const originalCard = await db.findCardById(user.firstArrivalCardId, true);
+    // let originalChannel: ChannelRecord;
+    // if (originalCard) {
+    //   channelOwner = await userManager.getUser(originalCard.createdById, false);
+    // } else {
+    //   const originalChannelHandle = this.getChannelHandleFromUrl(user.originalLandingPage);
+    //   if (!originalChannelHandle) {
+    //     console.log("Channel.payReferralBonusIfAppropriate: skipping because no original card or channel landing page", user.identity);
+    //     return;
+    //   }
+    //   originalChannel = await db.findChannelByHandle(originalChannelHandle);
+    //   if (originalChannel) {
+    //     channelOwner = await userManager.getUser(originalChannel.ownerId, true);
+    //   }
+    // }
+    // if (!channelOwner || channelOwner.curation) {
+    //   console.log("Channel.payReferralBonusIfAppropriate: skipping because blocked or no channel", user.identity);
+    //   return;
+    // }
+    // const channelIds = await db.findOwnedChannelIds(channelOwner.id);
+    // if (channelIds.length === 0) {
+    //   console.log("Channel.payReferralBonusIfAppropriate: skipping because recipient has no owned channels", user.identity);
+    //   return;
+    // }
+    // const subscribed = await db.existsChannelUserSubscriptions(user.id, channelIds, "subscribed");
+    // if (!subscribed) {
+    //   console.log("Channel.payReferralBonusIfAppropriate: skipping because user is not subscribed to one of the owner's channels", user.identity);
+    //   return;
+    // }
+    // const bonusDetails: BankTransactionDetails = {
+    //   address: null,
+    //   fingerprint: null,
+    //   timestamp: null,
+    //   type: "transfer",
+    //   reason: "referral-bonus",
+    //   relatedCardId: null,
+    //   relatedCouponId: null,
+    //   amount: PUBLISHER_SUBSCRIPTION_BONUS,
+    //   toRecipients: [],
+    // };
+    // bonusDetails.toRecipients.push({
+    //   address: channelOwner.address,
+    //   portion: "remainder",
+    //   reason: "referral-bonus"
+    // });
+    // console.log("Channel.payReferralBonusIfAppropriate: referral paid", user.identity, channelOwner.identity, channelIds[0]);
+    // const transaction = await networkEntity.performBankTransaction(null, bonusDetails, null, false, false, "Subscription bonus to " + channelOwner.identity.handle + " for " + user.identity.handle, null, null, Date.now());
+    // await db.updateUserReferralBonusPaid(user.id, channelOwner.id);
+    // await db.updateChannelUserBonus(channelIds[0], user.id, bonusDetails.amount, transaction.record.at, false);
+    // await db.incrementChannelStat(channelIds[0], "revenue", bonusDetails.amount);
   }
 
   // async payReferralBonus(user: UserRecord): Promise<void> {

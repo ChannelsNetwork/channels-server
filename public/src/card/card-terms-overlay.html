@@ -19,35 +19,52 @@
         transition: background 1s ease;
       }
 
-      header {
+      #content {
+        box-shadow: 0 4px 5px -1px rgba(0, 0, 0, 0.4);
+        transition: opacity 1s ease;
+      }
+
+      #topBar {
+        height: 42px;
+        padding: 0 0 0 16px;
+        box-sizing: border-box;
+        background: var(--bg-dark);
+        color: white;
+      }
+
+      .logo {
+        height: 30px;
+        width: auto;
+        display: block;
+      }
+
+      #balancePanel {
+        height: 42px;
+        padding: 0 16px;
+        background: var(--bg-yellow);
+        color: #000;
+      }
+
+      #barLabel {
+        padding-right: 5px;
+        font-size: 13px;
+        font-weight: bold;
+        text-transform: uppercase;
+        color: white;
+        letter-spacing: 0.05em;
+      }
+
+      a.logoLink:hover {
+        box-shadow: none;
+      }
+
+      #contentBar {
         background: #293C41;
         color: white;
         padding: 16px;
         font-size: 18px;
         font-weight: 400;
         font-family: sans-serif;
-        box-shadow: 0 4px 5px -1px rgba(0, 0, 0, 0.4);
-        transition: opacity 1s ease;
-      }
-
-      footer {
-        background: #fafafa;
-        padding: 16px 0;
-        font-size: 18px;
-        border-top: 1px solid #e5e5e5;
-      }
-
-      .logo {
-        height: 30px;
-        display: block;
-      }
-
-      #logoLink {
-        margin: -5px -15px 5px 5px;
-      }
-
-      #logoLink:hover {
-        box-shadow: none;
       }
 
       p {
@@ -59,38 +76,6 @@
       a:hover {
         color: var(--bg-yellow);
         font-weight: bold;
-      }
-
-      .cost {
-        background: var(--bg-yellow);
-        color: #000;
-        padding: 5px;
-        border-radius: 3px;
-        font-size: 17px;
-      }
-
-      .adPanel {
-        max-width: 600px;
-        margin: 0 auto;
-        text-align: center;
-      }
-
-      #card {
-        max-width: 400px;
-        box-sizing: border-box;
-        margin: 15px auto 0px;
-      }
-
-      #imagePanel {
-        width: 100px;
-        background-size: cover;
-        background-origin: border-box;
-        background-position: 50% 50%;
-        background-image: url("https://channels.cc/45575ecf-68c5-407e-8440-b96de2f00f85/IMG_20180120_105521.jpg");
-      }
-
-      #cardContent {
-        padding: 8px;
       }
 
       soso-icon {
@@ -130,39 +115,39 @@
         }
       }
 
-      #logoPanel {
-        padding-left: 10px;
-      }
-
       @media (max-width: 600px) {
-        header {
+        #contentBar {
           font-size: 16px;
           padding: 16px 10px;
         }
-        footer {
-          font-size: 14px;
-          padding: 5px 0 10px;
+        #topBar {
+          padding: 0 0 0 8px;
         }
-        #logoPanel {
-          display: none;
+        .logo {
+          height: 26px;
         }
-        .cost {
-          padding: 3px;
-          border-radius: 1px;
-          font-size: 14px;
-        }
-        #card {
-          margin: 10px auto 0px;
-        }
-        #imagePanel {
-          width: 80px;
+        #balancePanel {
+          letter-spacing: initial;
+          margin-left: 2px;
+          padding: 0 10px;
+          font-size: 15px;
         }
       }
     </style>
     <div id="container" class="container vertical layout">
       <div class="flex"></div>
-      <header id="header" class="horizontal layout">
-        <div class="flex">
+      <div id="content">
+        <div id="topBar" class="horizontal layout center">
+          <a href="/about" target="_blank" class="logoLink">
+            <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
+          </a>
+          <div class="flex"></div>
+          <div id="barLabel">[[balanceLabel]]</div>
+          <div id="balancePanel" class="horizontal layout center">
+            <span>[[balance]]</span>
+          </div>
+        </div>
+        <div id="contentBar">
           <p>
             Channels is the world's first ad-optional micropayment content market.
             <a href="/about" target="_blank">Learn more.</a>
@@ -174,23 +159,8 @@
             </div>
           </div>
         </div>
-        <div id="logoPanel" class="vertical layout">
-          <a id="logoLink" href="/about" target="_blank">
-            <img class="logo" alt="channels" src="/s/images/logos/logo_full_40.png">
-          </a>
-        </div>
-      </header>
+      </div>
       <div class="flex"></div>
-      <!-- <footer>
-        <div class="adPanel">
-          <p style="padding: 0 10px;">This promoted content has increased your balance by
-            <span class="cost">ℂ0.000</span>
-          </p>
-          <div style="padding: 0 5px;">
-            <card-view-mini id="card" data="[[card]]"></card-view-mini>
-          </div>
-        </div>
-      </footer> -->
     </div>
   </template>
   <script>
@@ -198,7 +168,9 @@
       static get is() { return 'card-terms-overlay'; }
       static get properties() {
         return {
-          icon: String
+          icon: String,
+          balanceLabel: String,
+          balance: String
         };
       }
 
@@ -228,7 +200,7 @@
 
       hide() {
         if (this._showing) {
-          this.$.header.style.opacity = 0;
+          this.$.content.style.opacity = 0;
           this.$.container.style.background = "rgba(255, 255, 255, 0)";
           this._showing = false;
           setTimeout(() => {
@@ -243,10 +215,14 @@
       show() {
         if (!this._showing) {
           this._showing = true;
-          this.$.header.style.opacity = 1;
-          this.$.container.style.background = "rgba(255, 255, 255, 0.8)";
-          this.style.display = "block";
+
+          this.balance = "ℂ" + ($core.balance ? (Math.floor($core.balance * 1000) / 1000).toFixed(3) : "0.000");
+          this.balanceLabel = window.innerWidth < 370 ? 'Balance →' : 'Current balance →';
           this.icon = "unchecked-box"
+
+          this.style.display = "block";
+          this.$.content.style.opacity = 1;
+          this.$.container.style.background = "rgba(255, 255, 255, 0.8)";
           this.$.check.classList.remove("spinning");
           document.body.style.overflow = "hidden";
         }

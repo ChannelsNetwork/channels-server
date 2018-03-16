@@ -1,7 +1,7 @@
 const _CKeys = {
   KEYS: "channels-identity",
   BACKUP_KEYS: "backup-keys",
-  AGREED_TERMS: "channels-terms-agreed"
+  AGREED_TERMS: "channels-terms-agreed-by-user"
 };
 
 class CoreService extends Polymer.Element {
@@ -57,12 +57,21 @@ class CoreService extends Polymer.Element {
     return (userAgent.toLowerCase().indexOf('mobi') >= 0) && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
   }
 
-  agreeToTnCs() {
-    this.storage.setItem(_CKeys.AGREED_TERMS, true, true);
+  setAgreeToTerms() {
+    this.storage.setItem(_CKeys.AGREED_TERMS, {
+      agreed: true,
+      timestamp: (new Date()).getTime()
+    }, true);
   }
 
-  isAgreedToTnCs() {
-    return this.storage.getItem(_CKeys.AGREED_TERMS, false) ? true : false;
+  getAgreedToTerms() {
+    let terms = this.storage.getItem(_CKeys.AGREED_TERMS, true);
+    if (terms) {
+      return terms;
+    }
+    return {
+      agreed: false
+    };
   }
 
   hasKeys() {
@@ -212,7 +221,7 @@ class CoreService extends Polymer.Element {
       return EncryptionUtils.decryptString(result.encryptedPrivateKey, password).then((privateKey) => {
         const newKeys = $keyUtils.generateKey(privateKey);
         this._switchToSignedInKeys(newKeys, trust);
-        this.agreeToTnCs();
+        this.setAgreeToTerms();
         return this.getUserProfile();
       }).catch((err) => {
         throw new Error("Your handle or password is incorrect.");
@@ -408,8 +417,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getCard(cardId, includePromotedCard, channelIdContext, commentCount) {
-    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, includePromotedCard, channelIdContext, commentCount);
+  getCard(cardId, channelIdContext, commentCount, includePromotedCards) {
+    let details = RestUtils.getCardDetails(this._keys.address, this._fingerprint, cardId, channelIdContext, commentCount, includePromotedCards);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-card";
     return this.rest.post(url, request);
@@ -901,6 +910,13 @@ class CoreService extends Polymer.Element {
       return 0;
     }
     return this._userStatus.minBalanceAfterWithdrawal;
+  }
+
+  get initialBalance() {
+    if (!this._userStatus) {
+      return 0;
+    }
+    return this._userStatus.initialBalance;
   }
 
   get baseCardPrice() {

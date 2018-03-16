@@ -10,15 +10,9 @@ export interface UserRecord {
   addressHistory: UserAddressHistory[];
   encryptedPrivateKey: string;
   added: number;
-  inviteeCode: string;
-  inviterCode: string;
   balance: number;
-  minBalanceAfterWithdrawal: number;
-  targetBalance: number;
   balanceLastUpdated: number;
   balanceBelowTarget: boolean;
-  invitationsRemaining: number;
-  invitationsAccepted: number;
   lastContact: number;
   lastPosted: number;
   lastWithdrawal: number;
@@ -51,6 +45,7 @@ export interface UserRecord {
   preferredLangCodes: string[];
   commentsLastReviewed: number;
   commentNotificationPending?: boolean;
+  initialBalance: number;
 }
 
 export type UserCurationType = "blocked" | "discounted";

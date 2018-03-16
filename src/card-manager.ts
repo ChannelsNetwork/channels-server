@@ -63,6 +63,8 @@ const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
+const USER_BALANCE_PAY_BUMP_THRESHOLD = 0.65;
+
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -483,10 +485,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       //     errorManager.warning("Card.handleGetCard: imposing extra delay penalty", request, delay);
       //   }
       // }
-      let promotedCard: CardDescriptor;
-      if (requestBody.detailsObject.includePromotedCard && !cardState.promoted) {
+      let promotedCards: CardDescriptor[] = [];
+      if (requestBody.detailsObject.includePromotedCards && !cardState.promoted && cardState.pricing.openFeeUnits > 0 && user.balance < USER_BALANCE_PAY_BUMP_THRESHOLD) {
         const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
-        promotedCard = await feedManager.getOnePromotedCardIfAppropriate(request, user, geoLocation, cardState, requestBody.detailsObject.channelIdContext);
+        promotedCards = await feedManager.selectPromotedCards(request, user, geoLocation, 3, 1, 0, null, [card.id]);
       }
       if (requestBody.detailsObject.maxComments > 0) {
         await db.updateUserCardLastCommentFetch(user.id, card.id, Date.now());
@@ -495,7 +497,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         serverVersion: SERVER_VERSION,
         card: cardState,
         paymentDelayMsecs: delay,
-        promotedCard: promotedCard,
+        promotedCards: promotedCards,
         totalComments: 0,
         comments: [],
         commentorInfoById: {}
@@ -1035,7 +1037,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const grossRevenue = amount;
       await userManager.updateUserBalance(request, user);
-      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, false, false, skipMoneyTransfer);
+      const transactionResult = await bank.performTransfer(request, user, requestBody.detailsObject.address, requestBody.detailsObject.transaction, card.summary.title, "Card pay: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, false, skipMoneyTransfer);
       await db.updateUserCardIncrementPaidToAuthor(user.id, card.id, amount, transactionResult.record.id);
       await db.updateUserCardIncrementEarnedFromReader(card.createdById, card.id, amount, transactionResult.record.id);
       const now = Date.now();
