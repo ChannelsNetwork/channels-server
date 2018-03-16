@@ -3199,12 +3199,12 @@ export class Database {
   }
 
   async existsFingerprint(fingerprint: string): Promise<boolean> {
-    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint });
+    const existing = await this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint });
     return existing ? true : false;
   }
 
   async existsFingerprintAndIpAddress(fingerprint: string, ipAddress: string): Promise<boolean> {
-    const existing = this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress });
+    const existing = await this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress });
     return existing ? true : false;
   }
 
