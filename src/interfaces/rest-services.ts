@@ -386,9 +386,10 @@ export interface PostCardDetails extends Signable {
   searchText: string;
   private: boolean;
   cardType?: string;
-  pricing: CardPricingInfo;
+  openFeeUnits: number;
   sharedState: CardState;
   fileIds: string[];
+  campaignInfo?: CardCampaignInfo;
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -1273,7 +1274,10 @@ export interface GeoTargetDescriptor {
 
 export interface UpdateCardCampaignDetails extends Signable {
   campaignId: string;
-  state: CardCampaignStateDirective;
+  info: CardCampaignInfo;
+}
+
+export interface CardCampaignInfo {
   type: CardCampaignTypeDirective;
   budget: CardCampaignBudget;
   ends: number;
@@ -1286,12 +1290,14 @@ export type CardCampaignStateDirective = "active" | "suspended";
 
 export type CardCampaignTypeDirective = "impression" | "open-click";
 
-export interface GetGeoContinentsAndCountriesDetails extends Signable { }
+export interface GetGeoDescriptorsDetails extends Signable {
+  countryCode?: string;
+}
 
-export interface GetGeoDescriptors extends RestResponse {
-  continents: CodeAndName[];
-  countriesByContinent: { [continentCode: string]: CodeAndName[] };
-  regionsByCountry: { [countryCode: string]: CodeAndName[] };
+export interface GetGeoDescriptorsResponse extends RestResponse {
+  continents: CodeAndName[];  // only if countryCode omitted
+  countriesByContinent: { [continentCode: string]: CodeAndName[] }; // only if countryCode omitted
+  regionsByCountry: { [countryCode: string]: CodeAndName[] };  // only if countryCode provided
 }
 
 export interface CodeAndName {

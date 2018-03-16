@@ -965,11 +965,12 @@ class RestUtils {
     };
   }
 
-  static getGeoDescriptors(address, fingerprint) {
+  static getGeoDescriptors(address, fingerprint, countryCode) {
     return {
       address: address,
       fingerprint: fingerprint,
-      timestamp: RestUtils.now()
+      timestamp: RestUtils.now(),
+      countryCode: countryCode
     };
   }
 

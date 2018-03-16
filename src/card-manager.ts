@@ -1619,7 +1619,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!details.cardType && !details.linkUrl) {
       throw new ErrorWithStatusCode(400, "You must provide a card type or a linkUrl");
     }
-    this.validateCardPricing(user, details.pricing);
+    this.validateCardPricing(user, details);
     details.private = details.private ? true : false;
     const componentResponse = await channelsComponentManager.ensureComponent(request, details.cardType);
     let couponId: string;
@@ -1665,9 +1665,18 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return card;
   }
 
-  private validateCardPricing(user: UserRecord, pricing: CardPricingInfo): void {
-    if (!pricing) {
-      throw new ErrorWithStatusCode(400, "You must provide pricing information");
+  private validateCardPricing(user: UserRecord, details: PostCardDetails): void {
+    if (details.openFeeUnits && details.openFeeUnits > 0) {
+      if (details.campaignInfo) {
+        throw new ErrorWithStatusCode(400, "You cannot use an ad campaign on a card that has an open fee.");
+      }
+      if (details.openFeeUnits < 1 || details.openFeeUnits > 5) {
+        throw new ErrorWithStatusCode(400, "Invalid pricing level.   Must be 1 to 5.");
+      }
+    } else if (details.campaignInfo) {
+
+    } else {
+      throw new ErrorWithStatusCode(400, "You must provide a pricing level or campaign info.");
     }
     pricing.promotionFee = pricing.promotionFee || 0;
     pricing.openFeeUnits = pricing.openFeeUnits || 0;

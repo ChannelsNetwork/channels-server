@@ -788,8 +788,8 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  getGeoDescriptors() {
-    let details = RestUtils.getGeoDescriptors(this._keys.address, this._fingerprint);
+  getGeoDescriptors(countryCode) {
+    let details = RestUtils.getGeoDescriptors(this._keys.address, this._fingerprint, countryCode);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-geo-descriptors";
     return this.rest.post(url, request);
