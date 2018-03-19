@@ -124,11 +124,11 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   async initialize2(): Promise<void> {
-    const cardCount = await db.countCards(Date.now(), 0);
-    if (cardCount === 0) {
-      await this.addSampleEntries();
-      // await this.addPreviewCards();
-    }
+    // const cardCount = await db.countCards(Date.now(), 0);
+    // if (cardCount === 0) {
+    //   await this.addSampleEntries();
+    //   // await this.addPreviewCards();
+    // }
     await this.poll();
     setInterval(() => {
       void this.poll();
@@ -1392,24 +1392,24 @@ export class FeedManager implements Initializable, RestServer {
     const age = now - (card.curation.boostAt || card.postedAt);
     return this.getInverseScore(card.curation.boost, age, SCORE_CARD_BOOST_HALF_LIFE);
   }
-  private async addSampleEntries(): Promise<void> {
-    console.log("FeedManager.addSampleEntries");
-    if (configuration.get("debug.useSamples")) {
-      const sampleUsersPath = path.join(__dirname, '../sample-users.json');
-      let users: { [handle: string]: UserWithKeyUtils };
-      console.log("FeedManager.addSampleEntries: adding users");
-      if (fs.existsSync(sampleUsersPath)) {
-        const sampleUsers = JSON.parse(fs.readFileSync(sampleUsersPath, 'utf8')) as SampleUser[];
-        users = await this.loadSampleUsers(sampleUsers);
-      }
-      const sampleCardsPath = path.join(__dirname, '../sample-cards.json');
-      console.log("FeedManager.addSampleEntries: adding cards");
-      if (fs.existsSync(sampleCardsPath)) {
-        const sampleCards = JSON.parse(fs.readFileSync(sampleCardsPath, 'utf8')) as SampleCard[];
-        await this.loadSampleCards(sampleCards, users);
-      }
-    }
-  }
+  // private async addSampleEntries(): Promise<void> {
+  //   console.log("FeedManager.addSampleEntries");
+  //   if (configuration.get("debug.useSamples")) {
+  //     const sampleUsersPath = path.join(__dirname, '../sample-users.json');
+  //     let users: { [handle: string]: UserWithKeyUtils };
+  //     console.log("FeedManager.addSampleEntries: adding users");
+  //     if (fs.existsSync(sampleUsersPath)) {
+  //       const sampleUsers = JSON.parse(fs.readFileSync(sampleUsersPath, 'utf8')) as SampleUser[];
+  //       users = await this.loadSampleUsers(sampleUsers);
+  //     }
+  //     const sampleCardsPath = path.join(__dirname, '../sample-cards.json');
+  //     console.log("FeedManager.addSampleEntries: adding cards");
+  //     if (fs.existsSync(sampleCardsPath)) {
+  //       const sampleCards = JSON.parse(fs.readFileSync(sampleCardsPath, 'utf8')) as SampleCard[];
+  //       await this.loadSampleCards(sampleCards, users);
+  //     }
+  //   }
+  // }
 
   private async loadSampleUsers(users: SampleUser[]): Promise<{ [handle: string]: UserWithKeyUtils }> {
     const usersByHandle: { [handle: string]: UserWithKeyUtils } = {};
@@ -1420,38 +1420,38 @@ export class FeedManager implements Initializable, RestServer {
     return usersByHandle;
   }
 
-  private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
-    await channelsComponentManager.ensureComponent(null, 'ChannelsNetwork/card-hello-world');
-    for (const sample of cards) {
-      const user = users[sample.handle];
-      const cardId = uuid.v4();
-      let coupon: CouponInfo;
-      if (sample.impressionFee > 0) {
-        coupon = await this.createPromotionCoupon(user, cardId, sample.impressionFee - sample.openPrice, 3, 25);
-      } else if (sample.openPrice < 0) {
-        coupon = await this.createOpenCoupon(user, cardId, -sample.openPrice, 3);
-      }
-      const card = await db.insertCard(user.user.id,
-        user.user.address,
-        null,
-        null,
-        null,
-        null,
-        null,
-        sample.title,
-        sample.text,
-        'en',
-        false,
-        "ChannelsNetwork/card-hello-world",
-        './icon.png',
-        null, 0,
-        sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
-        sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, ["sample"], sample.text, [], false, null,
-        cardId);
-      await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
-      await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
-    }
-  }
+  // private async loadSampleCards(cards: SampleCard[], users: { [handle: string]: UserWithKeyUtils }): Promise<void> {
+  //   await channelsComponentManager.ensureComponent(null, 'ChannelsNetwork/card-hello-world');
+  //   for (const sample of cards) {
+  //     const user = users[sample.handle];
+  //     const cardId = uuid.v4();
+  //     let coupon: CouponInfo;
+  //     if (sample.impressionFee > 0) {
+  //       coupon = await this.createPromotionCoupon(user, cardId, sample.impressionFee - sample.openPrice, 3, 25);
+  //     } else if (sample.openPrice < 0) {
+  //       coupon = await this.createOpenCoupon(user, cardId, -sample.openPrice, 3);
+  //     }
+  //     const card = await db.insertCard(user.user.id,
+  //       user.user.address,
+  //       null,
+  //       null,
+  //       null,
+  //       null,
+  //       null,
+  //       sample.title,
+  //       sample.text,
+  //       'en',
+  //       false,
+  //       "ChannelsNetwork/card-hello-world",
+  //       './icon.png',
+  //       null, 0,
+  //       sample.impressionFee, -sample.openPrice, sample.openFeeUnits,
+  //       sample.impressionFee - sample.openPrice > 0 ? 5 : 0, coupon ? true : false, 0, coupon ? coupon.signedObject : null, coupon ? coupon.id : null, ["sample"], sample.text, [], false, null,
+  //       cardId);
+  //     await db.updateCardStats_Preview(card.id, sample.age * 1000, Math.max(sample.revenue, 0), sample.likes, sample.dislikes, sample.impressions, sample.opens);
+  //     await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
+  //   }
+  // }
 
   // private async addPreviewCards(): Promise<void> {
   //   const now = Date.now();

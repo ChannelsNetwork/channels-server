@@ -2473,6 +2473,9 @@ db.userCardActions.aggregate([
   {$unwind: "$buyer"},
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
+  {$match: {
+    "registration.at": {$gt: 1520869372000}
+  }},
   {$group: {
     _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
     registrations: {$sum: 1},

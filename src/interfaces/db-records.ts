@@ -145,16 +145,15 @@ export interface CardRecord {
     royaltyAddress: string;
     royaltyFraction: number;
   };
-  pricing: {
+  pricing?: {    // obsolete
     promotionFee: number;
     openPayment: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10
   };
-  coupon?: SignedObject; // obsolete
-  couponId?: string; // obsolete
-  coupons: SignedObject[];
-  couponIds: string[];
-  budget: {
+  openFeeUnits: number;
+  coupons?: SignedObject[];  // obsolete
+  couponIds?: string[];  // obsolete
+  budget?: {  // obsolete
     amount: number;
     plusPercent: number;
     spent: number;
@@ -163,7 +162,7 @@ export interface CardRecord {
   stats: CardStatistics;
   score: number;
   lastScored: number;
-  promotionScores: CardPromotionScores;
+  promotionScores?: CardPromotionScores;  // obsolete
   lock: {
     server: string;
     at: number;
@@ -787,8 +786,9 @@ export interface CardCampaignStats {
 export type CardCampaignStatus = "active" | "exhausted" | "insufficient-funds" | "expired" | "suspended";
 
 export interface CardCampaignBudget {
+  promotionTotal: number; // content-promotion only
   plusPercent: number;  // content-promotion only
-  maxPerDay: number;
+  maxPerDay: number;  // ad types only
 }
 
 export type CardCampaignType = "content-promotion" | "impression-ad" | "pay-to-open" | "pay-to-click";

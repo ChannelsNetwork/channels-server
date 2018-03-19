@@ -240,7 +240,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState) {
+  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
     const result = {
       address: address,
       fingerprint: fingerprint,
@@ -253,24 +253,36 @@ class RestUtils {
       langCode: langCode,
       private: isPrivate,
       cardType: packageName,            // same as sent to ensure-component
-      pricing: {
-        promotionFee: promotionFee,
-        openPayment: openPayment,         // only for ads
-        openFeeUnits: openFeeUnits,       // 1..10
-        coupon: coupon,                   // signed BankCouponDetails  
-      },
+      openFeeUnits: openFeeUnits,
       keywords: keywords,
       searchText: searchText,
       sharedState: initialState,         // {properties: {...}, collections: {...}}
-      fileIds: fileIds
+      fileIds: fileIds,
+      campaignInfo: campaignInfo
     };
-    if (budgetAmount || budgetPlusPercent) {
-      result.pricing.budget = {
-        amount: budgetAmount ? budgetAmount : 0,
-        plusPercent: budgetPlusPercent ? budgetPlusPercent : 0
-      };
-    }
     return result;
+  }
+
+  static cardCampaignInfo(type, budget, ends, geoTargets) {
+    return {
+      type: type,  // content-impression | ad-impression | pay-to-open | pay-to-click
+      budget: budget,
+      ends: ends,
+      geoTargets: geoTargets
+    };
+  }
+
+  static cardCampaignBudgetForContent(promotionTotal, plusPercent) {
+    return {
+      promotionTotal: promotionTotal,
+      plusPercent: plusPercent
+    };
+  }
+
+  static cardCampaignBudgetForAd(maxPerDay) {
+    return {
+      maxPerDay: maxPerDay
+    };
   }
 
   static updateCardStateDetails(address, fingerprint, cardId, summary, state, keywords) {
@@ -971,6 +983,14 @@ class RestUtils {
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
       countryCode: countryCode
+    };
+  }
+
+  static getAvailableAdSlots(address, fingerprint, geoTargets) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      geoTargets: geoTargets
     };
   }
 

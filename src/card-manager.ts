@@ -1622,13 +1622,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     this.validateCardPricing(user, details);
     details.private = details.private ? true : false;
     const componentResponse = await channelsComponentManager.ensureComponent(request, details.cardType);
-    let couponId: string;
+    // let couponId: string;
     const cardId = uuid.v4();
-    if (details.pricing.coupon) {
-      const couponRecord = await bank.registerCoupon(user, cardId, details.pricing.coupon);
-      couponId = couponRecord.id;
-    }
-    const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
+    // if (details.pricing.coupon) {
+    //   const couponRecord = await bank.registerCoupon(user, cardId, details.pricing.coupon);
+    //   couponId = couponRecord.id;
+    // }
+    // const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
     const keywords: string[] = [];
     if (details.keywords) {
       for (const keyword of details.keywords) {
@@ -1636,28 +1636,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
+    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.openFeeUnits, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
-    if (configuration.get("notifications.postCard")) {
-      let html = "<div>";
-      html += "<div>User: " + user.identity.name + "</div>";
-      html += "<div>Handle: " + user.identity.handle + "</div>";
-      html += "<div>Title: " + details.title + "</div>";
-      html += "<div>Text: " + details.text + "</div>";
-      html += "<div>CardType: " + details.cardType + "</div>";
-      html += "<div>Private: " + details.private + "</div>";
-      if (details.pricing.promotionFee) {
-        html += "<div>Promotion fee: " + details.pricing.promotionFee + "</div>";
-      }
-      if (details.pricing.openFeeUnits) {
-        html += "<div>Open fee (units): " + details.pricing.openFeeUnits + "</div>";
-      }
-      if (details.pricing.openPayment) {
-        html += "<div>Open payment: " + details.pricing.openPayment + "</div>";
-      }
-      html += "</div>";
-      void emailManager.sendInternalNotification("Card posted", "", html);
-    }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0);
     await db.updateUserLastPosted(user.id, card.postedAt, card.summary.langCode);
     await channelManager.addCardToUserChannel(card, user);
@@ -1670,54 +1650,37 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (details.campaignInfo) {
         throw new ErrorWithStatusCode(400, "You cannot use an ad campaign on a card that has an open fee.");
       }
+      details.openFeeUnits = Math.round(details.openFeeUnits);
       if (details.openFeeUnits < 1 || details.openFeeUnits > 5) {
         throw new ErrorWithStatusCode(400, "Invalid pricing level.   Must be 1 to 5.");
       }
     } else if (details.campaignInfo) {
-
+      if (!details.campaignInfo.type || !details.campaignInfo.budget) {
+        throw new ErrorWithStatusCode(400, "Incomplete campaignInfo");
+      }
+      if (["content-impression", "ad-impression", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
+        throw new ErrorWithStatusCode(400, "Invalid type");
+      }
+      if (details.campaignInfo.type === 'content-impression') {
+        if (!details.campaignInfo.budget.promotionTotal || details.campaignInfo.budget.promotionTotal < 0) {
+          throw new ErrorWithStatusCode(400, "Invalid type");
+        }
+        if (details.campaignInfo.budget.plusPercent && details.campaignInfo.budget.plusPercent < 0 || details.campaignInfo.budget.plusPercent > 90) {
+          throw new ErrorWithStatusCode(40, "Invalid plusPercent value on campaign");
+        }
+        if (details.campaignInfo.ends && Date.now() > details.campaignInfo.ends) {
+          throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
+        }
+      } else {
+        if (!details.campaignInfo.budget.maxPerDay || details.campaignInfo.budget.maxPerDay < 0) {
+          throw new ErrorWithStatusCode(40, "Invalid budget maxPerDay value on campaign");
+        }
+        if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
+          throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
+        }
+      }
     } else {
       throw new ErrorWithStatusCode(400, "You must provide a pricing level or campaign info.");
-    }
-    pricing.promotionFee = pricing.promotionFee || 0;
-    pricing.openFeeUnits = pricing.openFeeUnits || 0;
-    pricing.openPayment = pricing.openPayment || 0;
-    if (pricing.openPayment > 0 || pricing.promotionFee > 0) {
-      pricing.budget = pricing.budget || { amount: 0, plusPercent: 0 };
-      // if (!pricing.budget) {
-      //   throw new ErrorWithStatusCode(400, "You must provide a budget if you offer payment.");
-      // }
-      pricing.budget.amount = Math.max(pricing.budget.amount || 0, 0);
-      pricing.budget.plusPercent = Math.max(pricing.budget.plusPercent || 0, 0);
-      if (pricing.budget.amount < 0) {
-        throw new ErrorWithStatusCode(400, "Minimum budget is 0.");
-      }
-      if (!user.admin && pricing.budget.amount > 0 && pricing.budget.amount > user.balance - 1) {
-        throw new ErrorWithStatusCode(400, "Budget exceeds your balance, leaving at least ℂ1 to spare.");
-      }
-      if (pricing.budget.plusPercent < 0 || pricing.budget.plusPercent > 90) {
-        throw new ErrorWithStatusCode(400, "Budget plusPercent must be between 0 and 90.");
-      }
-    }
-    if (pricing.promotionFee < 0 || pricing.openPayment < 0) {
-      throw new ErrorWithStatusCode(400, "Promotion fee and openPayment must be greater than or equal to zero.");
-    }
-    if (pricing.openPayment > 0 && pricing.promotionFee > 0) {
-      throw new ErrorWithStatusCode(400, "You can't declare both an openPayment and a promotionFee.");
-    }
-    pricing.openFeeUnits = Math.round(pricing.openFeeUnits);
-    if (pricing.promotionFee === 0 && pricing.openPayment === 0 && pricing.openFeeUnits === 0) {
-      throw new ErrorWithStatusCode(400, "Not all of promotionFee, openPayment and openFeeUnits can be zero.");
-    }
-    if (pricing.openPayment > 0 && pricing.openFeeUnits > 0) {
-      throw new ErrorWithStatusCode(400, "openPayment and openFeeUnits cannot both be non-zero.");
-    }
-    if (pricing.openPayment === 0 && (pricing.openFeeUnits < 0 || pricing.openFeeUnits > 10)) {
-      throw new ErrorWithStatusCode(400, "OpenFeeUnits must be between 1 and 10.");
-    }
-    if (pricing.promotionFee > 0 || pricing.openPayment > 0) {
-      if (!pricing.coupon) {
-        throw new ErrorWithStatusCode(400, "If you offer payment, you must include a coupon");
-      }
     }
   }
 

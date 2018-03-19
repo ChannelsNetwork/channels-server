@@ -424,17 +424,9 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
+  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
     let coupon;
-    if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (linkURL ? "card-click-payment" : "card-open-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
-      const couponDetailsString = JSON.stringify(couponDetails);
-      coupon = {
-        objectString: couponDetailsString,
-        signature: this._sign(couponDetailsString)
-      }
-    }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
@@ -795,6 +787,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getAvailableAdSlots(geoTargets) {
+    let details = RestUtils.getAvailableAdSlots(this._keys.address, this._fingerprint, geoTargets);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-available-ad-slots";
+    return this.rest.post(url, request);
+  }
+
   updateCardCampaign(campaignId, state, type, budget, ends, geoTargets) {
     let details = RestUtils.updateCardCampaign(this._keys.address, this._fingerprint, campaignId, state, type, budget, ends, geoTargets);
     let request = this._createRequest(details);
@@ -907,6 +906,10 @@ class CoreService extends Polymer.Element {
 
   get userId() {
     return this._registration ? this._registration.id : null;
+  }
+
+  get promotionPricing() {
+    return this._registration ? this._registration.promotionPricing : null;
   }
 
   get balance() {

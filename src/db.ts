@@ -964,7 +964,7 @@ export class Database {
     return this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, langCode: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, promotionFee: number, openPayment: number, openFeeUnits: number, budgetAmount: number, budgetAvailable: boolean, budgetPlusPercent: number, coupon: SignedObject, couponId: string, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, promotionScores?: CardPromotionScores, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, langCode: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, openFeeUnits: number, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -997,19 +997,7 @@ export class Database {
         royaltyAddress: cardTypeRoyaltyAddress,
         royaltyFraction: cardTypeRoyaltyFraction
       },
-      pricing: {
-        promotionFee: promotionFee,
-        openPayment: openPayment,
-        openFeeUnits: openFeeUnits
-      },
-      budget: {
-        amount: budgetAmount,
-        plusPercent: budgetPlusPercent,
-        spent: 0,
-        available: budgetAvailable
-      },
-      coupons: [],
-      couponIds: [],
+      openFeeUnits: openFeeUnits,
       stats: {
         revenue: { value: 0, lastSnapshot: 0 },
         promotionsPaid: { value: 0, lastSnapshot: 0 },
@@ -1030,7 +1018,6 @@ export class Database {
         firstTimePurchases: { value: 0, lastSnapshot: 0 },
       },
       score: 0,
-      promotionScores: { a: 0, b: 0, c: 0, d: 0, e: 0 },
       lastScored: 0,
       lock: {
         server: '',
@@ -1043,13 +1030,6 @@ export class Database {
       type: "normal",
       fileIds: fileIds
     };
-    if (coupon) {
-      record.coupons.push(coupon);
-      record.couponIds.push(couponId);
-    }
-    if (promotionScores) {
-      record.promotionScores = promotionScores;
-    }
     await this.cards.insert(record);
     return record;
   }

@@ -41,6 +41,14 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   withdrawalsEnabled: boolean;
   depositUrl: string;
   admin: boolean;
+  promotionPricing: PromotionPricingInfo;
+}
+
+export interface PromotionPricingInfo {
+  contentImpression: number;
+  adImpression: number;
+  payToOpen: number;
+  payToClick: number;
 }
 
 export interface SignInDetails extends Signable {
@@ -1288,7 +1296,7 @@ export interface UpdateCardCampaignResponse extends RestResponse { }
 
 export type CardCampaignStateDirective = "active" | "suspended";
 
-export type CardCampaignTypeDirective = "impression" | "open-click";
+export type CardCampaignTypeDirective = "content-impression" | "ad-impression" | "pay-to-open" | "pay-to-click";
 
 export interface GetGeoDescriptorsDetails extends Signable {
   countryCode?: string;
@@ -1303,4 +1311,12 @@ export interface GetGeoDescriptorsResponse extends RestResponse {
 export interface CodeAndName {
   code: string;
   name: string;
+}
+
+export interface GetAvailableAdSlotsDetails extends Signable {
+  geoTargets: string[];
+}
+
+export interface GetAvailableAdSlotsResponse extends RestResponse {
+  pastWeek: number;
 }
