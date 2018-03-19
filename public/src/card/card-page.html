@@ -216,11 +216,13 @@
         </div>
         <div id="unregisteredSection" class="moreSection hidden">
           On
-          <a href="/about">Channels</a>, you pay for content using ChannelCoin.
+          <a href="/about">Channels</a>, you pay for content using ChannelCoins.
           <span id="allotedMessage">
             <span class="priceLabel">We alloted you ℂ1.00</span> to get started.
           </span>
+          You can buy ChannelCoins or earn them by viewing promoted content.
           <a href="/register">Register</a> to create your account.
+          <a href="/about">Learn more.</a>
         </div>
         <div id="refundPanel" class="moreSection hidden">
           <div>
@@ -236,9 +238,9 @@
         </div>
         <div id="promotionSection" class="moreSection hidden">
           <span>[[lowBalanceMessage]]</span>
-          <a href="/balance" class="priceLabel" style="font-weight: bold;">Buy ChannelCoin</a>
+          <a href="/balance">Buy ChannelCoins</a>
           or you can
-          <span class="priceLabel" style="white-space: nowrap;">earn some ChannelCoin</span> by viewing promoted content.
+          <span class="priceLabel" style="white-space: nowrap;">earn ChannelCoins</span> by viewing promoted content.
           <a href="/">See what else is on Channels</a>.
           <card-list id="promotedList" label="Promoted cards" items="[[promotedCards]]" on-card-open-request="_onCardOpenRequest" class="hidden"></card-list>
         </div>
@@ -498,7 +500,7 @@
           } else {
             this.$.unregisteredSection.classList.remove("hidden");
           }
-          this.lowBalanceMessage = this._insufficientFunds ? "You do not have enough ChannelCoin to view this card." : "Your balance is low!";
+          this.lowBalanceMessage = this._insufficientFunds ? "You do not have enough ChannelCoins to view this card." : "Your balance is low!";
           if ($core.initialBalance) {
             this.$.allotedMessage.classList.remove('hidden');
           } else {

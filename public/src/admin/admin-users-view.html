@@ -108,6 +108,7 @@
           <div class="headerCell">Country</div>
           <div class="headerCell">Region</div>
           <div class="headerCell">City</div>
+          <div class="headerCell center">Initial Grant</div>
           <div class="headerCell center">Mailing List</div>
           <div class="headerCell">Original Referrer</div>
           <div class="headerCell">Original Landing</div>
@@ -139,6 +140,7 @@
             <div class="cell">[[item.country]]</div>
             <div class="cell">[[item.region]]</div>
             <div class="cell">[[item.city]]</div>
+            <div class="cell center">[[item.initialGrant]]</div>
             <div class="cell center toggle" on-click="_onMailingListToggle">[[item.mailingList]]</div>
             <div class="cell">[[item.referer]]</div>
             <div class="cell">[[item.landingPage]]</div>
@@ -236,6 +238,7 @@
               country: user.country || "",
               region: user.region || "",
               city: user.city || "",
+              initialGrant: typeof user.initialBalance === 'number' ? user.initialBalance : "",
               mailingList: user.marketing && user.marketing.includeInMailingList ? "yes" : "no",
               includeInMailingList: user.marketing.includeInMailingList,
               cardsPosted: userInfo.cardsPosted,
