@@ -2451,9 +2451,14 @@ db.users.aggregate([
   {$sort: {count: -1}}
 ])
 
+// Describe all purchasers for some author since date X
 
 db.userCardActions.aggregate([
-  {$match: {authorId: "1d7c5d62-d1ac-4ba7-98fb-33fee1305308", action: "pay"}},
+  {$match: {
+    authorId: "2e5d1635-e986-40d7-97fe-9c20fa7c938f", 
+    action: "pay",
+    at: {$gt: 1520869372000}
+  }},
   {$group: {
     _id: "$userId",
     count: {$sum: 1},
@@ -2469,20 +2474,14 @@ db.userCardActions.aggregate([
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
   {$group: {
-    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
     registrations: {$sum: 1},
     fingerprints: {$addToSet: "$registration.fingerprint"},
     ipAddresses: {$addToSet: "$registration.ipAddress"},
     userAgents: {$addToSet: "$registration.userAgent"},
   }},
-  {$project: {
-    registrations: 1,
-    fingerprints: {$size: "$fingerprints"},
-    ipAddresses: {$size: "$ipAddresses"},
-    userAgents: {$size: "$userAgents"},
-  }},
   {$sort: {"_id.revenue": -1}}
-])
+]).pretty()
 
 db.bankTransactions.aggregate([
   {$match: {"details.reason": "referral-bonus"}},
@@ -2549,4 +2548,172 @@ db.userCardActions.aggregate([
     count: {$sum: 1},
     revenue: {$sum: "$payment.amount"}
   }}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36"}},
+  {$group: {
+    _id: {fingerprint: "$fingerprint"},
+    users: {$addToSet: "$userId"},
+    count: {$sum: 1}
+  }},
+  {$project: {
+    users: {$size: "$users"},
+    count: 1
+  }}
+])
+
+db.userRegistrations.aggregate([
+  {$match: {fingerprint: "7603d4734332993f33d52107ceb88325"}},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1}
+  }},
+])
+
+db.userRegistrations.aggregate([
+  {$match: {fingerprint: "5f4421c8e08cae981507998b5a0a80ae"}},
+  {$group: {
+    _id: {userId: "$userId", ipAddress: "$ipAddress"},
+    count: {$sum: 1}
+  }},
+  {$lookup: {
+    from: "ipAddresses",
+    localField: "_id.ipAddress",
+    foreignField: "ipAddress",
+    as: "ipInfo"
+  }},
+  {$unwind: "$ipInfo"}
+])
+
+"fingerprint": "8f5486c5336612641818dd4ae811e9f8"
+
+initialBalance: 0,
+"originalLandingPage": {$ne: "https://channels.cc/c/57670ce8-c8d9-450d-a632-93d9d95ed5c4"}
+
+userId: "d2f5f098-377b-4a32-9c1f-f13e046a627f"	
+
+userId: "683152f6-b1d7-43f8-8772-6365b33f9a8a"
+
+// Analyze those who were given an initial balance of zero (excluding automated traffic going to Allen James's card):
+
+db.users.aggregate([
+  {$match: {
+    initialBalance: 0,
+    "originalLandingPage": {$ne: "https://channels.cc/c/57670ce8-c8d9-450d-a632-93d9d95ed5c4"}
+  }},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "id",
+    foreignField: "userId",
+    as: "registration"
+  }},
+  {$unwind: "$registration"},
+  {$project: {
+    userId: "$registration.userId",
+    fingerprint: "$registration.fingerprint",
+    ipAddress: "$registration.ipAddress",
+    userAgent: "$registration.userAgent",
+  }},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "fingerprint",
+    foreignField: "fingerprint",
+    as: "registrationF"    
+  }},
+  {$unwind: "$registrationF"},
+  {$project: {
+    userId: 1,
+    fingerprint: 1,
+    ipAddress: 1,
+    userAgent: 1,
+    userIdF: "$registrationF.userId",
+    ipAddressF: "$registrationF.ipAddress",
+    userAgentF: "$registrationF.userAgent",
+    atF: "$registrationF.at",
+  }},
+  {$group: {
+    _id: "$fingerprint",
+    userIdsF: {$addToSet: "$userIdF"},
+    ipAddressesF: {$addToSet: "$ipAddressF"},
+    userAgentsF: {$addToSet: "$userAgentF"},
+    atsF: {$push: "$atF"},
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "userIdsF",
+    foreignField: "id",
+    as: "userF"
+  }},
+  {$unwind: "$userF"},
+  {$project: {
+    ipAddressesF: 1,
+    userAgentsF: 1,
+    atsF: 1,
+    userId: "$userF.id",
+    handle: "$userF.identity.handle",
+    balance: "$userF.balance",
+    city: "$userF.city",
+    country: "$userF.country",
+    referrer: "$userF.originalReferrer",
+    landingPage: "$userF.originalLandingPage"
+  }},
+  {$group: {
+    _id: "$_id",
+    ipAddressesF: {$addToSet: "$ipAddressesF"},
+    userAgentsF: {$addToSet: "$userAgentsF"},
+    userIds: {$addToSet: "$userId"},
+    handles: {$addToSet: "$handle"},
+    balances: {$push: "$balance"},
+    cities: {$addToSet: "$city"},
+    countries: {$addToSet: "$country"},
+    referrers: {$addToSet: "$referrer"},
+    landingPages: {$addToSet: "$landingPage"}
+  }},
+  {$project: {
+    ipAddresses: {$size: "$ipAddressesF"},
+    userAgentsF: 1,
+    userIds: 1,
+    handles: 1,
+    handleCount: {$size: "$handles"},
+    balances: 1,
+    cities: 1,
+    countries: 1,
+    referrers: 1,
+    landingPages: 1
+  }},
+  {$sort: {handleCount: -1}}
+]).pretty()
+
+    at: {$addToSet: "$atsF"},
+
+db.adSlots.aggregate([
+  {$match: {
+    status: {$ne: "pending"},
+    created: {$gt: 1521235672000},
+    type: {$in: ["open-payment", "click-payment"]},
+    redeemed: true
+  }},
+  {$group: {
+    _id: {user: "$userId"},
+    count: {$sum: 1},
+    revenue: {$sum: "$amount"},
+    balance: {$push: "$userBalance"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id.user",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1,
+    revenue: 1,
+    balance: 1,
+    handle: "$user.identity.handle",
+    city: "$user.city",
+    country: "$user.country"
+  }},
+  {$sort: {count: -1}}
 ])
