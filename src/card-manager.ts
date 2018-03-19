@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -28,7 +28,7 @@ import * as url from 'url';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
-import { feedManager } from "./feed-manager";
+import { feedManager, CardWithCampaign } from "./feed-manager";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import * as LRU from 'lru-cache';
@@ -64,6 +64,13 @@ const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
 const USER_BALANCE_PAY_BUMP_THRESHOLD = 0.65;
+
+export const PROMOTION_PRICING: PromotionPricingInfo = {
+  contentImpression: 0.003,
+  adImpression: 0.02,
+  payToOpen: 0.50,
+  payToClick: 0.50
+};
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
@@ -153,133 +160,111 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (lastMutation) {
       this.lastMutationIndexSent = lastMutation.index;
     }
+    // Migrate promoted cards to use campaigns and populate geo into adslots
+    if (await db.countCardCampaigns() === 0) {
+      const cursor = db.getCardsWithPromotion(Date.now() - 1000 * 60 * 60 * 30);
+      let count = await cursor.count();
+      while (await cursor.hasNext()) {
+        const card = await cursor.next();
+        const author = await userManager.getUser(card.createdById, false);
+        if (author) {
+          const type = this.getAppropriateCampaignType(card);
+          const status = this.getAppropriateCampaignStatus(card, author, type);
+          const budget = this.getAppropriateCampaignBudget(card, type);
+          const campaign = await db.insertCardCampaign(status, card.id, type, this.getCampaignAmount(type), budget, Date.now() + 1000 * 60 * 60 * 24 * 30, []);
+          console.log("Card.initialize2: " + (count--) + ": Migrating promotion to campaign", card.id, card.summary.title, type, status, campaign.paymentAmount);
+        }
+      }
+      await cursor.close();
 
-    // let cursor = db.getCardsMissingSearchText();
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   console.log("Card.initialize2: Adding missing searchText field in card", card.id);
-    //   const state = await this.populateCardState(null, card.id, true, false);
-    //   let searchText;
-    //   if (state && state.state.shared) {
-    //     searchText = this.searchTextFromSharedStateInfo(state.state.shared);
-    //   } else {
-    //     errorManager.warning("Card.initialize2: No shared state to use for search text", null);
-    //   }
-    //   await db.updateCardSearchText(card.id, searchText);
-    // }
-    // await cursor.close();
-
-    // cursor = db.getCardsMissingBy();
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   const owner = await userManager.getUser(card.createdById, false);
-    //   if (owner) {
-    //     console.log("User.initialize2: Re-adding 'by' address/handle/name to user entry", owner.identity.handle);
-    //     await db.updateCardBy(card.id, owner.address, owner.identity.handle, owner.identity.name);
-    //   }
-    // }
-
-    // cursor = db.getCardsMissingCreatedById();
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   console.log("Card.initialize2: Replacing by.id with createdById", card.id);
-    //   await db.replaceCardBy(card.id, card.by.id);
-    // }
-    // await cursor.close();
-
-    // cursor = db.getCardsWithSummaryImageUrl();
-    // const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   const imageUrl = card.summary.imageUrl;
-    //   if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
-    //     console.log("Card.initialize2: Replacing summary.imageUrl with imageId", card.id);
-    //     const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-    //     if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
-    //       if (card.summary.imageWidth && card.summary.imageHeight) {
-    //         const imageInfo: ImageInfo = {
-    //           width: card.summary.imageWidth,
-    //           height: card.summary.imageHeight
-    //         };
-    //         await db.updateFileImageInfo(fileId, imageInfo);
-    //       }
-    //       await db.replaceCardSummaryImageUrl(card.id, fileId);
-    //     } else {
-    //       console.log("Card.initialize2: Card imageUrl is not in GUID format so not updated", imageUrl, card.id);
-    //     }
-    //   } else {
-    //     console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
-    //   }
-    // }
-    // await cursor.close();
-
-    // Migration if there are userCardAction records for authorId and "pay" actions that don't have details filled in
-    // const paymentCursor = db.getUserCardPayActionsWithoutAuthor();
-    // while (await paymentCursor.hasNext()) {
-    //   const userCardAction = await paymentCursor.next();
-    //   const card = await this.getCardById(userCardAction.cardId, false);
-    //   if (card) {
-    //     const authorId = card.createdById;
-    //     const transaction = await db.findBankTransactionForCardPayment(userCardAction.userId, userCardAction.cardId);
-    //     if (transaction) {
-    //       const paymentInfo: UserCardActionPaymentInfo = {
-    //         amount: transaction.details.amount,
-    //         transactionId: transaction.id,
-    //         category: "normal",
-    //         weight: 1,
-    //         weightedRevenue: transaction.details.amount
-    //       };
-    //       let firstTimePaidOpens = 0;
-    //       let fanPaidOpens = 0;
-    //       const grossRevenue = transaction.details.amount;
-    //       if (transaction.details.amount === 0.000001) {
-    //         paymentInfo.category = "fraud";
-    //         paymentInfo.weight = 0;
-    //       } else {
-    //         const priorPurchases = await db.countUserCardsPaidInTimeframe(userCardAction.userId, 0, userCardAction.at - 1);
-    //         if (priorPurchases === 0) {
-    //           paymentInfo.category = "first";
-    //           firstTimePaidOpens++;
-    //           paymentInfo.weight = this.getPurchaseWeight(0);
-    //         } else {
-    //           const priorToAuthor = await db.countUserCardPurchasesToAuthor(userCardAction.userId, authorId);
-    //           if (priorToAuthor > 0) {
-    //             paymentInfo.category = "fan";
-    //             fanPaidOpens++;
-    //           } else {
-    //             paymentInfo.weight = this.getPurchaseWeight(priorPurchases);
-    //           }
-    //         }
-    //       }
-    //       paymentInfo.weightedRevenue = grossRevenue * paymentInfo.weight;
-    //       await db.updateUserCardActionWithPaymentInfo(userCardAction.id, authorId, paymentInfo);
-    //       await db.updateNetworkCardStatsForPayment(userCardAction.at, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue);
-    //       console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction.id, paymentInfo.category);
-    //     } else {
-    //       console.warn("CardManager.initialize2: Found userCard pay action with missing transaction", userCardAction);
-    //     }
-    //   }
-    // }
-    // await paymentCursor.close();
-
-    // const paymentCursor = await db.getWeightedUserActionPayments();
-    // while (await paymentCursor.hasNext()) {
-    //   const userAction = await paymentCursor.next();
-    //   if (userAction.payment && userAction.payment.weightedRevenue !== userAction.payment.amount * userAction.payment.weight) {
-    //     await db.updateUserActionPaymentWeightedRevenue(userAction.id, userAction.payment.amount * userAction.payment.weight);
-    //     console.log("Card.initialize2: Updated user action payment weighted revenue", userAction.id, userAction.payment.amount * userAction.payment.weight);
-    //   }
-    // }
-    // await paymentCursor.close();
+      const adSlotCursor = db.getAdSlotsMissingGeo(Date.now() - 1000 * 60 * 60 * 30);
+      count = await adSlotCursor.count();
+      while (await adSlotCursor.hasNext()) {
+        const adSlot = await adSlotCursor.next();
+        const user = await userManager.getUser(adSlot.userId, false);
+        let found = false;
+        if (user && user.ipAddresses.length > 0) {
+          const ipInfo = await userManager.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1], false);
+          if (ipInfo) {
+            const geoLocation = userManager.getGeoLocationFromIpInfo(null, ipInfo);
+            const geoTargets = this.getGeoTargetsFromGeoLocation(geoLocation);
+            await db.updateAdSlotGeo(adSlot.id, geoLocation, geoTargets);
+            found = true;
+            console.log("Card.initialize2: " + (count--) + ": Populating geo into adSlot", adSlot.id, geoTargets.join(','));
+          }
+        }
+        if (!found) {
+          await db.updateAdSlotGeo(adSlot.id, null, []);
+          console.log("Card.initialize2: " + (count--) + ": Populating null geo into adSlot", adSlot.id);
+        }
+      }
+      await adSlotCursor.close();
+    }
 
     setInterval(this.poll.bind(this), 1000 * 60 * 5);
+  }
 
-    const network = await db.getNetwork();
-    if (!network.cardPurchaseStatsUpdated) {
-      console.log("Kicking off job to update card purchase stats...");
-      await db.updateNetworkCardPurchaseStatsUpdated(true);
-      await this.updateCardPurchaseStats();
+  private getGeoTargetsFromGeoLocation(geoLocation: GeoLocation): string[] {
+    const result: string[] = [];
+    if (!geoLocation) {
+      return result;
     }
+    if (geoLocation.continentCode) {
+      result.push(geoLocation.continentCode);
+      if (geoLocation.countryCode) {
+        result.push(geoLocation.continentCode + "." + geoLocation.countryCode);
+        if (geoLocation.regionCode) {
+          result.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.regionCode);
+        }
+        if (geoLocation.zipCode) {
+          result.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
+        }
+      }
+    }
+    return result;
+  }
+
+  private getAppropriateCampaignType(card: CardRecord): CardCampaignType {
+    if (card.pricing.openFeeUnits > 0) {
+      return "content-promotion";
+    }
+    if (card.pricing.promotionFee > 0) {
+      return "impression-ad";
+    }
+    return card.cardType.package === "ChannelsNetwork/card-image-ad" ? "pay-to-click" : "pay-to-open";
+  }
+
+  private getAppropriateCampaignStatus(card: CardRecord, author: UserRecord, type: CardCampaignType): CardCampaignStatus {
+    const amount = (card.pricing.openPayment || 0) + (card.pricing.promotionFee || 0);
+    if (card.budget.spent + amount >= card.budget.amount) {
+      return "exhausted";
+    }
+    if (card.budget.spent + amount >= author.balance) {
+      return "insufficient-funds";
+    }
+    return "active";
+  }
+
+  private getAppropriateCampaignBudget(card: CardRecord, type: CardCampaignType): CardCampaignBudget {
+    const budget: CardCampaignBudget = {
+      promotionTotal: 0,
+      plusPercent: 0,
+      maxPerDay: 0
+    };
+    switch (type) {
+      case "content-promotion":
+        budget.promotionTotal = card.budget.amount;
+        budget.plusPercent = card.budget.plusPercent;
+        break;
+      case "impression-ad":
+      case "pay-to-open":
+      case "pay-to-click":
+        budget.maxPerDay = card.budget.amount / 30;
+        break;
+      default:
+        throw new Error("Unhandled campaign type " + type);
+    }
+    return budget;
   }
 
   private async poll(): Promise<void> {
@@ -458,7 +443,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, null, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, requestBody.detailsObject.includeCampaignInfo, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -1620,6 +1605,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       throw new ErrorWithStatusCode(400, "You must provide a card type or a linkUrl");
     }
     this.validateCardPricing(user, details);
+    this.validateCardCampaign(user, details);
     details.private = details.private ? true : false;
     const componentResponse = await channelsComponentManager.ensureComponent(request, details.cardType);
     // let couponId: string;
@@ -1638,11 +1624,56 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
     const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.openFeeUnits, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
+    if (details.campaignInfo) {
+      await db.insertCardCampaign("active", card.id, details.campaignInfo.type, this.getCampaignAmount(details.campaignInfo.type), details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
+    }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0);
     await db.updateUserLastPosted(user.id, card.postedAt, card.summary.langCode);
     await channelManager.addCardToUserChannel(card, user);
     await this.announceCardPosted(card, user);
     return card;
+  }
+
+  private getCampaignAmount(type: CardCampaignType): number {
+    switch (type) {
+      case "content-promotion":
+        return PROMOTION_PRICING.contentImpression;
+      case "impression-ad":
+        return PROMOTION_PRICING.adImpression;
+      case "pay-to-open":
+        return PROMOTION_PRICING.payToOpen;
+      case "pay-to-click":
+        return PROMOTION_PRICING.payToClick;
+      default:
+        throw new ErrorWithStatusCode(500, "Unexpected campaign type " + type);
+    }
+  }
+
+  private validateCardCampaign(user: UserRecord, details: PostCardDetails): void {
+    if (!details.campaignInfo) {
+      return;
+    }
+    if (!details.campaignInfo.type || !details.campaignInfo.budget || !details.campaignInfo.ends) {
+      throw new ErrorWithStatusCode(400, "Invalid card campaign info");
+    }
+    if (["content-promotion", "impression-ad", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
+      throw new ErrorWithStatusCode(400, "Invalid campaign type");
+    }
+    if (details.campaignInfo.type === "content-promotion") {
+      if (!details.campaignInfo.budget.promotionTotal || details.campaignInfo.budget.promotionTotal < 0) {
+        throw new ErrorWithStatusCode(400, "Invalid content promotion budget");
+      }
+      if (details.campaignInfo.budget.plusPercent && (details.campaignInfo.budget.plusPercent < 0 || details.campaignInfo.budget.plusPercent > 90)) {
+        throw new ErrorWithStatusCode(400, "Invalid content promotion budget plus percent");
+      }
+    } else {
+      if (!details.campaignInfo.budget.maxPerDay || details.campaignInfo.budget.maxPerDay < 0) {
+        throw new ErrorWithStatusCode(400, "Invalid daily budget");
+      }
+    }
+    if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
+      throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
+    }
   }
 
   private validateCardPricing(user: UserRecord, details: PostCardDetails): void {
@@ -1661,7 +1692,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (["content-impression", "ad-impression", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
         throw new ErrorWithStatusCode(400, "Invalid type");
       }
-      if (details.campaignInfo.type === 'content-impression') {
+      if (details.campaignInfo.type === 'content-promotion') {
         if (!details.campaignInfo.budget.promotionTotal || details.campaignInfo.budget.promotionTotal < 0) {
           throw new ErrorWithStatusCode(400, "Invalid type");
         }
@@ -1868,7 +1899,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, null, null, user);
+    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, null, false, null, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -1893,7 +1924,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, cardCampaignId: string, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, includeCampaignInfo: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1911,6 +1942,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       iconUrl = url.resolve(packageRootUrl, record.cardType.iconUrl);
     }
     try {
+      let campaign: CardCampaignDescriptor;
+      if (includeCampaignInfo) {
+        if (!cardCampaignIfAvailable) {
+          cardCampaignIfAvailable = await db.findCardCampaignByCardId(record.id);
+        }
+        if (cardCampaignIfAvailable) {
+          campaign = await this.populateCardCampaign(cardId, cardCampaignIfAvailable, user);
+        }
+      }
       const image = await fileManager.getFileInfo(record.summary.imageId);
       const summary: CardSummary = {
         imageId: image ? image.id : null,
@@ -1946,9 +1986,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : -record.pricing.openPayment
         },
         promoted: promoted,
-        cardCampaignId: cardCampaignId,
+        campaign: campaign,
         adSlotId: adSlotId,
-        couponId: record.couponIds.length > 0 ? record.couponIds[record.couponIds.length - 1] : null,
         stats: {
           revenue: record.stats.revenue.value,
           promotionsPaid: record.stats.promotionsPaid.value,
@@ -2096,6 +2135,68 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
+  }
+
+  private async populateCardCampaign(cardId: string, campaign: CardCampaignRecord, user: UserRecord): Promise<CardCampaignDescriptor> {
+    if (!campaign) {
+      return null;
+    }
+    const now = Date.now();
+    const result: CardCampaignDescriptor = {
+      id: campaign.id,
+      created: campaign.created,
+      status: campaign.status,
+      type: campaign.type,
+      paymentAmount: campaign.paymentAmount,
+      budget: campaign.budget,
+      ends: campaign.ends,
+      geoTargets: await userManager.getGeoTargetDescriptors(campaign.geoTargets),
+      statsTotal: await this.getCardCampaignStats(cardId, campaign, 0, now),
+      statsLast24Hours: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24, now),
+      statsLast7Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 7, now),
+      statsLast30Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 30, now)
+    };
+    return result;
+  }
+
+  private async getCardCampaignStats(cardId: string, campaign: CardCampaignRecord, after: number, before: number): Promise<CardCampaignStats> {
+    const result: CardCampaignStats = {
+      cardId: cardId,
+      impressions: 0,
+      opens: 0,
+      clicks: 0,
+      redemptions: 0,
+      expenses: 0
+    };
+    const actions = await db.aggregateUserCardActionPromotions(cardId, after, before);
+    for (const action of actions) {
+      switch (action._id) {
+        case "impression":
+          result.impressions += action.count;
+          break;
+        case "open":
+          result.opens += action.count;
+          break;
+        case "click":
+          result.clicks += action.count;
+          break;
+        case "redeem-promotion":
+          result.redemptions += action.count;
+          result.expenses += action.redeemImpressions;
+          break;
+        case "redeem-open-payment":
+          result.redemptions += action.count;
+          result.expenses += action.redeemOpens;
+          break;
+        case "redeem-click-payment":
+          result.redemptions += action.count;
+          result.expenses += action.redeemOpens;
+          break;
+        default:
+          break;
+      }
+    }
+    return result;
   }
 
   private async incrementStat(card: CardRecord, statName: string, incrementBy: number, at: number, snapshotInterval: number): Promise<void> {

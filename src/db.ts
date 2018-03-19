@@ -484,6 +484,7 @@ export class Database {
   private async initializeCardCampaigns(): Promise<void> {
     this.cardCampaigns = this.db.collection('cardCampaigns');
     await this.cardCampaigns.createIndex({ id: 1 }, { unique: true });
+    await this.cardCampaigns.createIndex({ cardIds: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1130,6 +1131,17 @@ export class Database {
     } else {
       return null;
     }
+  }
+
+  getCardsWithPromotion(since: number): Cursor<CardRecord> {
+    return this.cards.find<CardRecord>({
+      postedAt: {$gt: since},
+      "curation.block": false,
+      $or: [
+        { "pricing.promotionFee": { $gt: 0 } },
+        { "pricing.openPayment": { $gt: 0 } }
+      ]
+    });
   }
 
   getCardsMissingSearchText(): Cursor<CardRecord> {
@@ -2086,6 +2098,10 @@ export class Database {
     await this.userCardActions.updateOne({ id: id }, { $set: { "payment.weightedRevenue": weightedRevenue } });
   }
 
+  getUserCardActionsWithoutGeo(since: number): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: since }, countryCode: { $exists: false } });
+  }
+
   async findFirstUserCardActionByUser(userId: string, action: CardActionType): Promise<UserCardActionRecord> {
     const result = await this.userCardActions.find<UserCardActionRecord>({ userId: userId, action: action }).sort({ at: 1 }).limit(1).toArray();
     if (result.length > 0) {
@@ -2708,6 +2724,16 @@ export class Database {
     return this.ipAddresses.findOne<IpAddressRecord>({ ipAddress: ipAddress.toLowerCase() });
   }
 
+  async findIpAddressCountryCode(countryCode: string): Promise<IpAddressRecord> {
+    const records = await this.ipAddresses.find<IpAddressRecord>({ countryCode: countryCode }).sort({ created: -1 }).limit(1).toArray();
+    return records.length > 0 ? records[0] : null;
+  }
+
+  async findIpAddressRegionCode(countryCode: string, regionCode: string): Promise<IpAddressRecord> {
+    const records = await this.ipAddresses.find<IpAddressRecord>({ countryCode: countryCode, region: regionCode }).sort({ created: -1 }).limit(1).toArray();
+    return records.length > 0 ? records[0] : null;
+  }
+
   async updateIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
     const now = Date.now();
     const update: any = {
@@ -3213,7 +3239,7 @@ export class Database {
     await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
   }
 
-  async insertAdSlot(userId: string, geo: GeoLocation, userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
+  async insertAdSlot(userId: string, geo: GeoLocation, geoTargets: string[], userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
     const now = Date.now();
     const record: AdSlotRecord = {
       id: uuid.v4(),
@@ -3229,7 +3255,8 @@ export class Database {
       status: "pending",
       redeemed: false,
       statusChanged: now,
-      amount: amount
+      amount: amount,
+      geoTargets: geoTargets
     };
     await this.adSlots.insertOne(record);
     return record;
@@ -3237,6 +3264,22 @@ export class Database {
 
   async findAdSlotById(id: string): Promise<AdSlotRecord> {
     return this.adSlots.findOne<AdSlotRecord>({ id: id });
+  }
+
+  getAdSlotsMissingGeo(since: number): Cursor<AdSlotRecord> {
+    return this.adSlots.find<AdSlotRecord>({
+      created: {$gt: since},
+      geo: {$exists: false}
+    });
+  }
+
+  async updateAdSlotGeo(id: string, geo: GeoLocation, geoTargets: string[]): Promise<void> {
+    await this.adSlots.updateOne({id: id}, {
+      $set: {
+        geo: geo,
+        geoTargets: geoTargets
+      }
+    });
   }
 
   async updateAdSlot(id: string, status: AdSlotStatus, redeemed: boolean): Promise<void> {
@@ -3830,6 +3873,28 @@ export class Database {
     return result;
   }
 
+  async aggregateUserCardActionPromotions(cardId: string, after: number, before: number): Promise<UserCardActionPromotionsInfo[]> {
+    return this.userCardActions.aggregate([
+      {
+        $match: {
+          cardId: cardId,
+          at: {
+            $gt: after,
+            $lt: before
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$action",
+          count: { $sum: 1 },
+          redeemImpressions: { $sum: "$redeemPromotion.amount" },
+          redeemOpens: { $sum: "$redeemOpen.amount" },
+        }
+      }
+    ]).toArray();
+  }
+
   async aggregateAdStats(): Promise<AdminAdStats> {
     const info = await this.adSlots.aggregate([
       { $match: { status: { $ne: "pending" } } },
@@ -4007,10 +4072,12 @@ export class Database {
   async updateDepositComplete(depositId: string, status: DepositStatus, transactionId: string): Promise<void> {
     await this.deposits.updateOne({ id: depositId }, { $set: { status: status, transactionId: transactionId } });
   }
+
   async insertCardCampaign(status: CardCampaignStatus, cardId: string, type: CardCampaignType, paymentAmount: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
     const stats: CardCampaignStats = {
       cardId: cardId,
-      served: 0,
+      opens: 0,
+      clicks: 0,
       impressions: 0,
       redemptions: 0,
       expenses: 0
@@ -4034,6 +4101,14 @@ export class Database {
 
   async findCardCampaignById(id: string): Promise<CardCampaignRecord> {
     return this.cardCampaigns.findOne<CardCampaignRecord>({ id: id });
+  }
+
+  async findCardCampaignByCardId(cardId: string): Promise<CardCampaignRecord> {
+    return this.cardCampaigns.findOne<CardCampaignRecord>({ cardIds: cardId });
+  }
+
+  async countCardCampaigns(): Promise<number> {
+    return this.cardCampaigns.count({});
   }
 
   async findSuitableCardCampaignsRandomized(types: CardCampaignType[], geoLocation: GeoLocation, count: number): Promise<CardCampaignRecord[]> {
@@ -4173,4 +4248,11 @@ export interface AggregatedCardPaymentInfo {
   firstTimePurchases: number;
   normalPurchases: number;
   fraudPurchases: number;
+}
+
+export interface UserCardActionPromotionsInfo {
+  _id: CardActionType;
+  count: number;
+  redeemImpressions: number;
+  redeemOpens: number;
 }

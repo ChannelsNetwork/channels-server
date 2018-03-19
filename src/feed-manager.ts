@@ -189,7 +189,7 @@ export class FeedManager implements Initializable, RestServer {
     while (await cursor.hasNext()) {
       const card = await cursor.next();
       if (this.isCardLanguageInterest(user, card)) {
-        feedCards.push(await this.populateCard(request, card, null, false, null, null, null, user));
+        feedCards.push(await this.populateCard(request, card, null, false, null, null, false, null, user));
         if (++count >= maxCount) {
           break;
         }
@@ -244,7 +244,7 @@ export class FeedManager implements Initializable, RestServer {
           if (!this.isCardLanguageInterest(user, card)) {
             continue;
           }
-          const descriptor = await this.populateCard(request, card, { pinned: pinned, order: pinned ? channelCard.pinPriority : 0 }, false, null, null, channel.id, user);
+          const descriptor = await this.populateCard(request, card, { pinned: pinned, order: pinned ? channelCard.pinPriority : 0 }, false, null, channel.id, false, null, user);
           result.push(descriptor);
         }
         if (result.length >= maxCount) {
@@ -297,6 +297,15 @@ export class FeedManager implements Initializable, RestServer {
 
   async selectPromotedCards(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardDescriptor[]> {
     const result: CardDescriptor[] = [];
+    const cards = await this.selectPromotedCardsWithCampaigns(request, user, geoLocation, count, fractionPayToOpen, fractionImpressionAd, channelId, existingContentCardIds);
+    for (const card of cards) {
+      result.push(card.card);
+    }
+    return result;
+  }
+
+  private async selectPromotedCardsWithCampaigns(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardWithCampaign[]> {
+    const result: CardWithCampaign[] = [];
     const authorIds: string[] = [];
     const adCardIds: string[] = [];
     const numberPayToOpen = this.computeFraction(count, fractionPayToOpen);
@@ -324,8 +333,8 @@ export class FeedManager implements Initializable, RestServer {
     return result;
   }
 
-  private async fetchPromotedCards(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, channelId: string, types: CardCampaignType[], existingAuthorIds: string[], alreadyPopulatedAdCardIds: string[], alreadyPopulatedContentCardIds: string[], existingPromotedCardIds: string[]): Promise<CardDescriptor[]> {
-    const result: CardDescriptor[] = [];
+  private async fetchPromotedCards(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, channelId: string, types: CardCampaignType[], existingAuthorIds: string[], alreadyPopulatedAdCardIds: string[], alreadyPopulatedContentCardIds: string[], existingPromotedCardIds: string[]): Promise<CardWithCampaign[]> {
+    const result: CardWithCampaign[] = [];
     const campaigns = await db.findSuitableCardCampaignsRandomized(types, geoLocation, count * 2);
     for (const campaign of campaigns) {
       // Randomly select one of the cards in the campaign
@@ -366,16 +375,16 @@ export class FeedManager implements Initializable, RestServer {
           } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
             // Check again based on a recent impression
             const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
-            const descriptor = await this.populateCard(request, card, null, true, campaign.id, adSlot.id, channelId, user);
-            result.push(descriptor);
+            const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
+            result.push({ card: descriptor, campaign: campaign });
             existingAuthorIds.push(card.createdById);
             alreadyPopulatedAdCardIds.push(card.id);
           }
         } else {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
           const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
-          const descriptor = await this.populateCard(request, card, null, true, campaign.id, adSlot.id, channelId, user);
-          result.push(descriptor);
+          const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
+          result.push({ card: descriptor, campaign: campaign });
           existingAuthorIds.push(card.createdById);
           alreadyPopulatedAdCardIds.push(card.id);
         }
@@ -550,17 +559,17 @@ export class FeedManager implements Initializable, RestServer {
       for (const card of cards) {
         existingContentCardIds.push(card.id);
       }
-      const promotedCards = await this.selectPromotedCards(request, user, geoLocation, adSlots.slotCount, payToOpenFraction, adImpressionFraction, channelId, existingContentCardIds);
+      const promotedCards = await this.selectPromotedCardsWithCampaigns(request, user, geoLocation, adSlots.slotCount, payToOpenFraction, adImpressionFraction, channelId, existingContentCardIds);
       let promotedCardIndex = 0;
       while ((cardIndex < cards.length && cardIndex < limit) || promotedCardIndex < promotedCards.length) {
         let filled = false;
         if (slotIndex >= nextAdIndex) {
           const adCard = promotedCards[promotedCardIndex++];
-          const adSlot = await this.createAdSlotFromDescriptor(adCard, geoLocation, user, channelId);
-          amalgamated.push(adCard);
+          const adSlot = await this.createAdSlotFromDescriptor(adCard.card, geoLocation, user, channelId, adCard.campaign);
+          amalgamated.push(adCard.card);
           nextAdIndex += adSlots.slotSeparation;
           filled = true;
-          console.log("FeedManager.mergeWithAdCards: Populating ad: ", adCard.summary.title, adCard.id);
+          console.log("FeedManager.mergeWithAdCards: Populating ad: ", adCard.card.summary.title, adCard.card.id);
         }
         slotIndex++;
       }
@@ -576,14 +585,14 @@ export class FeedManager implements Initializable, RestServer {
     let type: AdSlotType;
     type = card.pricing.openPayment ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = card.pricing.openPayment ? card.pricing.openPayment : card.pricing.promotionFee;
-    return db.insertAdSlot(user.id, geo, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
+    return db.insertAdSlot(user.id, geo, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
   }
 
-  private async createAdSlotFromDescriptor(card: CardDescriptor, geo: GeoLocation, user: UserRecord, channelId: string): Promise<AdSlotRecord> {
+  private async createAdSlotFromDescriptor(card: CardDescriptor, geo: GeoLocation, user: UserRecord, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
     let type: AdSlotType;
     type = card.pricing.openFee < 0 ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = card.pricing.openFee < 0 ? -card.pricing.openFee : card.pricing.promotionFee;
-    return db.insertAdSlot(user.id, geo, user.balance, channelId, card.id, card.cardCampaignId, type, card.by.id, amount);
+    return db.insertAdSlot(user.id, geo, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
   }
 
   // <<<<<<< HEAD
@@ -924,7 +933,7 @@ export class FeedManager implements Initializable, RestServer {
         if (card.private && user.id !== card.createdById) {
           continue;
         }
-        result.push(await this.populateCard(request, card, null, false, null, null, channelCard.channelId, user));
+        result.push(await this.populateCard(request, card, null, false, null, channelCard.channelId, false, null, user));
       }
       if (result.length >= maxCount) {
         break;
@@ -1140,7 +1149,7 @@ export class FeedManager implements Initializable, RestServer {
           if (card.private && user.id !== card.createdById) {
             continue;
           }
-          cards.push(await this.populateCard(request, card, null, false, null, null, channelCard.channelId, user));
+          cards.push(await this.populateCard(request, card, null, false, null, channelCard.channelId, false, null, user));
         }
         if (cards.length >= limit) {
           break;
@@ -1202,7 +1211,7 @@ export class FeedManager implements Initializable, RestServer {
       if (pinInfos && pinInfos.length > i) {
         pinInfo = pinInfos[i];
       }
-      promises.push(cardManager.populateCardState(request, card.id, false, promoted, cardCampaignId, adSlotId, channelId, pinInfo, user));
+      promises.push(cardManager.populateCardState(request, card.id, false, promoted, adSlotId, channelId, pinInfo, false, null, user));
     }
     const result = await Promise.all(promises);
     const finalResult: CardDescriptor[] = [];
@@ -1214,8 +1223,8 @@ export class FeedManager implements Initializable, RestServer {
     return finalResult;
   }
 
-  private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, cardCampaignId: string, adSlotId: string, sourceChannelId: string, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
-    return cardManager.populateCardState(request, card.id, false, promoted, cardCampaignId, adSlotId, sourceChannelId, pinInfo, user, includeAdmin);
+  private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, adSlotId: string, sourceChannelId: string, includeCardCampaign: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, includeCardCampaign, cardCampaignIfAvailable, user, includeAdmin);
   }
 
   private async poll(): Promise<void> {
@@ -1844,7 +1853,7 @@ export class FeedManager implements Initializable, RestServer {
       const infos: AdminCardInfo[] = [];
       const currentStats = await db.ensureNetworkCardStats();
       for (const record of cardRecords) {
-        const descriptor = await this.populateCard(request, record, null, false, null, null, null, null, true);
+        const descriptor = await this.populateCard(request, record, null, false, null, null, false, null, null, true);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
         const author = await userManager.getUser(record.createdById, true);
         infos.push({
@@ -1868,7 +1877,6 @@ export class FeedManager implements Initializable, RestServer {
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
-
 }
 
 const feedManager = new FeedManager();
@@ -1941,4 +1949,9 @@ interface CardBatch {
 interface CardWithChannel {
   card: CardDescriptor;
   channelId: string;
+}
+
+export interface CardWithCampaign {
+  card: CardDescriptor;
+  campaign: CardCampaignRecord;
 }

@@ -220,9 +220,7 @@ export interface CardDescriptor {
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   promoted: boolean;
-  cardCampaignId: string;
   adSlotId: string;
-  couponId: string;
   stats: CardDescriptorStatistics;
   score: number;
   userSpecific: {
@@ -250,6 +248,7 @@ export interface CardDescriptor {
   sourceChannelId: string;
   commentCount: number;
   pinning?: ChannelCardPinInfo;
+  campaign: CardCampaignDescriptor;
 }
 
 export interface ChannelCardPinInfo {
@@ -333,6 +332,7 @@ export interface GetCardDetails extends Signable {
   channelIdContext: string;
   maxComments: number;
   includePromotedCards: boolean;
+  includeCampaignInfo: boolean;
 }
 
 export interface GetCardResponse extends RestResponse {
@@ -1259,7 +1259,6 @@ export interface CardCampaignDescriptor {
   created: number;
   status: CardCampaignStatus;
   type: CardCampaignType;
-  card: CardDescriptor;
   paymentAmount: number;
   budget: CardCampaignBudget;
   ends: number;
@@ -1275,9 +1274,9 @@ export interface GeoTargetDescriptor {
   continentName: string;
   countryCode?: string;
   countryName?: string;
-  regionCodes?: string[];
-  regionNames?: string[];
-  zipCodes?: string[];
+  regionCode?: string;
+  regionName?: string;
+  zipCode?: string;
 }
 
 export interface UpdateCardCampaignDetails extends Signable {
@@ -1286,7 +1285,7 @@ export interface UpdateCardCampaignDetails extends Signable {
 }
 
 export interface CardCampaignInfo {
-  type: CardCampaignTypeDirective;
+  type: CardCampaignType;
   budget: CardCampaignBudget;
   ends: number;
   geoTargets: string[];
@@ -1295,8 +1294,6 @@ export interface CardCampaignInfo {
 export interface UpdateCardCampaignResponse extends RestResponse { }
 
 export type CardCampaignStateDirective = "active" | "suspended";
-
-export type CardCampaignTypeDirective = "content-impression" | "ad-impression" | "pay-to-open" | "pay-to-click";
 
 export interface GetGeoDescriptorsDetails extends Signable {
   countryCode?: string;

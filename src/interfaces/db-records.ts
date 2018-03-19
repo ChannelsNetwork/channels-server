@@ -703,6 +703,7 @@ export interface AdSlotRecord {
   redeemed: boolean;
   statusChanged: number;
   amount: number;
+  geoTargets: string[];
 }
 
 export interface GeoLocation {
@@ -777,8 +778,9 @@ export interface CardCampaignRecord {
 
 export interface CardCampaignStats {
   cardId: string;
-  served: number;
   impressions: number;
+  opens: number;
+  clicks: number;
   redemptions: number;
   expenses: number;
 }
