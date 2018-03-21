@@ -1008,7 +1008,9 @@ export class Database {
         royaltyAddress: cardTypeRoyaltyAddress,
         royaltyFraction: cardTypeRoyaltyFraction
       },
-      openFeeUnits: openFeeUnits,
+      pricing: {
+        openFeeUnits: openFeeUnits,
+      },
       stats: {
         revenue: { value: 0, lastSnapshot: 0 },
         promotionsPaid: { value: 0, lastSnapshot: 0 },

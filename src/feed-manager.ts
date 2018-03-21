@@ -384,7 +384,9 @@ export class FeedManager implements Initializable, RestServer {
             // Check again based on a recent impression
             const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
             const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
-            await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
+            if (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") {
+              await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
+            }
             result.push({ card: descriptor, campaign: campaign });
             existingAuthorIds.push(card.createdById);
             alreadyPopulatedAdCardIds.push(card.id);
@@ -393,7 +395,9 @@ export class FeedManager implements Initializable, RestServer {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
           const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
           const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
-          await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
+          if (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") {
+            await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
+          }
           result.push({ card: descriptor, campaign: campaign });
           existingAuthorIds.push(card.createdById);
           alreadyPopulatedAdCardIds.push(card.id);

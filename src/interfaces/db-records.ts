@@ -145,12 +145,11 @@ export interface CardRecord {
     royaltyAddress: string;
     royaltyFraction: number;
   };
-  pricing?: {    // obsolete
-    promotionFee: number;
-    openPayment: number; // in ChannelCoin
+  pricing: {    // obsolete
+    promotionFee?: number;
+    openPayment?: number; // in ChannelCoin
     openFeeUnits: number; // 1 - 10
   };
-  openFeeUnits: number;
   coupons?: SignedObject[];  // obsolete
   couponIds?: string[];  // obsolete
   budget?: {  // obsolete
