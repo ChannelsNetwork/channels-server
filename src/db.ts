@@ -4137,7 +4137,12 @@ export class Database {
           codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
         }
       }
-      query.geoTargets = codes.length === 1 ? codes[0] : { $in: codes };
+      query.$or = [
+        { geoTargets: { $size: 0 } },
+        { geoTargets: codes.length === 1 ? codes[0] : { $in: codes } },
+      ];
+    } else {
+      query.geoTargets = { $size: 0 };
     }
     return this.cardCampaigns.aggregate([
       { $match: query },
