@@ -178,13 +178,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           const type = this.getAppropriateCampaignType(card);
           const status = this.getAppropriateCampaignStatus(card, author, type);
           const budget = this.getAppropriateCampaignBudget(card, type);
-          const campaign = await db.insertCardCampaign(card.createdById, status, card.couponIds.length > 0 ? card.couponIds[0] : null, card.id, type, this.getCampaignAmount(type), budget, Date.now() + 1000 * 60 * 60 * 24 * 30, []);
+          const amount = this.getAppropriateCampaignAmount(card, type);
+          const campaign = await db.insertCardCampaign(card.createdById, status, card.couponIds.length > 0 ? card.couponIds[0] : null, card.id, type, amount, budget, Date.now() + 1000 * 60 * 60 * 24 * 30, []);
           console.log("Card.initialize2: " + (count--) + ": Migrating promotion to campaign", card.id, card.summary.title, type, status, campaign.paymentAmount);
         }
       }
       await cursor.close();
 
-      const adSlotCursor = db.getAdSlotsMissingGeo(Date.now() - 1000 * 60 * 60 * 30);
+      const adSlotCursor = db.getAdSlotsMissingGeo(Date.now() - 1000 * 60 * 60 * 24 * 30);
       count = await adSlotCursor.count();
       while (await adSlotCursor.hasNext()) {
         const adSlot = await adSlotCursor.next();
@@ -229,6 +230,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     return result;
+  }
+
+  private getAppropriateCampaignAmount(card: CardRecord, type: CardCampaignType): number {
+    switch (type) {
+      case "content-promotion":
+      case "impression-ad":
+        return Math.min(card.pricing.promotionFee, this.getCampaignAmount(type));
+      case "pay-to-open":
+      case "pay-to-click":
+        return Math.min(card.pricing.openPayment, this.getCampaignAmount(type));
+      default:
+        throw new Error("Unsupported campaign type " + type);
+    }
   }
 
   private getAppropriateCampaignType(card: CardRecord): CardCampaignType {
@@ -450,7 +464,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, requestBody.detailsObject.includeCampaignInfo, null, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, true, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -2063,8 +2077,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         pricing: {
           promotionFee: campaign && (campaign.type === "content-promotion" || campaign.type === "impression-ad") ? campaign.paymentAmount : 0,
           openFeeUnits: record.pricing.openFeeUnits,
-          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? campaign.paymentAmount : 0,
-          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? campaign.paymentAmount : 0
+          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? -campaign.paymentAmount : 0,
+          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? -campaign.paymentAmount : 0
         },
         promoted: promoted,
         campaign: campaign,

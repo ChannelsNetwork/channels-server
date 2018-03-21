@@ -318,7 +318,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     let numberPaidImpression = this.computeFraction(count, fractionImpressionAd);
     if (result.length < numberPayToOpen) {
-      numberPaidImpression += result.length - numberPayToOpen;
+      numberPaidImpression += numberPayToOpen - result.length;
     }
     if (numberPaidImpression) {
       const cards = await this.fetchPromotedCards(request, user, geoLocation, numberPaidImpression, channelId, ["impression-ad"], authorIds, adCardIds, existingContentCardIds, []);
@@ -382,7 +382,7 @@ export class FeedManager implements Initializable, RestServer {
           } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
             // Check again based on a recent impression
             const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
-            const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
+            const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, true, campaign, user);
             if (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") {
               await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
             }
@@ -393,7 +393,7 @@ export class FeedManager implements Initializable, RestServer {
         } else {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
           const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
-          const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
+          const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, true, campaign, user);
           if (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") {
             await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
           }
@@ -627,14 +627,14 @@ export class FeedManager implements Initializable, RestServer {
     let type: AdSlotType;
     type = card.pricing.openPayment ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = card.pricing.openPayment ? card.pricing.openPayment : card.pricing.promotionFee;
-    return db.insertAdSlot(user.id, geo, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
+    return db.insertAdSlot(user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
   }
 
   private async createAdSlotFromDescriptor(card: CardDescriptor, geo: GeoLocation, user: UserRecord, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
     let type: AdSlotType;
     type = card.pricing.openFee < 0 ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = card.pricing.openFee < 0 ? -card.pricing.openFee : card.pricing.promotionFee;
-    return db.insertAdSlot(user.id, geo, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
+    return db.insertAdSlot(user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
   }
 
   // <<<<<<< HEAD

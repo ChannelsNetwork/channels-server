@@ -3215,12 +3215,11 @@ export class Database {
     await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
   }
 
-  async insertAdSlot(userId: string, geo: GeoLocation, geoTargets: string[], userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
+  async insertAdSlot(userId: string, geoTargets: string[], userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
     const now = Date.now();
     const record: AdSlotRecord = {
       id: uuid.v4(),
       userId: userId,
-      geo: geo,
       userBalance: userBalance,
       channelId: channelId,
       cardId: cardId,

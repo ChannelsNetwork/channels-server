@@ -688,7 +688,6 @@ export interface ChannelKeywordRecord {
 export interface AdSlotRecord {
   id: string;
   userId: string;
-  geo: GeoLocation;
   userBalance: number;
   channelId: string;
   cardId: string;

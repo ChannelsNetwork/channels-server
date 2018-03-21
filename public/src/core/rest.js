@@ -228,7 +228,7 @@ class RestUtils {
     };
   }
 
-  static getCardDetails(address, fingerprint, cardId, channelIdContext, maxComments, includePromotedCards, includeCampaignInfo) {
+  static getCardDetails(address, fingerprint, cardId, channelIdContext, maxComments, includePromotedCards) {
     return {
       address: address,
       fingerprint: fingerprint,
@@ -236,8 +236,7 @@ class RestUtils {
       cardId: cardId,
       channelIdContext: channelIdContext,
       maxComments: maxComments,
-      includePromotedCards: includePromotedCards,
-      includeCampaignInfo: includeCampaignInfo
+      includePromotedCards: includePromotedCards
     };
   }
 
