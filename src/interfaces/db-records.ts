@@ -169,6 +169,7 @@ export interface CardRecord {
     boost?: number;
     promotionBoost?: number;
     boostAt?: number;
+    reported?: boolean;
     overrideReports?: boolean;
   };
   searchText: string;

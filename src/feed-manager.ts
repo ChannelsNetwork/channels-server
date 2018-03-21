@@ -352,7 +352,7 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         }
         const author = await userManager.getUser(card.createdById, false);
-        if (!author || author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+        if (!author || (!author.admin && author.balance < MINIMUM_AD_AUTHOR_BALANCE)) {
           continue;
         }
         const eligible = await this.reviewCampaignEligibility(request, user, campaign, card, author);
@@ -419,7 +419,7 @@ export class FeedManager implements Initializable, RestServer {
       await db.updateCardCampaignStatus(campaign.id, "suspended");
       return false;
     }
-    if (author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+    if (!author.admin && author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
       await db.updateCardCampaignNextEligible(campaign.id, now + 1000 * 60 * 60);
       return false;
     }
@@ -1032,7 +1032,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id);
+    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id, false);
     const cards: CardRecord[] = [];
     while (await cursor.hasNext()) {
       const card = await cursor.next();

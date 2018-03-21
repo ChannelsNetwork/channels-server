@@ -1449,7 +1449,7 @@ export class Database {
     return null;
   }
 
-  getAccessibleCardsByTime(before: number, after: number, userId: string): Cursor<CardRecord> {
+  getAccessibleCardsByTime(before: number, after: number, userId: string, excludeReportedCards: boolean): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     if (before && after) {
@@ -1458,6 +1458,13 @@ export class Database {
       query.postedAt = { $lt: before };
     } else if (after) {
       query.postedAt = { $gt: after };
+    }
+    if (excludeReportedCards) {
+      query.$or = [
+        { curation: { $exists: false } },
+        { "curation.reported": false },
+        { "curation.overrideReports": true }
+      ];
     }
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
