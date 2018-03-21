@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -1316,4 +1316,27 @@ export interface GetAvailableAdSlotsDetails extends Signable {
 
 export interface GetAvailableAdSlotsResponse extends RestResponse {
   pastWeek: number;
+}
+
+export interface GetUserCardAnalyticsDetails extends Signable {
+  cardId: string;
+  after: number;
+  maxCount: number;
+}
+
+export interface GetUserCardAnalyticsResponse extends RestResponse {
+  actions: UserCardActionDescriptor[];
+}
+
+export interface UserCardActionDescriptor {
+  cardId: string;
+  at: number;
+  geo?: {
+    lat: number;
+    lon: number;
+    countryCode: string;
+    regionCode: string;
+    city: string;
+  };
+  action: CardActionType;
 }

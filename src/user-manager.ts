@@ -591,6 +591,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       continentCode: null,
       countryCode: null,
       regionCode: null,
+      city: null,
       zipCode: null,
       lat: null,
       lon: null
@@ -604,6 +605,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         result.countryCode = ipInfo.countryCode;
       }
       result.regionCode = ipInfo.region;
+      result.city = ipInfo.city;
       result.zipCode = ipInfo.zip;
       result.lat = ipInfo.lat;
       result.lon = ipInfo.lon;
@@ -619,6 +621,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   async fetchIpAddressInfo(ipAddress: string, force: boolean): Promise<IpAddressRecord> {
+    if (!ipAddress) {
+      return null;
+    }
     if (ipAddress === "::1" || ipAddress === "localhost" || ipAddress === "127.0.0.1") {
       return null;
     }

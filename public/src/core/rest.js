@@ -1007,4 +1007,14 @@ class RestUtils {
       geoTargets: geoTargets
     };
   }
+
+  static getUserCardAnalytics(address, fingerprint, cardId, maxCount, after) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      cardId: cardId,
+      maxCount: maxCount,
+      after: after
+    };
+  }
 }
