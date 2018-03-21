@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -248,6 +248,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private countryCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
   private regionCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
 
+  private countryRegionsCache = LRU<string, CodeAndName[]>({ max: 10000, maxAge: 1000 * 60 * 60 * 3 });
+
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
     socketServer.setUserHandler(this);
@@ -370,6 +372,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-set-user-curation'), (request: Request, response: Response) => {
       void this.handleAdminSetUserCuration(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-geo-descriptors'), (request: Request, response: Response) => {
+      void this.handleGetGeoDescriptors(request, response);
     });
   }
 
@@ -1019,6 +1024,49 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleGetGeoDescriptors(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetGeoDescriptorsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.get-geo-descriptors", user.id, requestBody.detailsObject);
+      const reply: GetGeoDescriptorsResponse = {
+        serverVersion: SERVER_VERSION,
+        continents: null,
+        countriesByContinent: null,
+        regionsByCountry: null
+      };
+      if (requestBody.detailsObject.countryCode) {
+        reply.regionsByCountry = {};
+        reply.regionsByCountry[requestBody.detailsObject.countryCode] = [];
+        const regions = await this.getRegionsByCountry(requestBody.detailsObject.countryCode);
+        for (const region of regions) {
+          reply.regionsByCountry[requestBody.detailsObject.countryCode].push(region);
+        }
+      } else {
+        reply.continents = [];
+        for (const continentCode of Object.keys(continentNameByContinentCode)) {
+          reply.continents.push({ code: continentCode, name: continentNameByContinentCode[continentCode] });
+        }
+        reply.countriesByContinent = {};
+        for (const countryCode of Object.keys(continentCodeByCountryCode)) {
+          const continentCode = continentCodeByCountryCode[countryCode];
+          if (!reply.countriesByContinent[continentCode]) {
+            reply.countriesByContinent[continentCode] = [];
+          }
+          const name = await this.getCountryNameByCode(countryCode);
+          reply.countriesByContinent[countryCode].push({ code: countryCode, name: name });
+        }
+      }
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetGeoDescriptors: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
@@ -1553,6 +1601,24 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     } else {
       return null;
     }
+  }
+
+  private async getRegionsByCountry(countryCode: string): Promise<CodeAndName[]> {
+    let result = this.countryRegionsCache.get(countryCode);
+    if (!result) {
+      result = [];
+      const regionCodes = await db.findIpAddressDistinctRegions(countryCode);
+      for (const regionCode of regionCodes) {
+        if (regionCode) {
+          const record = await db.findIpAddressRegionCode(countryCode, regionCode);
+          if (record) {
+            result.push({ code: regionCode, name: record.regionName });
+          }
+        }
+      }
+      this.countryRegionsCache.set(countryCode, result);
+    }
+    return result;
   }
 
   private async getRegionNameByCode(countryCode: string, regionCode: string): Promise<string> {

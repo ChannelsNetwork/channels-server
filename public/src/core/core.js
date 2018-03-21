@@ -426,7 +426,30 @@ class CoreService extends Polymer.Element {
 
   postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
     let coupon;
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo);
+    if (campaignInfo) {
+      let reason;
+      switch (campaignInfo.type) {
+        case "content-promotion":
+          reason = "card-promotion";
+          break;
+        case "impression-ad":
+          reason = "impression-ad";
+          break;
+        case "pay-to-open":
+          reason = "card-open-payment";
+          break;
+        case "pay-to-click":
+          reason = "card-click-payment";
+          break;
+      }
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, this.getPromotionPriceByType(campaignInfo.type), campaignInfo.budget.maxPerDay, campaignInfo.budget.plusPercent);
+      const couponDetailsString = JSON.stringify(couponDetails);
+      coupon = {
+        objectString: couponDetailsString,
+        signature: this._sign(couponDetailsString)
+      }
+    }
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, coupon, campaignInfo);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
@@ -910,6 +933,20 @@ class CoreService extends Polymer.Element {
 
   get promotionPricing() {
     return this._registration ? this._registration.promotionPricing : null;
+  }
+
+  getPromotionPriceByType(type) {
+    switch (type) {
+      case "content-promotion":
+        return promotionPricing.contentImpression;
+      case "impression-ad":
+        return promotionPricing.adImpression;
+      case "pay-to-open":
+        return promotionPricing.payToOpen;
+      case "pay-to-click":
+        return promotionPricing.payToClick;
+    }
+    return 0;
   }
 
   get balance() {

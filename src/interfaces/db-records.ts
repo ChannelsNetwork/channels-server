@@ -765,19 +765,21 @@ export type DepositStatus = "pending" | "completed";
 export interface CardCampaignRecord {
   id: string;
   created: number;
+  createdById: string;
   status: CardCampaignStatus;
+  eligibleAfter: number;
+  couponId: string;
   cardIds: string[];
   type: CardCampaignType;
   paymentAmount: number;
   budget: CardCampaignBudget;
   ends: number;  // date
   geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.
-  stats: CardCampaignStats[];
+  stats: CardCampaignStats;
   lastStatsSnapshot: number;
 }
 
 export interface CardCampaignStats {
-  cardId: string;
   impressions: number;
   opens: number;
   clicks: number;
@@ -785,7 +787,7 @@ export interface CardCampaignStats {
   expenses: number;
 }
 
-export type CardCampaignStatus = "active" | "exhausted" | "insufficient-funds" | "expired" | "suspended";
+export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted";
 
 export interface CardCampaignBudget {
   promotionTotal: number; // content-promotion only
@@ -794,3 +796,9 @@ export interface CardCampaignBudget {
 }
 
 export type CardCampaignType = "content-promotion" | "impression-ad" | "pay-to-open" | "pay-to-click";
+
+export interface CardCampaignStatsSnapshotRecord {
+  campaignId: string;
+  at: number;
+  stats: CardCampaignStats;
+}

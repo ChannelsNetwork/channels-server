@@ -2,9 +2,9 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions, AggregationCur
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
-import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats } from "./interfaces/rest-services";
+import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
 import { SERVER_VERSION } from "./server-version";
 import { errorManager } from "./error-manager";
@@ -50,6 +50,7 @@ export class Database {
   private cardComments: Collection;
   private deposits: Collection;
   private cardCampaigns: Collection;
+  private cardCampaignStats: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -89,6 +90,7 @@ export class Database {
     await this.initializeCardComments();
     await this.initializeDeposits();
     await this.initializeCardCampaigns();
+    await this.initializeCardCampaignStats();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -396,6 +398,7 @@ export class Database {
   private async initializeIpAddresses(): Promise<void> {
     this.ipAddresses = this.db.collection('ipAddresses');
     await this.ipAddresses.createIndex({ ipAddress: 1 }, { unique: true });
+    await this.ipAddresses.createIndex({ countryCode: 1, region: 1 });
   }
 
   private async initializeChannels(): Promise<void> {
@@ -460,6 +463,7 @@ export class Database {
   private async initializeAdSlots(): Promise<void> {
     this.adSlots = this.db.collection('adSlots');
     await this.adSlots.createIndex({ id: 1 }, { unique: true });
+    await this.adSlots.createIndex({ status: 1, created: 1, geoTargets: 1 });
   }
 
   private async initializeCardComments(): Promise<void> {
@@ -485,6 +489,12 @@ export class Database {
     this.cardCampaigns = this.db.collection('cardCampaigns');
     await this.cardCampaigns.createIndex({ id: 1 }, { unique: true });
     await this.cardCampaigns.createIndex({ cardIds: 1 }, { unique: true });
+    await this.cardCampaigns.createIndex({ status: 1, eligibleAfter: 1, type: 1, geoTargets: 1 });
+  }
+
+  private async initializeCardCampaignStats(): Promise<void> {
+    this.cardCampaignStats = this.db.collection('cardCampaignStats');
+    await this.cardCampaignStats.createIndex({ campaignId: 1, at: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -1135,7 +1145,7 @@ export class Database {
 
   getCardsWithPromotion(since: number): Cursor<CardRecord> {
     return this.cards.find<CardRecord>({
-      postedAt: {$gt: since},
+      postedAt: { $gt: since },
       "curation.block": false,
       $or: [
         { "pricing.promotionFee": { $gt: 0 } },
@@ -2734,6 +2744,10 @@ export class Database {
     return records.length > 0 ? records[0] : null;
   }
 
+  async findIpAddressDistinctRegions(countryCode: string): Promise<string> {
+    return this.ipAddresses.distinct("region", { countryCode: countryCode });
+  }
+
   async updateIpAddress(ipAddress: string, status: IpAddressStatus, country: string, countryCode: string, region: string, regionName: string, city: string, zip: string, lat: number, lon: number, timezone: string, isp: string, org: string, as: string, query: string, message: string): Promise<IpAddressRecord> {
     const now = Date.now();
     const update: any = {
@@ -3268,13 +3282,21 @@ export class Database {
 
   getAdSlotsMissingGeo(since: number): Cursor<AdSlotRecord> {
     return this.adSlots.find<AdSlotRecord>({
-      created: {$gt: since},
-      geo: {$exists: false}
+      created: { $gt: since },
+      geo: { $exists: false }
     });
   }
 
+  async countAdSlotsSince(since: number): Promise<number> {
+    return this.adSlots.count({ status: { $ne: "pending" }, created: { $gt: since } });
+  }
+
+  async countAdSlotsInGeosSince(geoTargets: string[], since: number): Promise<number> {
+    return this.adSlots.count({ status: { $ne: "pending" }, created: { $gt: since }, geoTargets: { $in: geoTargets } });
+  }
+
   async updateAdSlotGeo(id: string, geo: GeoLocation, geoTargets: string[]): Promise<void> {
-    await this.adSlots.updateOne({id: id}, {
+    await this.adSlots.updateOne({ id: id }, {
       $set: {
         geo: geo,
         geoTargets: geoTargets
@@ -4073,9 +4095,8 @@ export class Database {
     await this.deposits.updateOne({ id: depositId }, { $set: { status: status, transactionId: transactionId } });
   }
 
-  async insertCardCampaign(status: CardCampaignStatus, cardId: string, type: CardCampaignType, paymentAmount: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
+  async insertCardCampaign(createdById: string, status: CardCampaignStatus, couponId: string, cardId: string, type: CardCampaignType, paymentAmount: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
     const stats: CardCampaignStats = {
-      cardId: cardId,
       opens: 0,
       clicks: 0,
       impressions: 0,
@@ -4085,14 +4106,17 @@ export class Database {
     const record: CardCampaignRecord = {
       id: uuid.v4(),
       created: Date.now(),
+      createdById: createdById,
       status: status,
+      eligibleAfter: 0,
+      couponId: couponId,
       cardIds: [cardId],
       type: type,
       paymentAmount: paymentAmount,
       budget: budget,
       ends: ends,
       geoTargets: geoTargets,
-      stats: [stats],
+      stats: stats,
       lastStatsSnapshot: 0
     };
     await this.cardCampaigns.insertOne(record);
@@ -4111,9 +4135,29 @@ export class Database {
     return this.cardCampaigns.count({});
   }
 
-  async findSuitableCardCampaignsRandomized(types: CardCampaignType[], geoLocation: GeoLocation, count: number): Promise<CardCampaignRecord[]> {
+  async updateCardCampaignLastStatsSnapshot(campaignId: string, lastStatsSnapshot: number, newStatsSnapshot: number): Promise<boolean> {
+    const result = await this.cardCampaigns.updateOne({ id: campaignId, lastStatsSnapshot: lastStatsSnapshot }, { $set: { lastStatsSnapshot: newStatsSnapshot } });
+    return result.modifiedCount === 1;
+  }
+
+  async updateCardCampaignInfo(campaignId: string, info: CardCampaignInfo, status: CardCampaignStatus): Promise<void> {
+    const update: any = { status: status };
+    if (info.budget) {
+      update.budget = info.budget;
+    }
+    if (info.ends) {
+      update.ends = info.ends;
+    }
+    if (Array.isArray(info.geoTargets)) {
+      update.geoTargets = info.geoTargets;
+    }
+    await this.cardCampaigns.updateOne({ id: campaignId }, { $set: update });
+  }
+
+  async findSuitableCardCampaignsRandomized(types: CardCampaignType[], geoLocation: GeoLocation, count: number, eligibleBy: number): Promise<CardCampaignRecord[]> {
     const query: any = {
-      status: "active"
+      status: "active",
+      eligibleAfter: { $lt: eligibleBy }
     };
     if (types.length === 1) {
       query.type = types[0];
@@ -4138,6 +4182,57 @@ export class Database {
       { $match: query },
       { $sample: { size: count } }
     ]).toArray();
+  }
+
+  async updateCardCampaignNextEligible(campaignId: string, eligibleAfter: number): Promise<void> {
+    await this.cardCampaigns.updateOne({ id: campaignId }, { $set: { eligibleAfter: eligibleAfter } });
+  }
+
+  async updateCardCampaignStatus(campaignId: string, status: CardCampaignStatus): Promise<void> {
+    await this.cardCampaigns.updateOne({ id: campaignId }, { $set: { status: status } });
+  }
+
+  async incrementCardCampaignStats(campaignId: string, increments: CardCampaignStats): Promise<void> {
+    const update: any = {};
+    let found = false;
+    if (increments.clicks) {
+      update["stats.clicks"] = increments.clicks;
+      found = true;
+    }
+    if (increments.expenses) {
+      update["stats.expenses"] = increments.expenses;
+      found = true;
+    }
+    if (increments.impressions) {
+      update["stats.impressions"] = increments.impressions;
+      found = true;
+    }
+    if (increments.opens) {
+      update["stats.opens"] = increments.opens;
+      found = true;
+    }
+    if (increments.redemptions) {
+      update["stats.redemptions"] = increments.redemptions;
+      found = true;
+    }
+    if (found) {
+      await this.cardCampaigns.updateOne({ id: campaignId }, { $inc: update });
+    }
+  }
+
+  async insertCardCampaignStats(campaignId: string, at: number, stats: CardCampaignStats): Promise<CardCampaignStatsSnapshotRecord> {
+    const record: CardCampaignStatsSnapshotRecord = {
+      campaignId: campaignId,
+      at: at,
+      stats: stats
+    };
+    await this.cardCampaignStats.insertOne(record);
+    return record;
+  }
+
+  async findCardCampaignStatsAt(campaignId: string, before: number): Promise<CardCampaignStatsSnapshotRecord> {
+    const result = await this.cardCampaignStats.find<CardCampaignStatsSnapshotRecord>({ campaignId: campaignId, at: { $lt: before } }).sort({ at: -1 }).limit(1).toArray();
+    return result.length > 0 ? result[0] : null;
   }
 }
 

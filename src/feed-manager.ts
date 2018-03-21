@@ -61,6 +61,7 @@ const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 const ADSLOTS_PER_PAYBUMP = 2;
+const MINIMUM_AD_AUTHOR_BALANCE = 1.5;
 
 const adToContentRatioByBalance: RangeValue[] = [
   { lowerBound: 0, value: 0.25 },
@@ -315,7 +316,10 @@ export class FeedManager implements Initializable, RestServer {
         result.push(card);
       }
     }
-    const numberPaidImpression = this.computeFraction(count, fractionImpressionAd);
+    let numberPaidImpression = this.computeFraction(count, fractionImpressionAd);
+    if (result.length < numberPayToOpen) {
+      numberPaidImpression += result.length - numberPayToOpen;
+    }
     if (numberPaidImpression) {
       const cards = await this.fetchPromotedCards(request, user, geoLocation, numberPaidImpression, channelId, ["impression-ad"], authorIds, adCardIds, existingContentCardIds, []);
       for (const card of cards) {
@@ -335,7 +339,7 @@ export class FeedManager implements Initializable, RestServer {
 
   private async fetchPromotedCards(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, channelId: string, types: CardCampaignType[], existingAuthorIds: string[], alreadyPopulatedAdCardIds: string[], alreadyPopulatedContentCardIds: string[], existingPromotedCardIds: string[]): Promise<CardWithCampaign[]> {
     const result: CardWithCampaign[] = [];
-    const campaigns = await db.findSuitableCardCampaignsRandomized(types, geoLocation, count * 2);
+    const campaigns = await db.findSuitableCardCampaignsRandomized(types, geoLocation, count * 2, Date.now());
     for (const campaign of campaigns) {
       // Randomly select one of the cards in the campaign
       const index = Math.floor(Math.random() * campaign.cardIds.length);
@@ -348,6 +352,10 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         }
         const author = await userManager.getUser(card.createdById, false);
+        const eligible = await this.reviewCampaignEligibility(request, user, campaign, card, author);
+        if (!eligible) {
+          continue;
+        }
         if (!author || author.balance < card.pricing.openPayment + card.pricing.promotionFee) {
           // author doesn't have enough money to pay the reader
           continue;
@@ -376,6 +384,7 @@ export class FeedManager implements Initializable, RestServer {
             // Check again based on a recent impression
             const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
             const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
+            await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
             result.push({ card: descriptor, campaign: campaign });
             existingAuthorIds.push(card.createdById);
             alreadyPopulatedAdCardIds.push(card.id);
@@ -384,6 +393,7 @@ export class FeedManager implements Initializable, RestServer {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
           const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
           const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, false, null, user);
+          await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
           result.push({ card: descriptor, campaign: campaign });
           existingAuthorIds.push(card.createdById);
           alreadyPopulatedAdCardIds.push(card.id);
@@ -394,6 +404,35 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     return result;
+  }
+
+  private async reviewCampaignEligibility(request: Request, user: UserRecord, campaign: CardCampaignRecord, card: CardRecord, author: UserRecord): Promise<boolean> {
+    const now = Date.now();
+    if (now > campaign.ends) {
+      await db.updateCardCampaignStatus(campaign.id, "expired");
+      return false;
+    }
+    if (author.curation) {
+      await db.updateCardCampaignStatus(campaign.id, "suspended");
+      return false;
+    }
+    if (author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+      await db.updateCardCampaignNextEligible(campaign.id, now + 1000 * 60 * 60);
+      return false;
+    }
+    if (campaign.budget.promotionTotal > 0) {
+      if (campaign.stats.expenses >= campaign.budget.promotionTotal) {
+        await db.updateCardCampaignStatus(campaign.id, "exhausted");
+        return false;
+      }
+    } else {
+      const lastStats = await db.findCardCampaignStatsAt(campaign.id, now - 1000 * 60 * 60 * 24);
+      if (lastStats && campaign.stats.expenses - lastStats.stats.expenses > campaign.budget.maxPerDay) {
+        await db.updateCardCampaignNextEligible(campaign.id, now + 1000 * 60 * 15);
+        return false;
+      }
+    }
+    return true;
   }
 
   private computeFraction(count: number, fraction: number): number {

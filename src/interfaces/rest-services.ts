@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -397,6 +397,7 @@ export interface PostCardDetails extends Signable {
   openFeeUnits: number;
   sharedState: CardState;
   fileIds: string[];
+  coupon: SignedObject;
   campaignInfo?: CardCampaignInfo;
 }
 
@@ -1292,8 +1293,6 @@ export interface CardCampaignInfo {
 }
 
 export interface UpdateCardCampaignResponse extends RestResponse { }
-
-export type CardCampaignStateDirective = "active" | "suspended";
 
 export interface GetGeoDescriptorsDetails extends Signable {
   countryCode?: string;
