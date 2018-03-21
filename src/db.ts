@@ -1223,11 +1223,10 @@ export class Database {
     });
   }
 
-  async updateCardScore(card: CardRecord, score: number, promotionScores: CardPromotionScores): Promise<void> {
+  async updateCardScore(card: CardRecord, score: number): Promise<void> {
     const now = Date.now();
-    await this.cards.updateOne({ id: card.id }, { $set: { score: score, promotionScores: promotionScores, lastScored: now } });
+    await this.cards.updateOne({ id: card.id }, { $set: { score: score, lastScored: now } });
     card.score = score;
-    card.promotionScores = promotionScores;
     card.lastScored = now;
   }
 
@@ -1245,32 +1244,6 @@ export class Database {
         "stats.uniqueOpens.value": opens
       }
     });
-  }
-
-  async updateCardBudgetUsage(card: CardRecord, incSpent: number, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
-    await this.cards.updateOne({ id: card.id }, {
-      $inc: {
-        "budget.spent": incSpent
-      },
-      $set: {
-        "budget.available": available,
-        promotionScores: promotionScores
-      }
-    });
-    card.budget.spent += incSpent;
-    card.budget.available = available;
-    card.promotionScores = promotionScores;
-  }
-
-  async updateCardBudgetAvailable(card: CardRecord, available: boolean, promotionScores: CardPromotionScores): Promise<void> {
-    await this.cards.updateOne({ id: card.id }, { $set: { "budget.available": available, promotionScores: promotionScores } });
-    card.budget.available = available;
-    card.promotionScores = promotionScores;
-  }
-
-  async updateCardPromotionScores(card: CardRecord, promotionScores: CardPromotionScores): Promise<void> {
-    await this.cards.updateOne({ id: card.id }, { $set: { promotionScores: promotionScores } });
-    card.promotionScores = promotionScores;
   }
 
   async updateCardSummary(card: CardRecord, title: string, text: string, langCode: string, linkUrl: string, imageId: string, keywords: string[]): Promise<void> {
@@ -1323,7 +1296,7 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, update);
   }
 
-  async incrementCardStat(card: CardRecord, statName: string, incrementBy: number, lastSnapshot?: number, promotionScores?: CardPromotionScores): Promise<void> {
+  async incrementCardStat(card: CardRecord, statName: string, incrementBy: number, lastSnapshot?: number): Promise<void> {
     const incClause: any = {};
     incClause["stats." + statName + ".value"] = incrementBy;
     const update: any = { $inc: incClause };
@@ -1331,12 +1304,6 @@ export class Database {
       const snapClause: any = {};
       snapClause["stats." + statName + ".lastSnapshot"] = lastSnapshot;
       update.$set = snapClause;
-    }
-    if (promotionScores) {
-      if (!update.$set) {
-        update.$set = {};
-      }
-      update.$set.promotionScores = promotionScores;
     }
     await this.cards.updateOne({ id: card.id }, update);
     let stat = (card.stats as any)[statName] as CardStatistic;
@@ -1347,9 +1314,6 @@ export class Database {
     stat.value += incrementBy;
     if (lastSnapshot) {
       stat.lastSnapshot = lastSnapshot;
-    }
-    if (promotionScores) {
-      card.promotionScores = promotionScores;
     }
   }
 
@@ -1383,10 +1347,6 @@ export class Database {
 
   async findCardsForScoring(postedAfter: number, scoredBefore: number): Promise<CardRecord[]> {
     return this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: postedAfter }, lastScored: { $lt: scoredBefore } }, { searchText: 0 }).toArray();
-  }
-
-  async findCardsWithAvailableBudget(limit: number): Promise<CardRecord[]> {
-    return this.cards.find<CardRecord>({ state: "active", "curation.block": false, "budget.available": true, private: false }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
   async findCardsBySearch(searchText: string, skip: number, limit: number): Promise<CardRecord[]> {

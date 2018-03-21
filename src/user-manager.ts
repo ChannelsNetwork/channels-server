@@ -559,6 +559,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (!request) {
       return null;
     }
+    if (configuration.get('ipOverride')) {
+      return configuration.get('ipOverride');
+    }
     const ipAddressHeader = request.headers['x-forwarded-for'] as string;
     let ipAddress: string;
     if (ipAddressHeader) {

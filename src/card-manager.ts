@@ -634,15 +634,28 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
+      let adSlot: AdSlotRecord;
+      if (requestBody.detailsObject.adSlotId) {
+        adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+      }
       let transaction: BankTransactionDetails;
       if (requestBody.detailsObject.transaction) {
-        if (card.pricing.promotionFee <= 0) {
-          response.status(400).send("No promotion fee paid on this card");
+        if (!adSlot) {
+          response.status(400).send("No transaction appropriate if no corresponding ad slot");
+          return;
+        }
+        const campaign = await db.findCardCampaignById(adSlot.cardCampaignId);
+        if (!campaign) {
+          response.status(409).send("Ad campaign missing for the corresponding ad slot");
+          return;
+        }
+        if (campaign.type !== "content-promotion" && campaign.type !== "impression-ad") {
+          response.status(400).send("Ad campaign does not pay for impressions");
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (card.pricing.openPayment > 0 && info.earnedFromAuthor > 0) {
-          response.status(400).send("You have already been paid a promotion on this card");
+        if (info.earnedFromAuthor > 0) {
+          response.status(409).send("You have already been paid a promotion on this card");
           return;
         }
         author = await userManager.getUser(card.createdById, true);
@@ -650,7 +663,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(404).send("The author no longer has an account.");
           return;
         }
-        if (!author.admin && author.balance < card.pricing.promotionFee) {
+        if (!author.admin && author.balance < campaign.paymentAmount) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -659,7 +672,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("The transaction doesn't list the card author as the source.");
           return;
         }
-        if (transaction.amount !== card.pricing.promotionFee) {
+        if (transaction.amount !== campaign.paymentAmount) {
           response.status(400).send("Transaction amount does not match card promotion fee.");
           return;
         }
@@ -671,7 +684,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Transaction refers to the wrong card");
           return;
         }
-        if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+        if (campaign.couponId !== transaction.relatedCouponId) {
           response.status(400).send("Transaction refers to the wrong coupon");
           return;
         }
@@ -715,10 +728,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "impression", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
-      let adSlot: AdSlotRecord;
-      if (requestBody.detailsObject.adSlotId) {
-        adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
-      }
       let campaignExpense = 0;
       if (transaction && author) {
         await userManager.updateUserBalance(request, user);
@@ -727,9 +736,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         campaignExpense = transactionResult.record.details.amount;
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-        const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-        card.budget.available = budgetAvailable;
-        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
+        // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        // card.budget.available = budgetAvailable;
+        // await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
         await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, adSlot ? adSlot.cardCampaignId : null, 0, null, null, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
@@ -824,8 +833,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       let campaignExpense = 0;
       if (requestBody.detailsObject.transaction && requestBody.detailsObject.transaction.objectString) {
-        if (card.pricing.openPayment <= 0) {
-          response.status(400).send("No open payment on this card");
+        if (!adSlot) {
+          response.status(400).send("Transaction not appropriate without ad slot");
+          return;
+        }
+        const campaign = await db.findCardCampaignById(adSlot.cardCampaignId);
+        if (!campaign) {
+          response.status(409).send("Ad campaign is missing for ad slot");
+          return;
+        }
+        if (campaign.type !== "pay-to-click") {
+          response.status(409).send("Mismatching ad campaign type");
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
@@ -838,7 +856,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(404).send("The author no longer has an account.");
           return;
         }
-        if (!author.admin && author.balance < card.pricing.openPayment) {
+        if (!author.admin && author.balance < campaign.paymentAmount) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -851,7 +869,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("The transaction doesn't list the card author as the source.");
           return;
         }
-        if (transaction.amount !== card.pricing.openPayment) {
+        if (transaction.amount !== campaign.paymentAmount) {
           response.status(400).send("Transaction amount does not match card click payment.");
           return;
         }
@@ -863,7 +881,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Transaction refers to the wrong card");
           return;
         }
-        if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+        if (campaign.couponId !== transaction.relatedCouponId) {
           response.status(400).send("Transaction refers to the wrong coupon");
           return;
         }
@@ -888,11 +906,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Invalid coupon: author mismatch");
           return;
         }
-        if (coupon.amount !== card.pricing.openPayment) {
-          response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
-          return;
-        }
-        if (!author.admin && author.balance < card.pricing.openPayment) {
+        if (!author.admin && author.balance < campaign.paymentAmount) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -906,9 +920,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         campaignExpense = transactionResult.record.details.amount;
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-        const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-        card.budget.available = budgetAvailable;
-        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
+        // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        // card.budget.available = budgetAvailable;
+        // await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
         await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-click-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
         await this.incrementStat(card, "clickFeesPaid", coupon.amount, now, CLICK_FEES_PAID_SNAPSHOT_INTERVAL);
       }
@@ -1076,11 +1090,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const statName = skipMoneyTransfer ? "fraudPurchases" : (isFirstUserCardPurchase ? "firstTimePurchases" : "normalPurchases");
       await this.incrementStat(card, statName, 1, now, CARD_PURCHASE_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue, 0, 0, isFirstUserCardPurchase ? 1 : 0, 0, 0, discountReason ? 0 : 1, 0, amount);
-      const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
-      if (card.budget && card.budget.available !== newBudgetAvailable) {
-        card.budget.available = newBudgetAvailable;
-        await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
-      }
       const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const userStatus = await userManager.getUserStatus(request, user, false);
@@ -1177,8 +1186,22 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (card.pricing.openPayment <= 0) {
-        response.status(400).send("No open payment on this card");
+      if (!requestBody.detailsObject.adSlotId) {
+        response.status(400).send("Missing ad slot ID");
+        return;
+      }
+      const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+      if (!adSlot) {
+        response.status(404).send("Ad slot record is missing");
+        return;
+      }
+      const campaign = await db.findCardCampaignById(adSlot.cardCampaignId);
+      if (!campaign) {
+        response.status(409).send("Card campaign is missing");
+        return;
+      }
+      if (campaign.type !== "pay-to-open") {
+        response.status(409).send("Mismatching card campaign type");
         return;
       }
       const info = await db.ensureUserCardInfo(user.id, card.id);
@@ -1191,7 +1214,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("The author no longer has an account.");
         return;
       }
-      if (!author.admin && author.balance < card.pricing.openPayment) {
+      if (!author.admin && author.balance < campaign.paymentAmount) {
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
@@ -1205,7 +1228,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("The transaction doesn't list the card author as the source.");
         return;
       }
-      if (transaction.amount !== card.pricing.openPayment) {
+      if (transaction.amount !== campaign.paymentAmount) {
         response.status(400).send("Transaction amount does not match card open payment.");
         return;
       }
@@ -1217,7 +1240,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Transaction refers to the wrong card");
         return;
       }
-      if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+      if (campaign.couponId !== transaction.relatedCouponId) {
         response.status(400).send("Transaction refers to the wrong coupon");
         return;
       }
@@ -1242,11 +1265,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid coupon: author mismatch");
         return;
       }
-      if (coupon.amount !== card.pricing.openPayment) {
-        response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
-        return;
-      }
-      if (!author.admin && author.balance < card.pricing.openPayment) {
+      if (!author.admin && author.balance < campaign.paymentAmount) {
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
@@ -1261,14 +1280,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       campaignExpense = transactionResult.record.details.amount;
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-      const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-      card.budget.available = budgetAvailable;
-      await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
-      let adSlot: AdSlotRecord;
-      if (requestBody.detailsObject.adSlotId) {
-        adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
-      }
       await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       if (adSlot) {
@@ -2049,13 +2061,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           royaltyFraction: record.cardType.royaltyFraction
         },
         pricing: {
-          promotionFee: record.pricing.promotionFee,
+          promotionFee: campaign && (campaign.type === "content-promotion" || campaign.type === "impression-ad") ? campaign.paymentAmount : 0,
           openFeeUnits: record.pricing.openFeeUnits,
-          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
-          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : -record.pricing.openPayment
+          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? campaign.paymentAmount : 0,
+          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? campaign.paymentAmount : 0
         },
         promoted: promoted,
         campaign: campaign,
+        couponId: campaign ? campaign.couponId : null,
         adSlotId: adSlotId,
         stats: {
           revenue: record.stats.revenue.value,
@@ -2217,6 +2230,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       status: campaign.status,
       type: campaign.type,
       paymentAmount: campaign.paymentAmount,
+      couponId: campaign.couponId,
       budget: campaign.budget,
       ends: campaign.ends,
       geoTargets: await userManager.getGeoTargetDescriptors(campaign.geoTargets),
@@ -2275,58 +2289,58 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.insertCardStatsHistory(card.id, statName, cardStatistic.value, at);
         lastSnapshot = at;
       }
-      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot, this.getPromotionScores(card));
+      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot);
     } else {
       await db.addCardStat(card, statName, incrementBy);
     }
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
-    await db.updateCardScore(card, score, this.getPromotionScores(card));
+    await db.updateCardScore(card, score);
   }
 
-  getPromotionScores(card: CardRecord): CardPromotionScores {
-    if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
-      return { a: 0, b: 0, c: 0, d: 0, e: 0 };
-    }
-    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.promotionBoost ? card.curation.promotionBoost : 0);
-  }
+  // getPromotionScores(card: CardRecord): CardPromotionScores {
+  //   if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
+  //     return { a: 0, b: 0, c: 0, d: 0, e: 0 };
+  //   }
+  //   return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.promotionBoost ? card.curation.promotionBoost : 0);
+  // }
 
-  private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): CardPromotionScores {
-    return {
-      a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost)
-    };
-  }
+  // private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): CardPromotionScores {
+  //   return {
+  //     a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost)
+  //   };
+  // }
 
-  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): number {
-    if (promotionFee === 0 && openPayment === 0) {
-      return 0;
-    }
-    if (!budgetAvailable) {
-      return 0;
-    }
-    let openProbability = openFeeUnits > 0 ? 0.1 : 0.01;
-    if (uniqueImpressions > 100) {
-      openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
-    }
-    // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
-    // if the card pays based on opens
-    let openBoost = 1;
-    if (openPayment > 0) {
-      openBoost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
-    }
-    const revenuePotential = promotionFee + openPayment * openProbability * openBoost;
-    const desireability = openProbability * 5;
-    let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
-    // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
-    const randomFactor = result * 0.1 * (Math.random() - 0.5);
-    result += randomFactor + boost;
-    return result;
-  }
+  // private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): number {
+  //   if (promotionFee === 0 && openPayment === 0) {
+  //     return 0;
+  //   }
+  //   if (!budgetAvailable) {
+  //     return 0;
+  //   }
+  //   let openProbability = openFeeUnits > 0 ? 0.1 : 0.01;
+  //   if (uniqueImpressions > 100) {
+  //     openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
+  //   }
+  //   // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
+  //   // if the card pays based on opens
+  //   let openBoost = 1;
+  //   if (openPayment > 0) {
+  //     openBoost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
+  //   }
+  //   const revenuePotential = promotionFee + openPayment * openProbability * openBoost;
+  //   const desireability = openProbability * 5;
+  //   let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
+  //   // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
+  //   const randomFactor = result * 0.1 * (Math.random() - 0.5);
+  //   result += randomFactor + boost;
+  //   return result;
+  // }
 
   getCardUrl(card: CardDescriptor): string {
     return this.urlManager.getAbsoluteUrl('/c/' + card.id);

@@ -352,29 +352,28 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         }
         const author = await userManager.getUser(card.createdById, false);
+        if (!author || author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+          continue;
+        }
         const eligible = await this.reviewCampaignEligibility(request, user, campaign, card, author);
         if (!eligible) {
           continue;
         }
-        if (!author || author.balance < card.pricing.openPayment + card.pricing.promotionFee) {
-          // author doesn't have enough money to pay the reader
-          continue;
-        }
         let info = await this.getUserCardInfo(user.id, card.id, false);
-        if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+        if ((campaign.type === "pay-to-open" || campaign.type === "pay-to-click") && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
           // This card is not eligible because the user has already been paid to open it (based on our cache)
           continue;
         } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
           // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
           continue;
-        } else if (card.pricing.openPayment === 0 && info.userCardInfo && Date.now() - info.userCardInfo.lastImpression < MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
+        } else if ((campaign.type === "content-promotion" || campaign.type === "impression-ad") && info.userCardInfo && Date.now() - info.userCardInfo.lastImpression < MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
           // This isn't eligible because it is impression-based and the user recently saw it
           continue;
         } else if (info.fromCache) {
           // We got this userInfo from cache, so it may be out of date.  Check again before committing to this
           // card
           info = await this.getUserCardInfo(user.id, card.id, true);
-          if (card.pricing.openPayment > 0 && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
+          if ((campaign.type === "pay-to-open" || campaign.type === "pay-to-click") && info.userCardInfo && info.userCardInfo.earnedFromAuthor > 0) {
             // Check that it is still eligible based on having been paid
             continue;
           } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {

@@ -249,6 +249,7 @@ export interface CardDescriptor {
   commentCount: number;
   pinning?: ChannelCardPinInfo;
   campaign: CardCampaignDescriptor;
+  couponId: string;
 }
 
 export interface ChannelCardPinInfo {
@@ -1261,6 +1262,7 @@ export interface CardCampaignDescriptor {
   status: CardCampaignStatus;
   type: CardCampaignType;
   paymentAmount: number;
+  couponId: string;
   budget: CardCampaignBudget;
   ends: number;
   geoTargets: GeoTargetDescriptor[];
