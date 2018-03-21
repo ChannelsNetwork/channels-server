@@ -1,0 +1,15 @@
+<dom-module id="card-budget-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+  </template>
+  <script>
+    class CardBudgetView extends Polymer.Element {
+      static get is() { return 'card-budget-view'; }
+    }
+    window.customElements.define(CardBudgetView.is, CardBudgetView);
+  </script>
+</dom-module>
