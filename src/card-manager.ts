@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -28,7 +28,7 @@ import * as url from 'url';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
-import { feedManager } from "./feed-manager";
+import { feedManager, CardWithCampaign } from "./feed-manager";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import * as LRU from 'lru-cache';
@@ -60,10 +60,18 @@ const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 const FIRST_CARD_PURCHASE_AMOUNT = 0.01;
 const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
+const MAX_CARD_CAMPAIGN_SNAPSHOT_INTERVAL = 1000 * 60 * 15;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
 const USER_BALANCE_PAY_BUMP_THRESHOLD = 0.65;
+
+export const PROMOTION_PRICING: PromotionPricingInfo = {
+  contentImpression: 0.003,
+  adImpression: 0.02,
+  payToOpen: 0.50,
+  payToClick: 0.50
+};
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
@@ -146,6 +154,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     this.app.post(this.urlManager.getDynamicUrl('admin-set-comment-curation'), (request: Request, response: Response) => {
       void this.handleAdminSetCommentCuration(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('update-card-campaign'), (request: Request, response: Response) => {
+      void this.handleUpdateCardCampaign(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-available-ad-slots'), (request: Request, response: Response) => {
+      void this.handleGetAvailableAdSlots(request, response);
+    });
   }
 
   async initialize2(): Promise<void> {
@@ -153,133 +167,125 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (lastMutation) {
       this.lastMutationIndexSent = lastMutation.index;
     }
+    // Migrate promoted cards to use campaigns and populate geo into adslots
+    if (await db.countCardCampaigns() === 0) {
+      const cursor = db.getCardsWithPromotion(Date.now() - 1000 * 60 * 60 * 30);
+      let count = await cursor.count();
+      while (await cursor.hasNext()) {
+        const card = await cursor.next();
+        const author = await userManager.getUser(card.createdById, false);
+        if (author) {
+          const type = this.getAppropriateCampaignType(card);
+          const status = this.getAppropriateCampaignStatus(card, author, type);
+          const budget = this.getAppropriateCampaignBudget(card, type);
+          const amount = this.getAppropriateCampaignAmount(card, type);
+          const campaign = await db.insertCardCampaign(card.createdById, status, card.couponIds.length > 0 ? card.couponIds[0] : null, card.id, type, amount, budget, Date.now() + 1000 * 60 * 60 * 24 * 30, []);
+          console.log("Card.initialize2: " + (count--) + ": Migrating promotion to campaign", card.id, card.summary.title, type, status, campaign.paymentAmount);
+        }
+      }
+      await cursor.close();
 
-    // let cursor = db.getCardsMissingSearchText();
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   console.log("Card.initialize2: Adding missing searchText field in card", card.id);
-    //   const state = await this.populateCardState(null, card.id, true, false);
-    //   let searchText;
-    //   if (state && state.state.shared) {
-    //     searchText = this.searchTextFromSharedStateInfo(state.state.shared);
-    //   } else {
-    //     errorManager.warning("Card.initialize2: No shared state to use for search text", null);
-    //   }
-    //   await db.updateCardSearchText(card.id, searchText);
-    // }
-    // await cursor.close();
-
-    // cursor = db.getCardsMissingBy();
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   const owner = await userManager.getUser(card.createdById, false);
-    //   if (owner) {
-    //     console.log("User.initialize2: Re-adding 'by' address/handle/name to user entry", owner.identity.handle);
-    //     await db.updateCardBy(card.id, owner.address, owner.identity.handle, owner.identity.name);
-    //   }
-    // }
-
-    // cursor = db.getCardsMissingCreatedById();
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   console.log("Card.initialize2: Replacing by.id with createdById", card.id);
-    //   await db.replaceCardBy(card.id, card.by.id);
-    // }
-    // await cursor.close();
-
-    // cursor = db.getCardsWithSummaryImageUrl();
-    // const baseFileUrl = this.urlManager.getAbsoluteUrl('/');
-    // while (await cursor.hasNext()) {
-    //   const card = await cursor.next();
-    //   const imageUrl = card.summary.imageUrl;
-    //   if (imageUrl && imageUrl.indexOf(baseFileUrl) === 0) {
-    //     console.log("Card.initialize2: Replacing summary.imageUrl with imageId", card.id);
-    //     const fileId = imageUrl.substr(baseFileUrl.length).split('/')[0];
-    //     if (/^[0-9a-z\-]{36}$/i.test(fileId)) {
-    //       if (card.summary.imageWidth && card.summary.imageHeight) {
-    //         const imageInfo: ImageInfo = {
-    //           width: card.summary.imageWidth,
-    //           height: card.summary.imageHeight
-    //         };
-    //         await db.updateFileImageInfo(fileId, imageInfo);
-    //       }
-    //       await db.replaceCardSummaryImageUrl(card.id, fileId);
-    //     } else {
-    //       console.log("Card.initialize2: Card imageUrl is not in GUID format so not updated", imageUrl, card.id);
-    //     }
-    //   } else {
-    //     console.log("Card.initialize2: Card imageUrl is not in canonical format so not updated", imageUrl, card.id);
-    //   }
-    // }
-    // await cursor.close();
-
-    // Migration if there are userCardAction records for authorId and "pay" actions that don't have details filled in
-    // const paymentCursor = db.getUserCardPayActionsWithoutAuthor();
-    // while (await paymentCursor.hasNext()) {
-    //   const userCardAction = await paymentCursor.next();
-    //   const card = await this.getCardById(userCardAction.cardId, false);
-    //   if (card) {
-    //     const authorId = card.createdById;
-    //     const transaction = await db.findBankTransactionForCardPayment(userCardAction.userId, userCardAction.cardId);
-    //     if (transaction) {
-    //       const paymentInfo: UserCardActionPaymentInfo = {
-    //         amount: transaction.details.amount,
-    //         transactionId: transaction.id,
-    //         category: "normal",
-    //         weight: 1,
-    //         weightedRevenue: transaction.details.amount
-    //       };
-    //       let firstTimePaidOpens = 0;
-    //       let fanPaidOpens = 0;
-    //       const grossRevenue = transaction.details.amount;
-    //       if (transaction.details.amount === 0.000001) {
-    //         paymentInfo.category = "fraud";
-    //         paymentInfo.weight = 0;
-    //       } else {
-    //         const priorPurchases = await db.countUserCardsPaidInTimeframe(userCardAction.userId, 0, userCardAction.at - 1);
-    //         if (priorPurchases === 0) {
-    //           paymentInfo.category = "first";
-    //           firstTimePaidOpens++;
-    //           paymentInfo.weight = this.getPurchaseWeight(0);
-    //         } else {
-    //           const priorToAuthor = await db.countUserCardPurchasesToAuthor(userCardAction.userId, authorId);
-    //           if (priorToAuthor > 0) {
-    //             paymentInfo.category = "fan";
-    //             fanPaidOpens++;
-    //           } else {
-    //             paymentInfo.weight = this.getPurchaseWeight(priorPurchases);
-    //           }
-    //         }
-    //       }
-    //       paymentInfo.weightedRevenue = grossRevenue * paymentInfo.weight;
-    //       await db.updateUserCardActionWithPaymentInfo(userCardAction.id, authorId, paymentInfo);
-    //       await db.updateNetworkCardStatsForPayment(userCardAction.at, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue);
-    //       console.log("CardManager.initialize2: Updated userCardAction with payment information", userCardAction.id, paymentInfo.category);
-    //     } else {
-    //       console.warn("CardManager.initialize2: Found userCard pay action with missing transaction", userCardAction);
-    //     }
-    //   }
-    // }
-    // await paymentCursor.close();
-
-    // const paymentCursor = await db.getWeightedUserActionPayments();
-    // while (await paymentCursor.hasNext()) {
-    //   const userAction = await paymentCursor.next();
-    //   if (userAction.payment && userAction.payment.weightedRevenue !== userAction.payment.amount * userAction.payment.weight) {
-    //     await db.updateUserActionPaymentWeightedRevenue(userAction.id, userAction.payment.amount * userAction.payment.weight);
-    //     console.log("Card.initialize2: Updated user action payment weighted revenue", userAction.id, userAction.payment.amount * userAction.payment.weight);
-    //   }
-    // }
-    // await paymentCursor.close();
+      const adSlotCursor = db.getAdSlotsMissingGeo(Date.now() - 1000 * 60 * 60 * 24 * 30);
+      count = await adSlotCursor.count();
+      while (await adSlotCursor.hasNext()) {
+        const adSlot = await adSlotCursor.next();
+        const user = await userManager.getUser(adSlot.userId, false);
+        let found = false;
+        if (user && user.ipAddresses.length > 0) {
+          const ipInfo = await userManager.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1], false);
+          if (ipInfo) {
+            const geoLocation = userManager.getGeoLocationFromIpInfo(null, ipInfo);
+            const geoTargets = this.getGeoTargetsFromGeoLocation(geoLocation);
+            await db.updateAdSlotGeo(adSlot.id, geoLocation, geoTargets);
+            found = true;
+            console.log("Card.initialize2: " + (count--) + ": Populating geo into adSlot", adSlot.id, geoTargets.join(','));
+          }
+        }
+        if (!found) {
+          await db.updateAdSlotGeo(adSlot.id, null, []);
+          console.log("Card.initialize2: " + (count--) + ": Populating null geo into adSlot", adSlot.id);
+        }
+      }
+      await adSlotCursor.close();
+    }
 
     setInterval(this.poll.bind(this), 1000 * 60 * 5);
+  }
 
-    const network = await db.getNetwork();
-    if (!network.cardPurchaseStatsUpdated) {
-      console.log("Kicking off job to update card purchase stats...");
-      await db.updateNetworkCardPurchaseStatsUpdated(true);
-      await this.updateCardPurchaseStats();
+  private getGeoTargetsFromGeoLocation(geoLocation: GeoLocation): string[] {
+    const result: string[] = [];
+    if (!geoLocation) {
+      return result;
     }
+    if (geoLocation.continentCode) {
+      result.push(geoLocation.continentCode);
+      if (geoLocation.countryCode) {
+        result.push(geoLocation.continentCode + "." + geoLocation.countryCode);
+        if (geoLocation.regionCode) {
+          result.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.regionCode);
+        }
+        if (geoLocation.zipCode) {
+          result.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
+        }
+      }
+    }
+    return result;
+  }
+
+  private getAppropriateCampaignAmount(card: CardRecord, type: CardCampaignType): number {
+    switch (type) {
+      case "content-promotion":
+      case "impression-ad":
+        return Math.min(card.pricing.promotionFee, this.getCampaignAmount(type));
+      case "pay-to-open":
+      case "pay-to-click":
+        return Math.min(card.pricing.openPayment, this.getCampaignAmount(type));
+      default:
+        throw new Error("Unsupported campaign type " + type);
+    }
+  }
+
+  private getAppropriateCampaignType(card: CardRecord): CardCampaignType {
+    if (card.pricing.openFeeUnits > 0) {
+      return "content-promotion";
+    }
+    if (card.pricing.promotionFee > 0) {
+      return "impression-ad";
+    }
+    return card.cardType.package === "ChannelsNetwork/card-image-ad" ? "pay-to-click" : "pay-to-open";
+  }
+
+  private getAppropriateCampaignStatus(card: CardRecord, author: UserRecord, type: CardCampaignType): CardCampaignStatus {
+    const amount = (card.pricing.openPayment || 0) + (card.pricing.promotionFee || 0);
+    if (card.budget.spent + amount >= card.budget.amount) {
+      return "exhausted";
+    }
+    if (card.budget.spent + amount >= author.balance) {
+      return "insufficient-funds";
+    }
+    return "active";
+  }
+
+  private getAppropriateCampaignBudget(card: CardRecord, type: CardCampaignType): CardCampaignBudget {
+    const budget: CardCampaignBudget = {
+      promotionTotal: 0,
+      plusPercent: 0,
+      maxPerDay: 0
+    };
+    switch (type) {
+      case "content-promotion":
+        budget.promotionTotal = card.budget.amount;
+        budget.plusPercent = card.budget.plusPercent;
+        break;
+      case "impression-ad":
+      case "pay-to-open":
+      case "pay-to-click":
+        budget.maxPerDay = card.budget.amount / 30;
+        break;
+      default:
+        throw new Error("Unhandled campaign type " + type);
+    }
+    return budget;
   }
 
   private async poll(): Promise<void> {
@@ -458,7 +464,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       console.log("CardManager.get-card", requestBody.detailsObject);
-      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, user);
+      const cardState = await this.populateCardState(request, card.id, true, false, null, null, null, true, null, user);
       if (!cardState) {
         response.status(404).send("Missing card state");
         return;
@@ -487,7 +493,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       // }
       let promotedCards: CardDescriptor[] = [];
       if (requestBody.detailsObject.includePromotedCards && !cardState.promoted && cardState.pricing.openFeeUnits > 0 && user.balance < USER_BALANCE_PAY_BUMP_THRESHOLD) {
-        promotedCards = await feedManager.getPromotedCardsIfAppropriate(request, user, cardState, requestBody.detailsObject.channelIdContext);
+        const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+        promotedCards = await feedManager.selectPromotedCards(request, user, geoLocation, 3, 1, 0, null, [card.id]);
       }
       if (requestBody.detailsObject.maxComments > 0) {
         await db.updateUserCardLastCommentFetch(user.id, card.id, Date.now());
@@ -641,15 +648,28 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
+      let adSlot: AdSlotRecord;
+      if (requestBody.detailsObject.adSlotId) {
+        adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+      }
       let transaction: BankTransactionDetails;
       if (requestBody.detailsObject.transaction) {
-        if (card.pricing.promotionFee <= 0) {
-          response.status(400).send("No promotion fee paid on this card");
+        if (!adSlot) {
+          response.status(400).send("No transaction appropriate if no corresponding ad slot");
+          return;
+        }
+        const campaign = await db.findCardCampaignById(adSlot.cardCampaignId);
+        if (!campaign) {
+          response.status(409).send("Ad campaign missing for the corresponding ad slot");
+          return;
+        }
+        if (campaign.type !== "content-promotion" && campaign.type !== "impression-ad") {
+          response.status(400).send("Ad campaign does not pay for impressions");
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (card.pricing.openPayment > 0 && info.earnedFromAuthor > 0) {
-          response.status(400).send("You have already been paid a promotion on this card");
+        if (info.earnedFromAuthor > 0) {
+          response.status(409).send("You have already been paid a promotion on this card");
           return;
         }
         author = await userManager.getUser(card.createdById, true);
@@ -657,7 +677,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(404).send("The author no longer has an account.");
           return;
         }
-        if (!author.admin && author.balance < card.pricing.promotionFee) {
+        if (!author.admin && author.balance < campaign.paymentAmount) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -666,7 +686,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("The transaction doesn't list the card author as the source.");
           return;
         }
-        if (transaction.amount !== card.pricing.promotionFee) {
+        if (transaction.amount !== campaign.paymentAmount) {
           response.status(400).send("Transaction amount does not match card promotion fee.");
           return;
         }
@@ -678,7 +698,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Transaction refers to the wrong card");
           return;
         }
-        if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+        if (campaign.couponId !== transaction.relatedCouponId) {
           response.status(400).send("Transaction refers to the wrong coupon");
           return;
         }
@@ -719,26 +739,28 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
       }
       await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "impression", null, 0, null, 0, null, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "impression", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
+      let campaignExpense = 0;
       if (transaction && author) {
         await userManager.updateUserBalance(request, user);
         await userManager.updateUserBalance(request, author);
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction, "Card impression: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
+        campaignExpense = transactionResult.record.details.amount;
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-        const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-        card.budget.available = budgetAvailable;
-        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, 0, null, null, null);
+        // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        // card.budget.available = budgetAvailable;
+        // await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, adSlot ? adSlot.cardCampaignId : null, 0, null, null, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
-      if (requestBody.detailsObject.adSlotId) {
-        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
-        if (adSlot && adSlot.status === "pending") {
-          await db.updateAdSlot(adSlot.id, "impression", transactionResult ? true : false);
-        }
+      if (adSlot) {
+        await this.incrementCardCampaignStats(request, adSlot.cardCampaignId, { clicks: 0, expenses: campaignExpense, impressions: 1, opens: 0, redemptions: campaignExpense > 0 ? 1 : 0 });
+      }
+      if (adSlot && adSlot.status === "pending") {
+        await db.updateAdSlot(adSlot.id, "impression", transactionResult ? true : false);
       }
       const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: CardImpressionResponse = {
@@ -788,7 +810,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "open", null, 0, null, 0, null, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "open", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       if (requestBody.detailsObject.adSlotId) {
         const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
@@ -819,9 +841,23 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       const now = Date.now();
       let transactionResult: BankTransactionResult;
+      let adSlot: AdSlotRecord;
+      if (requestBody.detailsObject.adSlotId) {
+        adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+      }
+      let campaignExpense = 0;
       if (requestBody.detailsObject.transaction && requestBody.detailsObject.transaction.objectString) {
-        if (card.pricing.openPayment <= 0) {
-          response.status(400).send("No open payment on this card");
+        if (!adSlot) {
+          response.status(400).send("Transaction not appropriate without ad slot");
+          return;
+        }
+        const campaign = await db.findCardCampaignById(adSlot.cardCampaignId);
+        if (!campaign) {
+          response.status(409).send("Ad campaign is missing for ad slot");
+          return;
+        }
+        if (campaign.type !== "pay-to-click") {
+          response.status(409).send("Mismatching ad campaign type");
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
@@ -834,7 +870,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(404).send("The author no longer has an account.");
           return;
         }
-        if (!author.admin && author.balance < card.pricing.openPayment) {
+        if (!author.admin && author.balance < campaign.paymentAmount) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -847,7 +883,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("The transaction doesn't list the card author as the source.");
           return;
         }
-        if (transaction.amount !== card.pricing.openPayment) {
+        if (transaction.amount !== campaign.paymentAmount) {
           response.status(400).send("Transaction amount does not match card click payment.");
           return;
         }
@@ -859,7 +895,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Transaction refers to the wrong card");
           return;
         }
-        if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+        if (campaign.couponId !== transaction.relatedCouponId) {
           response.status(400).send("Transaction refers to the wrong coupon");
           return;
         }
@@ -884,11 +920,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Invalid coupon: author mismatch");
           return;
         }
-        if (coupon.amount !== card.pricing.openPayment) {
-          response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
-          return;
-        }
-        if (!author.admin && author.balance < card.pricing.openPayment) {
+        if (!author.admin && author.balance < campaign.paymentAmount) {
           response.status(402).send("The author does not have sufficient funds.");
           return;
         }
@@ -899,12 +931,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await userManager.updateUserBalance(request, user);
         await userManager.updateUserBalance(request, author);
         transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction, "Card clicked: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
+        campaignExpense = transactionResult.record.details.amount;
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-        const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-        card.budget.available = budgetAvailable;
-        await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-click-payment", null, 0, null, coupon.amount, transactionResult.record.id, null, null);
+        // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
+        // card.budget.available = budgetAvailable;
+        // await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-click-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
         await this.incrementStat(card, "clickFeesPaid", coupon.amount, now, CLICK_FEES_PAID_SNAPSHOT_INTERVAL);
       }
       console.log("CardManager.card-clicked", requestBody.detailsObject);
@@ -916,13 +949,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "click", null, 0, null, 0, null, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "click", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
-      if (requestBody.detailsObject.adSlotId) {
-        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
-        if (adSlot && adSlot.status !== "clicked") {
-          await db.updateAdSlot(adSlot.id, "clicked", transactionResult ? true : false);
-        }
+      if (adSlot) {
+        await this.incrementCardCampaignStats(request, adSlot.cardCampaignId, { clicks: 1, expenses: campaignExpense, impressions: 0, opens: 0, redemptions: campaignExpense > 0 ? 1 : 0 });
+      }
+      if (adSlot && adSlot.status !== "clicked") {
+        await db.updateAdSlot(adSlot.id, "clicked", transactionResult ? true : false);
       }
       const status = await userManager.getUserStatus(request, user, false);
       const reply: CardClickedResponse = {
@@ -934,6 +967,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } catch (err) {
       errorManager.error("User.handleCardClicked: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async incrementCardCampaignStats(request: Request, campaignId: string, stats: CardCampaignStats): Promise<void> {
+    const campaign = await db.findCardCampaignById(campaignId);
+    if (campaign) {
+      const now = Date.now();
+      if (now - campaign.lastStatsSnapshot > MAX_CARD_CAMPAIGN_SNAPSHOT_INTERVAL) {
+        const updated = await db.updateCardCampaignLastStatsSnapshot(campaign.id, campaign.lastStatsSnapshot, now);
+        if (updated) {
+          await db.insertCardCampaignStats(campaign.id, now, campaign.stats);
+        } else {
+          errorManager.warning("Card.incrementCardCampaignStats: Race condition on stats snapshot", request, campaignId);
+        }
+      }
+      await db.incrementCardCampaignStats(campaign.id, stats);
+    } else {
+      errorManager.warning("Card.incrementCardCampaignStats: Card campaign is missing", request, campaignId);
     }
   }
 
@@ -1041,22 +1092,18 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const paymentInfo: UserCardActionPaymentInfo = {
         amount: amount,
         transactionId: transactionResult.record.id,
+        cardCampaignId: transactionResult.record.details.relatedCardCampaignId,
         category: paymentCategory,
         weight: weight,
         weightedRevenue: weight * amount,
         mobile: requestBody.detailsObject.mobile ? true : false
       };
       await db.updateUserFirstCardPurchased(user.id, card.id);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, 0, null, discountReason, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, null, 0, null, discountReason, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const statName = skipMoneyTransfer ? "fraudPurchases" : (isFirstUserCardPurchase ? "firstTimePurchases" : "normalPurchases");
       await this.incrementStat(card, statName, 1, now, CARD_PURCHASE_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue, 0, 0, isFirstUserCardPurchase ? 1 : 0, 0, 0, discountReason ? 0 : 1, 0, amount);
-      const newBudgetAvailable = author.admin || (card.budget && card.budget.amount > 0 && card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent);
-      if (card.budget && card.budget.available !== newBudgetAvailable) {
-        card.budget.available = newBudgetAvailable;
-        await db.updateCardBudgetAvailable(card, newBudgetAvailable, this.getPromotionScores(card));
-      }
       const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const userStatus = await userManager.getUserStatus(request, user, false);
@@ -1153,8 +1200,22 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!card) {
         return;
       }
-      if (card.pricing.openPayment <= 0) {
-        response.status(400).send("No open payment on this card");
+      if (!requestBody.detailsObject.adSlotId) {
+        response.status(400).send("Missing ad slot ID");
+        return;
+      }
+      const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
+      if (!adSlot) {
+        response.status(404).send("Ad slot record is missing");
+        return;
+      }
+      const campaign = await db.findCardCampaignById(adSlot.cardCampaignId);
+      if (!campaign) {
+        response.status(409).send("Card campaign is missing");
+        return;
+      }
+      if (campaign.type !== "pay-to-open") {
+        response.status(409).send("Mismatching card campaign type");
         return;
       }
       const info = await db.ensureUserCardInfo(user.id, card.id);
@@ -1167,7 +1228,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("The author no longer has an account.");
         return;
       }
-      if (!author.admin && author.balance < card.pricing.openPayment) {
+      if (!author.admin && author.balance < campaign.paymentAmount) {
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
@@ -1175,12 +1236,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Transaction missing");
         return;
       }
+      let campaignExpense = 0;
       const transaction = JSON.parse(requestBody.detailsObject.transaction.objectString) as BankTransactionDetails;
       if (!userManager.isUserAddress(author, transaction.address)) {
         response.status(400).send("The transaction doesn't list the card author as the source.");
         return;
       }
-      if (transaction.amount !== card.pricing.openPayment) {
+      if (transaction.amount !== campaign.paymentAmount) {
         response.status(400).send("Transaction amount does not match card open payment.");
         return;
       }
@@ -1192,7 +1254,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Transaction refers to the wrong card");
         return;
       }
-      if (card.couponIds.indexOf(transaction.relatedCouponId) < 0) {
+      if (campaign.couponId !== transaction.relatedCouponId) {
         response.status(400).send("Transaction refers to the wrong coupon");
         return;
       }
@@ -1217,11 +1279,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(400).send("Invalid coupon: author mismatch");
         return;
       }
-      if (coupon.amount !== card.pricing.openPayment) {
-        response.status(400).send("Invalid coupon: open payment mismatch: " + coupon.amount + " vs " + card.pricing.openPayment);
-        return;
-      }
-      if (!author.admin && author.balance < card.pricing.openPayment) {
+      if (!author.admin && author.balance < campaign.paymentAmount) {
         response.status(402).send("The author does not have sufficient funds.");
         return;
       }
@@ -1233,19 +1291,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await userManager.updateUserBalance(request, user);
       await userManager.updateUserBalance(request, author);
       const transactionResult = await bank.performRedemption(author, user, requestBody.detailsObject.transaction, "Card open payment: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
+      campaignExpense = transactionResult.record.details.amount;
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
-      const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
-      card.budget.available = budgetAvailable;
-      await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, coupon.amount, transactionResult.record.id, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
-      if (requestBody.detailsObject.adSlotId) {
-        const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
-        if (adSlot && adSlot.status !== "open-paid") {
-          await db.updateAdSlot(adSlot.id, "open-paid", true);
-        }
+      if (adSlot) {
+        await this.incrementCardCampaignStats(request, adSlot.cardCampaignId, { clicks: 0, expenses: campaignExpense, impressions: 0, opens: 1, redemptions: campaignExpense > 0 ? 1 : 0 });
+      }
+      if (adSlot && adSlot.status !== "open-paid") {
+        await db.updateAdSlot(adSlot.id, "open-paid", true);
       }
       const userStatus = await userManager.getUserStatus(request, user, false);
       const reply: CardRedeemOpenResponse = {
@@ -1274,7 +1330,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "close", null, 0, null, 0, null, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "close", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {
         serverVersion: SERVER_VERSION
@@ -1330,7 +1386,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
               action = "reset-like";
               break;
           }
-          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, action, null, 0, null, 0, null, null, null);
+          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, action, null, 0, null, null, 0, null, null, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -1388,7 +1444,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (card.private !== requestBody.detailsObject.private) {
         await db.updateCardPrivate(card, requestBody.detailsObject.private);
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", null, 0, null, 0, null, null, null);
+        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", null, 0, null, null, 0, null, null, null);
       }
       const reply: UpdateCardPrivateResponse = {
         serverVersion: SERVER_VERSION,
@@ -1539,31 +1595,26 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(401).send("Only the card author can edit it.");
         return;
       }
-      const pricing = requestBody.detailsObject.pricing;
-      this.validateCardPricing(user, pricing);
+      if (card.state !== 'active') {
+        response.status(404).send("This card is no longer available");
+        return;
+      }
+      if (card.pricing.openFeeUnits === 0) {
+        response.status(400).send("You cannot change the pricing on an ad card.");
+        return;
+      }
+      if (!requestBody.detailsObject.openFeeUnits || requestBody.detailsObject.openFeeUnits < 1 || requestBody.detailsObject.openFeeUnits > 5) {
+        response.status(400).send("Invalid price level");
+        return;
+      }
       console.log("CardManager.card-pricing-update", requestBody.detailsObject);
-      pricing.promotionFee = pricing.promotionFee || 0;
-      pricing.openPayment = pricing.openPayment || 0;
-      pricing.openFeeUnits = pricing.openFeeUnits || 0;
-      let totalBudget = 0;
-      let budgetAvailable = false;
-      if (pricing.budget) {
-        totalBudget = card.budget.spent + pricing.budget.amount;
-        pricing.budget.plusPercent = pricing.budget.plusPercent || 0;
-        budgetAvailable = user.admin || totalBudget > user.balance;
-      }
-      let couponId: string;
-      if (pricing.coupon) {
-        const couponRecord = await bank.registerCoupon(user, card.id, pricing.coupon);
-        couponId = couponRecord.id;
-      }
-      await db.updateCardPricing(card, pricing.promotionFee, pricing.openPayment, pricing.openFeeUnits, couponId, pricing.coupon, totalBudget, pricing.budget.plusPercent, budgetAvailable);
+      await db.updateCardOpenFee(card, Math.floor(requestBody.detailsObject.openFeeUnits));
       const reply: UpdateCardPricingResponse = {
         serverVersion: SERVER_VERSION
       };
       response.json(reply);
     } catch (err) {
-      errorManager.error("User.handleCardStateUpdate: Failure", request, err);
+      errorManager.error("User.handleCardPricingUpdate: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -1619,16 +1670,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!details.cardType && !details.linkUrl) {
       throw new ErrorWithStatusCode(400, "You must provide a card type or a linkUrl");
     }
-    this.validateCardPricing(user, details.pricing);
+    this.validateCardPricing(user, details);
+    this.validateCardCampaign(user, details);
     details.private = details.private ? true : false;
     const componentResponse = await channelsComponentManager.ensureComponent(request, details.cardType);
     let couponId: string;
     const cardId = uuid.v4();
-    if (details.pricing.coupon) {
-      const couponRecord = await bank.registerCoupon(user, cardId, details.pricing.coupon);
+    if (details.coupon) {
+      const couponRecord = await bank.registerCoupon(user, cardId, details.coupon);
       couponId = couponRecord.id;
     }
-    const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
+    // const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
     const keywords: string[] = [];
     if (details.keywords) {
       for (const keyword of details.keywords) {
@@ -1636,27 +1688,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     const searchText = details.searchText && details.searchText.length > 0 ? details.searchText : this.searchTextFromSharedState(details.sharedState);
-    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.pricing.promotionFee, details.pricing.openPayment, details.pricing.openFeeUnits, details.pricing.budget ? details.pricing.budget.amount : 0, couponId ? true : false, details.pricing.budget ? details.pricing.budget.plusPercent : 0, details.pricing.coupon, couponId, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, promotionScores, cardId);
+    const card = await db.insertCard(user.id, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.openFeeUnits, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
-    if (configuration.get("notifications.postCard")) {
-      let html = "<div>";
-      html += "<div>User: " + user.identity.name + "</div>";
-      html += "<div>Handle: " + user.identity.handle + "</div>";
-      html += "<div>Title: " + details.title + "</div>";
-      html += "<div>Text: " + details.text + "</div>";
-      html += "<div>CardType: " + details.cardType + "</div>";
-      html += "<div>Private: " + details.private + "</div>";
-      if (details.pricing.promotionFee) {
-        html += "<div>Promotion fee: " + details.pricing.promotionFee + "</div>";
-      }
-      if (details.pricing.openFeeUnits) {
-        html += "<div>Open fee (units): " + details.pricing.openFeeUnits + "</div>";
-      }
-      if (details.pricing.openPayment) {
-        html += "<div>Open payment: " + details.pricing.openPayment + "</div>";
-      }
-      html += "</div>";
-      void emailManager.sendInternalNotification("Card posted", "", html);
+    if (details.campaignInfo) {
+      await db.insertCardCampaign(user.id, "active", couponId, card.id, details.campaignInfo.type, this.getCampaignAmount(details.campaignInfo.type), details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
     }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0);
     await db.updateUserLastPosted(user.id, card.postedAt, card.summary.langCode);
@@ -1665,50 +1700,113 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return card;
   }
 
-  private validateCardPricing(user: UserRecord, pricing: CardPricingInfo): void {
-    if (!pricing) {
-      throw new ErrorWithStatusCode(400, "You must provide pricing information");
+  private getCampaignAmount(type: CardCampaignType): number {
+    switch (type) {
+      case "content-promotion":
+        return PROMOTION_PRICING.contentImpression;
+      case "impression-ad":
+        return PROMOTION_PRICING.adImpression;
+      case "pay-to-open":
+        return PROMOTION_PRICING.payToOpen;
+      case "pay-to-click":
+        return PROMOTION_PRICING.payToClick;
+      default:
+        throw new ErrorWithStatusCode(500, "Unexpected campaign type " + type);
     }
-    pricing.promotionFee = pricing.promotionFee || 0;
-    pricing.openFeeUnits = pricing.openFeeUnits || 0;
-    pricing.openPayment = pricing.openPayment || 0;
-    if (pricing.openPayment > 0 || pricing.promotionFee > 0) {
-      pricing.budget = pricing.budget || { amount: 0, plusPercent: 0 };
-      // if (!pricing.budget) {
-      //   throw new ErrorWithStatusCode(400, "You must provide a budget if you offer payment.");
-      // }
-      pricing.budget.amount = Math.max(pricing.budget.amount || 0, 0);
-      pricing.budget.plusPercent = Math.max(pricing.budget.plusPercent || 0, 0);
-      if (pricing.budget.amount < 0) {
-        throw new ErrorWithStatusCode(400, "Minimum budget is 0.");
+  }
+
+  private validateCardCampaign(user: UserRecord, details: PostCardDetails): void {
+    if (!details.campaignInfo) {
+      return;
+    }
+    if (!details.campaignInfo.type || !details.campaignInfo.budget || !details.campaignInfo.ends) {
+      throw new ErrorWithStatusCode(400, "Invalid card campaign info");
+    }
+    if (["content-promotion", "impression-ad", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
+      throw new ErrorWithStatusCode(400, "Invalid campaign type");
+    }
+    if (details.campaignInfo.type === "content-promotion") {
+      if (!details.campaignInfo.budget.promotionTotal || details.campaignInfo.budget.promotionTotal <= 0) {
+        throw new ErrorWithStatusCode(400, "Invalid content promotion budget");
       }
-      if (!user.admin && pricing.budget.amount > 0 && pricing.budget.amount > user.balance - 1) {
-        throw new ErrorWithStatusCode(400, "Budget exceeds your balance, leaving at least ℂ1 to spare.");
+      if (details.campaignInfo.budget.plusPercent && (details.campaignInfo.budget.plusPercent < 0 || details.campaignInfo.budget.plusPercent > 90)) {
+        throw new ErrorWithStatusCode(400, "Invalid content promotion budget plus percent");
       }
-      if (pricing.budget.plusPercent < 0 || pricing.budget.plusPercent > 90) {
-        throw new ErrorWithStatusCode(400, "Budget plusPercent must be between 0 and 90.");
+    } else {
+      if (!details.campaignInfo.budget.maxPerDay || details.campaignInfo.budget.maxPerDay < 0) {
+        throw new ErrorWithStatusCode(400, "Invalid daily budget");
       }
     }
-    if (pricing.promotionFee < 0 || pricing.openPayment < 0) {
-      throw new ErrorWithStatusCode(400, "Promotion fee and openPayment must be greater than or equal to zero.");
+    if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
+      throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
     }
-    if (pricing.openPayment > 0 && pricing.promotionFee > 0) {
-      throw new ErrorWithStatusCode(400, "You can't declare both an openPayment and a promotionFee.");
+  }
+
+  private validateCardCampaignInfo(user: UserRecord, info: CardCampaignInfo, campaign: CardCampaignRecord): void {
+    if (!info) {
+      throw new ErrorWithStatusCode(400, "Missing campaign info");
     }
-    pricing.openFeeUnits = Math.round(pricing.openFeeUnits);
-    if (pricing.promotionFee === 0 && pricing.openPayment === 0 && pricing.openFeeUnits === 0) {
-      throw new ErrorWithStatusCode(400, "Not all of promotionFee, openPayment and openFeeUnits can be zero.");
+    if (info.type) {
+      throw new ErrorWithStatusCode(400, "You cannot change the campaign type after creation");
     }
-    if (pricing.openPayment > 0 && pricing.openFeeUnits > 0) {
-      throw new ErrorWithStatusCode(400, "openPayment and openFeeUnits cannot both be non-zero.");
+    if (!info.budget && !info.ends && !info.geoTargets) {
+      throw new ErrorWithStatusCode(400, "No changes provided");
     }
-    if (pricing.openPayment === 0 && (pricing.openFeeUnits < 0 || pricing.openFeeUnits > 10)) {
-      throw new ErrorWithStatusCode(400, "OpenFeeUnits must be between 1 and 10.");
-    }
-    if (pricing.promotionFee > 0 || pricing.openPayment > 0) {
-      if (!pricing.coupon) {
-        throw new ErrorWithStatusCode(400, "If you offer payment, you must include a coupon");
+    if (info.budget) {
+      if (campaign.type === "content-promotion") {
+        if (!info.budget.promotionTotal || info.budget.promotionTotal <= 0) {
+          throw new ErrorWithStatusCode(400, "Invalid content promotion budget");
+        }
+        if (info.budget.plusPercent && (info.budget.plusPercent < 0 || info.budget.plusPercent > 90)) {
+          throw new ErrorWithStatusCode(400, "Invalid content promotion budget plus percent");
+        }
+      } else {
+        if (!info.budget.maxPerDay || info.budget.maxPerDay < 0) {
+          throw new ErrorWithStatusCode(400, "Invalid daily budget");
+        }
       }
+    }
+    if (info.ends && Date.now() > info.ends) {
+      throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
+    }
+  }
+
+  private validateCardPricing(user: UserRecord, details: PostCardDetails): void {
+    if (details.openFeeUnits && details.openFeeUnits > 0) {
+      if (details.campaignInfo) {
+        throw new ErrorWithStatusCode(400, "You cannot use an ad campaign on a card that has an open fee.");
+      }
+      details.openFeeUnits = Math.round(details.openFeeUnits);
+      if (details.openFeeUnits < 1 || details.openFeeUnits > 5) {
+        throw new ErrorWithStatusCode(400, "Invalid pricing level.   Must be 1 to 5.");
+      }
+    } else if (details.campaignInfo) {
+      if (!details.campaignInfo.type || !details.campaignInfo.budget) {
+        throw new ErrorWithStatusCode(400, "Incomplete campaignInfo");
+      }
+      if (["content-impression", "ad-impression", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
+        throw new ErrorWithStatusCode(400, "Invalid type");
+      }
+      if (details.campaignInfo.type === 'content-promotion') {
+        if (!details.campaignInfo.budget.promotionTotal || details.campaignInfo.budget.promotionTotal < 0) {
+          throw new ErrorWithStatusCode(400, "Invalid type");
+        }
+        if (details.campaignInfo.budget.plusPercent && details.campaignInfo.budget.plusPercent < 0 || details.campaignInfo.budget.plusPercent > 90) {
+          throw new ErrorWithStatusCode(40, "Invalid plusPercent value on campaign");
+        }
+        if (details.campaignInfo.ends && Date.now() > details.campaignInfo.ends) {
+          throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
+        }
+      } else {
+        if (!details.campaignInfo.budget.maxPerDay || details.campaignInfo.budget.maxPerDay < 0) {
+          throw new ErrorWithStatusCode(40, "Invalid budget maxPerDay value on campaign");
+        }
+        if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
+          throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
+        }
+      }
+    } else {
+      throw new ErrorWithStatusCode(400, "You must provide a pricing level or campaign info.");
     }
   }
 
@@ -1896,7 +1994,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   private async sendCardPostedNotification(cardId: string, user: UserRecord, address: string): Promise<void> {
-    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, null, user);
+    const cardDescriptor = await this.populateCardState(null, cardId, false, false, null, null, null, false, null, user);
     const details: NotifyCardPostedDetails = cardDescriptor;
     // await socketServer.sendEvent([address], { type: 'notify-card-posted', details: details });
   }
@@ -1921,7 +2019,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, user?: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, includeCampaignInfo: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -1939,6 +2037,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       iconUrl = url.resolve(packageRootUrl, record.cardType.iconUrl);
     }
     try {
+      let campaign: CardCampaignDescriptor;
+      if (includeCampaignInfo) {
+        if (!cardCampaignIfAvailable) {
+          cardCampaignIfAvailable = await db.findCardCampaignByCardId(record.id);
+        }
+        if (cardCampaignIfAvailable) {
+          campaign = await this.populateCardCampaign(cardId, cardCampaignIfAvailable, user);
+        }
+      }
       const image = await fileManager.getFileInfo(record.summary.imageId);
       const summary: CardSummary = {
         imageId: image ? image.id : null,
@@ -1968,14 +2075,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           royaltyFraction: record.cardType.royaltyFraction
         },
         pricing: {
-          promotionFee: record.pricing.promotionFee,
+          promotionFee: campaign && (campaign.type === "content-promotion" || campaign.type === "impression-ad") ? campaign.paymentAmount : 0,
           openFeeUnits: record.pricing.openFeeUnits,
-          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : -record.pricing.openPayment,
-          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : -record.pricing.openPayment
+          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? -campaign.paymentAmount : 0,
+          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? -campaign.paymentAmount : 0
         },
         promoted: promoted,
+        campaign: campaign,
+        couponId: campaign ? campaign.couponId : null,
         adSlotId: adSlotId,
-        couponId: record.couponIds.length > 0 ? record.couponIds[record.couponIds.length - 1] : null,
         stats: {
           revenue: record.stats.revenue.value,
           promotionsPaid: record.stats.promotionsPaid.value,
@@ -2125,6 +2233,68 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  private async populateCardCampaign(cardId: string, campaign: CardCampaignRecord, user: UserRecord): Promise<CardCampaignDescriptor> {
+    if (!campaign) {
+      return null;
+    }
+    const now = Date.now();
+    const result: CardCampaignDescriptor = {
+      id: campaign.id,
+      created: campaign.created,
+      status: campaign.status,
+      type: campaign.type,
+      paymentAmount: campaign.paymentAmount,
+      couponId: campaign.couponId,
+      budget: campaign.budget,
+      ends: campaign.ends,
+      geoTargets: await userManager.getGeoTargetDescriptors(campaign.geoTargets),
+      statsTotal: await this.getCardCampaignStats(cardId, campaign, 0, now),
+      statsLast24Hours: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24, now),
+      statsLast7Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 7, now),
+      statsLast30Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 30, now)
+    };
+    return result;
+  }
+
+  private async getCardCampaignStats(cardId: string, campaign: CardCampaignRecord, after: number, before: number): Promise<CardCampaignStats> {
+    const result: CardCampaignStats = {
+      impressions: 0,
+      opens: 0,
+      clicks: 0,
+      redemptions: 0,
+      expenses: 0
+    };
+    const actions = await db.aggregateUserCardActionPromotions(cardId, after, before);
+    for (const action of actions) {
+      switch (action._id) {
+        case "impression":
+          result.impressions += action.count;
+          break;
+        case "open":
+          result.opens += action.count;
+          break;
+        case "click":
+          result.clicks += action.count;
+          break;
+        case "redeem-promotion":
+          result.redemptions += action.count;
+          result.expenses += action.redeemImpressions;
+          break;
+        case "redeem-open-payment":
+          result.redemptions += action.count;
+          result.expenses += action.redeemOpens;
+          break;
+        case "redeem-click-payment":
+          result.redemptions += action.count;
+          result.expenses += action.redeemOpens;
+          break;
+        default:
+          break;
+      }
+    }
+    return result;
+  }
+
   private async incrementStat(card: CardRecord, statName: string, incrementBy: number, at: number, snapshotInterval: number): Promise<void> {
     const cardStatistic = (card.stats as any)[statName] as CardStatistic;
     if (cardStatistic) {
@@ -2133,58 +2303,58 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.insertCardStatsHistory(card.id, statName, cardStatistic.value, at);
         lastSnapshot = at;
       }
-      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot, this.getPromotionScores(card));
+      await db.incrementCardStat(card, statName, incrementBy, lastSnapshot);
     } else {
       await db.addCardStat(card, statName, incrementBy);
     }
   }
 
   async updateCardScore(card: CardRecord, score: number): Promise<void> {
-    await db.updateCardScore(card, score, this.getPromotionScores(card));
+    await db.updateCardScore(card, score);
   }
 
-  getPromotionScores(card: CardRecord): CardPromotionScores {
-    if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
-      return { a: 0, b: 0, c: 0, d: 0, e: 0 };
-    }
-    return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.promotionBoost ? card.curation.promotionBoost : 0);
-  }
+  // getPromotionScores(card: CardRecord): CardPromotionScores {
+  //   if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
+  //     return { a: 0, b: 0, c: 0, d: 0, e: 0 };
+  //   }
+  //   return this.getPromotionScoresFromData(card.budget.available, card.pricing.openFeeUnits, card.pricing.promotionFee, card.pricing.openPayment, card.stats.uniqueImpressions.value, card.stats.uniqueOpens.value, card.curation && card.curation.promotionBoost ? card.curation.promotionBoost : 0);
+  // }
 
-  private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): CardPromotionScores {
-    return {
-      a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
-      e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost)
-    };
-  }
+  // private getPromotionScoresFromData(budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): CardPromotionScores {
+  //   return {
+  //     a: this.getPromotionScoreFromData(0.9, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     b: this.getPromotionScoreFromData(0.7, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     c: this.getPromotionScoreFromData(0.5, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     d: this.getPromotionScoreFromData(0.3, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost),
+  //     e: this.getPromotionScoreFromData(0.1, budgetAvailable, openFeeUnits, promotionFee, openPayment, uniqueImpressions, uniqueOpens, boost)
+  //   };
+  // }
 
-  private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): number {
-    if (promotionFee === 0 && openPayment === 0) {
-      return 0;
-    }
-    if (!budgetAvailable) {
-      return 0;
-    }
-    let openProbability = openFeeUnits > 0 ? 0.1 : 0.01;
-    if (uniqueImpressions > 100) {
-      openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
-    }
-    // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
-    // if the card pays based on opens
-    let openBoost = 1;
-    if (openPayment > 0) {
-      openBoost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
-    }
-    const revenuePotential = promotionFee + openPayment * openProbability * openBoost;
-    const desireability = openProbability * 5;
-    let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
-    // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
-    const randomFactor = result * 0.1 * (Math.random() - 0.5);
-    result += randomFactor + boost;
-    return result;
-  }
+  // private getPromotionScoreFromData(ratio: number, budgetAvailable: boolean, openFeeUnits: number, promotionFee: number, openPayment: number, uniqueImpressions: number, uniqueOpens: number, boost: number): number {
+  //   if (promotionFee === 0 && openPayment === 0) {
+  //     return 0;
+  //   }
+  //   if (!budgetAvailable) {
+  //     return 0;
+  //   }
+  //   let openProbability = openFeeUnits > 0 ? 0.1 : 0.01;
+  //   if (uniqueImpressions > 100) {
+  //     openProbability = Math.max(openFeeUnits > 0 ? 0.01 : 0.001, uniqueOpens / uniqueImpressions);
+  //   }
+  //   // We're going to increase the openProbability as the ratio decreases (user more likely to open to earn money)
+  //   // if the card pays based on opens
+  //   let openBoost = 1;
+  //   if (openPayment > 0) {
+  //     openBoost += 4 * (1 - ratio);  // boost of 5X when budget is near zero
+  //   }
+  //   const revenuePotential = promotionFee + openPayment * openProbability * openBoost;
+  //   const desireability = openProbability * 5;
+  //   let result = ((1 - ratio) * revenuePotential) + (ratio * desireability);
+  //   // Add a +/- 5% random factor so as to randomize promoted cards that are very similar
+  //   const randomFactor = result * 0.1 * (Math.random() - 0.5);
+  //   result += randomFactor + boost;
+  //   return result;
+  // }
 
   getCardUrl(card: CardDescriptor): string {
     return this.urlManager.getAbsoluteUrl('/c/' + card.id);
@@ -2250,7 +2420,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         refundCompleted: refundCompleted,
         transactionId: transactionId
       };
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "report", null, 0, null, 0, null, null, reportInfo);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "report", null, 0, null, null, 0, null, null, reportInfo);
       await this.incrementStat(card, "reports", 1, now, CARD_REPORT_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, refunds, 0, 0, 0, 0, 0, 0);
 
@@ -2311,7 +2481,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.post-card-comment", requestBody.detailsObject);
       const now = Date.now();
       const commentRecord = await db.insertCardComment(user.id, now, card.id, requestBody.detailsObject.text, requestBody.detailsObject.metadata, user.curation === "blocked" ? "blocked" : null);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "comment", null, 0, null, 0, null, null, null);
+      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "comment", null, 0, null, null, 0, null, null, null);
       const notificationIds: string[] = [];
       if (card.createdById !== user.id) {
         const creator = await userManager.getUser(card.createdById, false);
@@ -2377,6 +2547,56 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleGetCardComments: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleUpdateCardCampaign(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<UpdateCardCampaignDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const campaign = await db.findCardCampaignById(requestBody.detailsObject.campaignId);
+      if (!campaign) {
+        response.status(404).send("No such card campaign");
+        return;
+      }
+      if (campaign.createdById !== user.id) {
+        response.status(401).send("You are not the campaign owner");
+        return;
+      }
+      this.validateCardCampaignInfo(user, requestBody.detailsObject.info, campaign);
+      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, "active");
+      console.log("CardManager.update-card-campaign", requestBody.detailsObject);
+      const reply: UpdateCardCampaignResponse = {
+        serverVersion: SERVER_VERSION
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleUpdateCardCampaign: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleGetAvailableAdSlots(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetAvailableAdSlotsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const pastWeek = requestBody.detailsObject.geoTargets && requestBody.detailsObject.geoTargets.length > 0 ?
+        await db.countAdSlotsInGeosSince(requestBody.detailsObject.geoTargets, Date.now() - 1000 * 60 * 60 * 24 * 7) : await db.countAdSlotsSince(Date.now() - 1000 * 60 * 60 * 24 * 7);
+      console.log("CardManager.get-available-ad-slots", requestBody.detailsObject);
+      const reply: GetAvailableAdSlotsResponse = {
+        serverVersion: SERVER_VERSION,
+        pastWeek: pastWeek
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetAvailableAdSlots: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

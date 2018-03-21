@@ -4,9 +4,9 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName } from "./interfaces/rest-services";
 import { db } from "./db";
-import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
+import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
@@ -27,6 +27,7 @@ import * as LRU from 'lru-cache';
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
+import { PROMOTION_PRICING } from "./card-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -47,11 +48,207 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
+const continentNameByContinentCode: { [continentCode: string]: string } = {
+  "AF": "Africa",
+  "AS": "Asia",
+  "EU": "Europe",
+  "OC": "Oceania",
+  "NA": "North America",
+  "SA": "South America"
+};
+
+const continentCodeByCountryCode: { [countryCode: string]: string } = {
+  "US": "NA",
+  "EC": "SA",
+  "MX": "NA",
+  "CA": "NA",
+  "FR": "EU",
+  "IN": "AS",
+  "GB": "EU",
+  "NZ": "OC",
+  "AU": "OC",
+  "JP": "AS",
+  "BR": "SA",
+  "SG": "AS",
+  "TW": "AS",
+  "GU": "AS",
+  "ZA": "AF",
+  "DE": "EU",
+  "KH": "AS",
+  "EG": "AF",
+  "RU": "AS",
+  "RS": "EU",
+  "DK": "EU",
+  "BG": "EU",
+  "PE": "SA",
+  "EE": "EU",
+  "ES": "EU",
+  "SI": "EU",
+  "FI": "EU",
+  "LU": "EU",
+  "TR": "EU",
+  "AT": "EU",
+  "SE": "EU",
+  "DZ": "AF",
+  "IM": "EU",
+  "PL": "EU",
+  "PT": "EU",
+  "CZ": "EU",
+  "IE": "EU",
+  "BE": "EU",
+  "NO": "EU",
+  "UG": "AF",
+  "SK": "EU",
+  "RO": "EU",
+  "IT": "EU",
+  "UA": "EU",
+  "NL": "EU",
+  "GR": "EU",
+  "CH": "EU",
+  "AR": "SA",
+  "KR": "AS",
+  "HK": "AS",
+  "CM": "AF",
+  "PY": "SA",
+  "NI": "SA",
+  "HR": "EU",
+  "LT": "EU",
+  "AE": "AS",
+  "BA": "EU",
+  "PK": "AS",
+  "XK": "EU",
+  "PH": "AS",
+  "IS": "EU",
+  "GY": "SA",
+  "VN": "AS",
+  "CR": "SA",
+  "MK": "EU",
+  "TH": "AS",
+  "CL": "SA",
+  "TN": "AF",
+  "CO": "SA",
+  "DO": "NA",
+  "MA": "AF",
+  "ET": "AF",
+  "NG": "AF",
+  "GG": "EU",
+  "ID": "AS",
+  "MY": "AS",
+  "LV": "EU",
+  "TT": "NA",
+  "IL": "AS",
+  "CY": "EU",
+  "CN": "AS",
+  "MD": "EU",
+  "UZ": "AS",
+  "MU": "AF",
+  "GT": "SA",
+  "NP": "AS",
+  "HU": "EU",
+  "SN": "AF",
+  "GE": "AS",
+  "UY": "SA",
+  "TZ": "AF",
+  "SA": "AS",
+  "BB": "NA",
+  "BZ": "NA",
+  "KY": "NA",
+  "KW": "AS",
+  "AX": "EU",
+  "KE": "AF",
+  "SC": "NA",
+  "PS": "AS",
+  "LK": "AS",
+  "BN": "AS",
+  "PA": "NA",
+  "LB": "AS",
+  "ME": "EU",
+  "MT": "EU",
+  "BS": "NA",
+  "JE": "EU",
+  "BD": "AS",
+  "AL": "EU",
+  "SV": "NA",
+  "BH": "AS",
+  "HN": "NA",
+  "BW": "AF",
+  "GI": "EU",
+  "ZW": "AF",
+  "QA": "AS",
+  "YE": "AS",
+  "PR": "NA",
+  "VE": "SA",
+  "KZ": "AS",
+  "ZM": "AF",
+  "BY": "AS",
+  "IR": "AS",
+  "JM": "NA",
+  "SD": "AF",
+  "SO": "AF",
+  "VC": "NA",
+  "AF": "AS",
+  "MR": "EU",
+  "GH": "AF",
+  "GP": "NA",
+  "CW": "SA",
+  "HT": "NA",
+  "PF": "AS",
+  "AM": "EU",
+  "IQ": "AS",
+  "MN": "AS",
+  "AW": "SA",
+  "MO": "AS",
+  "BO": "SA",
+  "RE": "AF",
+  "BJ": "AF",
+  "MM": "AS",
+  "MQ": "NA",
+  "SY": "AS",
+  "BT": "AS",
+  "LR": "AF",
+  "GM": "AF",
+  "OM": "AS",
+  "KN": "NA",
+  "MZ": "AF",
+  "AD": "EU",
+  "JO": "AS",
+  "SZ": "AF",
+  "PG": "OC",
+  "MV": "AS",
+  "LI": "EU",
+  "CV": "AF",
+  "CI": "AF",
+  "FK": "SA",
+  "MG": "AF",
+  "NA": "AF",
+  "AO": "AF",
+  "NE": "AF",
+  "DJ": "AF",
+  "MW": "AF",
+  "AZ": "AS",
+  "LY": "AF",
+  "BM": "NA",
+  "SR": "SA",
+  "VI": "NA",
+  "FJ": "AS",
+  "SB": "AS",
+  "FO": "EU",
+  "TG": "AF",
+  "RW": "AF",
+  "GN": "AF",
+};
+
 export class UserManager implements RestServer, UserSocketHandler, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
+  private ipCache = LRU<string, IpAddressRecord>({ max: 10000, maxAge: 1000 * 60 * 60 });
+
+  private countryCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
+  private regionCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
+
+  private countryRegionsCache = LRU<string, CodeAndName[]>({ max: 10000, maxAge: 1000 * 60 * 60 * 3 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -176,6 +373,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('admin-set-user-curation'), (request: Request, response: Response) => {
       void this.handleAdminSetUserCuration(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('get-geo-descriptors'), (request: Request, response: Response) => {
+      void this.handleGetGeoDescriptors(request, response);
+    });
   }
 
   async handleNotification(notification: ChannelsServerNotification): Promise<void> {
@@ -249,7 +449,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const ipAddress = this.getIpAddressFromRequest(request);
       let ipAddressInfo: IpAddressRecord;
       if (ipAddress && ipAddress.length > 0) {
-        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
+        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress, false);
       }
       console.log("UserManager.register-user:", request.headers, ipAddress);
       const isMobile = requestBody.detailsObject.userAgent && requestBody.detailsObject.userAgent.toLowerCase().indexOf('mobi') >= 0;
@@ -310,25 +510,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: initialGrant,
             relatedCardId: null,
             relatedCouponId: null,
+            relatedCardCampaignId: null,
             toRecipients: [grantRecipient]
           };
           await networkEntity.performBankTransaction(request, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
           userRecord.balance = initialGrant;
-          // if (inviteeReward > 0) {
-          //   const inviteeRewardDetails: BankTransactionDetails = {
-          //     timestamp: null,
-          //     address: null,
-          //     fingerprint: null,
-          //     type: "transfer",
-          //     reason: "invitee-reward",
-          //     amount: inviteeReward,
-          //     relatedCardId: null,
-          //     relatedCouponId: null,
-          //     toRecipients: [grantRecipient]
-          //   };
-          //   await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
-          //   userRecord.balance += inviteeReward;
-          // }
         }
       }
       await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
@@ -347,7 +533,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         referralFraction: networkEntity.getReferralFraction(),
         withdrawalsEnabled: bank.withdrawalsEnabled,
         depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null,
-        admin: userRecord.admin
+        admin: userRecord.admin,
+        promotionPricing: PROMOTION_PRICING
       };
       response.json(registerResponse);
     } catch (err) {
@@ -369,6 +556,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   getIpAddressFromRequest(request: Request): string {
+    if (!request) {
+      return null;
+    }
+    if (configuration.get('ipOverride')) {
+      return configuration.get('ipOverride');
+    }
     const ipAddressHeader = request.headers['x-forwarded-for'] as string;
     let ipAddress: string;
     if (ipAddressHeader) {
@@ -382,11 +575,58 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return ipAddress;
   }
 
-  private async fetchIpAddressInfo(ipAddress: string): Promise<IpAddressRecord> {
+  async getGeoFromRequest(request: Request, fingerprint: string): Promise<GeoLocation> {
+    const ipAddress = this.getIpAddressFromRequest(request);
+    const ipInfo = await this.fetchIpAddressInfo(ipAddress, false);
+    return this.getGeoLocationFromIpInfo(fingerprint, ipInfo);
+  }
+
+  getGeoLocationFromIpInfo(fingerprint: string, ipInfo: IpAddressRecord): GeoLocation {
+    if (!ipInfo) {
+      return null;
+    }
+    const result: GeoLocation = {
+      ipAddress: ipInfo.ipAddress,
+      fingerprint: fingerprint,
+      continentCode: null,
+      countryCode: null,
+      regionCode: null,
+      zipCode: null,
+      lat: null,
+      lon: null
+    };
+    if (ipInfo) {
+      if (ipInfo.countryCode) {
+        result.continentCode = this.getContinentCodeFromCountry(ipInfo.countryCode);
+        if (!result.continentCode) {
+          errorManager.error("Missing continent mapping for country code", null, ipInfo);
+        }
+        result.countryCode = ipInfo.countryCode;
+      }
+      result.regionCode = ipInfo.region;
+      result.zipCode = ipInfo.zip;
+      result.lat = ipInfo.lat;
+      result.lon = ipInfo.lon;
+    }
+    return result;
+  }
+
+  private getContinentCodeFromCountry(countryCode: string): string {
+    if (!countryCode) {
+      return null;
+    }
+    return continentCodeByCountryCode[countryCode];
+  }
+
+  async fetchIpAddressInfo(ipAddress: string, force: boolean): Promise<IpAddressRecord> {
     if (ipAddress === "::1" || ipAddress === "localhost" || ipAddress === "127.0.0.1") {
       return null;
     }
-    const record = await db.findIpAddress(ipAddress);
+    let record = this.ipCache.get(ipAddress);
+    if (!force && record) {
+      return record;
+    }
+    record = await db.findIpAddress(ipAddress);
     const lifetime = record && record.status === 'success' ? MAX_IP_ADDRESS_LIFETIME : IP_ADDRESS_FAIL_RETRY_INTERVAL;
     if (record && Date.now() - record.lastUpdated < lifetime) {
       return record;
@@ -787,6 +1027,49 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleGetGeoDescriptors(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetGeoDescriptorsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.get-geo-descriptors", user.id, requestBody.detailsObject);
+      const reply: GetGeoDescriptorsResponse = {
+        serverVersion: SERVER_VERSION,
+        continents: null,
+        countriesByContinent: null,
+        regionsByCountry: null
+      };
+      if (requestBody.detailsObject.countryCode) {
+        reply.regionsByCountry = {};
+        reply.regionsByCountry[requestBody.detailsObject.countryCode] = [];
+        const regions = await this.getRegionsByCountry(requestBody.detailsObject.countryCode);
+        for (const region of regions) {
+          reply.regionsByCountry[requestBody.detailsObject.countryCode].push(region);
+        }
+      } else {
+        reply.continents = [];
+        for (const continentCode of Object.keys(continentNameByContinentCode)) {
+          reply.continents.push({ code: continentCode, name: continentNameByContinentCode[continentCode] });
+        }
+        reply.countriesByContinent = {};
+        for (const countryCode of Object.keys(continentCodeByCountryCode)) {
+          const continentCode = continentCodeByCountryCode[countryCode];
+          if (!reply.countriesByContinent[continentCode]) {
+            reply.countriesByContinent[continentCode] = [];
+          }
+          const name = await this.getCountryNameByCode(countryCode);
+          reply.countriesByContinent[countryCode].push({ code: countryCode, name: name });
+        }
+      }
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetGeoDescriptors: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
@@ -866,6 +1149,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       amount: REGISTRATION_BONUS,
       relatedCardId: null,
       relatedCouponId: null,
+      relatedCardCampaignId: null,
       toRecipients: [grantRecipient]
     };
     await networkEntity.performBankTransaction(request, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
@@ -1165,6 +1449,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: subsidy,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [subsidyRecipient]
         };
         await networkEntity.performBankTransaction(request, subsidyDetails, null, "User subsidy", null, null, Date.now());
@@ -1188,6 +1473,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: interest,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [interestRecipient]
         };
         await networkEntity.performBankTransaction(request, grant, null, "Interest", null, null, now);
@@ -1274,6 +1560,83 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     await db.updateUserCuration(user.id, "blocked");
     await db.updateCardsBlockedByAuthor(user.id, true);
     await this.announceUserUpdated(user);
+  }
+
+  async getGeoTargetDescriptors(targets: string[]): Promise<GeoTargetDescriptor[]> {
+    const result: GeoTargetDescriptor[] = [];
+    if (targets) {
+      for (const target of targets) {
+        const parts = target.split('.');
+        const item: GeoTargetDescriptor = {
+          continentCode: null,
+          continentName: null,
+        };
+        if (parts.length > 0) {
+          item.continentCode = parts[0];
+          item.continentName = continentNameByContinentCode[parts[0]];
+        }
+        if (parts.length > 1) {
+          item.countryCode = parts[1];
+          item.countryName = await this.getCountryNameByCode(parts[1]);
+        }
+        if (parts.length > 2) {
+          if (parts[2].length > 2) {
+            item.zipCode = parts[2];
+          } else {
+            item.regionCode = parts[2];
+            item.regionName = await this.getRegionNameByCode(parts[1], parts[2]);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  private async getCountryNameByCode(countryCode: string): Promise<string> {
+    const result = this.countryCache.get(countryCode);
+    if (result) {
+      return result;
+    }
+    const ipInfo = await db.findIpAddressCountryCode(countryCode);
+    if (ipInfo) {
+      this.countryCache.set(countryCode, ipInfo.country);
+      return ipInfo.country;
+    } else {
+      return null;
+    }
+  }
+
+  private async getRegionsByCountry(countryCode: string): Promise<CodeAndName[]> {
+    let result = this.countryRegionsCache.get(countryCode);
+    if (!result) {
+      result = [];
+      const regionCodes = await db.findIpAddressDistinctRegions(countryCode);
+      for (const regionCode of regionCodes) {
+        if (regionCode) {
+          const record = await db.findIpAddressRegionCode(countryCode, regionCode);
+          if (record) {
+            result.push({ code: regionCode, name: record.regionName });
+          }
+        }
+      }
+      this.countryRegionsCache.set(countryCode, result);
+    }
+    return result;
+  }
+
+  private async getRegionNameByCode(countryCode: string, regionCode: string): Promise<string> {
+    const key = countryCode + "." + regionCode;
+    const result = this.countryCache.get(key);
+    if (result) {
+      return result;
+    }
+    const ipInfo = await db.findIpAddressRegionCode(countryCode, regionCode);
+    if (ipInfo) {
+      this.regionCache.set(key, ipInfo.regionName);
+      return ipInfo.regionName;
+    } else {
+      return null;
+    }
   }
 }
 

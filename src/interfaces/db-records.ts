@@ -146,15 +146,12 @@ export interface CardRecord {
     royaltyFraction: number;
   };
   pricing: {
-    promotionFee: number;
-    openPayment: number; // in ChannelCoin
+    promotionFee?: number; // obsolete
+    openPayment?: number; //  obsolete
     openFeeUnits: number; // 1 - 10
   };
-  coupon?: SignedObject; // obsolete
-  couponId?: string; // obsolete
-  coupons: SignedObject[];
-  couponIds: string[];
-  budget: {
+  couponIds?: string[];  // obsolete
+  budget?: {  // obsolete
     amount: number;
     plusPercent: number;
     spent: number;
@@ -163,7 +160,6 @@ export interface CardRecord {
   stats: CardStatistics;
   score: number;
   lastScored: number;
-  promotionScores: CardPromotionScores;
   lock: {
     server: string;
     at: number;
@@ -428,16 +424,19 @@ export interface UserCardActionRecord {
   redeemPromotion?: {
     amount: number;
     transactionId: string;
+    cardCampaignId: string;
   };
   redeemOpen?: {
     amount: number;
     transactionId: string;
+    cardCampaignId: string;
   };
 }
 
 export interface UserCardActionPaymentInfo {
   amount: number;
   transactionId: string;
+  cardCampaignId: string;
   category: CardPaymentCategory;
   weight: number;
   weightedRevenue: number;
@@ -692,6 +691,7 @@ export interface AdSlotRecord {
   userBalance: number;
   channelId: string;
   cardId: string;
+  cardCampaignId: string;
   created: number;
   authorId: string;
   type: AdSlotType;
@@ -699,6 +699,18 @@ export interface AdSlotRecord {
   redeemed: boolean;
   statusChanged: number;
   amount: number;
+  geoTargets: string[];
+}
+
+export interface GeoLocation {
+  fingerprint: string;
+  ipAddress: string;
+  continentCode: string;
+  countryCode: string;
+  regionCode: string;
+  zipCode: string;
+  lat: number;
+  lon: number;
 }
 
 export type AdSlotType = "impression-ad" | "impression-content" | "open-payment" | "click-payment" | "announcement";
@@ -745,3 +757,44 @@ export interface DepositRecord {
 }
 
 export type DepositStatus = "pending" | "completed";
+
+export interface CardCampaignRecord {
+  id: string;
+  created: number;
+  createdById: string;
+  status: CardCampaignStatus;
+  eligibleAfter: number;
+  couponId: string;
+  cardIds: string[];
+  type: CardCampaignType;
+  paymentAmount: number;
+  budget: CardCampaignBudget;
+  ends: number;  // date
+  geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.
+  stats: CardCampaignStats;
+  lastStatsSnapshot: number;
+}
+
+export interface CardCampaignStats {
+  impressions: number;
+  opens: number;
+  clicks: number;
+  redemptions: number;
+  expenses: number;
+}
+
+export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted";
+
+export interface CardCampaignBudget {
+  promotionTotal: number; // content-promotion only
+  plusPercent: number;  // content-promotion only
+  maxPerDay: number;  // ad types only
+}
+
+export type CardCampaignType = "content-promotion" | "impression-ad" | "pay-to-open" | "pay-to-click";
+
+export interface CardCampaignStatsSnapshotRecord {
+  campaignId: string;
+  at: number;
+  stats: CardCampaignStats;
+}

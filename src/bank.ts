@@ -83,6 +83,7 @@ export class Bank implements RestServer, Initializable {
           reason: "paypal-payment-received",
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           amount: deposit.net,
           toRecipients: [recipient]
         };
@@ -268,6 +269,7 @@ export class Bank implements RestServer, Initializable {
         reason: "paypal-payment-received",
         relatedCardId: null,
         relatedCouponId: null,
+        relatedCardCampaignId: null,
         amount: deposit.net,
         toRecipients: [recipient]
       };

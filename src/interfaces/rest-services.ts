@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -41,6 +41,14 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   withdrawalsEnabled: boolean;
   depositUrl: string;
   admin: boolean;
+  promotionPricing: PromotionPricingInfo;
+}
+
+export interface PromotionPricingInfo {
+  contentImpression: number;
+  adImpression: number;
+  payToOpen: number;
+  payToClick: number;
 }
 
 export interface SignInDetails extends Signable {
@@ -213,7 +221,6 @@ export interface CardDescriptor {
   };
   promoted: boolean;
   adSlotId: string;
-  couponId: string;
   stats: CardDescriptorStatistics;
   score: number;
   userSpecific: {
@@ -241,6 +248,8 @@ export interface CardDescriptor {
   sourceChannelId: string;
   commentCount: number;
   pinning?: ChannelCardPinInfo;
+  campaign: CardCampaignDescriptor;
+  couponId: string;
 }
 
 export interface ChannelCardPinInfo {
@@ -385,9 +394,11 @@ export interface PostCardDetails extends Signable {
   searchText: string;
   private: boolean;
   cardType?: string;
-  pricing: CardPricingInfo;
+  openFeeUnits: number;
   sharedState: CardState;
   fileIds: string[];
+  coupon: SignedObject;
+  campaignInfo?: CardCampaignInfo;
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -406,7 +417,7 @@ export interface UpdateCardStateResponse extends RestResponse { }
 
 export interface UpdateCardPricingDetails extends Signable {
   cardId: string;
-  pricing: CardPricingInfo;
+  openFeeUnits: number;
 }
 
 export interface CardPricingInfo {
@@ -546,6 +557,7 @@ export interface BankTransactionDetails extends Signable {
   type: BankTransactionType;
   reason: BankTransactionReason;
   relatedCardId: string;
+  relatedCardCampaignId: string;
   relatedCouponId: string;
   amount: number;  // ChannelCoin
   toRecipients: BankTransactionRecipientDirective[];
@@ -1231,4 +1243,77 @@ export interface GetChannelSubscribersResponse extends RestResponse {
 export interface ChannelSubscriberInfo {
   user: UserDescriptor;
   homeChannel: ChannelDescriptor;
+}
+
+export interface GetCardCampaignsDetails extends Signable {
+  afterCampaignId: string;
+  maxCount: number;
+}
+
+export interface GetCardCampaignsResponse extends RestResponse {
+  campaigns: CardCampaignDescriptor[];
+  moreAvailable: boolean;
+}
+
+export interface CardCampaignDescriptor {
+  id: string;
+  created: number;
+  status: CardCampaignStatus;
+  type: CardCampaignType;
+  paymentAmount: number;
+  couponId: string;
+  budget: CardCampaignBudget;
+  ends: number;
+  geoTargets: GeoTargetDescriptor[];
+  statsTotal: CardCampaignStats;
+  statsLast24Hours: CardCampaignStats;
+  statsLast7Days: CardCampaignStats;
+  statsLast30Days: CardCampaignStats;
+}
+
+export interface GeoTargetDescriptor {
+  continentCode: string;
+  continentName: string;
+  countryCode?: string;
+  countryName?: string;
+  regionCode?: string;
+  regionName?: string;
+  zipCode?: string;
+}
+
+export interface UpdateCardCampaignDetails extends Signable {
+  campaignId: string;
+  info: CardCampaignInfo;
+}
+
+export interface CardCampaignInfo {
+  type: CardCampaignType;
+  budget: CardCampaignBudget;
+  ends: number;
+  geoTargets: string[];
+}
+
+export interface UpdateCardCampaignResponse extends RestResponse { }
+
+export interface GetGeoDescriptorsDetails extends Signable {
+  countryCode?: string;
+}
+
+export interface GetGeoDescriptorsResponse extends RestResponse {
+  continents: CodeAndName[];  // only if countryCode omitted
+  countriesByContinent: { [continentCode: string]: CodeAndName[] }; // only if countryCode omitted
+  regionsByCountry: { [countryCode: string]: CodeAndName[] };  // only if countryCode provided
+}
+
+export interface CodeAndName {
+  code: string;
+  name: string;
+}
+
+export interface GetAvailableAdSlotsDetails extends Signable {
+  geoTargets: string[];
+}
+
+export interface GetAvailableAdSlotsResponse extends RestResponse {
+  pastWeek: number;
 }

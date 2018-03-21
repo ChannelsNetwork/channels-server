@@ -2191,7 +2191,7 @@ db.cards.aggregate([
     state: "active",
   }},
   {$group: {
-    _id: {createdById: "$createdById", handle: "$by.handle"},
+    _id: {createdById: "$createdById", handle: "$by.handle", amount: "$pricing.openPayment"},
     count: {$sum: 1},
     potential: {$sum: "$pricing.openPayment"},
     budget: {$sum: "$budget.amount"},
@@ -2473,6 +2473,9 @@ db.userCardActions.aggregate([
   {$unwind: "$buyer"},
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
+  {$match: {
+    "registration.at": {$gt: 1520869372000}
+  }},
   {$group: {
     _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
     registrations: {$sum: 1},
@@ -2717,3 +2720,85 @@ db.adSlots.aggregate([
   }},
   {$sort: {count: -1}}
 ])
+
+db.userCardActions.aggregate([
+  {$match: {
+    fromFingerprint: "a0ea47f08cad972616c500cee07368d8",
+    action: "pay",
+    at: {$gt: 1520869372000},
+    fraudReason: {$exists: false}
+  }},
+  {$group: {
+    _id: {author: "$authorId", card: "$cardId"},
+    revenue: {$sum: "$payment.amount"},
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id.author",
+    foreignField: "id",
+    as: "author"
+  }},
+  {$unwind: "$author"},
+  {$project: {
+    revenue: 1,
+    handle: "$author.identity.handle",    
+  }},
+  {$sort: {revenue: -1}}
+])
+
+db.manualWithdrawals.aggregate([
+  {$group: {
+    _id: {user: "$userId", state: "$state"},
+    count: {$sum: 1},
+    withdrawn: {$sum: "$amount"}
+  }},
+  {$group: {
+    _id: "$_id.state",
+    users: {$sum: 1},
+    withdrawn: {$sum: "$withdrawn"}
+  }},
+  {$sort: {withdrawn: -1}}
+])
+
+db.manualWithdrawals.aggregate([
+  {$match: {state: "paid"}},
+  {$group: {
+    _id: {user: "$userId"},
+    count: {$sum: 1},
+    withdrawn: {$sum: "$amount"}
+  }},
+  {$sort: {withdrawn: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: {$in: ["redeem-open-payment", "redeem-click-payment"]}
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    total: {$sum: "$redeemOpen.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1,
+    total: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    referrer: "$user.originalReferrer",
+    landingPage: "$user.originalLandingPage",
+    lastContact: "$user.lastContact"
+  }},
+  {$match: {
+    lastContact: {$gt: 1520440972000}
+  }},
+  {$sort: {balance: 1}}
+]).pretty()

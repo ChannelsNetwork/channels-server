@@ -91,6 +91,7 @@ export class NetworkEntity implements Initializable {
           amount: Math.max(5, user.balance),
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
@@ -106,6 +107,7 @@ export class NetworkEntity implements Initializable {
             amount: interest,
             relatedCardId: null,
             relatedCouponId: null,
+            relatedCardCampaignId: null,
             toRecipients: [recipient]
           };
           await this.performBankTransaction(null, interestPayment, null, null, null, null, Date.now());
