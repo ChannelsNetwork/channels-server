@@ -1182,13 +1182,18 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const channelIds = await channelManager.findSubscribedChannelIdsForUser(user, false);
+    const cardIds: string[] = [];
     const cards: CardDescriptor[] = [];
     if (channelIds.length > 0) {
       const cursor = channelManager.getCardsInChannelsAll(channelIds, before, 0);
       while (await cursor.hasNext()) {
         const channelCard = await cursor.next();
+        if (cardIds.indexOf(channelCard.cardId) >= 0) {
+          continue;
+        }
         const card = await db.findCardById(channelCard.cardId, false);
         if (card) {
+          cardIds.push(card.id);
           if (card.curation && card.curation.block && user.id !== card.createdById) {
             continue;
           }
