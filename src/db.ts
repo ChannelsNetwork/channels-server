@@ -2358,7 +2358,7 @@ export class Database {
 
   async updateUserCardLastOpened(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value, lastCommentFetch: value } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value, lastCommentsFetch: value } });
   }
 
   async updateUserCardLastClicked(userId: string, cardId: string, value: number): Promise<void> {
@@ -2368,7 +2368,7 @@ export class Database {
 
   async updateUserCardLastCommentFetch(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastCommentFetch: value } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastCommentsFetch: value } });
   }
 
   async updateUserCardLastClosed(userId: string, cardId: string, value: number): Promise<void> {
