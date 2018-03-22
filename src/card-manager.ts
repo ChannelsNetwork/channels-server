@@ -210,6 +210,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
       }
       await adSlotCursor.close();
+
+    }
+
+    const reportedCardCount = await db.countCardsReported();
+    if (reportedCardCount === 0) {
+      const reportedCardIds = await db.findDistinctReportedCardIds();
+      for (const cardId of reportedCardIds) {
+        await db.updateCardReported(cardId, true);
+      }
     }
 
     const ipAddressCursor = db.getUserCardActionsWithFromIpAddress(Date.now() - 1000 * 60 * 60 * 24 * 30);
@@ -2464,6 +2473,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           await userManager.adminBlockUser(owner);
         }
       }
+      await db.updateCardReported(card.id, true);
 
       let html = "";
       html += "<p>A user has reported a card.</p>";

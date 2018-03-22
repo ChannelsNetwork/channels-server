@@ -1113,6 +1113,10 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, { $set: { lock: { server: '', at: 0 } } });
   }
 
+  async updateCardReported(cardId: string, reported: boolean): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $set: { "curation.reported": reported } });
+  }
+
   async findCardById(id: string, includeInactive: boolean, includeSearchText: boolean = false): Promise<CardRecord> {
     if (!id) {
       return null;
@@ -1175,6 +1179,10 @@ export class Database {
 
   getCardsLatestNonPromoted(): Cursor<CardRecord> {
     return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "pricing.openFeeUnits": { $gt: 0 }, score: { $gt: 0 } }).sort({ postedAt: -1 });
+  }
+
+  async countCardsReported(): Promise<number> {
+    return this.cards.count({"curation.reported": true});
   }
 
   async replaceCardBy(cardId: string, createdById: string): Promise<void> {
@@ -1449,7 +1457,7 @@ export class Database {
     return null;
   }
 
-  getAccessibleCardsByTime(before: number, after: number, userId: string, excludeReportedCards: boolean): Cursor<CardRecord> {
+  getAccessibleCardsByTime(before: number, after: number, userId: string, excludeAds: boolean, excludeReportedCards: boolean): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     if (before && after) {
@@ -1459,9 +1467,13 @@ export class Database {
     } else if (after) {
       query.postedAt = { $gt: after };
     }
+    if (excludeAds) {
+      query["pricing.openFeeUnits"] = { $gt: 0 };
+    }
     if (excludeReportedCards) {
       query.$or = [
         { curation: { $exists: false } },
+        { "curation.reported": { $exists: false } },
         { "curation.reported": false },
         { "curation.overrideReports": true }
       ];
@@ -2075,6 +2087,10 @@ export class Database {
 
   getUserCardActionsWithFromIpAddress(since: number): Cursor<UserCardActionRecord> {
     return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: since }, fromIpAddress: { $exists: true } });
+  }
+
+  async findDistinctReportedCardIds(): Promise<string[]> {
+    return this.userCardActions.distinct('cardId', { action: "report" });
   }
 
   async findUserCardActionsByCardAndTime(actions: CardActionType[], cardId: string, maxCount: number, after: number): Promise<UserCardActionRecord[]> {
