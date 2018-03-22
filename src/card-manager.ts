@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -160,6 +160,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     this.app.post(this.urlManager.getDynamicUrl('get-available-ad-slots'), (request: Request, response: Response) => {
       void this.handleGetAvailableAdSlots(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('get-user-card-analytics'), (request: Request, response: Response) => {
+      void this.handleGetUserCardAnalytics(request, response);
+    });
   }
 
   async initialize2(): Promise<void> {
@@ -207,7 +210,33 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
       }
       await adSlotCursor.close();
+
     }
+
+    const reportedCardCount = await db.countCardsReported();
+    if (reportedCardCount === 0) {
+      const reportedCardIds = await db.findDistinctReportedCardIds();
+      for (const cardId of reportedCardIds) {
+        await db.updateCardReported(cardId, true);
+      }
+    }
+
+    const ipAddressCursor = db.getUserCardActionsWithFromIpAddress(Date.now() - 1000 * 60 * 60 * 24 * 30);
+    let addressCount = await ipAddressCursor.count();
+    while (await ipAddressCursor.hasNext()) {
+      const record = await ipAddressCursor.next();
+      const ipInfo = await userManager.fetchIpAddressInfo(record.fromIpAddress, false);
+      if (ipInfo) {
+        const geoLocation = userManager.getGeoLocationFromIpInfo(record.fromFingerprint, ipInfo);
+        await db.updateUserActionWithGeo(record.id, geoLocation);
+        if (--addressCount % 10 === 0) {
+          console.log("Card.initialize2: " + addressCount + ": Populating geo into userCardAction", record.id);
+        }
+      } else {
+        await db.updateUserActionWithGeo(record.id, null);
+      }
+    }
+    await ipAddressCursor.close();
 
     setInterval(this.poll.bind(this), 1000 * 60 * 5);
   }
@@ -739,7 +768,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
       }
       await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "impression", null, 0, null, null, 0, null, null, null);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "impression", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastImpression(user.id, card.id, now);
       let transactionResult: BankTransactionResult;
       let campaignExpense = 0;
@@ -753,7 +783,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         // card.budget.available = budgetAvailable;
         // await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, adSlot ? adSlot.cardCampaignId : null, 0, null, null, null);
+        await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "redeem-promotion", null, transactionResult.record.details.amount, transactionResult.record.id, adSlot ? adSlot.cardCampaignId : null, 0, null, null, null);
         await this.incrementStat(card, "promotionsPaid", transactionResult.record.details.amount, now, PROMOTIONS_PAID_SNAPSHOT_INTERVAL);
       }
       if (adSlot) {
@@ -810,7 +840,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await this.incrementStat(card, "opens", 1, now, OPENS_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(1, uniques, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "open", null, 0, null, null, 0, null, null, null);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "open", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastOpened(user.id, card.id, now);
       if (requestBody.detailsObject.adSlotId) {
         const adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
@@ -845,6 +876,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (requestBody.detailsObject.adSlotId) {
         adSlot = await db.findAdSlotById(requestBody.detailsObject.adSlotId);
       }
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
       let campaignExpense = 0;
       if (requestBody.detailsObject.transaction && requestBody.detailsObject.transaction.objectString) {
         if (!adSlot) {
@@ -937,7 +969,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
         // card.budget.available = budgetAvailable;
         // await db.updateCardBudgetUsage(card, transactionResult.record.details.amount, budgetAvailable, this.getPromotionScores(card));
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-click-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
+        await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "redeem-click-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
         await this.incrementStat(card, "clickFeesPaid", coupon.amount, now, CLICK_FEES_PAID_SNAPSHOT_INTERVAL);
       }
       console.log("CardManager.card-clicked", requestBody.detailsObject);
@@ -949,7 +981,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       await this.incrementStat(card, "clicks", 1, now, CLICKS_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 1, uniques, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "click", null, 0, null, null, 0, null, null, null);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "click", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastClicked(user.id, card.id, now);
       if (adSlot) {
         await this.incrementCardCampaignStats(request, adSlot.cardCampaignId, { clicks: 1, expenses: campaignExpense, impressions: 0, opens: 0, redemptions: campaignExpense > 0 ? 1 : 0 });
@@ -1099,7 +1131,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         mobile: requestBody.detailsObject.mobile ? true : false
       };
       await db.updateUserFirstCardPurchased(user.id, card.id);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "pay", paymentInfo, 0, null, null, 0, null, discountReason, null);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "pay", paymentInfo, 0, null, null, 0, null, discountReason, null);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const statName = skipMoneyTransfer ? "fraudPurchases" : (isFirstUserCardPurchase ? "firstTimePurchases" : "normalPurchases");
       await this.incrementStat(card, statName, 1, now, CARD_PURCHASE_SNAPSHOT_INTERVAL);
@@ -1295,7 +1328,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "redeem-open-payment", null, 0, null, adSlot ? adSlot.cardCampaignId : null, coupon.amount, transactionResult.record.id, null, null);
       await this.incrementStat(card, "openFeesPaid", coupon.amount, now, OPEN_FEES_PAID_SNAPSHOT_INTERVAL);
       if (adSlot) {
         await this.incrementCardCampaignStats(request, adSlot.cardCampaignId, { clicks: 0, expenses: campaignExpense, impressions: 0, opens: 1, redemptions: campaignExpense > 0 ? 1 : 0 });
@@ -1330,7 +1364,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-closed", requestBody.detailsObject);
 
       const now = Date.now();
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "close", null, 0, null, null, 0, null, null, null);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "close", null, 0, null, null, 0, null, null, null);
       await db.updateUserCardLastClosed(user.id, card.id, now);
       const reply: CardClosedResponse = {
         serverVersion: SERVER_VERSION
@@ -1386,7 +1421,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
               action = "reset-like";
               break;
           }
-          await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, action, null, 0, null, null, 0, null, null, null);
+          const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+          await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, action, null, 0, null, null, 0, null, null, null);
           let newLikes = 0;
           let newDislikes = 0;
           switch (requestBody.detailsObject.selection) {
@@ -1444,7 +1480,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const cardInfo = await db.ensureUserCardInfo(user.id, card.id);
       if (card.private !== requestBody.detailsObject.private) {
         await db.updateCardPrivate(card, requestBody.detailsObject.private);
-        await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", null, 0, null, null, 0, null, null, null);
+        const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+        await db.insertUserCardAction(user.id, geo, card.id, card.createdById, Date.now(), requestBody.detailsObject.private ? "make-private" : "make-public", null, 0, null, null, 0, null, null, null);
       }
       const reply: UpdateCardPrivateResponse = {
         serverVersion: SERVER_VERSION,
@@ -2420,7 +2457,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         refundCompleted: refundCompleted,
         transactionId: transactionId
       };
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "report", null, 0, null, null, 0, null, null, reportInfo);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "report", null, 0, null, null, 0, null, null, reportInfo);
       await this.incrementStat(card, "reports", 1, now, CARD_REPORT_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, refunds, 0, 0, 0, 0, 0, 0);
 
@@ -2435,6 +2473,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           await userManager.adminBlockUser(owner);
         }
       }
+      await db.updateCardReported(card.id, true);
 
       let html = "";
       html += "<p>A user has reported a card.</p>";
@@ -2481,7 +2520,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.post-card-comment", requestBody.detailsObject);
       const now = Date.now();
       const commentRecord = await db.insertCardComment(user.id, now, card.id, requestBody.detailsObject.text, requestBody.detailsObject.metadata, user.curation === "blocked" ? "blocked" : null);
-      await db.insertUserCardAction(user.id, this.getFromIpAddress(request), requestBody.detailsObject.fingerprint, card.id, card.createdById, now, "comment", null, 0, null, null, 0, null, null, null);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      await db.insertUserCardAction(user.id, geo, card.id, card.createdById, now, "comment", null, 0, null, null, 0, null, null, null);
       const notificationIds: string[] = [];
       if (card.createdById !== user.id) {
         const creator = await userManager.getUser(card.createdById, false);
@@ -2597,6 +2637,54 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleGetAvailableAdSlots: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleGetUserCardAnalytics(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetUserCardAnalyticsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      let card: CardRecord;
+      if (requestBody.detailsObject.cardId) {
+        card = await db.findCardById(requestBody.detailsObject.cardId, false);
+        if (!card) {
+          response.status(404).send("No such card");
+        }
+        if (card.createdById !== user.id) {
+          response.status(403).send("You can only get analytics about your own cards");
+          return;
+        }
+      }
+      console.log("CardManager.get-user-card-analytics", requestBody.detailsObject);
+      const reply: GetUserCardAnalyticsResponse = {
+        serverVersion: SERVER_VERSION,
+        actions: []
+      };
+      const records = card ? await db.findUserCardActionsByCardAndTime(["impression", "open", "pay", "redeem-promotion", "redeem-open-payment", "redeem-click-payment", "click"], requestBody.detailsObject.cardId, requestBody.detailsObject.maxCount, requestBody.detailsObject.after) : await db.findUserCardActionsByAuthorAndTime(["impression", "open", "pay", "redeem-promotion", "redeem-open-payment", "redeem-click-payment", "click"], user.id, requestBody.detailsObject.maxCount, requestBody.detailsObject.after);
+      for (const record of records) {
+        const item: UserCardActionDescriptor = {
+          cardId: record.cardId,
+          at: record.at,
+          action: record.action,
+        };
+        if (record.geo) {
+          item.geo = {
+            lat: record.geo.lat,
+            lon: record.geo.lon,
+            countryCode: record.geo.countryCode,
+            regionCode: record.geo.regionCode,
+            city: record.geo.city
+          };
+        }
+        reply.actions.push(item);
+      }
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetUserCardAnalytics: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

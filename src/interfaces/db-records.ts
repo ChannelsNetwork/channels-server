@@ -169,6 +169,7 @@ export interface CardRecord {
     boost?: number;
     promotionBoost?: number;
     boostAt?: number;
+    reported?: boolean;
     overrideReports?: boolean;
   };
   searchText: string;
@@ -412,8 +413,8 @@ export type BankTransactionRefundReason = "user-card-report";
 export interface UserCardActionRecord {
   id: string;
   userId: string;
-  fromIpAddress: string;
-  fromFingerprint: string;
+  fromIpAddress?: string; // obsolete, now part of geo
+  fromFingerprint?: string; // obsolete, now part of geo
   cardId: string;
   authorId: string;
   at: number;
@@ -431,6 +432,7 @@ export interface UserCardActionRecord {
     transactionId: string;
     cardCampaignId: string;
   };
+  geo: GeoLocation;
 }
 
 export interface UserCardActionPaymentInfo {
@@ -708,6 +710,7 @@ export interface GeoLocation {
   continentCode: string;
   countryCode: string;
   regionCode: string;
+  city: string;
   zipCode: string;
   lat: number;
   lon: number;

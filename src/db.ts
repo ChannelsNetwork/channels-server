@@ -285,6 +285,7 @@ export class Database {
     await this.userCardActions.createIndex({ userId: 1, action: 1, author: 1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, at: -1 });
+    await this.userCardActions.createIndex({ authorId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ action: 1, at: -1 });
     await this.userCardActions.createIndex({ at: -1 });
   }
@@ -1112,6 +1113,10 @@ export class Database {
     await this.cards.updateOne({ id: card.id }, { $set: { lock: { server: '', at: 0 } } });
   }
 
+  async updateCardReported(cardId: string, reported: boolean): Promise<void> {
+    await this.cards.updateOne({ id: cardId }, { $set: { "curation.reported": reported } });
+  }
+
   async findCardById(id: string, includeInactive: boolean, includeSearchText: boolean = false): Promise<CardRecord> {
     if (!id) {
       return null;
@@ -1174,6 +1179,10 @@ export class Database {
 
   getCardsLatestNonPromoted(): Cursor<CardRecord> {
     return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "pricing.openFeeUnits": { $gt: 0 }, score: { $gt: 0 } }).sort({ postedAt: -1 });
+  }
+
+  async countCardsReported(): Promise<number> {
+    return this.cards.count({"curation.reported": true});
   }
 
   async replaceCardBy(cardId: string, createdById: string): Promise<void> {
@@ -1448,7 +1457,7 @@ export class Database {
     return null;
   }
 
-  getAccessibleCardsByTime(before: number, after: number, userId: string): Cursor<CardRecord> {
+  getAccessibleCardsByTime(before: number, after: number, userId: string, excludeAds: boolean, excludeReportedCards: boolean): Cursor<CardRecord> {
     const query: any = { state: "active" };
     this.addAuthorClause(query, userId);
     if (before && after) {
@@ -1457,6 +1466,17 @@ export class Database {
       query.postedAt = { $lt: before };
     } else if (after) {
       query.postedAt = { $gt: after };
+    }
+    if (excludeAds) {
+      query["pricing.openFeeUnits"] = { $gt: 0 };
+    }
+    if (excludeReportedCards) {
+      query.$or = [
+        { curation: { $exists: false } },
+        { "curation.reported": { $exists: false } },
+        { "curation.reported": false },
+        { "curation.overrideReports": true }
+      ];
     }
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
@@ -2008,16 +2028,15 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, fromIpAddress: string, fromFingerprint: string, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemPromotionCampaignId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemPromotionCampaignId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
-      fromIpAddress: fromIpAddress,
-      fromFingerprint: fromFingerprint,
       cardId: cardId,
       authorId: authorId,
       at: at,
       action: action,
+      geo: geo
     };
     if (fraudReason) {
       record.fraudReason = fraudReason;
@@ -2066,8 +2085,53 @@ export class Database {
     return this.userCardActions.find<UserCardActionRecord>({ action: "pay", "payment.weight": { $ne: 1 } }).sort({ at: 1 });
   }
 
+  getUserCardActionsWithFromIpAddress(since: number): Cursor<UserCardActionRecord> {
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: since }, fromIpAddress: { $exists: true } });
+  }
+
+  async findDistinctReportedCardIds(): Promise<string[]> {
+    return this.userCardActions.distinct('cardId', { action: "report" });
+  }
+
+  async findUserCardActionsByCardAndTime(actions: CardActionType[], cardId: string, maxCount: number, after: number): Promise<UserCardActionRecord[]> {
+    const query: any = { cardId: cardId };
+    if (actions) {
+      query.actions = { $in: actions };
+    }
+    if (after) {
+      query.at = { $gt: after };
+    }
+    let results = await this.userCardActions.find(query).sort({ at: after ? 1 : -1 }).limit(maxCount || 100).toArray();
+    if (!after) {
+      results = results.reverse();
+    }
+    return results;
+  }
+
+  async findUserCardActionsByAuthorAndTime(actions: CardActionType[], authorId: string, maxCount: number, after: number): Promise<UserCardActionRecord[]> {
+    const query: any = { authorId: authorId };
+    if (actions) {
+      query.actions = { $in: actions };
+    }
+    if (after) {
+      query.at = { $gt: after };
+    }
+    let results = await this.userCardActions.find(query).sort({ at: after ? 1 : -1 }).limit(maxCount || 100).toArray();
+    if (!after) {
+      results = results.reverse();
+    }
+    return results;
+  }
+
   async updateUserActionPaymentWeightedRevenue(id: string, weightedRevenue: number): Promise<void> {
     await this.userCardActions.updateOne({ id: id }, { $set: { "payment.weightedRevenue": weightedRevenue } });
+  }
+
+  async updateUserActionWithGeo(id: string, geo: GeoLocation): Promise<void> {
+    await this.userCardActions.updateOne({ id: id }, {
+      $set: { geo: geo },
+      $unset: { fromIpAddress: 1, fromFingerprint: 1 }
+    });
   }
 
   getUserCardActionsWithoutGeo(since: number): Cursor<UserCardActionRecord> {
@@ -2294,7 +2358,7 @@ export class Database {
 
   async updateUserCardLastOpened(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value, lastCommentFetch: value } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastOpened: value, lastCommentsFetch: value } });
   }
 
   async updateUserCardLastClicked(userId: string, cardId: string, value: number): Promise<void> {
@@ -2304,7 +2368,7 @@ export class Database {
 
   async updateUserCardLastCommentFetch(userId: string, cardId: string, value: number): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastCommentFetch: value } });
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { lastCommentsFetch: value } });
   }
 
   async updateUserCardLastClosed(userId: string, cardId: string, value: number): Promise<void> {
@@ -4137,7 +4201,12 @@ export class Database {
           codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
         }
       }
-      query.geoTargets = codes.length === 1 ? codes[0] : { $in: codes };
+      query.$or = [
+        { geoTargets: { $size: 0 } },
+        { geoTargets: codes.length === 1 ? codes[0] : { $in: codes } },
+      ];
+    } else {
+      query.geoTargets = { $size: 0 };
     }
     return this.cardCampaigns.aggregate([
       { $match: query },

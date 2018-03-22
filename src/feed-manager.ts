@@ -352,7 +352,7 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         }
         const author = await userManager.getUser(card.createdById, false);
-        if (!author || author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+        if (!author || (!author.admin && author.balance < MINIMUM_AD_AUTHOR_BALANCE)) {
           continue;
         }
         const eligible = await this.reviewCampaignEligibility(request, user, campaign, card, author);
@@ -419,7 +419,7 @@ export class FeedManager implements Initializable, RestServer {
       await db.updateCardCampaignStatus(campaign.id, "suspended");
       return false;
     }
-    if (author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+    if (!author.admin && author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
       await db.updateCardCampaignNextEligible(campaign.id, now + 1000 * 60 * 60);
       return false;
     }
@@ -592,7 +592,7 @@ export class FeedManager implements Initializable, RestServer {
     const adSlots = this.positionAdSlots(user, cards.length, more);
     const adIds: string[] = [];
     if (adSlots.slotCount > 0) {
-      const cardIndex = 0;
+      let cardIndex = 0;
       let slotIndex = 0;
       let nextAdIndex = adSlots.firstSlotIndex;
       const payToOpenFraction = Utils.interpolateRanges(payToOpenFractionByBalance, user.balance);
@@ -605,13 +605,17 @@ export class FeedManager implements Initializable, RestServer {
       let promotedCardIndex = 0;
       while ((cardIndex < cards.length && cardIndex < limit) || promotedCardIndex < promotedCards.length) {
         let filled = false;
-        if (slotIndex >= nextAdIndex) {
+        if (slotIndex >= nextAdIndex && promotedCardIndex < promotedCards.length) {
           const adCard = promotedCards[promotedCardIndex++];
           const adSlot = await this.createAdSlotFromDescriptor(adCard.card, geoLocation, user, channelId, adCard.campaign);
           amalgamated.push(adCard.card);
           nextAdIndex += adSlots.slotSeparation;
           filled = true;
           console.log("FeedManager.mergeWithAdCards: Populating ad: ", adCard.card.summary.title, adCard.card.id);
+        }
+        if (!filled && cardIndex < cards.length && cardIndex < limit) {
+          amalgamated.push(cards[cardIndex]);
+          cardIndex++;
         }
         slotIndex++;
       }
@@ -1032,7 +1036,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id);
+    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id, true, true);
     const cards: CardRecord[] = [];
     while (await cursor.hasNext()) {
       const card = await cursor.next();
@@ -1178,13 +1182,18 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const channelIds = await channelManager.findSubscribedChannelIdsForUser(user, false);
+    const cardIds: string[] = [];
     const cards: CardDescriptor[] = [];
     if (channelIds.length > 0) {
       const cursor = channelManager.getCardsInChannelsAll(channelIds, before, 0);
       while (await cursor.hasNext()) {
         const channelCard = await cursor.next();
+        if (cardIds.indexOf(channelCard.cardId) >= 0) {
+          continue;
+        }
         const card = await db.findCardById(channelCard.cardId, false);
         if (card) {
+          cardIds.push(card.id);
           if (card.curation && card.curation.block && user.id !== card.createdById) {
             continue;
           }
