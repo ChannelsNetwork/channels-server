@@ -1182,7 +1182,7 @@ export class Database {
   }
 
   async countCardsReported(): Promise<number> {
-    return this.cards.count({"curation.reported": true});
+    return this.cards.count({ "curation.reported": true });
   }
 
   async replaceCardBy(cardId: string, createdById: string): Promise<void> {
@@ -2028,7 +2028,7 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemPromotionCampaignId: string, redeemOpen: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemPromotionCampaignId: string, redeemOpen: number, redeemOpenNet: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
@@ -2054,6 +2054,7 @@ export class Database {
     if (redeemOpen || redeemOpenTransactionId) {
       record.redeemOpen = {
         amount: redeemOpen,
+        netAmount: redeemOpenNet,
         transactionId: redeemOpenTransactionId,
         cardCampaignId: redeemPromotionCampaignId
       };
@@ -4120,7 +4121,7 @@ export class Database {
     await this.deposits.updateOne({ id: depositId }, { $set: { status: status, transactionId: transactionId } });
   }
 
-  async insertCardCampaign(createdById: string, status: CardCampaignStatus, couponId: string, cardId: string, type: CardCampaignType, paymentAmount: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
+  async insertCardCampaign(createdById: string, status: CardCampaignStatus, couponId: string, cardId: string, type: CardCampaignType, paymentAmount: number, advertiserSubsidy: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
     const stats: CardCampaignStats = {
       opens: 0,
       clicks: 0,
@@ -4138,6 +4139,7 @@ export class Database {
       cardIds: [cardId],
       type: type,
       paymentAmount: paymentAmount,
+      advertiserSubsidy: advertiserSubsidy,
       budget: budget,
       ends: ends,
       geoTargets: geoTargets,

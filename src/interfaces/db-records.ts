@@ -429,6 +429,7 @@ export interface UserCardActionRecord {
   };
   redeemOpen?: {
     amount: number;
+    netAmount: number;  // after advertiser subsidy
     transactionId: string;
     cardCampaignId: string;
   };
@@ -495,7 +496,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -771,6 +772,7 @@ export interface CardCampaignRecord {
   cardIds: string[];
   type: CardCampaignType;
   paymentAmount: number;
+  advertiserSubsidy: number;
   budget: CardCampaignBudget;
   ends: number;  // date
   geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.

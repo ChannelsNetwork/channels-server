@@ -49,6 +49,8 @@ export interface PromotionPricingInfo {
   adImpression: number;
   payToOpen: number;
   payToClick: number;
+  payToOpenSubsidy: number;
+  payToClickSubsidy: number;
 }
 
 export interface SignInDetails extends Signable {
@@ -579,7 +581,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus" | "advertiser-subsidy";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 
@@ -1261,6 +1263,7 @@ export interface CardCampaignDescriptor {
   status: CardCampaignStatus;
   type: CardCampaignType;
   paymentAmount: number;
+  advertiserSubsidy: number;
   couponId: string;
   budget: CardCampaignBudget;
   ends: number;
