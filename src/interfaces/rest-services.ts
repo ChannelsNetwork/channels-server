@@ -1091,7 +1091,7 @@ export interface ConfirmEmailDetails extends Signable {
   code: string;
 }
 
-export interface ConfirmEmailResponse extends RestResponse {
+export interface ConfirmEmailResponse extends RestResponseWithUserStatus {
   userId: string;
   handle: string;
 }

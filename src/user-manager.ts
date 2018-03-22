@@ -1124,10 +1124,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await this.payRegistrationBonus(request, user, requestBody.detailsObject.fingerprint);
       }
       await this.announceUserUpdated(user);
+      const status = await this.getUserStatus(request, user, true);
       const reply: ConfirmEmailResponse = {
         serverVersion: SERVER_VERSION,
         userId: user.id,
-        handle: user.identity.handle
+        handle: user.identity.handle,
+        status: status
       };
       response.json(reply);
     } catch (err) {

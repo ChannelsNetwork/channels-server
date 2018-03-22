@@ -726,8 +726,9 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.confirmEmailDetails(this._keys.address, this._fingerprint, code);
     let request = this._createRequest(details);
     const url = this.restBase + "/confirm-email";
-    return this.rest.post(url, request).then(() => {
-      return this.getUserProfile();
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
