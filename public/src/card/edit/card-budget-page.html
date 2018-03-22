@@ -1,4 +1,6 @@
-<link rel="import" href="card-budget-view">
+<link rel="import" href="../../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../app/dialog-bar.html">
+<link rel="import" href="card-budget-view.html">
 <dom-module id="card-budget-page">
   <template>
     <style is="custom-style" include="app-styles">
@@ -6,6 +8,9 @@
         display: block;
       }
     </style>
+    <soso-app-header>
+      <dialog-bar text="Card Promotion Budget" on-cancel="_onCancel"></dialog-bar>
+    </soso-app-header>
     <card-budget-view></card-budget-view>
   </template>
   <script>
