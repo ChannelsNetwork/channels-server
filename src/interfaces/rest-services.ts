@@ -1206,6 +1206,13 @@ export interface RealtimeStats {
   purchases: number;
   cards: number;
   cardPayments: number;
+  advertisers: number;
+  adCardsOpenOrClick: number;
+  adCardsImpression: number;
+  adPaidOpenOrClicks: number;
+  adPaidImpressions: number;
+  adOpenOrClickRedemptions: number;
+  adImpressionRedemptions: number;
 }
 
 export interface AdminBankDepositDetails extends Signable {

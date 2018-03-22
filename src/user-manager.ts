@@ -796,7 +796,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       if (!user.identity || !user.identity.handle) {
-        await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
+        await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
       await channelManager.ensureUserHomeChannel(user);
@@ -1287,7 +1287,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
         const todayPaidOpens = await this.countUserPaidOpens(user, yesterday, Date.now());
         if (todayPaidOpens) {
-          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
       }
       if (requestBody.detailsObject.curation === 'blocked') {

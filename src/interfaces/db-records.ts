@@ -427,6 +427,11 @@ export interface UserCardActionRecord {
     transactionId: string;
     cardCampaignId: string;
   };
+  redeemAdImpression?: {
+    amount: number;
+    transactionId: string;
+    cardCampaignId: string;
+  };
   redeemOpen?: {
     amount: number;
     netAmount: number;  // after advertiser subsidy
@@ -456,7 +461,7 @@ export interface UserCardActionReportInfo {
 
 export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-ad-impression" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
@@ -580,7 +585,13 @@ export interface NetworkCardStats {
   purchases: number;
   cards: number;
   cardPayments: number;
-
+  advertisers: number;
+  adCardsOpenOrClick: number;
+  adCardsImpression: number;
+  adPaidOpenOrClicks: number;
+  adPaidImpressions: number;
+  adImpressionRedemptions: number;
+  adOpenOrClickRedemptions: number;
 }
 
 export interface IpAddressRecord {

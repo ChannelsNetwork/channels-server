@@ -391,7 +391,7 @@ export class Database {
       const purchases = await this.userCardActions.count({ action: "pay", fraudReason: { $exists: false } });
       const cards = await this.cards.count({});
       const cardPayments = purchaserInfo.length > 0 ? purchaserInfo[0].revenue as number : 0;
-      await this.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, purchasers, registrants, publishers, purchases, cards, cardPayments);
+      await this.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, purchasers, registrants, publishers, purchases, cards, cardPayments, 0, 0, 0, 0, 0, 0, 0);
       console.log("Db.initializeNetworkCardStats: Done");
     }
   }
@@ -1181,6 +1181,53 @@ export class Database {
     return this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "pricing.openFeeUnits": { $gt: 0 }, score: { $gt: 0 } }).sort({ postedAt: -1 });
   }
 
+  async countAdvertisers(): Promise<number> {
+    const authors = await this.cards.distinct('createdById', { "pricing.openFeeUnits": { $gt: 0 } });
+    return authors.length;
+  }
+
+  async countAdCardsOpenOrClick(): Promise<number> {
+    return this.cardCampaigns.count({ type: { $in: ["pay-to-open", "pay-to-click"] } });
+  }
+
+  async countAdCardsImpression(): Promise<number> {
+    return this.cardCampaigns.count({ type: "impression-ad" });
+  }
+
+  async aggregateOpenClickRedemptions(): Promise<RedemptionInfo> {
+    const result = await this.userCardActions.aggregate([
+      { $match: { action: { $in: ["redeem-open-payment", "redeem-click-payment"] } } },
+      {
+        $group: {
+          _id: "all",
+          count: { $sum: 1 },
+          total: { $sum: "$redeemOpen.amount" }
+        }
+      }
+    ]).toArray();
+    return {
+      count: result.length > 0 ? result[0].count : 0,
+      total: result.length > 0 ? result[0].total : 0
+    };
+  }
+
+  async aggregateImpressionRedemptions(): Promise<RedemptionInfo> {
+    const result = await this.userCardActions.aggregate([
+      { $match: { action: "redeem-ad-impression" } },
+      {
+        $group: {
+          _id: "all",
+          count: { $sum: 1 },
+          total: { $sum: "$redeemImpression.amount" }
+        }
+      }
+    ]).toArray();
+    return {
+      count: result.length > 0 ? result[0].count : 0,
+      total: result.length > 0 ? result[0].total : 0
+    };
+  }
+
   async countCardsReported(): Promise<number> {
     return this.cards.count({ "curation.reported": true });
   }
@@ -1389,6 +1436,11 @@ export class Database {
       query.private = false;
     }
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
+  }
+
+  async existsCardAdByAuthor(authorId: string): Promise<boolean> {
+    const record = await this.cards.findOne<CardRecord>({ createdById: authorId, "pricing.openFeeUnits": 0 });
+    return record ? true : false;
   }
 
   async findCardsByTime(limit: number): Promise<CardRecord[]> {
@@ -2028,7 +2080,7 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemPromotionTransactionId: string, redeemPromotionCampaignId: string, redeemOpen: number, redeemOpenNet: number, redeemOpenTransactionId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
+  async insertUserCardAction(userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemAdImpression: number, redeemOpen: number, redeemOpenNet: number, redeemTransactionId: string, redeemCampaignId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
       userId: userId,
@@ -2044,19 +2096,26 @@ export class Database {
     if (paymentInfo) {
       record.payment = paymentInfo;
     }
-    if (redeemPromotion || redeemPromotionTransactionId) {
+    if (redeemPromotion) {
       record.redeemPromotion = {
         amount: redeemPromotion,
-        transactionId: redeemPromotionTransactionId,
-        cardCampaignId: redeemPromotionCampaignId
+        transactionId: redeemTransactionId,
+        cardCampaignId: redeemCampaignId
       };
     }
-    if (redeemOpen || redeemOpenTransactionId) {
+    if (redeemAdImpression) {
+      record.redeemAdImpression = {
+        amount: redeemAdImpression,
+        transactionId: redeemTransactionId,
+        cardCampaignId: redeemCampaignId
+      };
+    }
+    if (redeemOpen) {
       record.redeemOpen = {
         amount: redeemOpen,
         netAmount: redeemOpenNet,
-        transactionId: redeemOpenTransactionId,
-        cardCampaignId: redeemPromotionCampaignId
+        transactionId: redeemTransactionId,
+        cardCampaignId: redeemCampaignId
       };
     }
     if (reportInfo) {
@@ -2610,7 +2669,14 @@ export class Database {
       publishers: 0,
       purchases: 0,
       cards: 0,
-      cardPayments: 0
+      cardPayments: 0,
+      advertisers: 0,
+      adCardsOpenOrClick: 0,
+      adCardsImpression: 0,
+      adPaidOpenOrClicks: 0,
+      adPaidImpressions: 0,
+      adImpressionRedemptions: 0,
+      adOpenOrClickRedemptions: 0
     };
     return stats;
   }
@@ -2633,7 +2699,7 @@ export class Database {
     }
   }
 
-  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number, firstTimePaidOpens: number, fanPaidOpens: number, grossRevenue: number, weightedRevenue: number, reports: number, refunds: number, purchasers: number, registrants: number, publishers: number, purchases: number, cards: number, cardPayments: number): Promise<void> {
+  async incrementNetworkCardStatItems(opens: number, uniqueOpens: number, paidOpens: number, paidUnits: number, likes: number, dislikes: number, clicks: number, uniqueClicks: number, blockedPaidOpens: number, firstTimePaidOpens: number, fanPaidOpens: number, grossRevenue: number, weightedRevenue: number, reports: number, refunds: number, purchasers: number, registrants: number, publishers: number, purchases: number, cards: number, cardPayments: number, advertisers: number, adCardsOpenOrClick: number, adCardsImpression: number, adPaidOpenOrClicks: number, adPaidImpressions: number, adImpressionRedemptions: number, adOpenOrClickRedemptions: number): Promise<void> {
     const update: any = {};
     if (opens) {
       update["stats.opens"] = opens;
@@ -2697,6 +2763,27 @@ export class Database {
     }
     if (cardPayments) {
       update["stats.cardPayments"] = cardPayments;
+    }
+    if (advertisers) {
+      update["stats.advertisers"] = advertisers;
+    }
+    if (adCardsOpenOrClick) {
+      update["stats.adCardsOpenOrClick"] = adCardsOpenOrClick;
+    }
+    if (adCardsImpression) {
+      update["stats.adCardsImpression"] = adCardsImpression;
+    }
+    if (adPaidOpenOrClicks) {
+      update["stats.adPaidOpenOrClicks"] = adPaidOpenOrClicks;
+    }
+    if (adPaidImpressions) {
+      update["stats.adPaidImpressions"] = adPaidImpressions;
+    }
+    if (adImpressionRedemptions) {
+      update["stats.adImpressionRedemptions"] = adImpressionRedemptions;
+    }
+    if (adOpenOrClickRedemptions) {
+      update["stats.adOpenOrClickRedemptions"] = adOpenOrClickRedemptions;
     }
     if (Object.keys(update).length === 0) {
       return;
@@ -4382,4 +4469,9 @@ export interface UserCardActionPromotionsInfo {
   count: number;
   redeemImpressions: number;
   redeemOpens: number;
+}
+
+export interface RedemptionInfo {
+  count: number;
+  total: number;
 }
