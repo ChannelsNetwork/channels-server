@@ -1065,7 +1065,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             reply.countriesByContinent[continentCode] = [];
           }
           const name = await this.getCountryNameByCode(countryCode);
-          reply.countriesByContinent[countryCode].push({ code: countryCode, name: name });
+          reply.countriesByContinent[continentCode].push({ code: countryCode, name: name });
         }
       }
       response.json(reply);

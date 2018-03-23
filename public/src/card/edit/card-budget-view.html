@@ -1,0 +1,158 @@
+<link rel="import" href="../../../bower_components/soso-number-input/soso-number-input.html">
+<link rel="import" href="../../../bower_components/soso-radio-group/soso-radio-group.html">
+<link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
+
+<dom-module id="card-budget-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        background: #fcfcfc;
+        min-height: 100vh;
+        margin-top: -50px;
+      }
+
+      #progress {
+        padding: 70px 10px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      #main {
+        padding: 70px 10px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      h2 {
+        margin-bottom: 25px;
+      }
+
+      label {
+        display: block;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        color: var(--dark-green);
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+      }
+
+      .cost {
+        background: var(--bg-yellow);
+        display: inline-block;
+        font-size: 16px;
+        padding: 3px 6px;
+        border-radius: 3px;
+        letter-spacing: 0.03em;
+        color: #000;
+      }
+
+      section {
+        padding-bottom: 30px;
+      }
+
+      .row {
+        padding-top: 5px;
+      }
+
+      input[type="date"] {
+        outline: none;
+        font-family: inherit;
+        font-size: 16px;
+        padding: 5px 2px;
+        border: none;
+        color: inherit;
+        background: transparent;
+        border-bottom: 2px solid #4CAF50;
+      }
+
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        color: var(--dark-green);
+      }
+
+      input[type="date"]::-webkit-clear-button,
+      input[type="date"]::-webkit-inner-spin-button,
+      input[type="date"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        display: none;
+      }
+
+      @media (max-width: 600px) {
+        h2 {
+          display: none;
+        }
+      }
+    </style>
+    <div id="container">
+      <div id="main">
+        <h2>Card Promotion Budget</h2>
+
+        <section>
+          <label>Promotion Cost</label>
+          <div id="payToOpenImpressPanel">
+            You will pay the reader
+            <span class="cost">ℂ0.01</span> to see this card in their feed.
+          </div>
+          <div id="impressionPanel" class="hidden">
+            You will pay the reader
+            <span class="cost">ℂ0.01</span> to see this card in their feed.
+          </div>
+          <div id="payToOpenPanel" class="hidden">
+            You will pay the reader
+            <span class="cost">ℂ0.01</span> to see this card in their feed.
+          </div>
+        </section>
+
+        <section id="dailySection">
+          <label>Daily Budget</label>
+          <div class="row">
+            ℂ
+            <soso-number-input id="dailyBudget" value="5" step="1" min="0"></soso-number-input>
+          </div>
+        </section>
+
+        <section>
+          <label>End Date</label>
+          <div>This promotion campaign will run until:</div>
+          <div class="row">
+            <input id="endDate" type="date">
+          </div>
+        </section>
+
+        <section>
+          <label>Region</label>
+          <div>Select if you'd like to focus the promotion campaign to a specific region</div>
+          <div class="row">
+            <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
+              <soso-radio-button name="none" label="All regions"></soso-radio-button>
+              <soso-radio-button name="conutries" label="Select countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Select regions in a specific country"></soso-radio-button>
+            </soso-radio-group>
+          </div>
+        </section>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardBudgetView extends Polymer.Element {
+      static get is() { return 'card-budget-view'; }
+
+
+
+      _onRegionSelectionChange() {
+        $core.getGeoDescriptors().then(result => {
+          console.log("geo", result);
+        });
+      }
+
+
+    }
+    window.customElements.define(CardBudgetView.is, CardBudgetView);
+  </script>
+</dom-module>
