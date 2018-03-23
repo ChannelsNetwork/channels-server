@@ -6,7 +6,6 @@
       }
 
       .container {
-        padding: 25px;
         max-width: 1200px;
         margin: 0 auto;
         text-align: left;
@@ -14,62 +13,108 @@
       }
 
       .statBlock {
-        display: inline-block;
-        width: 250px;
+        width: 175px;
         text-align: center;
-        margin: 25px;
+        margin: 25px 10px;
         padding: 5px;
       }
 
       .statValue {
-        font-size: 70px;
-      }
-
-      .statValuePast24 {
-        font-size: 36px;
-      }
-
-      .statValueSmall {
         font-size: 50px;
       }
 
+      .statValuePast24 {
+        font-size: 20px;
+      }
+
+      .statValueSmall {
+        font-size: 32px;
+      }
+
       .statName {
-        font-size: 18px;
+        font-size: 14px;
         color: #555;
+      }
+
+      .columns {
+        width: 400px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        text-align: center;
       }
     </style>
     <div class="container">
-      <h1>Channels Key Metrics</h1>
-      <div style="text-align:center;">
-        <div class="statBlock">
-          <div class="statValue">[[stats.total.purchases]]</div>
-          <div class="statName">card purchases</div>
-          <div class="statValuePast24">[[stats.past24Hours.purchases]]</div>
+      <div class="columns horizontal layout">
+        <div style="text-align:center;">
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.purchases]]</div>
+            <div class="statName">card purchases</div>
+            <div class="statValuePast24">[[stats.past24Hours.purchases]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValueSmall">[[stats.total.cardPayments]]</div>
+            <div class="statName">card payments</div>
+            <div class="statValuePast24">[[stats.past24Hours.cardPayments]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.purchasers]]</div>
+            <div class="statName">purchasers</div>
+            <div class="statValuePast24">[[stats.past24Hours.purchasers]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.registrants]]</div>
+            <div class="statName">registrants</div>
+            <div class="statValuePast24">[[stats.past24Hours.registrants]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.publishers]]</div>
+            <div class="statName">publishers</div>
+            <div class="statValuePast24">[[stats.past24Hours.publishers]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.cards]]</div>
+            <div class="statName">cards</div>
+            <div class="statValuePast24">[[stats.past24Hours.cards]]</div>
+          </div>
         </div>
-        <div class="statBlock">
-          <div class="statValueSmall">[[stats.total.cardPayments]]</div>
-          <div class="statName">card payments</div>
-          <div class="statValuePast24">[[stats.past24Hours.cardPayments]]</div>
-        </div>
-        <div class="statBlock">
-          <div class="statValue">[[stats.total.purchasers]]</div>
-          <div class="statName">purchasers</div>
-          <div class="statValuePast24">[[stats.past24Hours.purchasers]]</div>
-        </div>
-        <div class="statBlock">
-          <div class="statValue">[[stats.total.registrants]]</div>
-          <div class="statName">registrants</div>
-          <div class="statValuePast24">[[stats.past24Hours.registrants]]</div>
-        </div>
-        <div class="statBlock">
-          <div class="statValue">[[stats.total.publishers]]</div>
-          <div class="statName">publishers</div>
-          <div class="statValuePast24">[[stats.past24Hours.publishers]]</div>
-        </div>
-        <div class="statBlock">
-          <div class="statValue">[[stats.total.cards]]</div>
-          <div class="statName">cards</div>
-          <div class="statValuePast24">[[stats.past24Hours.cards]]</div>
+        <div style="text-align:center;">
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.adPaidOpenOrClicks]]</div>
+            <div class="statName">ads: open/click</div>
+            <div class="statValuePast24">[[stats.past24Hours.adPaidOpenOrClicks]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.adPaidImpressions]]</div>
+            <div class="statName">ads: impressions</div>
+            <div class="statValuePast24">[[stats.past24Hours.adPaidImpressions]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValueSmall">[[stats.total.adOpenOrClickRedemptions]]</div>
+            <div class="statName">open redemptions</div>
+            <div class="statValuePast24">[[stats.past24Hours.adOpenOrClickRedemptions]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValueSmall">[[stats.total.adImpressionRedemptions]]</div>
+            <div class="statName">impr redemptions</div>
+            <div class="statValuePast24">[[stats.past24Hours.adImpressionRedemptions]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.advertisers]]</div>
+            <div class="statName">advertisers</div>
+            <div class="statValuePast24">[[stats.past24Hours.advertisers]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.adCardsOpenOrClick]]</div>
+            <div class="statName">ad cards: open</div>
+            <div class="statValuePast24">[[stats.past24Hours.adCardsOpenOrClick]]</div>
+          </div>
+          <div class="statBlock">
+            <div class="statValue">[[stats.total.adCardsImpression]]</div>
+            <div class="statName">ad cards: impr</div>
+            <div class="statValuePast24">[[stats.past24Hours.adCardsImpression]]</div>
+          </div>
         </div>
       </div>
     </div>
@@ -140,6 +185,15 @@
             stats.total.purchases = this._interpolate(this._response.total.purchases, this._lastResponse.total.purchases, this._response.at, this._lastResponse.at, now, true)
             const cpt = this._interpolate(this._response.total.cardPayments, this._lastResponse.total.cardPayments, this._response.at, this._lastResponse.at, now, false);
             stats.total.cardPayments = "ℂ" + cpt.toFixed(2);
+            stats.total.advertisers = this._interpolate(this._response.total.advertisers, this._lastResponse.total.advertisers, this._response.at, this._lastResponse.at, now, true)
+            stats.total.adCardsOpenOrClick = this._interpolate(this._response.total.adCardsOpenOrClick, this._lastResponse.total.adCardsOpenOrClick, this._response.at, this._lastResponse.at, now, true)
+            stats.total.adCardsImpression = this._interpolate(this._response.total.adCardsImpression, this._lastResponse.total.adCardsImpression, this._response.at, this._lastResponse.at, now, true)
+            stats.total.adPaidOpenOrClicks = this._interpolate(this._response.total.adPaidOpenOrClicks, this._lastResponse.total.adPaidOpenOrClicks, this._response.at, this._lastResponse.at, now, true)
+            stats.total.adPaidImpressions = this._interpolate(this._response.total.adPaidImpressions, this._lastResponse.total.adPaidImpressions, this._response.at, this._lastResponse.at, now, true)
+            const aor = this._interpolate(this._response.total.adOpenOrClickRedemptions, this._lastResponse.total.adOpenOrClickRedemptions, this._response.at, this._lastResponse.at, now, false);
+            stats.total.adOpenOrClickRedemptions = "ℂ" + aor.toFixed(2);
+            const air = this._interpolate(this._response.total.adImpressionRedemptions, this._lastResponse.total.adImpressionRedemptions, this._response.at, this._lastResponse.at, now, false);
+            stats.total.adImpressionRedemptions = "ℂ" + air.toFixed(2);
 
             stats.past24Hours.purchasers = this._interpolate(this._response.past24Hours.purchasers, this._lastResponse.past24Hours.purchasers, this._response.at, this._lastResponse.at, now, true)
             stats.past24Hours.registrants = this._interpolate(this._response.past24Hours.registrants, this._lastResponse.past24Hours.registrants, this._response.at, this._lastResponse.at, now, true)
@@ -148,6 +202,15 @@
             stats.past24Hours.purchases = this._interpolate(this._response.past24Hours.purchases, this._lastResponse.past24Hours.purchases, this._response.at, this._lastResponse.at, now, true)
             const cpp = this._interpolate(this._response.past24Hours.cardPayments, this._lastResponse.past24Hours.cardPayments, this._response.at, this._lastResponse.at, now, false);
             stats.past24Hours.cardPayments = "ℂ" + cpp.toFixed(2);
+            stats.past24Hours.advertisers = this._interpolate(this._response.past24Hours.advertisers, this._lastResponse.past24Hours.advertisers, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.adCardsOpenOrClick = this._interpolate(this._response.past24Hours.adCardsOpenOrClick, this._lastResponse.past24Hours.adCardsOpenOrClick, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.adCardsImpression = this._interpolate(this._response.past24Hours.adCardsImpression, this._lastResponse.past24Hours.adCardsImpression, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.adPaidOpenOrClicks = this._interpolate(this._response.past24Hours.adPaidOpenOrClicks, this._lastResponse.past24Hours.adPaidOpenOrClicks, this._response.at, this._lastResponse.at, now, true)
+            stats.past24Hours.adPaidImpressions = this._interpolate(this._response.past24Hours.adPaidImpressions, this._lastResponse.past24Hours.adPaidImpressions, this._response.at, this._lastResponse.at, now, true)
+            const aop = this._interpolate(this._response.past24Hours.adOpenOrClickRedemptions, this._lastResponse.past24Hours.adOpenOrClickRedemptions, this._response.at, this._lastResponse.at, now, false);
+            stats.past24Hours.adOpenOrClickRedemptions = "ℂ" + aop.toFixed(2);
+            const aip = this._interpolate(this._response.past24Hours.adImpressionRedemptions, this._lastResponse.past24Hours.adImpressionRedemptions, this._response.at, this._lastResponse.at, now, false);
+            stats.past24Hours.adImpressionRedemptions = "ℂ" + aip.toFixed(2);
           } else if (this._response) {
             stats.total.purchasers = this._response.total.purchasers;
             stats.total.registrants = this._response.total.registrants;
@@ -155,6 +218,13 @@
             stats.total.cards = this._response.total.cards;
             stats.total.purchases = this._response.total.purchases;
             stats.total.cardPayments = "ℂ" + this._response.total.cardPayments.toFixed(2);
+            stats.total.advertisers = this._response.total.advertisers;
+            stats.total.adCardsOpenOrClick = this._response.total.adCardsOpenOrClick;
+            stats.total.adCardsImpression = this._response.total.adCardsImpression;
+            stats.total.adPaidOpenOrClicks = this._response.total.adPaidOpenOrClicks;
+            stats.total.adPaidImpressions = this._response.total.adPaidImpressions;
+            stats.total.adOpenOrClickRedemptions = "ℂ" + this._response.total.adOpenOrClickRedemptions.toFixed(2);
+            stats.total.adImpressionRedemptions = "ℂ" + this._response.total.adImpressionRedemptions.toFixed(2);
 
             stats.past24Hours.purchasers = this._response.past24Hours.purchasers;
             stats.past24Hours.registrants = this._response.past24Hours.registrants;
@@ -162,6 +232,13 @@
             stats.past24Hours.cards = this._response.past24Hours.cards;
             stats.past24Hours.purchases = this._response.past24Hours.purchases;
             stats.past24Hours.cardPayments = "ℂ" + this._response.past24Hours.cardPayments.toFixed(2);
+            stats.past24Hours.advertisers = this._response.past24Hours.advertisers;
+            stats.past24Hours.adCardsOpenOrClick = this._response.past24Hours.adCardsOpenOrClick;
+            stats.past24Hours.adCardsImpression = this._response.past24Hours.adCardsImpression;
+            stats.past24Hours.adPaidOpenOrClicks = this._response.past24Hours.adPaidOpenOrClicks;
+            stats.past24Hours.adPaidImpressions = this._response.past24Hours.adPaidImpressions;
+            stats.past24Hours.adOpenOrClickRedemptions = "ℂ" + this._response.past24Hours.adOpenOrClickRedemptions.toFixed(2);
+            stats.past24Hours.adImpressionRedemptions = "ℂ" + this._response.past24Hours.adImpressionRedemptions.toFixed(2);
           }
           this.set('stats', stats);
         }
@@ -171,6 +248,8 @@
         if (newTime <= oldTime) {
           return newValue;
         }
+        newValue = newValue || 0;
+        oldValue = oldValue || newValue;
         const rate = (newValue - oldValue) / (newTime - oldTime);
         if (rate === 0) {
           return newValue;

@@ -427,8 +427,14 @@ export interface UserCardActionRecord {
     transactionId: string;
     cardCampaignId: string;
   };
+  redeemAdImpression?: {
+    amount: number;
+    transactionId: string;
+    cardCampaignId: string;
+  };
   redeemOpen?: {
     amount: number;
+    netAmount: number;  // after advertiser subsidy
     transactionId: string;
     cardCampaignId: string;
   };
@@ -455,7 +461,7 @@ export interface UserCardActionReportInfo {
 
 export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-ad-impression" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
@@ -495,7 +501,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -579,7 +585,13 @@ export interface NetworkCardStats {
   purchases: number;
   cards: number;
   cardPayments: number;
-
+  advertisers: number;
+  adCardsOpenOrClick: number;
+  adCardsImpression: number;
+  adPaidOpenOrClicks: number;
+  adPaidImpressions: number;
+  adImpressionRedemptions: number;
+  adOpenOrClickRedemptions: number;
 }
 
 export interface IpAddressRecord {
@@ -771,6 +783,7 @@ export interface CardCampaignRecord {
   cardIds: string[];
   type: CardCampaignType;
   paymentAmount: number;
+  advertiserSubsidy: number;
   budget: CardCampaignBudget;
   ends: number;  // date
   geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.

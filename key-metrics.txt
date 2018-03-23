@@ -189,4 +189,3 @@ db.users.aggregate([
     revenue: {$sum: "$revenue"}
   }},
 ])
-

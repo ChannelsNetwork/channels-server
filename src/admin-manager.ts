@@ -324,7 +324,14 @@ export class AdminManager implements RestServer {
           publishers: stats.stats.publishers,
           cards: stats.stats.cards,
           purchases: stats.stats.purchases,
-          cardPayments: stats.stats.cardPayments
+          cardPayments: stats.stats.cardPayments,
+          advertisers: stats.stats.advertisers,
+          adCardsOpenOrClick: stats.stats.adCardsOpenOrClick,
+          adCardsImpression: stats.stats.adCardsImpression,
+          adPaidOpenOrClicks: stats.stats.adPaidOpenOrClicks,
+          adPaidImpressions: stats.stats.adPaidImpressions || 0,
+          adOpenOrClickRedemptions: stats.stats.adOpenOrClickRedemptions || 0,
+          adImpressionRedemptions: stats.stats.adImpressionRedemptions || 0
         },
         past24Hours: {
           purchasers: stats.stats.purchasers - (yesterday.stats.purchasers || 0),
@@ -332,7 +339,14 @@ export class AdminManager implements RestServer {
           publishers: stats.stats.publishers - (yesterday.stats.publishers || 0),
           cards: stats.stats.cards - (yesterday.stats.cards || 0),
           purchases: stats.stats.purchases - (yesterday.stats.purchases || 0),
-          cardPayments: stats.stats.cardPayments - (yesterday.stats.cardPayments || 0)
+          cardPayments: stats.stats.cardPayments - (yesterday.stats.cardPayments || 0),
+          advertisers: stats.stats.advertisers - (yesterday.stats.advertisers || 0),
+          adCardsOpenOrClick: stats.stats.adCardsOpenOrClick - (yesterday.stats.adCardsOpenOrClick || 0),
+          adCardsImpression: stats.stats.adCardsImpression - (yesterday.stats.adCardsImpression || 0),
+          adPaidOpenOrClicks: stats.stats.adPaidOpenOrClicks - (yesterday.stats.adPaidOpenOrClicks || 0),
+          adPaidImpressions: (stats.stats.adPaidImpressions || 0) - (yesterday.stats.adPaidImpressions || 0),
+          adOpenOrClickRedemptions: (stats.stats.adOpenOrClickRedemptions || 0) - (yesterday.stats.adOpenOrClickRedemptions || 0),
+          adImpressionRedemptions: (stats.stats.adImpressionRedemptions || 0) - (yesterday.stats.adImpressionRedemptions || 0),
         }
       };
       response.json(reply);
