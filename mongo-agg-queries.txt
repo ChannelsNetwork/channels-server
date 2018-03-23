@@ -2455,14 +2455,14 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "42b964db-55f4-4a14-b1ec-0d28907524ea", 
+    authorId: "e808e073-27b2-4104-b700-5428135baefb", 
     action: "pay",
-    at: {$gt: 1520440972000}
+    at: {$gt: 1420527372000}
   }},
   {$group: {
     _id: "$userId",
     count: {$sum: 1},
-    revenue: {$sum: "$payment.amount"}
+    revenue: {$sum: "$payment.amount"},    
   }},
   {$lookup: {
     from: "users",
@@ -2474,7 +2474,7 @@ db.userCardActions.aggregate([
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
   {$match: {
-    "registration.at": {$gt: 1520440972000}
+    "registration.at": {$gt: 1420527372000}
   }},
   {$group: {
     _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue"},
@@ -2482,6 +2482,7 @@ db.userCardActions.aggregate([
     fingerprints: {$addToSet: "$registration.fingerprint"},
     ipAddresses: {$addToSet: "$registration.ipAddress"},
     userAgents: {$addToSet: "$registration.userAgent"},
+    at: {$push: "$registration.at"}
   }},
   {$sort: {"_id.revenue": -1}}
 ]).pretty()
