@@ -1,6 +1,9 @@
+<link rel="import" href="../../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../../bower_components/soso-number-input/soso-number-input.html">
 <link rel="import" href="../../../bower_components/soso-radio-group/soso-radio-group.html">
 <link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
+<link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../../bower_components/soso-collapsible-panel/soso-collapsible-panel.html">
 
 <dom-module id="card-budget-view">
   <template>
@@ -83,6 +86,20 @@
         display: none;
       }
 
+      soso-checkbox {
+        font-size: 14px;
+        margin: 3px 0 0;
+        display: inline-block;
+        width: 144px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .slidePanelContent {
+        padding: 20px 0;
+      }
+
       @media (max-width: 600px) {
         h2 {
           display: none;
@@ -131,10 +148,25 @@
           <div class="row">
             <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
               <soso-radio-button name="none" label="All regions"></soso-radio-button>
-              <soso-radio-button name="conutries" label="Select countries"></soso-radio-button>
-              <soso-radio-button name="region" label="Select regions in a specific country"></soso-radio-button>
+              <soso-radio-button name="conutries" label="Selected countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Selected regions in a specific country"></soso-radio-button>
             </soso-radio-group>
           </div>
+        </section>
+
+        <section id="countriesSection" class="hidden">
+          <label>Select Countries</label>
+          <template is="dom-repeat" items="[[continents]]">
+            <soso-collapsible-panel label="[[item.name]]" collapsed>
+              <div class="slidePanelContent">
+                <template is="dom-repeat" items="[[item.countries]]" as="country">
+                  <soso-checkbox class="countryCheck" data-continent$="[[item.code]]" data-code$="[[country.code]]" label="[[country.name]]"
+                    title="[[country.name]]" on-change="_onCountryChange"></soso-checkbox>
+                </template>
+                <soso-checkbox data-all-code$="[[item.code]]" class="allContinentCheck" label="All" on-change="_onAll"></soso-checkbox>
+              </div>
+            </soso-collapsible-panel>
+          </template>
         </section>
       </div>
     </div>
@@ -145,12 +177,39 @@
       static get properties() {
         return {
           continents: Object,
-          countries: Array
+          countries: Array,
+          data: {
+            type: Object,
+            observer: '_refresh'
+          }
         };
       }
 
+      connectedCallback() {
+        super.connectedCallback();
+        this._refresh();
+      }
+
+      _refresh() {
+        if (this.data) {
+          this.$.regionGroup.selected = "none";
+          this._onRegionSelectionChange();
+        }
+      }
+
       _onRegionSelectionChange() {
-        this._fetchAllCountries();
+        switch (this.$.regionGroup.selected) {
+          case "none":
+            this.$.countriesSection.classList.add("hidden");
+            break;
+          case "conutries":
+            this.$.countriesSection.classList.remove("hidden");
+            this._fetchAllCountries();
+            break;
+          case "region":
+            this.$.countriesSection.classList.add("hidden");
+            break;
+        }
       }
 
       _fetchAllCountries() {
@@ -161,17 +220,43 @@
           let countries = [];
           for (let cont of result.continents) {
             let cByC = result.countriesByContinent[cont.code];
+            for (let c of cByC) {
+              c.selected = false;
+            }
             countries = countries.concat(cByC);
             cont.countries = cByC;
           }
           this.continents = result.continents;
           this.countries = countries;
-          console.log("geo", this.continents);
-          console.log("geo", this.countries);
         });
       }
 
+      _onAll(event) {
+        let all = event.target;
+        let continent = all.dataset.allCode;
+        let checked = all.checked;
+        const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.continent === continent) {
+            b.checked = checked;
+          }
+        }
+      }
 
+      _onCountryChange(event) {
+        let chk = event.target;
+        if (!chk.checked) {
+          const boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+          for (let i = 0; i < boxes.length; i++) {
+            let b = boxes[i];
+            if (b.dataset.allCode === chk.dataset.continent) {
+              b.checked = false;
+              break;
+            }
+          }
+        }
+      }
     }
     window.customElements.define(CardBudgetView.is, CardBudgetView);
   </script>
