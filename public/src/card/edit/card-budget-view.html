@@ -1,4 +1,7 @@
 <link rel="import" href="../../../bower_components/soso-number-input/soso-number-input.html">
+<link rel="import" href="../../../bower_components/soso-radio-group/soso-radio-group.html">
+<link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
+
 <dom-module id="card-budget-view">
   <template>
     <style is="custom-style" include="app-styles">
@@ -23,8 +26,6 @@
         padding: 70px 10px 20px;
         max-width: 600px;
         margin: 0 auto;
-        opacity: 1;
-        transition: opacity 0.28s ease;
       }
 
       h2 {
@@ -38,6 +39,7 @@
         color: var(--dark-green);
         font-weight: bold;
         margin-bottom: 10px;
+        text-transform: uppercase;
       }
 
       .cost {
@@ -122,12 +124,34 @@
             <input id="endDate" type="date">
           </div>
         </section>
+
+        <section>
+          <label>Region</label>
+          <div>Select if you'd like to focus the promotion campaign to a specific region</div>
+          <div class="row">
+            <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
+              <soso-radio-button name="none" label="All regions"></soso-radio-button>
+              <soso-radio-button name="conutries" label="Select countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Select regions in a specific country"></soso-radio-button>
+            </soso-radio-group>
+          </div>
+        </section>
       </div>
     </div>
   </template>
   <script>
     class CardBudgetView extends Polymer.Element {
       static get is() { return 'card-budget-view'; }
+
+
+
+      _onRegionSelectionChange() {
+        $core.getGeoDescriptors().then(result => {
+          console.log("geo", result);
+        });
+      }
+
+
     }
     window.customElements.define(CardBudgetView.is, CardBudgetView);
   </script>

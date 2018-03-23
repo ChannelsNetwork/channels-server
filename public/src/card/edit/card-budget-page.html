@@ -16,6 +16,23 @@
   <script>
     class CardBudgetPage extends Polymer.Element {
       static get is() { return 'card-budget-page'; }
+
+      onActivate(route) {
+        this._showProgress(null);
+        $core.register().then(() => {
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err).then(() => {
+            this._onCancel();
+          });
+        });
+      }
+
+      _showProgress() {
+      }
+
+      _onCancel() {
+      }
     }
     window.customElements.define(CardBudgetPage.is, CardBudgetPage);
   </script>
