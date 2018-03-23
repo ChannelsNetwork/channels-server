@@ -142,12 +142,32 @@
   <script>
     class CardBudgetView extends Polymer.Element {
       static get is() { return 'card-budget-view'; }
-
-
+      static get properties() {
+        return {
+          continents: Object,
+          countries: Array
+        };
+      }
 
       _onRegionSelectionChange() {
+        this._fetchAllCountries();
+      }
+
+      _fetchAllCountries() {
+        if (this.continents && this.continents.length) {
+          return;
+        }
         $core.getGeoDescriptors().then(result => {
-          console.log("geo", result);
+          let countries = [];
+          for (let cont of result.continents) {
+            let cByC = result.countriesByContinent[cont.code];
+            countries = countries.concat(cByC);
+            cont.countries = cByC;
+          }
+          this.continents = result.continents;
+          this.countries = countries;
+          console.log("geo", this.continents);
+          console.log("geo", this.countries);
         });
       }
 

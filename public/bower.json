@@ -36,7 +36,8 @@
     "soso-tooltip": "SosoElements/soso-tooltip#^0.0.4",
     "soso-dropdown": "SosoElements/soso-dropdown#^0.0.2",
     "fingerprintjs2": "^1.6.1",
-    "utils-urlize": "ChannelsNetwork/utils-urlize#^0.1.0"
+    "utils-urlize": "ChannelsNetwork/utils-urlize#^0.1.0",
+    "soso-collapsible-panel": "SosoElements/soso-collapsible-panel#^0.0.1"
   },
   "devDependencies": {
     "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",
