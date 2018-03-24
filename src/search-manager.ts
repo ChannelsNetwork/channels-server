@@ -48,7 +48,7 @@ export class SearchManager implements RestServer {
       }
       console.log("SearchManager.search", requestBody.detailsObject);
       const cardResults = await feedManager.searchCards(request, user, requestBody.detailsObject.searchString, 0, requestBody.detailsObject.limitCards);
-      const channelResults = await channelManager.searchChannels(user, requestBody.detailsObject.searchString, 0, requestBody.detailsObject.limitChannels);
+      const channelResults = await channelManager.searchChannels(requestBody.sessionId, user, requestBody.detailsObject.searchString, 0, requestBody.detailsObject.limitChannels);
       const reply: SearchResponse = {
         serverVersion: SERVER_VERSION,
         cardResults: cardResults,
@@ -97,7 +97,7 @@ export class SearchManager implements RestServer {
         return;
       }
       console.log("SearchManager.handleSearchMoreChannels", requestBody.detailsObject);
-      const result = await channelManager.searchChannels(user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit);
+      const result = await channelManager.searchChannels(requestBody.sessionId, user, requestBody.detailsObject.searchString, requestBody.detailsObject.skip, requestBody.detailsObject.limit);
       const reply: SearchMoreChannelsResponse = {
         serverVersion: SERVER_VERSION,
         channelResults: result

@@ -4,6 +4,7 @@ import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
 export interface RestRequest<T extends Signable> {
+  sessionId: string;
   version: number;
   details: string;
   detailsObject?: T;
@@ -30,6 +31,7 @@ export interface Signable {
 }
 
 export interface RegisterUserResponse extends RestResponseWithUserStatus {
+  sessionId: string;
   id: string;
   interestRatePerMillisecond: number;
   subsidyRate: number;
@@ -1349,4 +1351,12 @@ export interface UserCardActionDescriptor {
     city: string;
   };
   action: CardActionType;
+}
+
+export interface ShortenUrlDetails extends Signable {
+  url: string;
+}
+
+export interface ShortenUrlResponse extends RestResponse {
+  shortUrl: string;
 }

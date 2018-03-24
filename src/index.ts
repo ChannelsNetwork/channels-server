@@ -167,6 +167,7 @@ class ChannelsNetworkWebClient {
     for (const restServer of this.restServers) {
       await restServer.initializeRestServices(this.urlManager, this.app);
     }
+    await this.urlManager.initializeRestServices(this.urlManager, this.app);
 
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 }));
     if (configuration.get('client.ssl')) {

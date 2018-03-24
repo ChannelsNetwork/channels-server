@@ -2,7 +2,7 @@ import { MongoClient, Db, Collection, Cursor, MongoClientOptions, AggregationCur
 import * as uuid from "uuid";
 
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -51,6 +51,7 @@ export class Database {
   private deposits: Collection;
   private cardCampaigns: Collection;
   private cardCampaignStats: Collection;
+  private shortUrls: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -91,6 +92,7 @@ export class Database {
     await this.initializeDeposits();
     await this.initializeCardCampaigns();
     await this.initializeCardCampaignStats();
+    await this.initializeShortUrls();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -412,9 +414,6 @@ export class Database {
     await this.channels.createIndex({ state: 1, featuredWeight: -1 });
     await this.channels.createIndex({ state: 1, listingWeight: -1 });
     await this.channels.createIndex({ created: -1 });
-
-    await this.channels.updateMany({ firstCardPosted: { $exists: false } }, { $set: { firstCardPosted: 0 } });
-    await this.channels.updateMany({ featuredWeight: { $exists: false } }, { $set: { featuredWeight: 0, listingWeight: 0 } });
   }
 
   private async initializeChannelUsers(): Promise<void> {
@@ -433,14 +432,6 @@ export class Database {
     await this.channelCards.createIndex({ state: 1, channelId: 1, pinned: -1, pinPriority: -1 });
     await this.channelCards.createIndex({ state: 1, channelId: 1, pinned: 1, cardLastPosted: -1 });
     await this.channelCards.createIndex({ state: 1, channelId: 1, cardLastPosted: -1 });
-
-    await this.channelCards.updateMany({ state: { $exists: false } }, {
-      $set: {
-        state: 'active',
-        removed: 0
-      }
-    });
-    await this.channelCards.updateMany({ pinned: { $exists: false } }, { $set: { pinned: false, pinPriority: 0 } });
   }
 
   private async initializeUserRegistrations(): Promise<void> {
@@ -448,11 +439,7 @@ export class Database {
     await this.userRegistrations.createIndex({ userId: 1, at: -1 });
     await this.userRegistrations.createIndex({ userId: 1, ipAddress: 1, fingerprint: 1 });
     await this.userRegistrations.createIndex({ mobile: 1, userId: 1, fingerprint: 1 });
-
-    const result = await this.userRegistrations.updateMany({ mobile: { $exists: false } }, { $set: { isMobile: false } });
-    if (result.matchedCount > 0) {
-      await this.userRegistrations.updateMany({ userAgent: /(iphone|ipad|android)/i }, { $set: { isMobile: true } });
-    }
+    await this.userRegistrations.createIndex({ sessionId: 1 }, { unique: true, sparse: true });
   }
 
   private async initializeChannelKeywords(): Promise<void> {
@@ -496,6 +483,11 @@ export class Database {
   private async initializeCardCampaignStats(): Promise<void> {
     this.cardCampaignStats = this.db.collection('cardCampaignStats');
     await this.cardCampaignStats.createIndex({ campaignId: 1, at: 1 }, { unique: true });
+  }
+
+  private async initializeShortUrls(): Promise<void> {
+    this.shortUrls = this.db.collection('shortUrls');
+    await this.shortUrls.createIndex({ code: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -542,6 +534,7 @@ export class Database {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
+      sessionId: null,
       type: type,
       address: address,
       publicKey: publicKey,
@@ -593,6 +586,10 @@ export class Database {
     }
     await this.users.insert(record);
     return record;
+  }
+
+  async updateUserSessionId(userId: string, sessionId: string): Promise<void> {
+    await this.users.updateOne({ id: userId }, { $set: { sessionId: sessionId } });
   }
 
   async updateUserBalance(userId: string, value: number): Promise<void> {
@@ -976,7 +973,7 @@ export class Database {
     return this.users.count({ type: "normal", balanceBelowTarget: true });
   }
 
-  async insertCard(byUserId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, langCode: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, openFeeUnits: number, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, id?: string, now?: number): Promise<CardRecord> {
+  async insertCard(byUserId: string, sessionId: string, byAddress: string, byHandle: string, byName: string, cardImageId: string, linkUrl: string, iframeUrl: string, title: string, text: string, langCode: string, isPrivate: boolean, cardType: string, cardTypeIconUrl: string, cardTypeRoyaltyAddress: string, cardTypeRoyaltyFraction: number, openFeeUnits: number, keywords: string[], searchText: string, fileIds: string[], blocked: boolean, id?: string, now?: number): Promise<CardRecord> {
     if (!now) {
       now = Date.now();
     }
@@ -985,6 +982,7 @@ export class Database {
     }
     const record: CardRecord = {
       id: id ? id : uuid.v4(),
+      sessionId: sessionId,
       state: "active",
       postedAt: now,
       createdById: byUserId,
@@ -1991,9 +1989,10 @@ export class Database {
     return this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(sessionId: string, at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
@@ -2080,15 +2079,17 @@ export class Database {
     });
   }
 
-  async insertUserCardAction(userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemAdImpression: number, redeemOpen: number, redeemOpenNet: number, redeemTransactionId: string, redeemCampaignId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo): Promise<UserCardActionRecord> {
+  async insertUserCardAction(sessionId: string, userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemAdImpression: number, redeemOpen: number, redeemOpenNet: number, redeemTransactionId: string, redeemCampaignId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo, referringUserId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       userId: userId,
       cardId: cardId,
       authorId: authorId,
       at: at,
       action: action,
-      geo: geo
+      geo: geo,
+      referringUserId: referringUserId
     };
     if (fraudReason) {
       record.fraudReason = fraudReason;
@@ -2466,9 +2467,10 @@ export class Database {
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { openFeeRefunded: openFeeRefunded } });
   }
 
-  async insertBankCoupon(signedObject: SignedObject, byUserId: string, byAddress: string, timestamp: number, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason, cardId: string): Promise<BankCouponRecord> {
+  async insertBankCoupon(sessionId: string, signedObject: SignedObject, byUserId: string, byAddress: string, timestamp: number, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason, cardId: string): Promise<BankCouponRecord> {
     const record: BankCouponRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       signedObject: signedObject,
       byUserId: byUserId,
       byAddress: byAddress,
@@ -2496,9 +2498,10 @@ export class Database {
     });
   }
 
-  async insertManualWithdrawal(userId: string, transactionId: string, state: ManualWithdrawalState, created: number, amount: number, recipientContact: string): Promise<ManualWithdrawalRecord> {
+  async insertManualWithdrawal(sessionId: string, userId: string, transactionId: string, state: ManualWithdrawalState, created: number, amount: number, recipientContact: string): Promise<ManualWithdrawalRecord> {
     const record: ManualWithdrawalRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       userId: userId,
       transactionId: transactionId,
       state: state,
@@ -2915,13 +2918,14 @@ export class Database {
     return this.findIpAddress(ipAddress);
   }
 
-  async insertChannel(handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[], latestCardPosted: number, firstCardPosted: number): Promise<ChannelRecord> {
+  async insertChannel(sessionId: string, handle: string, name: string, location: string, ownerId: string, bannerImageFileId: string, about: string, linkUrl: string, socialLinks: SocialLink[], latestCardPosted: number, firstCardPosted: number): Promise<ChannelRecord> {
     if (!socialLinks) {
       socialLinks = [];
     }
     const now = Date.now();
     const record: ChannelRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       state: 'active',
       handle: handle.toLowerCase(),
       name: name,
@@ -3067,11 +3071,12 @@ export class Database {
     return this.channelUsers.find<ChannelUserRecord>(query).sort({ lastUpdated: -1 }).limit(maxCount || 100).toArray();
   }
 
-  async upsertChannelUser(channelId: string, userId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
+  async upsertChannelUser(channelId: string, userId: string, sessionId: string, subscriptionState: ChannelSubscriptionState, lastCardPosted: number, lastVisited: number): Promise<ChannelUserRecord> {
     const now = Date.now();
     const record: ChannelUserRecord = {
       channelId: channelId,
       userId: userId,
+      sessionId: sessionId,
       added: now,
       lastCardPosted: lastCardPosted,
       subscriptionState: subscriptionState,
@@ -3154,7 +3159,7 @@ export class Database {
     return this.channelUsers.find<ChannelUserRecord>({ notificationPending: true }).sort({ lastCardPosted: -1 });
   }
 
-  async ensureChannelCard(channelId: string, cardId: string): Promise<ChannelCardRecord> {
+  async ensureChannelCard(channelId: string, cardId: string, sessionId: string): Promise<ChannelCardRecord> {
     let record = await this.channelCards.findOne<ChannelCardRecord>({ channelId: channelId, cardId: cardId });
     if (record) {
       return record;
@@ -3163,6 +3168,7 @@ export class Database {
     record = {
       channelId: channelId,
       cardId: cardId,
+      sessionId: sessionId,
       state: 'inactive',
       cardPostedAt: 0,
       added: 0,
@@ -3295,8 +3301,9 @@ export class Database {
     await this.channelCards.updateOne({ channelId: channelId, cardId: cardId }, { $set: { pinned: pinned, pinPriority: pinPriority } });
   }
 
-  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, isMobile: boolean, address: string, referrer: string, landingPage: string, userAgent: string): Promise<UserRegistrationRecord> {
+  async insertUserRegistration(userId: string, ipAddress: string, fingerprint: string, isMobile: boolean, address: string, referrer: string, landingPage: string, userAgent: string, referringUserId: string): Promise<UserRegistrationRecord> {
     const record: UserRegistrationRecord = {
+      sessionId: uuid.v4(),
       userId: userId,
       at: Date.now(),
       ipAddress: ipAddress ? ipAddress.toLowerCase() : null,
@@ -3305,7 +3312,8 @@ export class Database {
       address: address,
       referrer: referrer,
       landingPage: landingPage,
-      userAgent: userAgent
+      userAgent: userAgent,
+      referringUserId: referringUserId
     };
     await this.userRegistrations.insertOne(record);
     return record;
@@ -3326,6 +3334,10 @@ export class Database {
 
   async findUserIdsByFingerprint(fingerprints: string[]): Promise<string[]> {
     return this.userRegistrations.distinct('userId', { fingerprint: { $in: fingerprints } });
+  }
+
+  async findUserRegistrationBySessionId(sessionId: string): Promise<UserRegistrationRecord> {
+    return this.userRegistrations.findOne<UserRegistrationRecord>({ sessionId: sessionId });
   }
 
   async existsFingerprint(fingerprint: string): Promise<boolean> {
@@ -3367,10 +3379,11 @@ export class Database {
     await this.channelKeywords.updateOne({ channelId: channelId, keyword: keyword.toLowerCase() }, update);
   }
 
-  async insertAdSlot(userId: string, geoTargets: string[], userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
+  async insertAdSlot(sessionId: string, userId: string, geoTargets: string[], userBalance: number, channelId: string, cardId: string, cardCampaignId: string, type: AdSlotType, authorId: string, amount: number): Promise<AdSlotRecord> {
     const now = Date.now();
     const record: AdSlotRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       userId: userId,
       userBalance: userBalance,
       channelId: channelId,
@@ -3428,10 +3441,11 @@ export class Database {
     await this.adSlots.updateOne({ id: id }, { $set: update });
   }
 
-  async insertCardComment(byId: string, at: number, cardId: string, text: string, metadata: CardCommentMetadata, curation: CommentCurationType): Promise<CardCommentRecord> {
+  async insertCardComment(sessionId: string, byId: string, at: number, cardId: string, text: string, metadata: CardCommentMetadata, curation: CommentCurationType): Promise<CardCommentRecord> {
     const now = Date.now();
     const record: CardCommentRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       byId: byId,
       at: at,
       cardId: cardId,
@@ -4174,9 +4188,10 @@ export class Database {
     return result;
   }
 
-  async insertDeposit(at: number, status: DepositStatus, receivedBy: string, fromHandle: string, userId: string, amount: number, currency: string, net: number, paypalReference: string, transactionId: string): Promise<DepositRecord> {
+  async insertDeposit(sessionId: string, at: number, status: DepositStatus, receivedBy: string, fromHandle: string, userId: string, amount: number, currency: string, net: number, paypalReference: string, transactionId: string): Promise<DepositRecord> {
     const record: DepositRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       at: at,
       status: status,
       receivedBy: receivedBy,
@@ -4208,7 +4223,7 @@ export class Database {
     await this.deposits.updateOne({ id: depositId }, { $set: { status: status, transactionId: transactionId } });
   }
 
-  async insertCardCampaign(createdById: string, status: CardCampaignStatus, couponId: string, cardId: string, type: CardCampaignType, paymentAmount: number, advertiserSubsidy: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
+  async insertCardCampaign(sessionId: string, createdById: string, status: CardCampaignStatus, couponId: string, cardId: string, type: CardCampaignType, paymentAmount: number, advertiserSubsidy: number, budget: CardCampaignBudget, ends: number, geoTargets: string[]): Promise<CardCampaignRecord> {
     const stats: CardCampaignStats = {
       opens: 0,
       clicks: 0,
@@ -4218,6 +4233,7 @@ export class Database {
     };
     const record: CardCampaignRecord = {
       id: uuid.v4(),
+      sessionId: sessionId,
       created: Date.now(),
       createdById: createdById,
       status: status,
@@ -4352,6 +4368,22 @@ export class Database {
   async findCardCampaignStatsAt(campaignId: string, before: number): Promise<CardCampaignStatsSnapshotRecord> {
     const result = await this.cardCampaignStats.find<CardCampaignStatsSnapshotRecord>({ campaignId: campaignId, at: { $lt: before } }).sort({ at: -1 }).limit(1).toArray();
     return result.length > 0 ? result[0] : null;
+  }
+
+  async insertShortUrl(code: string, originalUrl: string, byId: string, sessionId: string): Promise<ShortUrlRecord> {
+    const record: ShortUrlRecord = {
+      at: Date.now(),
+      code: code,
+      originalUrl: originalUrl,
+      byId: byId,
+      sessionId: sessionId
+    };
+    await this.shortUrls.insertOne(record);
+    return record;
+  }
+
+  async findShortUrlByCode(code: string): Promise<ShortUrlRecord> {
+    return this.shortUrls.findOne<ShortUrlRecord>({ code: code });
   }
 }
 

@@ -33,8 +33,10 @@ const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
-const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
+const URL_SYMBOLS = '-._~';
+const CODE_SYMBOLS = LETTERS + LETTERS.toUpperCase() + DIGITS + URL_SYMBOLS;
+const NON_ZERO_DIGITS = '123456789';
 const ANNUAL_INTEREST_RATE = 0.03;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
@@ -580,14 +582,35 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             relatedCardCampaignId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(request, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
+          await networkEntity.performBankTransaction(request, null, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
           userRecord.balance = initialGrant;
         }
       }
-      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
-
-      const userStatus = await this.getUserStatus(request, userRecord, true);
+      let referringUserId: string;
+      if (requestBody.detailsObject.landingUrl) {
+        try {
+          const landingUrl = new URL(requestBody.detailsObject.landingUrl);
+          const address = landingUrl.searchParams.get('s');
+          if (address) {
+            let referringUser = await db.findUserByAddress(address);
+            if (referringUser) {
+              referringUserId = referringUser.id;
+            } else {
+              referringUser = await db.findUserByHistoricalAddress(address);
+              if (referringUser) {
+                referringUserId = referringUser.id;
+              }
+            }
+          }
+        } catch (err) {
+          errorManager.warning("User.handleRegisterUser: failure processing landingUrl", request, requestBody.detailsObject.landingUrl);
+        }
+      }
+      const registrationRecord = await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent, referringUserId);
+      await db.updateUserSessionId(userRecord.id, registrationRecord.sessionId);
+      const userStatus = await this.getUserStatus(request, userRecord, requestBody.sessionId, true);
       const registerResponse: RegisterUserResponse = {
+        sessionId: registrationRecord.sessionId,
         serverVersion: SERVER_VERSION,
         status: userStatus,
         id: userRecord.id,
@@ -807,7 +830,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       // console.log("UserManager.status", requestBody.detailsObject.address);
-      const status = await this.getUserStatus(request, user, false);
+      const status = await this.getUserStatus(request, user, requestBody.sessionId, false);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
@@ -867,7 +890,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
-      await channelManager.ensureUserHomeChannel(user);
+      await channelManager.ensureUserHomeChannel(user, requestBody.sessionId);
       if (sendConfirmation) {
         void this.sendEmailConfirmation(user);
       }
@@ -1011,7 +1034,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
       await this.announceUserUpdated(registeredUser);
       await this.announceUserUpdated(user);
-      const status = await this.getUserStatus(request, user, true);
+      const status = await this.getUserStatus(request, user, requestBody.sessionId, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
         status: status,
@@ -1191,7 +1214,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await this.payRegistrationBonus(request, user, requestBody.detailsObject.fingerprint);
       }
       await this.announceUserUpdated(user);
-      const status = await this.getUserStatus(request, user, true);
+      const status = await this.getUserStatus(request, user, requestBody.sessionId, true);
       const reply: ConfirmEmailResponse = {
         serverVersion: SERVER_VERSION,
         userId: user.id,
@@ -1226,7 +1249,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       relatedCardCampaignId: null,
       toRecipients: [grantRecipient]
     };
-    await networkEntity.performBankTransaction(request, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
+    await networkEntity.performBankTransaction(request, null, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
     user.balance += REGISTRATION_BONUS;
     console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
@@ -1430,9 +1453,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  async getUserStatus(request: Request, user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
+  async getUserStatus(request: Request, user: UserRecord, sessionId: string, updateBalance: boolean): Promise<UserStatus> {
     if (updateBalance) {
-      await this.updateUserBalance(request, user);
+      await this.updateUserBalance(request, user, sessionId);
     }
     const network = await db.getNetwork();
     let timeUntilNextAllowedWithdrawal = 0;
@@ -1492,11 +1515,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const now = Date.now();
     const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
     for (const user of users) {
-      await this.updateUserBalance(null, user);
+      await this.updateUserBalance(null, user, null);
     }
   }
 
-  async updateUserBalance(request: Request, user: UserRecord): Promise<void> {
+  async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {
     const now = Date.now();
     let subsidy = 0;
     let balanceBelowTarget = false;
@@ -1526,7 +1549,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCardCampaignId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(request, subsidyDetails, null, "User subsidy", null, null, Date.now());
+        await networkEntity.performBankTransaction(request, sessionId, subsidyDetails, null, "User subsidy", null, null, Date.now());
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1550,7 +1573,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           relatedCardCampaignId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, "Interest", null, null, now);
+        await networkEntity.performBankTransaction(request, sessionId, grant, null, "Interest", null, null, now);
       }
     }
   }

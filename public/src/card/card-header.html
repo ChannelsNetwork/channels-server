@@ -252,37 +252,46 @@
         $router.goto("/channel/" + encodeURIComponent(this.data.by.handle));
       }
 
-      get _shareUrl() {
-        if (!this._cardUrl) {
+      getShareUrl() {
+        if (this._shareUrl) {
+          return Promise.resolve(this._shareUrl);
+        }
+        return new Promise((resolve, reject) => {
           let root = window.location.origin;
           if (!root) {
             root = window.location.protocol + "://" + window.location.host;
           }
-          this._cardUrl = root + "/c/" + this.data.id;
-        }
-        return this._cardUrl;
+          const shareUrl = root + "/c/" + this.data.id + ($core.address ? "?s=" + $core.address : "");
+          $core.shortenUrl(shareUrl).then((shortUrl) => {
+            this._shareUrl = shortUrl;
+            resolve(this._shareUrl);
+          });
+        });
       }
 
       _onLink() {
-        const cardUrl = this._shareUrl;
         this._import("../dialogs/share-link-dialog.html").then(() => {
-          return this.$.shareDialog.show(cardUrl);
+          this.getShareUrl().then((cardUrl) => {
+            return this.$.shareDialog.show(cardUrl);
+          });
         });
       }
 
       _tweet() {
         if (this.data) {
-          const cardUrl = this._shareUrl;
-          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
-          $core.social.tweet(cardText, cardUrl);
+          this.getShareUrl().then((cardUrl) => {
+            const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+            $core.social.tweet(cardText, cardUrl);
+          });
         }
       }
 
       _facebook() {
         if (this.data) {
-          const cardUrl = this._shareUrl;
-          const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
-          $core.social.facebookShare(cardText, cardUrl);
+          this.getShareUrl().then((cardUrl) => {
+            const cardText = this.data.summary.title || this.data.summary.text || "Check out this card on Channels.cc";
+            $core.social.facebookShare(cardText, cardUrl);
+          });
         }
       }
 

@@ -159,7 +159,7 @@ export class FeedManager implements Initializable, RestServer {
       promises.push(this.populateHomeNewContent(request, user, requestBody.detailsObject.maxCardsPerChannel, reply.newContent));
       await Promise.all(promises);
       const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
-      await this.populateHomePromotedContent(request, user, geoLocation, reply);
+      await this.populateHomePromotedContent(request, requestBody.sessionId, user, geoLocation, reply);
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleGetHome: Failure", request, request, err);
@@ -267,7 +267,7 @@ export class FeedManager implements Initializable, RestServer {
     return user.preferredLangCodes.indexOf(card.summary.langCode) >= 0;
   }
 
-  private async populateHomePromotedContent(request: Request, user: UserRecord, geoLocation: GeoLocation, reply: GetHomePageResponse): Promise<void> {
+  private async populateHomePromotedContent(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, reply: GetHomePageResponse): Promise<void> {
     if (user.balance >= TARGET_BALANCE) {
       return;
     }
@@ -290,28 +290,28 @@ export class FeedManager implements Initializable, RestServer {
     if (adSlotInfo.slotCount === 0) {
       return;
     }
-    const promotedCards = await this.selectPromotedCards(request, user, geoLocation, adSlotInfo.slotCount, 1, 0, null, cardIds);
+    const promotedCards = await this.selectPromotedCards(request, sessionId, user, geoLocation, adSlotInfo.slotCount, 1, 0, null, cardIds);
     for (const card of promotedCards) {
       reply.promotedContent.push(card);
     }
   }
 
-  async selectPromotedCards(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardDescriptor[]> {
+  async selectPromotedCards(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardDescriptor[]> {
     const result: CardDescriptor[] = [];
-    const cards = await this.selectPromotedCardsWithCampaigns(request, user, geoLocation, count, fractionPayToOpen, fractionImpressionAd, channelId, existingContentCardIds);
+    const cards = await this.selectPromotedCardsWithCampaigns(request, sessionId, user, geoLocation, count, fractionPayToOpen, fractionImpressionAd, channelId, existingContentCardIds);
     for (const card of cards) {
       result.push(card.card);
     }
     return result;
   }
 
-  private async selectPromotedCardsWithCampaigns(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardWithCampaign[]> {
+  private async selectPromotedCardsWithCampaigns(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardWithCampaign[]> {
     const result: CardWithCampaign[] = [];
     const authorIds: string[] = [];
     const adCardIds: string[] = [];
     const numberPayToOpen = this.computeFraction(count, fractionPayToOpen);
     if (numberPayToOpen) {
-      const cards = await this.fetchPromotedCards(request, user, geoLocation, numberPayToOpen, channelId, ["pay-to-open", "pay-to-click"], authorIds, adCardIds, existingContentCardIds, []);
+      const cards = await this.fetchPromotedCards(request, sessionId, user, geoLocation, numberPayToOpen, channelId, ["pay-to-open", "pay-to-click"], authorIds, adCardIds, existingContentCardIds, []);
       for (const card of cards) {
         result.push(card);
       }
@@ -321,14 +321,14 @@ export class FeedManager implements Initializable, RestServer {
       numberPaidImpression += numberPayToOpen - result.length;
     }
     if (numberPaidImpression) {
-      const cards = await this.fetchPromotedCards(request, user, geoLocation, numberPaidImpression, channelId, ["impression-ad"], authorIds, adCardIds, existingContentCardIds, []);
+      const cards = await this.fetchPromotedCards(request, sessionId, user, geoLocation, numberPaidImpression, channelId, ["impression-ad"], authorIds, adCardIds, existingContentCardIds, []);
       for (const card of cards) {
         result.push(card);
       }
     }
     const numberPromoted = count - result.length;
     if (numberPromoted > 0) {
-      const cards = await this.fetchPromotedCards(request, user, geoLocation, numberPromoted, channelId, ["content-promotion"], authorIds, adCardIds, existingContentCardIds, []);
+      const cards = await this.fetchPromotedCards(request, sessionId, user, geoLocation, numberPromoted, channelId, ["content-promotion"], authorIds, adCardIds, existingContentCardIds, []);
       for (const card of cards) {
         result.push(card);
       }
@@ -337,7 +337,7 @@ export class FeedManager implements Initializable, RestServer {
     return result;
   }
 
-  private async fetchPromotedCards(request: Request, user: UserRecord, geoLocation: GeoLocation, count: number, channelId: string, types: CardCampaignType[], existingAuthorIds: string[], alreadyPopulatedAdCardIds: string[], alreadyPopulatedContentCardIds: string[], existingPromotedCardIds: string[]): Promise<CardWithCampaign[]> {
+  private async fetchPromotedCards(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, channelId: string, types: CardCampaignType[], existingAuthorIds: string[], alreadyPopulatedAdCardIds: string[], alreadyPopulatedContentCardIds: string[], existingPromotedCardIds: string[]): Promise<CardWithCampaign[]> {
     const result: CardWithCampaign[] = [];
     const campaigns = await db.findSuitableCardCampaignsRandomized(types, geoLocation, count * 2, Date.now());
     for (const campaign of campaigns) {
@@ -381,7 +381,7 @@ export class FeedManager implements Initializable, RestServer {
             continue;
           } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
             // Check again based on a recent impression
-            const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
+            const adSlot = await this.createAdSlot(sessionId, card, user, geoLocation, channelId, campaign);
             const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, true, campaign, user);
             if (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") {
               await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
@@ -392,7 +392,7 @@ export class FeedManager implements Initializable, RestServer {
           }
         } else {
           // We can use it because it passes eligibility and the userCardInfo came directly from mongo
-          const adSlot = await this.createAdSlot(card, user, geoLocation, channelId, campaign);
+          const adSlot = await this.createAdSlot(sessionId, card, user, geoLocation, channelId, campaign);
           const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, true, campaign, user);
           if (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") {
             await db.updateCardCampaignNextEligible(campaign.id, Date.now() + 1000 * 60);
@@ -460,7 +460,7 @@ export class FeedManager implements Initializable, RestServer {
       const promises: Array<Promise<CardFeedSet>> = [];
       const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
       for (const requestedFeed of requestBody.detailsObject.feeds) {
-        promises.push(this.getUserFeed(request, geoLocation, user, requestBody.detailsObject.fingerprint, requestedFeed, requestBody.detailsObject.existingPromotedCardIds));
+        promises.push(this.getUserFeed(request, requestBody.sessionId, geoLocation, user, requestBody.detailsObject.fingerprint, requestedFeed, requestBody.detailsObject.existingPromotedCardIds));
       }
       reply.feeds = await Promise.all(promises);
       response.json(reply);
@@ -470,7 +470,7 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  async getUserFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, feed: RequestedFeedDescriptor, existingPromotedCardIds: string[]): Promise<CardFeedSet> {
+  async getUserFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, feed: RequestedFeedDescriptor, existingPromotedCardIds: string[]): Promise<CardFeedSet> {
     const result: CardFeedSet = {
       type: feed.type,
       cards: [],
@@ -482,31 +482,31 @@ export class FeedManager implements Initializable, RestServer {
     let batch: CardBatch;
     switch (feed.type) {
       case "recommended":
-        batch = await this.getRecommendedFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecommendedFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'new':
-        batch = await this.getRecentlyAddedFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecentlyAddedFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'top-all-time':
-        batch = await this.getTopFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds, 0);
+        batch = await this.getTopFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds, 0);
         break;
       case 'top-past-week':
-        batch = await this.getTopFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds, Date.now() - 1000 * 60 * 60 * 24 * 7);
+        batch = await this.getTopFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds, Date.now() - 1000 * 60 * 60 * 24 * 7);
         break;
       case 'top-past-month':
-        batch = await this.getTopFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds, Date.now() - 1000 * 60 * 60 * 24 * 30);
+        batch = await this.getTopFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds, Date.now() - 1000 * 60 * 60 * 24 * 30);
         break;
       case 'mine':
-        batch = await this.getRecentlyPostedFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecentlyPostedFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'opened':
-        batch = await this.getRecentlyOpenedFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getRecentlyOpenedFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'channel':
-        batch = await this.getChannelFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.channelHandle, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getChannelFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.channelHandle, feed.afterCardId, existingPromotedCardIds);
         break;
       case 'subscribed':
-        batch = await this.getSubscribedFeed(request, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
+        batch = await this.getSubscribedFeed(request, sessionId, geoLocation, user, fingerprint, feed.maxCount, feed.afterCardId, existingPromotedCardIds);
         break;
       default:
         throw new Error("Unhandled feed type " + feed.type);
@@ -525,7 +525,7 @@ export class FeedManager implements Initializable, RestServer {
       }
       console.log("FeedManager.search-topic", requestBody.detailsObject);
       const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
-      const batch = await this.performSearchTopic(request, geoLocation, user, requestBody.detailsObject.fingerprint, requestBody.detailsObject.topic, requestBody.detailsObject.maxCount, requestBody.detailsObject.afterCardId, requestBody.detailsObject.promotedCardIds);
+      const batch = await this.performSearchTopic(request, requestBody.sessionId, geoLocation, user, requestBody.detailsObject.fingerprint, requestBody.detailsObject.topic, requestBody.detailsObject.maxCount, requestBody.detailsObject.afterCardId, requestBody.detailsObject.promotedCardIds);
       const reply: SearchTopicResponse = {
         serverVersion: SERVER_VERSION,
         cards: batch.cards,
@@ -585,7 +585,7 @@ export class FeedManager implements Initializable, RestServer {
     };
   }
 
-  private async mergeWithAdCards(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[], channelId: string): Promise<CardBatch> {
+  private async mergeWithAdCards(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[], channelId: string): Promise<CardBatch> {
     const amalgamated: CardDescriptor[] = [];
     // We have to inject ad slots if necessary, and populate those ad slots with cards that offer
     // the user some revenue-generating potential
@@ -601,13 +601,13 @@ export class FeedManager implements Initializable, RestServer {
       for (const card of cards) {
         existingContentCardIds.push(card.id);
       }
-      const promotedCards = await this.selectPromotedCardsWithCampaigns(request, user, geoLocation, adSlots.slotCount, payToOpenFraction, adImpressionFraction, channelId, existingContentCardIds);
+      const promotedCards = await this.selectPromotedCardsWithCampaigns(request, sessionId, user, geoLocation, adSlots.slotCount, payToOpenFraction, adImpressionFraction, channelId, existingContentCardIds);
       let promotedCardIndex = 0;
       while ((cardIndex < cards.length && cardIndex < limit) || promotedCardIndex < promotedCards.length) {
         let filled = false;
         if (slotIndex >= nextAdIndex && promotedCardIndex < promotedCards.length) {
           const adCard = promotedCards[promotedCardIndex++];
-          const adSlot = await this.createAdSlotFromDescriptor(adCard.card, geoLocation, user, channelId, adCard.campaign);
+          const adSlot = await this.createAdSlotFromDescriptor(sessionId, adCard.card, geoLocation, user, channelId, adCard.campaign);
           amalgamated.push(adCard.card);
           nextAdIndex += adSlots.slotSeparation;
           filled = true;
@@ -627,18 +627,18 @@ export class FeedManager implements Initializable, RestServer {
     }
   }
 
-  private async createAdSlot(card: CardRecord, user: UserRecord, geo: GeoLocation, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
+  private async createAdSlot(sessionId: string, card: CardRecord, user: UserRecord, geo: GeoLocation, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
     let type: AdSlotType;
     type = card.pricing.openPayment ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = card.pricing.openPayment ? card.pricing.openPayment : card.pricing.promotionFee;
-    return db.insertAdSlot(user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
+    return db.insertAdSlot(sessionId, user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
   }
 
-  private async createAdSlotFromDescriptor(card: CardDescriptor, geo: GeoLocation, user: UserRecord, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
+  private async createAdSlotFromDescriptor(sessionId: string, card: CardDescriptor, geo: GeoLocation, user: UserRecord, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
     let type: AdSlotType;
     type = card.pricing.openFee < 0 ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = card.pricing.openFee < 0 ? -card.pricing.openFee : card.pricing.promotionFee;
-    return db.insertAdSlot(user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
+    return db.insertAdSlot(sessionId, user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
   }
 
   // <<<<<<< HEAD
@@ -884,7 +884,7 @@ export class FeedManager implements Initializable, RestServer {
     return "e";
   }
 
-  private async getRecommendedFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecommendedFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     // The recommended feed consists of cards we think the user will be most interested in.  This can get
     // more sophisticated over time.  For now, it works by using a cached set of the cards that have
     // the highest overall scores (determined independent of any one user).  For each of these cards, we
@@ -901,7 +901,7 @@ export class FeedManager implements Initializable, RestServer {
     // for (const r of result) {
     //   console.log("FeedManager.getRecommendedFeed: " + r.summary.title, r.score);
     // }
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
   private async getCardsWithHighestScores(request: Request, user: UserRecord, ads: boolean, count: number, afterCardId: string, scoreLessThan: number): Promise<CardDescriptor[]> {
@@ -1028,7 +1028,7 @@ export class FeedManager implements Initializable, RestServer {
     return candidate;
   }
 
-  private async getRecentlyAddedFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecentlyAddedFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -1049,10 +1049,10 @@ export class FeedManager implements Initializable, RestServer {
     }
     await cursor.close();
     const result = await this.populateCards(request, cards, null, false, null, null, null, user);
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
-  private async getTopFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[], since: number): Promise<CardBatch> {
+  private async getTopFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[], since: number): Promise<CardBatch> {
     let revenue = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -1085,10 +1085,10 @@ export class FeedManager implements Initializable, RestServer {
     }
     await cursor.close();
     const result = await this.populateCards(request, cards, null, false, null, null, null, user);
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, more, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, more, limit, existingPromotedCardIds, null);
   }
 
-  private async getRecentlyPostedFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecentlyPostedFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -1109,10 +1109,10 @@ export class FeedManager implements Initializable, RestServer {
     }
     await cursor.close();
     const result = await this.populateCards(request, cards, null, false, null, null, null, user);
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
-  private async getChannelFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, channelHandle: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getChannelFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, channelHandle: string, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     if (!limit) {
       limit = 24;
     }
@@ -1167,10 +1167,10 @@ export class FeedManager implements Initializable, RestServer {
       await cursor.close();
     }
     const result = await this.populateCards(request, cards, pinInfos, false, null, null, channel.id, user);
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, channel ? channel.id : null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, channel ? channel.id : null);
   }
 
-  private async getSubscribedFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getSubscribedFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     if (!limit) {
       limit = 24;
     }
@@ -1208,10 +1208,10 @@ export class FeedManager implements Initializable, RestServer {
       }
       await cursor.close();
     }
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, cards, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, cards, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
-  private async getRecentlyOpenedFeed(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async getRecentlyOpenedFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
       const afterCardInfo = await db.findUserCardInfo(user.id, afterCardId);
@@ -1230,10 +1230,10 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const result = await this.populateCards(request, cards, null, false, null, null, null, user);
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
-  private async performSearchTopic(request: Request, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
+  private async performSearchTopic(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, topic: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let score = 0;
     if (afterCardId) {
       const afterCard = await db.findCardById(afterCardId, true);
@@ -1251,7 +1251,7 @@ export class FeedManager implements Initializable, RestServer {
     }
     const cards = await db.findCardsUsingKeywords(topicRecord.keywords, score, limit + 1, user.id);
     const result = await this.populateCards(request, cards, null, false, null, null, null, user);
-    return this.mergeWithAdCards(request, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
+    return this.mergeWithAdCards(request, sessionId, geoLocation, user, fingerprint, result, afterCardId ? true : false, limit, existingPromotedCardIds, null);
   }
 
   private async populateCards(request: Request, cards: CardRecord[], pinInfos: ChannelCardPinInfo[], promoted: boolean, cardCampaignId: string, adSlotId: string, channelId: string, user?: UserRecord): Promise<CardDescriptor[]> {
@@ -1756,41 +1756,41 @@ export class FeedManager implements Initializable, RestServer {
   //   await db.updateCardPromotionScores(card, cardManager.getPromotionScores(card));
   // }
 
-  private async createPromotionCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number): Promise<CouponInfo> {
-    return this.createCoupon(user, cardId, amount, budgetAmount, budgetAmount, "card-promotion");
-  }
+  // private async createPromotionCoupon(sessionId: string, user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number): Promise<CouponInfo> {
+  //   return this.createCoupon(user, cardId, amount, budgetAmount, budgetAmount, "card-promotion");
+  // }
 
-  private async createOpenCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
-    return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-open-payment");
-  }
+  // private async createOpenCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
+  //   return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-open-payment");
+  // }
 
-  private async createClickCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
-    return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-click-payment");
-  }
+  // private async createClickCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number): Promise<CouponInfo> {
+  //   return this.createCoupon(user, cardId, amount, budgetAmount, 0, "card-click-payment");
+  // }
 
-  private async createCoupon(user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
-    const details: BankCouponDetails = {
-      address: user.user.address,
-      fingerprint: null,
-      timestamp: Date.now(),
-      reason: reason,
-      amount: amount,
-      budget: {
-        amount: budgetAmount,
-        plusPercent: budgetPlusPercent
-      }
-    };
-    const detailsString = JSON.stringify(details);
-    const signed: SignedObject = {
-      objectString: detailsString,
-      signature: KeyUtils.signString(detailsString, user.keyInfo),
-    };
-    const couponRecord = await bank.registerCoupon(user.user, cardId, signed);
-    return {
-      signedObject: signed,
-      id: couponRecord.id
-    };
-  }
+  // private async createCoupon(sessionId: string, user: UserWithKeyUtils, cardId: string, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason): Promise<CouponInfo> {
+  //   const details: BankCouponDetails = {
+  //     address: user.user.address,
+  //     fingerprint: null,
+  //     timestamp: Date.now(),
+  //     reason: reason,
+  //     amount: amount,
+  //     budget: {
+  //       amount: budgetAmount,
+  //       plusPercent: budgetPlusPercent
+  //     }
+  //   };
+  //   const detailsString = JSON.stringify(details);
+  //   const signed: SignedObject = {
+  //     objectString: detailsString,
+  //     signature: KeyUtils.signString(detailsString, user.keyInfo),
+  //   };
+  //   const couponRecord = await bank.registerCoupon(user.user, cardId, signed, sessionId);
+  //   return {
+  //     signedObject: signed,
+  //     id: couponRecord.id
+  //   };
+  // }
 
   private async insertPreviewUser(id: string, handle: string, name: string, imageUrl: string, emailAddress: string): Promise<UserWithKeyUtils> {
     const privateKey = KeyUtils.generatePrivateKey();
@@ -1826,7 +1826,7 @@ export class FeedManager implements Initializable, RestServer {
       portion: "remainder",
       reason: "grant-recipient"
     });
-    await networkEntity.performBankTransaction(null, grantDetails, null, null, null, null, Date.now());
+    await networkEntity.performBankTransaction(null, null, grantDetails, null, null, null, null, Date.now());
     user.balance += 10;
     return {
       user: user,
