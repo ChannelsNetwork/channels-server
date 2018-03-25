@@ -1175,13 +1175,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       };
       await db.updateUserFirstCardPurchased(user.id, card.id);
       const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
-      await db.insertUserCardAction(requestBody.sessionId, user.id, geo, card.id, card.createdById, now, "pay", paymentInfo, 0, 0, 0, 0, null, null, discountReason, null, await this.getReferringUserId(requestBody.sessionId));
+      const referringUserId = await this.getReferringUserId(requestBody.sessionId);
+      await db.insertUserCardAction(requestBody.sessionId, user.id, geo, card.id, card.createdById, now, "pay", paymentInfo, 0, 0, 0, 0, null, null, discountReason, null, referringUserId);
       await this.incrementStat(card, "revenue", amount, now, REVENUE_SNAPSHOT_INTERVAL);
       const statName = skipMoneyTransfer ? "fraudPurchases" : (isFirstUserCardPurchase ? "firstTimePurchases" : "normalPurchases");
       await this.incrementStat(card, statName, 1, now, CARD_PURCHASE_SNAPSHOT_INTERVAL);
       await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue, 0, 0, isFirstUserCardPurchase ? 1 : 0, 0, 0, discountReason ? 0 : 1, 0, amount, 0, 0, 0, 0, 0, 0, 0);
       const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
+      await db.incrementAuthorUserStats(request, author.id, user.id, 0, 0, 1, 0, 0);
+      if (referringUserId) {
+        const userCardInfo = await db.ensureUserCardInfo(referringUserId, card.id);
+        let referredCards = 0;
+        if (userCardInfo.referredPurchases === 0) {
+          referredCards = 1;
+        }
+        await db.incrementUserCardReferredPurchases(userCardInfo, 1);
+        await db.incrementAuthorUserStats(request, author.id, referringUserId, 0, 0, 0, referredCards, 1);
+      }
       const userStatus = await userManager.getUserStatus(request, user, requestBody.sessionId, false);
       await feedManager.rescoreCard(card, false);
       const reply: CardPayResponse = {
@@ -1525,6 +1536,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           if (deltaDislikes !== 0) {
             await this.incrementStat(card, "dislikes", deltaDislikes, now, LIKE_DISLIKE_SNAPSHOT_INTERVAL);
             await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, deltaDislikes, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+          }
+          if (deltaLikes > 0 || deltaDislikes > 0) {
+            await db.incrementAuthorUserStats(request, card.createdById, user.id, deltaLikes > 0 ? 1 : 0, deltaDislikes > 0 ? 1 : 0, 0, 0, 0);
           }
           await feedManager.rescoreCard(card, false);
         }

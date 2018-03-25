@@ -1187,6 +1187,7 @@ class CoreService extends Polymer.Element {
     const result = {};
     result.ar = "Arabic";
     result.hy = "Armenian";
+    result.bg = "Bulgarian";
     result.zh = "Chinese";
     result.cs = "Czech";
     result.da = "Danish";

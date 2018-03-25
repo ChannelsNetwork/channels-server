@@ -1,8 +1,9 @@
 import { MongoClient, Db, Collection, Cursor, MongoClientOptions, AggregationCursor } from "mongodb";
 import * as uuid from "uuid";
 
+import { Request, Response } from 'express';
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -13,6 +14,7 @@ import * as moment from "moment-timezone";
 
 const NETWORK_CARD_STATS_SNAPSHOT_PERIOD = 1000 * 60 * 10;
 const MAX_PAYOUT_PER_BASE_FEE_PERIOD = 500;
+const MAX_AUTHOR_USER_SNAPSHOT_INTERVAL = 1000 * 60 * 60;
 
 export class Database {
   private db: Db;
@@ -52,6 +54,7 @@ export class Database {
   private cardCampaigns: Collection;
   private cardCampaignStats: Collection;
   private shortUrls: Collection;
+  private authorUsers: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -93,6 +96,7 @@ export class Database {
     await this.initializeCardCampaigns();
     await this.initializeCardCampaignStats();
     await this.initializeShortUrls();
+    await this.initializeAuthorUsers();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -297,6 +301,8 @@ export class Database {
     await this.userCardInfo.createIndex({ userId: 1, cardId: 1 }, { unique: true });
     await this.userCardInfo.createIndex({ userId: 1, lastOpened: -1 });
     await this.userCardInfo.createIndex({ userId: 1, commentNotificationPending: 1 });
+
+    await this.userCardInfo.updateMany({referredPurchases: {$exists: false}}, {$set: {referredPurchases: 0}});
   }
 
   private async initializeBankCoupons(): Promise<void> {
@@ -488,6 +494,14 @@ export class Database {
   private async initializeShortUrls(): Promise<void> {
     this.shortUrls = this.db.collection('shortUrls');
     await this.shortUrls.createIndex({ code: 1 }, { unique: true });
+  }
+
+  private async initializeAuthorUsers(): Promise<void> {
+    this.authorUsers = this.db.collection('authorUsers');
+    await this.authorUsers.createIndex({ authorId: 1, userId: 1, periodStarting: -1 }, { unique: true });
+    await this.authorUsers.createIndex({ authorId: 1, userId: 1, isCurrent: 1 });
+    await this.authorUsers.createIndex({ userId: 1, isCurrent: 1 });
+    await this.authorUsers.createIndex({ authorId: 1, isCurrent: 1 });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -2372,7 +2386,8 @@ export class Database {
           earnedFromReader: 0,
           openFeeRefunded: false,
           transactionIds: [],
-          like: "none"
+          like: "none",
+          referredPurchases: 0
         };
         await this.userCardInfo.insert(record);
       } catch (err) {
@@ -2465,6 +2480,11 @@ export class Database {
   async updateUserCardInfoOpenFeeRefund(userId: string, cardId: string, openFeeRefunded: boolean): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $set: { openFeeRefunded: openFeeRefunded } });
+  }
+
+  async incrementUserCardReferredPurchases(userCardInfo: UserCardInfoRecord, incrementBy: number): Promise<void> {
+    await this.userCardInfo.updateOne({userId: userCardInfo.userId, cardId: userCardInfo.cardId}, {$inc: {referredPurchases: incrementBy}});
+    userCardInfo.referredPurchases += incrementBy;
   }
 
   async insertBankCoupon(sessionId: string, signedObject: SignedObject, byUserId: string, byAddress: string, timestamp: number, amount: number, budgetAmount: number, budgetPlusPercent: number, reason: BankTransactionReason, cardId: string): Promise<BankCouponRecord> {
@@ -4384,6 +4404,70 @@ export class Database {
 
   async findShortUrlByCode(code: string): Promise<ShortUrlRecord> {
     return this.shortUrls.findOne<ShortUrlRecord>({ code: code });
+  }
+
+  async ensureAuthorUser(authorId: string, userId: string): Promise<AuthorUserRecord> {
+    let record = await this.authorUsers.findOne<AuthorUserRecord>({ authorId: authorId, userId: userId, isCurrent: true });
+    if (record) {
+      return record;
+    }
+    try {
+      record = {
+        authorId: authorId,
+        userId: userId,
+        stats: {
+          likes: 0,
+          dislikes: 0,
+          purchases: 0,
+          referredCards: 0,
+          referredPurchases: 0
+        },
+        isCurrent: true,
+        periodStarting: Date.now()
+      };
+      await this.authorUsers.insertOne(record);
+      return record;
+    } catch (err) {
+      return this.authorUsers.findOne<AuthorUserRecord>({ authorId: authorId, userId: userId, isCurrent: true });
+    }
+  }
+
+  async incrementAuthorUserStats(request: Request, authorId: string, userId: string, likes: number, dislikes: number, purchases: number, referredCards: number, referredPurchases: number): Promise<void> {
+    const now = Date.now();
+    const existing = await this.ensureAuthorUser(authorId, userId);
+    let updatePeriod = false;
+    if (now - existing.periodStarting > MAX_AUTHOR_USER_SNAPSHOT_INTERVAL) {
+      const snapshot: AuthorUserRecord = {
+        authorId: authorId,
+        userId: userId,
+        stats: existing.stats,
+        isCurrent: false,
+        periodStarting: existing.periodStarting
+      };
+      try {
+        await this.authorUsers.insertOne(snapshot);
+        updatePeriod = true;
+      } catch (err) {
+        errorManager.warning("Db.incrementAuthorUserStats: race condition taking snapshot", request, authorId, userId);
+      }
+    }
+    const increments: any = {
+      "stats.likes": likes,
+      "stats.dislikes": dislikes,
+      "stats.purchases": purchases,
+      "stats.referredCards": referredCards,
+      "stats.referredPurchases": referredPurchases
+    };
+    const update: any = { $inc: increments };
+    if (updatePeriod) {
+      update.$set = { periodStarting: now };
+    }
+    await this.authorUsers.updateOne({ authorId: authorId, userId: userId, isCurrent: true }, update);
+  }
+
+  async findAuthorUserAt(authorId: string, userId: string, at: number): Promise<AuthorUserRecord> {
+    const result = await this.authorUsers.find<AuthorUserRecord>({ authorId: authorId, userId: userId, periodStarting: { $lt: at } }).sort({ periodStarting: -1 }).limit(1).toArray();
+    return result.length > 0 ? result[0] : null;
   }
 }
 

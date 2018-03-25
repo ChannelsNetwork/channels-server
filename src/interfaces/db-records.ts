@@ -486,6 +486,7 @@ export interface UserCardInfoRecord {
   transactionIds: string[];
   like: CardLikeState;
   commentNotificationPending?: boolean;
+  referredPurchases: number;
 }
 
 export type CardLikeState = "none" | "like" | "dislike";
@@ -837,4 +838,20 @@ export interface ShortUrlRecord {
   sessionId: string;
   code: string;
   originalUrl: string;
+}
+
+export interface AuthorUserRecord {
+  authorId: string;
+  userId: string;
+  stats: AuthorUserStats;
+  isCurrent: boolean;
+  periodStarting: number;
+}
+
+export interface AuthorUserStats {
+  likes: number;
+  dislikes: number;
+  purchases: number;
+  referredCards: number;
+  referredPurchases: number;
 }
