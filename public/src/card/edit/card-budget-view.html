@@ -4,6 +4,7 @@
 <link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
 <link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../../bower_components/soso-collapsible-panel/soso-collapsible-panel.html">
+<link rel="import" href="../../controls/filter-selector.html">
 
 <dom-module id="card-budget-view">
   <template>
@@ -168,6 +169,11 @@
             </soso-collapsible-panel>
           </template>
         </section>
+
+        <section id="regionsSection" class="hidden">
+          <label>Select a Country</label>
+          <filter-selector id="countrySelector" data="[[countries]]" fields="[[countryFields]]" on-change="_countrySelected"></filter-selector>
+        </section>
       </div>
     </div>
   </template>
@@ -181,6 +187,10 @@
           data: {
             type: Object,
             observer: '_refresh'
+          },
+          countryFields: {
+            type: Array,
+            value: () => { return ['code', 'name']; }
           }
         };
       }
@@ -201,13 +211,17 @@
         switch (this.$.regionGroup.selected) {
           case "none":
             this.$.countriesSection.classList.add("hidden");
+            this.$.regionsSection.classList.add("hidden");
             break;
           case "conutries":
-            this.$.countriesSection.classList.remove("hidden");
             this._fetchAllCountries();
+            this.$.countriesSection.classList.remove("hidden");
+            this.$.regionsSection.classList.add("hidden");
             break;
           case "region":
+            this._fetchAllCountries();
             this.$.countriesSection.classList.add("hidden");
+            this.$.regionsSection.classList.remove("hidden");
             break;
         }
       }
@@ -256,6 +270,9 @@
             }
           }
         }
+      }
+
+      _countrySelected(event) {
       }
     }
     window.customElements.define(CardBudgetView.is, CardBudgetView);
