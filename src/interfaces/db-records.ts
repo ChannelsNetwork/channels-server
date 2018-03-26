@@ -4,6 +4,7 @@ import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
   id: string;
+  sessionId: string;
   type: UserAccountType;
   address: string;
   publicKey: string;
@@ -116,6 +117,7 @@ export interface NetworkRecord {
 
 export interface CardRecord {
   id: string;
+  sessionId: string;
   state: CardActiveState;
   postedAt: number;
   createdById: string;
@@ -381,6 +383,7 @@ export interface BowerManagementRecord {
 }
 export interface BankTransactionRecord {
   id: string;
+  sessionId: string;
   at: number;
   originatorUserId: string;
   participantUserIds: string[];
@@ -412,9 +415,11 @@ export type BankTransactionRefundReason = "user-card-report";
 
 export interface UserCardActionRecord {
   id: string;
+  sessionId: string;
   userId: string;
   fromIpAddress?: string; // obsolete, now part of geo
   fromFingerprint?: string; // obsolete, now part of geo
+  referringUserId: string;
   cardId: string;
   authorId: string;
   at: number;
@@ -481,12 +486,14 @@ export interface UserCardInfoRecord {
   transactionIds: string[];
   like: CardLikeState;
   commentNotificationPending?: boolean;
+  referredPurchases: number;
 }
 
 export type CardLikeState = "none" | "like" | "dislike";
 
 export interface BankCouponRecord {
   id: string;
+  sessionId: string;
   signedObject: SignedObject;
   byUserId: string;
   byAddress: string;
@@ -514,6 +521,7 @@ export interface BankCouponDetails extends Signable {
 
 export interface ManualWithdrawalRecord {
   id: string;
+  sessionId: string;
   userId: string;
   transactionId: string;
   state: ManualWithdrawalState;
@@ -620,6 +628,7 @@ export type IpAddressStatus = "success" | "fail";
 
 export interface ChannelRecord {
   id: string;
+  sessionId: string;
   state: ChannelStatus;
   name: string;
   handle: string;
@@ -656,6 +665,7 @@ export type SocialNetwork = "Facebook" | "Twitter" | "Instagram" | "Snapchat" | 
 export interface ChannelUserRecord {
   channelId: string;
   userId: string;
+  sessionId: string;
   added: number;
   lastCardPosted: number;
   subscriptionState: ChannelSubscriptionState;
@@ -670,6 +680,7 @@ export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked"
 export interface ChannelCardRecord {
   channelId: string;
   cardId: string;
+  sessionId: string;
   state: ChannelCardState;
   cardPostedAt: number;
   added: number;
@@ -681,6 +692,7 @@ export interface ChannelCardRecord {
 export type ChannelCardState = "active" | "inactive";
 
 export interface UserRegistrationRecord {
+  sessionId: string;
   userId: string;
   at: number;
   ipAddress: string;
@@ -690,6 +702,7 @@ export interface UserRegistrationRecord {
   referrer: string;
   landingPage: string;
   userAgent: string;
+  referringUserId: string;
 }
 
 export interface ChannelKeywordRecord {
@@ -701,6 +714,7 @@ export interface ChannelKeywordRecord {
 
 export interface AdSlotRecord {
   id: string;
+  sessionId: string;
   userId: string;
   userBalance: number;
   channelId: string;
@@ -734,6 +748,7 @@ export type AdSlotStatus = "pending" | "impression" | "opened" | "open-paid" | "
 
 export interface CardCommentRecord {
   id: string;
+  sessionId: string;
   at: number;
   cardId: string;
   byId: string;
@@ -759,6 +774,7 @@ export type CardCommentFieldType = "hyperlink" | "handle";
 
 export interface DepositRecord {
   id: string;
+  sessionId: string;
   at: number;
   receivedBy: string;
   status: DepositStatus;
@@ -775,6 +791,7 @@ export type DepositStatus = "pending" | "completed";
 
 export interface CardCampaignRecord {
   id: string;
+  sessionId: string;
   created: number;
   createdById: string;
   status: CardCampaignStatus;
@@ -813,4 +830,46 @@ export interface CardCampaignStatsSnapshotRecord {
   campaignId: string;
   at: number;
   stats: CardCampaignStats;
+}
+
+export interface ShortUrlRecord {
+  at: number;
+  byId: string;
+  sessionId: string;
+  code: string;
+  originalUrl: string;
+}
+
+export interface AuthorUserRecord {
+  authorId: string;
+  userId: string;
+  stats: AuthorUserStats;
+  isCurrent: boolean;
+  periodStarting: number;
+}
+
+export interface AuthorUserStats {
+  likes: number;
+  dislikes: number;
+  purchases: number;
+  referredCards: number;
+  referredPurchases: number;
+}
+
+export interface UserStatsRecord {
+  userId: string;
+  stats: UserStats;
+  isCurrent: boolean;
+  periodStarting: number;
+}
+
+export interface UserStats {
+  cardsSold: number;
+  distinctPurchasers: number;
+  cardsPurchased: number;
+  distinctVendors: number;
+  cardsReferred: number;
+  vendorsReferred: number;
+  purchasesReferred: number;
+  cardsLiked: number;
 }

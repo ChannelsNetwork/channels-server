@@ -95,7 +95,7 @@ export class NetworkEntity implements Initializable {
           toRecipients: [recipient]
         };
         await db.updateUserBalance(user.id, 0);  // will be restored as part of transactions
-        await this.performBankTransaction(null, grant, null, null, null, null, Date.now());
+        await this.performBankTransaction(null, null, grant, null, null, null, null, Date.now());
         const interest = Math.max(user.balance - grant.amount, 0);
         if (interest > 0) {
           const interestPayment: BankTransactionDetails = {
@@ -110,7 +110,7 @@ export class NetworkEntity implements Initializable {
             relatedCardCampaignId: null,
             toRecipients: [recipient]
           };
-          await this.performBankTransaction(null, interestPayment, null, null, null, null, Date.now());
+          await this.performBankTransaction(null, null, interestPayment, null, null, null, null, Date.now());
         }
       }
     }
@@ -163,7 +163,7 @@ export class NetworkEntity implements Initializable {
     return 0.02;
   }
 
-  async performBankTransaction(request: Request, details: BankTransactionDetails, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, at: number, doNotIncrementUserBalance = false): Promise<BankTransactionResult> {
+  async performBankTransaction(request: Request, sessionId: string, details: BankTransactionDetails, relatedCardTitle: string, description: string, fromIpAddress: string, fromFingerprint: string, at: number, doNotIncrementUserBalance = false): Promise<BankTransactionResult> {
     details.address = this.networkEntityKeyInfo.address;
     details.timestamp = at;
     const detailsString = JSON.stringify(details);
@@ -173,7 +173,7 @@ export class NetworkEntity implements Initializable {
       objectString: detailsString,
       signature: signature
     };
-    return bank.performTransfer(request, networkUser, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, description, fromIpAddress, fromFingerprint, true, false, doNotIncrementUserBalance);
+    return bank.performTransfer(request, networkUser, sessionId, this.networkEntityKeyInfo.address, signedObject, relatedCardTitle, description, fromIpAddress, fromFingerprint, true, false, doNotIncrementUserBalance);
   }
 }
 

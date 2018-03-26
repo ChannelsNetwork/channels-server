@@ -1012,9 +1012,27 @@ class RestUtils {
     return {
       address: address,
       fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
       cardId: cardId,
       maxCount: maxCount,
       after: after
+    };
+  }
+
+  static shortenUrl(address, fingerprint, url) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      url: url
+    };
+  }
+
+  static getUserStats(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
     };
   }
 }

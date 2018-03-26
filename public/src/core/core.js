@@ -111,6 +111,7 @@ class CoreService extends Polymer.Element {
     let json = JSON.stringify(details);
     let signature = this._sign(json);
     return {
+      sessionId: this.sessionId,
       version: 1,
       details: json,
       signature: signature
@@ -832,6 +833,22 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  shortenUrl(originalUrl) {
+    let details = RestUtils.shortenUrl(this._keys.address, this._fingerprint, originalUrl);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/shorten-url";
+    return this.rest.post(url, request).then((response) => {
+      return response.shortUrl;
+    });
+  }
+
+  getUserStats() {
+    let details = RestUtils.getUserStats(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-user-stats";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {
@@ -937,6 +954,10 @@ class CoreService extends Polymer.Element {
 
   get userId() {
     return this._registration ? this._registration.id : null;
+  }
+
+  get sessionId() {
+    return this._registration ? this._registration.sessionId : null;
   }
 
   get promotionPricing() {
@@ -1173,6 +1194,7 @@ class CoreService extends Polymer.Element {
     const result = {};
     result.ar = "Arabic";
     result.hy = "Armenian";
+    result.bg = "Bulgarian";
     result.zh = "Chinese";
     result.cs = "Czech";
     result.da = "Danish";

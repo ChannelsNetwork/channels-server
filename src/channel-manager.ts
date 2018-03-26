@@ -80,7 +80,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     const userCursor = db.getUsersMissingHomeChannel();
     while (await userCursor.hasNext()) {
       const user = await userCursor.next();
-      await this.ensureUserHomeChannel(user);
+      await this.ensureUserHomeChannel(user, null);
     }
     await userCursor.close();
 
@@ -114,7 +114,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         const user = await userManager.getUser(channelUser.userId, true);
         if (user.identity && user.identity.emailAddress && user.identity.emailConfirmed) {
           if (!user.notifications || (user.notifications && !user.notifications.disallowContentNotifications && (!user.notifications.lastContentNotification || Date.now() - user.notifications.lastContentNotification > MINIMUM_CONTENT_NOTIFICATION_INTERVAL))) {
-            await this.sendUserContentNotification(user);
+            await this.sendUserContentNotification(user, null);
           } else {
             console.log("Channel.poll: skipping content notification because disallowed or too soon", user.identity.handle);
           }
@@ -125,7 +125,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
-  async ensureUserHomeChannel(user: UserRecord): Promise<ChannelRecord> {
+  async ensureUserHomeChannel(user: UserRecord, sessionId: string): Promise<ChannelRecord> {
     if (user.homeChannelId) {
       return db.findChannelById(user.homeChannelId);
     }
@@ -136,7 +136,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       return channels[0];
     }
     console.log("Channel.ensureUserHomeChannel: Creating channel for user", user.identity.handle);
-    const channel = await db.insertChannel(user.identity.handle, user.identity.name, user.identity.location, user.id, null, null, null, null, 0, 0);
+    const channel = await db.insertChannel(sessionId, user.identity.handle, user.identity.name, user.identity.location, user.id, null, null, null, null, 0, 0);
     await db.updateUserHomeChannel(user.id, channel.id);
     return channel;
   }
@@ -279,7 +279,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         response.status(404).send("No such channel");
         return;
       }
-      const channel = await this.getChannelDescriptor(user, record);
+      const channel = await this.getChannelDescriptor(user, record, requestBody.sessionId);
       const registerResponse: GetChannelResponse = {
         serverVersion: SERVER_VERSION,
         channel: channel
@@ -291,8 +291,8 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
-  private async getChannelDescriptor(user: UserRecord, record: ChannelRecord): Promise<ChannelDescriptor> {
-    const userChannel = await this.ensureChannelUser(record, user);
+  private async getChannelDescriptor(user: UserRecord, record: ChannelRecord, sessionId: string): Promise<ChannelDescriptor> {
+    const userChannel = await this.ensureChannelUser(record, user, sessionId);
     const channel: ChannelDescriptor = {
       id: record.id,
       name: record.name,
@@ -309,10 +309,10 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     return channel;
   }
 
-  private async getChannelDescriptors(user: UserRecord, records: ChannelRecord[]): Promise<ChannelDescriptor[]> {
+  private async getChannelDescriptors(user: UserRecord, records: ChannelRecord[], sessionId: string): Promise<ChannelDescriptor[]> {
     const result: ChannelDescriptor[] = [];
     for (const record of records) {
-      result.push(await this.getChannelDescriptor(user, record));
+      result.push(await this.getChannelDescriptor(user, record, sessionId));
     }
     return result;
   }
@@ -706,7 +706,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           }
         } else {
           subscriptionChange++;
-          await db.upsertChannelUser(channel.id, user.id, "subscribed", channel.latestCardPosted, now);
+          await db.upsertChannelUser(channel.id, user.id, requestBody.sessionId, "subscribed", channel.latestCardPosted, now);
         }
         await this.payReferralBonusIfAppropriate(user);
       } else {
@@ -911,7 +911,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         return;
       }
       console.log("ChannelManager.update-channel-card:", request.headers, requestBody.detailsObject);
-      const channelCard = await db.ensureChannelCard(channel.id, card.id);
+      const channelCard = await db.ensureChannelCard(channel.id, card.id, requestBody.sessionId);
       if (channelCard.state === 'active' && requestBody.detailsObject.includeInChannel) {
         response.status(400).send("This card is already contained in this channel");
         return;
@@ -921,9 +921,9 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         return;
       }
       if (requestBody.detailsObject.includeInChannel) {
-        await this.addCardToChannel(card, channel);
+        await this.addCardToChannel(card, channel, requestBody.sessionId);
       } else {
-        await this.removeCardFromChannel(card, channel);
+        await this.removeCardFromChannel(card, channel, requestBody.sessionId);
       }
       const result: UpdateChannelCardResponse = {
         serverVersion: SERVER_VERSION
@@ -962,7 +962,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         return;
       }
       console.log("ChannelManager.set-channel-card-pinning:", request.headers, requestBody.detailsObject);
-      const channelCard = await db.ensureChannelCard(channel.id, card.id);
+      const channelCard = await db.ensureChannelCard(channel.id, card.id, requestBody.sessionId);
       await db.updateChannelCardPinning(channel.id, card.id, requestBody.detailsObject.pinned ? true : false, requestBody.detailsObject.pinned ? Date.now() : 0);
       const result: SetChannelCardPinningResponse = {
         serverVersion: SERVER_VERSION
@@ -992,7 +992,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         return;
       }
       console.log("ChannelManager.report-channel-visit:", request.headers, requestBody.detailsObject);
-      const channelUser = await this.ensureChannelUser(channel, user);
+      const channelUser = await this.ensureChannelUser(channel, user, requestBody.sessionId);
       await db.updateChannelUserLastVisit(channel.id, user.id, Date.now());
       const result: ReportChannelVisitResponse = {
         serverVersion: SERVER_VERSION
@@ -1042,7 +1042,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           const ownedChannels = await db.findChannelsByOwnerId(subscriberDescriptor.id);
           const info: ChannelSubscriberInfo = {
             user: subscriberDescriptor,
-            homeChannel: ownedChannels.length > 0 ? await this.getChannelDescriptor(user, ownedChannels[0]) : null
+            homeChannel: ownedChannels.length > 0 ? await this.getChannelDescriptor(user, ownedChannels[0], requestBody.sessionId) : null
           };
           infos.push(info);
         }
@@ -1059,21 +1059,21 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
   }
 
-  private async ensureChannelUser(channel: ChannelRecord, user: UserRecord): Promise<ChannelUserRecord> {
+  private async ensureChannelUser(channel: ChannelRecord, user: UserRecord, sessionId: string): Promise<ChannelUserRecord> {
     const channelUser = await db.findChannelUser(channel.id, user.id, null);
     if (channelUser) {
       return channelUser;
     }
-    return db.upsertChannelUser(channel.id, user.id, "unsubscribed", channel.latestCardPosted, 0);
+    return db.upsertChannelUser(channel.id, user.id, sessionId, "unsubscribed", channel.latestCardPosted, 0);
   }
 
-  async addCardToUserChannel(card: CardRecord, user: UserRecord): Promise<void> {
-    const channel = await this.ensureUserHomeChannel(user);
-    await this.addCardToChannel(card, channel);
+  async addCardToUserChannel(card: CardRecord, user: UserRecord, sessionId: string): Promise<void> {
+    const channel = await this.ensureUserHomeChannel(user, sessionId);
+    await this.addCardToChannel(card, channel, sessionId);
   }
 
-  async addCardToChannel(card: CardRecord, channel: ChannelRecord): Promise<void> {
-    const channelCard = await db.ensureChannelCard(channel.id, card.id);
+  async addCardToChannel(card: CardRecord, channel: ChannelRecord, sessionId: string): Promise<void> {
+    const channelCard = await db.ensureChannelCard(channel.id, card.id, sessionId);
     if (channelCard.state === 'inactive') {
       await db.incrementChannelStat(channel.id, "cards", 1);
       if (channel.latestCardPosted < card.postedAt) {
@@ -1086,11 +1086,11 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     }
     await db.updateChannelUsersForLatestUpdate(channel.id, card.postedAt);
     await this.updateChannelKeywordsForCard(channel, card.keywords, card.postedAt);
-    await this.notifySubscribers(card, channel);
+    await this.notifySubscribers(card, channel, sessionId);
   }
 
-  async removeCardFromChannel(card: CardRecord, channel: ChannelRecord): Promise<void> {
-    const channelCard = await db.ensureChannelCard(channel.id, card.id);
+  async removeCardFromChannel(card: CardRecord, channel: ChannelRecord, sessionId: string): Promise<void> {
+    const channelCard = await db.ensureChannelCard(channel.id, card.id, sessionId);
     if (channelCard.state === 'active') {
       await db.incrementChannelStat(channel.id, "cards", -1);
       await db.removeChannelCard(channel.id, card.id);
@@ -1117,7 +1117,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     await db.updateChannelWithKeywords(channel.id, newKeywords);
   }
 
-  private async notifySubscribers(card: CardRecord, channel: ChannelRecord): Promise<void> {
+  private async notifySubscribers(card: CardRecord, channel: ChannelRecord, sessionId: string): Promise<void> {
     console.log("Channel.notifySubscribers", card.id, card.summary.title, channel.handle);
     const cursor = db.getChannelUserSubscribers(channel.id);
     while (await cursor.hasNext()) {
@@ -1134,13 +1134,13 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         if (user.notifications && (user.notifications.disallowContentNotifications || user.notifications.lastContentNotification > Date.now() - MINIMUM_CONTENT_NOTIFICATION_INTERVAL)) {
           continue;
         }
-        void this.sendUserContentNotification(user);
+        void this.sendUserContentNotification(user, sessionId);
       }
     }
     await cursor.close();
   }
 
-  private async sendUserContentNotification(user: UserRecord): Promise<void> {
+  private async sendUserContentNotification(user: UserRecord, sessionId: string): Promise<void> {
     console.log("Channel.sendUserContentNotification", user.id, user.identity.handle);
     const channelIds = await this.findSubscribedChannelIdsForUser(user, false);
     const since = Math.max(Date.now() - 1000 * 60 * 60 * 24, user.notifications && user.notifications.lastContentNotification ? user.notifications.lastContentNotification : 0);
@@ -1186,7 +1186,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       caption: "View feed",
       url: this.urlManager.getAbsoluteUrl("/")
     };
-    const cardTable = await this.generateContentEmail(user, cards);
+    const cardTable = await this.generateContentEmail(user, cards, sessionId);
     const info: any = {
       cardTable: cardTable
     };
@@ -1195,19 +1195,19 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     console.log("Channel.sendUserContentNotification: notification sent for " + cards.length + " cards", user.id, user.identity.handle);
   }
 
-  private async generateContentEmail(user: UserRecord, cards: CardDescriptor[]): Promise<string> {
+  private async generateContentEmail(user: UserRecord, cards: CardDescriptor[], sessionId: string): Promise<string> {
     let result = "";
     result += '<div style="width:300px;margin:0 auto;">\n';
     result += '<div style="font-size:24px;font-family:sans-serif;margin:0 0 16px;color:black;">Subscriptions</div>\n';
     for (const card of cards) {
-      const channel = await this.findChannelForCard(user, card);
+      const channel = await this.findChannelForCard(user, card, sessionId);
       result += await this.generateCardContent(user, card, channel);
     }
     result += '</div>\n';
     return result;
   }
 
-  private async findChannelForCard(user: UserRecord, card: CardDescriptor): Promise<ChannelDescriptor> {
+  private async findChannelForCard(user: UserRecord, card: CardDescriptor, sessionId: string): Promise<ChannelDescriptor> {
     const channelIds = await this.findChannelIdsByCard(card.id);
     if (channelIds.length === 0) {
       return null;
@@ -1216,7 +1216,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     if (!channel) {
       return null;
     }
-    return this.getChannelDescriptor(user, channel);
+    return this.getChannelDescriptor(user, channel, sessionId);
   }
 
   private getChannelUrl(channel: ChannelDescriptor): string {
@@ -1274,7 +1274,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     await db.removeChannelCardsByCard(card.id);
   }
 
-  async searchChannels(user: UserRecord, searchString: string, skip: number, limit: number): Promise<SearchChannelResults> {
+  async searchChannels(sessionId: string, user: UserRecord, searchString: string, skip: number, limit: number): Promise<SearchChannelResults> {
     const result: SearchChannelResults = {
       channels: [],
       moreAvailable: false,
@@ -1324,7 +1324,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       channelRecords = channelRecords.slice(0, limit);
       result.nextSkip = skip + limit;
     }
-    result.channels = await this.getChannelDescriptors(user, channelRecords);
+    result.channels = await this.getChannelDescriptors(user, channelRecords, sessionId);
     return result;
   }
 }
