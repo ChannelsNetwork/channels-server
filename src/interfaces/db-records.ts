@@ -855,3 +855,19 @@ export interface AuthorUserStats {
   referredCards: number;
   referredPurchases: number;
 }
+
+export interface UserStatsRecord {
+  userId: string;
+  stats: UserStats;
+  isCurrent: boolean;
+  periodStarting: number;
+}
+
+export interface UserStats {
+  cardsPurchased: number;
+  distinctVendors: number;
+  cardsReferred: number;
+  vendorsReferred: number;
+  purchasesReferred: number;
+  cardsLiked: number;
+}

@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -165,6 +165,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     this.app.post(this.urlManager.getDynamicUrl('get-user-card-analytics'), (request: Request, response: Response) => {
       void this.handleGetUserCardAnalytics(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('get-user-stats'), (request: Request, response: Response) => {
+      void this.handleGetUserStats(request, response);
+    });
   }
 
   async initialize2(): Promise<void> {
@@ -249,6 +252,22 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const impressionRedemptions = await db.aggregateImpressionRedemptions();
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, advertisers, adCardsOpenOrClick, adCardsImpression, openClickRedemptions.count, impressionRedemptions.count, impressionRedemptions.total, openClickRedemptions.total);
     }
+
+    const userCursor = await db.getUsersWithIdentity();
+    let count = await userCursor.count();
+    while (userCursor.hasNext()) {
+      const user = await userCursor.next();
+      const currentStats = await db.findCurrentUserStats(user.id);
+      if (!currentStats) {
+        console.log("Card.initialize2: " + (count--) + " Processing user stats for " + user.identity.handle);
+        const cardsPurchased = await db.countUserCardPurchasesByUser(user.id);
+        const distinctVendors = await db.countDistinctCardPurchaseAuthors(user.id);
+        const likes = await db.countCardLikes(user.id);
+        await db.incrementUserStats(null, user.id, cardsPurchased, distinctVendors, 0, 0, 0, 0, likes);
+      }
+    }
+    await userCursor.close();
+
     setInterval(this.poll.bind(this), 1000 * 60 * 5);
   }
 
@@ -1183,7 +1202,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.incrementNetworkCardStatItems(0, 0, 1, card.pricing.openFeeUnits, 0, 0, 0, 0, 0, firstTimePaidOpens, fanPaidOpens, grossRevenue, paymentInfo.weightedRevenue, 0, 0, isFirstUserCardPurchase ? 1 : 0, 0, 0, discountReason ? 0 : 1, 0, amount, 0, 0, 0, 0, 0, 0, 0);
       const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
-      await db.incrementAuthorUserStats(request, author.id, user.id, 0, 0, 1, 0, 0);
+      const authorUserStats = await db.incrementAuthorUserStats(request, author.id, user.id, 0, 0, 1, 0, 0);
+      await db.incrementUserStats(request, user.id, 1, authorUserStats.stats.purchases === 1 ? 1 : 0, 0, 0, 0, 0);
       if (referringUserId) {
         const userCardInfo = await db.ensureUserCardInfo(referringUserId, card.id);
         let referredCards = 0;
@@ -1191,7 +1211,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           referredCards = 1;
         }
         await db.incrementUserCardReferredPurchases(userCardInfo, 1);
-        await db.incrementAuthorUserStats(request, author.id, referringUserId, 0, 0, 0, referredCards, 1);
+        const authorReferredStats = await db.incrementAuthorUserStats(request, author.id, referringUserId, 0, 0, 0, referredCards, 1);
+        await db.incrementUserStats(request, referringUserId, 0, 0, userCardInfo.referredPurchases === 1 ? 1 : 0, authorReferredStats.stats.referredPurchases === 1 ? 1 : 0, 1, 0);
       }
       const userStatus = await userManager.getUserStatus(request, user, requestBody.sessionId, false);
       await feedManager.rescoreCard(card, false);
@@ -1539,6 +1560,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           }
           if (deltaLikes > 0 || deltaDislikes > 0) {
             await db.incrementAuthorUserStats(request, card.createdById, user.id, deltaLikes > 0 ? 1 : 0, deltaDislikes > 0 ? 1 : 0, 0, 0, 0);
+          }
+          if (deltaLikes !== 0) {
+            await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, deltaLikes);
           }
           await feedManager.rescoreCard(card, false);
         }
@@ -2809,6 +2833,44 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       errorManager.error("User.handleGetUserCardAnalytics: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
+  }
+
+  async handleGetUserStats(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetUserStatsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      console.log("CardManager.get-user-card-analytics", requestBody.detailsObject);
+      const totals = await db.ensureUserStats(user.id);
+      const now = Date.now();
+      const reply: GetUserStatsResponse = {
+        serverVersion: SERVER_VERSION,
+        totals: totals.stats,
+        last24Hours: await this.getUserStatsDelta(user.id, totals, now - 1000 * 60 * 60 * 24),
+        last7Days: await this.getUserStatsDelta(user.id, totals, now - 1000 * 60 * 60 * 24 * 7),
+        last30Days: await this.getUserStatsDelta(user.id, totals, now - 1000 * 60 * 60 * 24 * 30),
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetUserStats: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async getUserStatsDelta(userId: string, totals: UserStatsRecord, starting: number): Promise<UserStats> {
+    const delta = JSON.parse(JSON.stringify(totals.stats)) as UserStats;
+    const older = await db.findUserStatsAt(userId, starting);
+    if (older) {
+      delta.cardsPurchased -= older.stats.cardsPurchased;
+      delta.distinctVendors -= older.stats.distinctVendors;
+      delta.cardsReferred -= older.stats.cardsReferred;
+      delta.vendorsReferred -= older.stats.vendorsReferred;
+      delta.purchasesReferred -= older.stats.purchasesReferred;
+      delta.cardsLiked -= older.stats.cardsLiked;
+    }
+    return delta;
   }
 
   async handleAdminGetComments(request: Request, response: Response): Promise<void> {

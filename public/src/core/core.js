@@ -842,6 +842,13 @@ class CoreService extends Polymer.Element {
     });
   }
 
+  getUserStats() {
+    let details = RestUtils.getUserStats(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-user-stats";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

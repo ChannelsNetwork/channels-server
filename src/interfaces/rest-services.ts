@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -1359,4 +1359,13 @@ export interface ShortenUrlDetails extends Signable {
 
 export interface ShortenUrlResponse extends RestResponse {
   shortUrl: string;
+}
+
+export interface GetUserStatsDetails extends Signable { }
+
+export interface GetUserStatsResponse extends RestResponse {
+  totals: UserStats;
+  last24Hours: UserStats;
+  last7Days: UserStats;
+  last30Days: UserStats;
 }

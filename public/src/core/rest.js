@@ -1027,4 +1027,12 @@ class RestUtils {
       url: url
     };
   }
+
+  static getUserStats(address, fingerprint) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+    };
+  }
 }
