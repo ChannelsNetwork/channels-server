@@ -102,16 +102,34 @@
         padding: 20px 0;
       }
 
+      #expiredPanel {
+        background: #f0f0f0;
+        margin-top: -20px;
+        margin-bottom: 20px;
+        color: #666;
+        font-size: 15px;
+        padding: 3px 5px;
+        letter-spacing: 0.05em;
+      }
+
+      #noticePanel {
+        padding: 20px 0;
+        font-size: 14px;
+      }
+
       @media (max-width: 600px) {
         h2 {
           display: none;
+        }
+        #expiredPanel {
+          margin-top: 0;
         }
       }
     </style>
     <div id="container">
       <div id="main">
         <h2>Card Promotion Budget</h2>
-
+        <div id="expiredPanel" class="hidden">Promotion has expired</div>
         <section>
           <label>Promotion Cost</label>
           <div id="payToOpenImpressPanel">
@@ -194,11 +212,18 @@
 
           <section id="countryZipSection" class="hidden">
             <label class="row">Postal codes</label>
-            <div>Enter comma separated postal codes (zip codes)</div>
+            <div>Enter comma separated postal codes (zip codes) to set the region</div>
             <soso-text-input id="zipCodes" label="" placeholder="Postal codes" class="row"></soso-text-input>
           </section>
 
+        </section>
 
+        <section id="buttonsSection">
+          <button>Cancel</button>
+          <button>Save</button>
+          <div id="noticePanel">
+            <i>Note: To suspend this pomotion, set the 'End Date' to today.</i>
+          </div>
         </section>
       </div>
     </div>
