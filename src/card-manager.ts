@@ -1626,7 +1626,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const cardId = uuid.v4();
     if (details.pricing.coupon) {
       const couponRecord = await bank.registerCoupon(user, cardId, details.pricing.coupon);
-      couponId = couponRecord.id;
+      couponId = couponRecord ? couponRecord.id : null;
     }
     const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
     const keywords: string[] = [];
