@@ -2250,9 +2250,18 @@ export class Database {
     return this.userCardActions.count({ action: "pay", userId: userId });
   }
 
+  async countAuthorCardPurchases(authorId: string): Promise<number> {
+    return this.userCardActions.count({ action: "pay", authorId: authorId, fraudReason: { $exists: false } });
+  }
+
   async countDistinctCardPurchaseAuthors(userId: string): Promise<number> {
     const authors = await this.userCardActions.distinct('authorId', { action: "pay", userId: userId });
     return authors.length;
+  }
+
+  async countDistinctCardPurchasers(authorId: string): Promise<number> {
+    const users = await this.userCardActions.distinct('userId', { action: "pay", authorId: authorId, fraudReason: { $exists: false } });
+    return users.length;
   }
 
   async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string, fromFingerprint: string): Promise<number> {
@@ -4510,6 +4519,8 @@ export class Database {
       record = {
         userId: userId,
         stats: {
+          cardsSold: 0,
+          distinctPurchasers: 0,
           cardsPurchased: 0,
           distinctVendors: 0,
           cardsReferred: 0,
@@ -4527,7 +4538,7 @@ export class Database {
     }
   }
 
-  async incrementUserStats(request: Request, userId: string, cardsPurchased: number, distinctVendors: number, cardsReferred: number, vendorsReferred: number, purchasesReferred: number, cardsLiked: number): Promise<void> {
+  async incrementUserStats(request: Request, userId: string, cardsSold: number, distinctPurchasers: number, cardsPurchased: number, distinctVendors: number, cardsReferred: number, vendorsReferred: number, purchasesReferred: number, cardsLiked: number): Promise<void> {
     const now = Date.now();
     const existing = await this.ensureUserStats(userId);
     let updatePeriod = false;
@@ -4546,6 +4557,8 @@ export class Database {
       }
     }
     const increments: any = {
+      "stats.cardsSold": cardsSold,
+      "stats.distinctPurchasers": distinctPurchasers,
       "stats.cardsPurchased": cardsPurchased,
       "stats.distinctVendors": distinctVendors,
       "stats.cardsReferred": cardsReferred,

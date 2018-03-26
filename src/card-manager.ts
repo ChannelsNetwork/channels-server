@@ -253,17 +253,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, advertisers, adCardsOpenOrClick, adCardsImpression, openClickRedemptions.count, impressionRedemptions.count, impressionRedemptions.total, openClickRedemptions.total);
     }
 
-    const userCursor = await db.getUsersWithIdentity();
-    let count = await userCursor.count();
-    while (userCursor.hasNext()) {
+    const userCursor = db.getUsersWithIdentity();
+    let userCount = await userCursor.count();
+    while (await userCursor.hasNext()) {
       const user = await userCursor.next();
       const currentStats = await db.findCurrentUserStats(user.id);
       if (!currentStats) {
-        console.log("Card.initialize2: " + (count--) + " Processing user stats for " + user.identity.handle);
+        console.log("Card.initialize2: " + (userCount--) + " Processing user stats for " + user.identity.handle);
+        const cardsSold = await db.countAuthorCardPurchases(user.id);
+        const distinctPurchasers = await db.countDistinctCardPurchasers(user.id);
         const cardsPurchased = await db.countUserCardPurchasesByUser(user.id);
         const distinctVendors = await db.countDistinctCardPurchaseAuthors(user.id);
         const likes = await db.countCardLikes(user.id);
-        await db.incrementUserStats(null, user.id, cardsPurchased, distinctVendors, 0, 0, 0, 0, likes);
+        await db.incrementUserStats(null, user.id, cardsSold, distinctPurchasers, cardsPurchased, distinctVendors, 0, 0, 0, likes);
       }
     }
     await userCursor.close();
@@ -1203,7 +1205,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const authorUserStats = await db.incrementAuthorUserStats(request, author.id, user.id, 0, 0, 1, 0, 0);
-      await db.incrementUserStats(request, user.id, 1, authorUserStats.stats.purchases === 1 ? 1 : 0, 0, 0, 0, 0);
+      await db.incrementUserStats(request, user.id, 0, 0, 1, authorUserStats.stats.purchases === 1 ? 1 : 0, 0, 0, 0, 0);
       if (referringUserId) {
         const userCardInfo = await db.ensureUserCardInfo(referringUserId, card.id);
         let referredCards = 0;
@@ -1212,7 +1214,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         await db.incrementUserCardReferredPurchases(userCardInfo, 1);
         const authorReferredStats = await db.incrementAuthorUserStats(request, author.id, referringUserId, 0, 0, 0, referredCards, 1);
-        await db.incrementUserStats(request, referringUserId, 0, 0, userCardInfo.referredPurchases === 1 ? 1 : 0, authorReferredStats.stats.referredPurchases === 1 ? 1 : 0, 1, 0);
+        await db.incrementUserStats(request, referringUserId, 0, 0, 0, 0, userCardInfo.referredPurchases === 1 ? 1 : 0, authorReferredStats.stats.referredPurchases === 1 ? 1 : 0, 1, 0);
       }
       const userStatus = await userManager.getUserStatus(request, user, requestBody.sessionId, false);
       await feedManager.rescoreCard(card, false);
@@ -1562,7 +1564,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             await db.incrementAuthorUserStats(request, card.createdById, user.id, deltaLikes > 0 ? 1 : 0, deltaDislikes > 0 ? 1 : 0, 0, 0, 0);
           }
           if (deltaLikes !== 0) {
-            await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, deltaLikes);
+            await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, 0, 0, deltaLikes);
           }
           await feedManager.rescoreCard(card, false);
         }

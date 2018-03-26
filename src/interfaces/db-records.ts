@@ -864,6 +864,8 @@ export interface UserStatsRecord {
 }
 
 export interface UserStats {
+  cardsSold: number;
+  distinctPurchasers: number;
   cardsPurchased: number;
   distinctVendors: number;
   cardsReferred: number;
