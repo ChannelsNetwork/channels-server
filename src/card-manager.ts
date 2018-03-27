@@ -1966,7 +1966,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!details.campaignInfo.type || !details.campaignInfo.budget) {
         throw new ErrorWithStatusCode(400, "Incomplete campaignInfo");
       }
-      if (["content-impression", "ad-impression", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
+      if (["content-impression", "impression-ad", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
         throw new ErrorWithStatusCode(400, "Invalid type");
       }
       if (details.campaignInfo.type === 'content-promotion') {

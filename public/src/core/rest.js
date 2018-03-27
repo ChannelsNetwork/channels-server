@@ -265,7 +265,7 @@ class RestUtils {
 
   static cardCampaignInfo(type, budget, ends, geoTargets) {
     return {
-      type: type,  // content-impression | ad-impression | pay-to-open | pay-to-click
+      type: type,  // content-impression | impression-ad | pay-to-open | pay-to-click
       budget: budget,
       ends: ends,
       geoTargets: geoTargets
