@@ -1032,7 +1032,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             amount: campaign.advertiserSubsidy,
             toRecipients: [subsidyRecipient],
           };
-          await networkEntity.performBankTransaction(request, requestBody.sessionId, details, card.summary.title, "Advertiser subsidy for pay-to-click card", geo.ipAddress, geo.fingerprint, now);
+          await networkEntity.performBankTransaction(request, requestBody.sessionId, details, card.summary.title, "Advertiser subsidy for pay-to-click card", geo ? geo.ipAddress : null, geo ? geo.fingerprint : null, now);
           console.log("Card.handleCardClicked: Paid advertiser subsidy", card.summary.title, card.by.handle, campaign.advertiserSubsidy, user.id, author.id);
         }
       }
