@@ -76,6 +76,7 @@
       <soso-dropdown for="moreIcon" alignment="right" offset="-5">
         <li id="pinAction" on-click="_togglePin" class="menuDivider">[[pinActionLabel]]</li>
         <li id="editAction" on-click="_editCard">Edit Card</li>
+        <li id="editCampaignAction" on-click="_editCampaign">Promotion</li>
         <li id="analyticsAction" on-click="_analytics">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard">Delete</li>
       </soso-dropdown>
@@ -185,10 +186,12 @@
           }
           if (owner) {
             this.$.editAction.classList.remove("hidden");
+            this.$.editCampaignAction.classList.remove("hidden");
             this.$.analyticsAction.classList.remove("hidden");
             this.$.deleteAction.classList.remove("hidden");
           } else {
             this.$.editAction.classList.add("hidden");
+            this.$.editCampaignAction.classList.add("hidden");
             this.$.analyticsAction.classList.add("hidden");
             this.$.deleteAction.classList.add("hidden");
           }
@@ -246,6 +249,10 @@
             });
           });
         });
+      }
+
+      _editCampaign() {
+        $router.goto('/card-budget/' + encodeURIComponent(this.data.id));
       }
 
       _openUserChannel() {

@@ -162,7 +162,7 @@
           <div class="row">
             <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
               <soso-radio-button name="none" label="All regions"></soso-radio-button>
-              <soso-radio-button name="conutries" label="Selected countries"></soso-radio-button>
+              <soso-radio-button name="countries" label="Selected countries"></soso-radio-button>
               <soso-radio-button name="region" label="Selected regions in a specific country"></soso-radio-button>
             </soso-radio-group>
           </div>
@@ -255,7 +255,7 @@
         }
         const geoTargets = [];
         let regionType = this.$.regionGroup.selected;
-        if (regionType === 'conutries') {
+        if (regionType === 'countries') {
           const allBoxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
           const countryBoxes = this.shadowRoot.querySelectorAll(".countryCheck");
           for (const cont of this.continents) {
@@ -365,8 +365,34 @@
       }
 
       _refreshRgionGroup() {
-        this.$.regionGroup.selected = "none";
+        // select the region checkbox
+        let targets = this.data.geoTargets || [];
+        if (!targets.length) {
+          this.$.regionGroup.selected = "none";
+        } else {
+          let hasZip = false;
+          let hasRegion = false;
+          for (const t of targets) {
+            if (t.indexOf(':') > 0) {
+              hasZip = true;
+              hasRegion = true;
+              break;
+            }
+            let split = r.split(".");
+            if (split.length > 2) {
+              hasRegion = true;
+            }
+          }
+          if (hasRegion) {
+            this.$.regionGroup.selected = "region";
+          } else {
+            this.$.regionGroup.selected = "countries";
+          }
+          this.$.regionTypeGroup.selected = hasZip ? "zip" : "region";
+          this._regionTypeSlectionChange();
+        }
         this._onRegionSelectionChange();
+        this._fetchAllCountries();
       }
 
       _onRegionSelectionChange() {
@@ -375,13 +401,11 @@
             this.$.countriesSection.classList.add("hidden");
             this.$.regionsSection.classList.add("hidden");
             break;
-          case "conutries":
-            this._fetchAllCountries();
+          case "countries":
             this.$.countriesSection.classList.remove("hidden");
             this.$.regionsSection.classList.add("hidden");
             break;
           case "region":
-            this._fetchAllCountries();
             this.$.countriesSection.classList.add("hidden");
             this.$.regionsSection.classList.remove("hidden");
             break;
@@ -389,16 +413,10 @@
       }
 
       _fetchAllCountries() {
-        if (this.continents && this.continents.length) {
-          return;
-        }
         $core.getGeoDescriptors().then(result => {
           let countries = [];
           for (let cont of result.continents) {
             let cByC = result.countriesByContinent[cont.code];
-            for (let c of cByC) {
-              c.selected = false;
-            }
             cByC.forEach((d) => {
               d.continent = cont.code;
             });
@@ -414,7 +432,90 @@
             return 0;
           });
           this.countries = countries;
+          this._refreshCheckAttempts = 0;
+          this._refreshChecks();
         });
+      }
+
+      _refreshChecks() {
+        const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        if (boxes.length >= this.countries.length) {
+          let targets = this.data.geoTargets || [];
+          if (this.$.regionGroup.selected === 'countries') {
+            targets.forEach((d) => {
+              let split = d.split(".");
+              if (split.length > 1) {
+                this._selectCountry(split[1].trim());
+              } else if (split.length === 1) {
+                this._selectContinent(split[0].trim());
+              }
+            });
+          } else if (this.$.regionGroup.selected === 'region') {
+            if (targets.length) {
+              if (this.$.regionTypeGroup.selected === 'zip') {
+                let zips = [];
+                targets.forEach((d) => {
+                  let split = d.split(':');
+                  if (split.length > 1) {
+                    zips.push(split[1].trim());
+                  }
+                });
+                this.$.zipCodes.value = zips.join(', ').trim();
+              } else {
+                let countryCode = "";
+                targets.forEach((d) => {
+                  let split = d.split(".");
+                  if (split.length > 2) {
+                    countryCode = split[1].trim();
+                  }
+                });
+                if (countryCode) {
+                  $core.getGeoDescriptors(countryCode).then((result) => {
+                    // TODO: 
+                    // let regions = result && result.regionsByCountry && result.regionsByCountry[countryCode];
+                  });
+                }
+              }
+            }
+          }
+        } else {
+          if (this._refreshCheckAttempts > 15) {
+            return;
+          }
+          this._refreshCheckAttempts++;
+          setTimeout(() => {
+            this._refreshChecks();
+          }, 200);
+        }
+      }
+
+      _selectCountry(code) {
+        boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.code === code) {
+            b.checked = true;
+            break;
+          }
+        }
+      }
+
+      _selectContinent(code) {
+        const boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.allCode === code) {
+            b.checked = true;
+            break;
+          }
+        }
+        boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.continent === code) {
+            b.checked = true;
+          }
+        }
       }
 
       _onAll(event) {
