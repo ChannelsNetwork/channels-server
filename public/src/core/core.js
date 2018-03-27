@@ -486,11 +486,12 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  cardImpression(cardId, adSlotId, couponId, amount, authorAddress) {
+  cardImpression(cardId, adSlotId, couponId, amount, authorAddress, campaign) {
     let details;
     if (couponId) {
       const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
-      const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
+      let reason = (campaign && campaign.type) === 'impression-ad' ? 'impression-ad' : "card-promotion";
+      const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", reason, cardId, couponId, amount, [recipient]);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
       details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, adSlotId, transactionString, transactionSignature);
