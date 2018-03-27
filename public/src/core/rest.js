@@ -240,7 +240,7 @@ class RestUtils {
     };
   }
 
-  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
+  static postCardDetails(address, fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, coupon, campaignInfo) {
     const result = {
       address: address,
       fingerprint: fingerprint,
@@ -258,6 +258,7 @@ class RestUtils {
       searchText: searchText,
       sharedState: initialState,         // {properties: {...}, collections: {...}}
       fileIds: fileIds,
+      coupon: coupon,
       campaignInfo: campaignInfo
     };
     return result;

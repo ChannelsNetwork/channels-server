@@ -1266,17 +1266,14 @@ export interface GetCardCampaignsResponse extends RestResponse {
   moreAvailable: boolean;
 }
 
-export interface CardCampaignDescriptor {
+export interface CardCampaignDescriptor extends CardCampaignInfo {
   id: string;
   created: number;
   status: CardCampaignStatus;
-  type: CardCampaignType;
   paymentAmount: number;
   advertiserSubsidy: number;
   couponId: string;
-  budget: CardCampaignBudget;
-  ends: number;
-  geoTargets: GeoTargetDescriptor[];
+  geoTargetDescriptors: GeoTargetDescriptor[];
   statsTotal: CardCampaignStats;
   statsLast24Hours: CardCampaignStats;
   statsLast7Days: CardCampaignStats;
