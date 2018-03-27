@@ -605,12 +605,6 @@ export class Bank implements RestServer, Initializable {
     if (coupon.budget.amount < 0 || coupon.amount < 0) {
       throw new ErrorWithStatusCode(400, "Coupon amount and budget amount must be greater than zero");
     }
-    if (!user.admin && coupon.budget.amount > 0 && coupon.budget.amount > user.balance) {
-      throw new ErrorWithStatusCode(400, "Coupon budget amount exceeds the user's balance");
-    }
-    if (coupon.budget.amount > 0 && coupon.amount > coupon.budget.amount) {
-      throw new ErrorWithStatusCode(400, "Coupon budget is less than coupon amount");
-    }
     if (coupon.budget.plusPercent) {
       if (coupon.budget.plusPercent < 0 || coupon.budget.plusPercent > 99) {
         throw new ErrorWithStatusCode(400, "Coupon budget plusPercent is invalid");

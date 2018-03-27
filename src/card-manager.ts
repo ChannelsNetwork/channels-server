@@ -2276,7 +2276,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         pricing: {
           openFeeUnits: record.pricing.openFeeUnits,
           openFee: record.pricing.openFeeUnits * basePrice,
-          discountedOpenFee: user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT
+          discountedOpenFee: record.pricing.openFeeUnits === 0 ? 0 : (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT)
         },
         promoted: promoted,
         campaign: campaign,
