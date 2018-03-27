@@ -433,7 +433,6 @@ class CoreService extends Polymer.Element {
   }
 
   postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
-    let coupon;
     if (campaignInfo) {
       let reason;
       switch (campaignInfo.type) {
@@ -456,6 +455,7 @@ class CoreService extends Polymer.Element {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
+      campaignInfo.coupon = coupon;
     }
     let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo);
     let request = this._createRequest(details);
