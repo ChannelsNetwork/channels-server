@@ -391,13 +391,21 @@
         return 0;
       }
 
+      _isImpressionCampaign() {
+        if (this.data && this.data.campaign) {
+          let type = this.data.campaign.type;
+          return (type === 'impression-ad' || type == 'content-promotion');
+        }
+        return false;
+      }
+
       _refreshPrice() {
         this._refreshPaidCheck();
         let cost = this.data.pricing.openFee;
-        let absCost = Math.abs(cost).toFixed(2);
-        if (cost === 0) {
-          absCost = this.campaignPayment.toFixed(2);
+        if (!cost) {
+          cost = -this.campaignPayment;
         }
+        let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
         if (cost < 0) {
           this.priceTip = "The author will pay you ℂ" + absCost + " after you open this card."
@@ -408,7 +416,7 @@
         }
 
         // Price tag visibility
-        let hidePriceTag = (cost === 0) || (cost < 0 && (!this.data.promoted));
+        let hidePriceTag = (cost === 0) || this._isImpressionCampaign() || (cost < 0 && (!this.data.promoted));
         if (hidePriceTag && this._cardConsumed && cost) {
           hidePriceTag = false;
         }
@@ -424,7 +432,7 @@
         }
 
         // Promoted tag visibility
-        let promotedVisible = (cost >= 0) && (this.campaignPayment > 0) && this.data.promoted;
+        let promotedVisible = this._isImpressionCampaign() && this.data.promoted;
         if (promotedVisible) {
           this.$.promoted.classList.remove("hidden");
         } else {
@@ -437,10 +445,10 @@
 
       _refreshPriceTip() {
         let cost = this.data.pricing.openFee;
-        let absCost = Math.abs(cost).toFixed(2);
-        if (cost === 0) {
-          absCost = this.campaignPayment.toFixed(2);
+        if (!cost) {
+          cost = -this.campaignPayment;
         }
+        let absCost = Math.abs(cost).toFixed(2);
         if (cost < 0) {
           this.priceTip = this._cardConsumed ? ("The author paid you ℂ" + absCost + " for opening this card.") : ("The author will pay you ℂ" + absCost + " after you open this card.");
           this.priceTipPosition = "left";
