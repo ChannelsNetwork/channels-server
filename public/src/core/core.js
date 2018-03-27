@@ -451,13 +451,13 @@ class CoreService extends Polymer.Element {
       }
       const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, this.getPromotionPriceByType(campaignInfo.type), campaignInfo.budget.maxPerDay, campaignInfo.budget.plusPercent);
       const couponDetailsString = JSON.stringify(couponDetails);
-      coupon = {
+      const coupon = {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
       campaignInfo.coupon = coupon;
     }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, coupon, campaignInfo);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
