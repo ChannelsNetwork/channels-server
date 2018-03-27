@@ -11,15 +11,21 @@
     <soso-app-header>
       <dialog-bar text="Card Promotion Budget" on-cancel="_onCancel"></dialog-bar>
     </soso-app-header>
-    <card-budget-view></card-budget-view>
+    <card-budget-view data="[[card]]"></card-budget-view>
   </template>
   <script>
     class CardBudgetPage extends Polymer.Element {
       static get is() { return 'card-budget-page'; }
+      static get properties() {
+        return {
+          card: Object
+        };
+      }
 
       onActivate(route) {
         this._showProgress(null);
         $core.register().then(() => {
+          this.card = {};
         }).catch(err => {
           console.error(err);
           $app.showError(err).then(() => {

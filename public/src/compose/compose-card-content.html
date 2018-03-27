@@ -76,7 +76,7 @@
         if (!this.wizard.data.cardInfo) {
           this.composer = null;
         }
-        let repo = this.wizard.data.repo;
+        let repo = this.wizard.data.packageName;
         if (this._prevRepo != repo) {
           this.composer = null;
         }
@@ -149,20 +149,20 @@
         this.$.overlay.classList.add("hidden");
         if (forward) {
           if (this.composer && this.composer.isReady) {
-            this.wizard.data.cardSharedState = this.composer.sharedState || {};
-            this.wizard.data.searchText = this.composer.searchText;
+            let data = this.wizard.data;
+            data.initialState = this.composer.sharedState || {};
+            data.searchText = this.composer.searchText;
 
-            let currentSummary = this.wizard.data.summary;
-            let ignoreImage = false;
-            if (currentSummary && this.wizard.data.imageSetByUser) {
-              if (currentSummary.imageId || currentSummary.imageURL) {
-                ignoreImage = true;
-              }
-            }
-            this.wizard.data.summary = this.composer.summary || {};
-            if (ignoreImage) {
-              this.wizard.data.summary.imageId = currentSummary.imageId;
-              this.wizard.data.summary.imageURL = currentSummary.imageURL;
+            let ignoreImage = (data.imageSetByUser && data.imageId);
+            let summary = this.composer.summary || {};
+            data.linkURL = summary.linkURL;
+            data.iframeUrl = summary.iframeUrl;
+            data.title = summary.title;
+            data.text = summary.text;
+            data.langCode = summary.langCode;
+            if (!ignoreImage) {
+              data.imageId = summary.imageId;
+              data.imageURL = summary.imageURL;
             }
           }
         }
