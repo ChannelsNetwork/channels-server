@@ -7,25 +7,54 @@
       :host {
         display: block;
       }
+
+      #budgetSection {
+        padding-top: 30px;
+      }
+
+      .buttons {
+        padding: 20px 10px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
     </style>
     <soso-app-header>
-      <dialog-bar text="Card Promotion Budget" on-cancel="_onCancel"></dialog-bar>
+      <dialog-bar text="Promotion Campaign" on-cancel="_onCancel"></dialog-bar>
     </soso-app-header>
-    <card-budget-view data="[[card]]"></card-budget-view>
+    <div id="budgetSection" class="hidden">
+      <card-budget-view data="[[campaign]]"></card-budget-view>
+      <div class="buttons">
+        <button id="cancel" on-click="_onCancel">Cancel</button>
+        <button id="save" on-click="_save">Save</button>
+      </div>
+    </div>
   </template>
   <script>
     class CardBudgetPage extends Polymer.Element {
       static get is() { return 'card-budget-page'; }
       static get properties() {
         return {
-          card: Object
+          card: Object,
+          campaign: Object
         };
       }
 
       onActivate(route) {
         this._showProgress(null);
+        this.$.budgetSection.classList.add("hidden");
         $core.register().then(() => {
-          this.card = {};
+          if (route.segments.length < 2) {
+            setTimeout(() => {
+              this._onCancel();
+            });
+            return;
+          }
+          this.cardId = route.segments[1].trim();
+          return $core.getCard(this.cardId, null, 0, false).then(result => {
+            this.card = result.card;
+            this.campaign = this.card.campaign;
+            this.$.budgetSection.classList.remove("hidden");
+          });
         }).catch(err => {
           console.error(err);
           $app.showError(err).then(() => {
@@ -38,6 +67,11 @@
       }
 
       _onCancel() {
+        if ($core.profile && $core.profile.handle) {
+          $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
+        } else {
+          $router.goto("/");
+        }
       }
     }
     window.customElements.define(CardBudgetPage.is, CardBudgetPage);
