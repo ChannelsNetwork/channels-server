@@ -457,7 +457,7 @@ class CoreService extends Polymer.Element {
         signature: this._sign(couponDetailsString)
       }
     }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, coupon, campaignInfo);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
@@ -967,13 +967,13 @@ class CoreService extends Polymer.Element {
   getPromotionPriceByType(type) {
     switch (type) {
       case "content-promotion":
-        return promotionPricing.contentImpression;
+        return this.promotionPricing.contentImpression;
       case "impression-ad":
-        return promotionPricing.adImpression;
+        return this.promotionPricing.adImpression;
       case "pay-to-open":
-        return promotionPricing.payToOpen;
+        return this.promotionPricing.payToOpen;
       case "pay-to-click":
-        return promotionPricing.payToClick;
+        return this.promotionPricing.payToClick;
     }
     return 0;
   }

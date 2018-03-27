@@ -1,18 +1,17 @@
+<link rel="import" href="../../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../../../bower_components/soso-number-input/soso-number-input.html">
 <link rel="import" href="../../../bower_components/soso-radio-group/soso-radio-group.html">
 <link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
+<link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../../bower_components/soso-collapsible-panel/soso-collapsible-panel.html">
+<link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../controls/filter-selector.html">
 
 <dom-module id="card-budget-view">
   <template>
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
-      }
-
-      #container {
-        background: #fcfcfc;
-        min-height: 100vh;
-        margin-top: -50px;
       }
 
       #progress {
@@ -23,7 +22,7 @@
       }
 
       #main {
-        padding: 70px 10px 20px;
+        padding: 0 10px;
         max-width: 600px;
         margin: 0 auto;
       }
@@ -83,33 +82,65 @@
         display: none;
       }
 
+      soso-checkbox {
+        font-size: 14px;
+        margin: 3px 0 0;
+        display: inline-block;
+        width: 144px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .slidePanelContent {
+        padding: 20px 0;
+      }
+
+      #expiredPanel {
+        background: #f0f0f0;
+        margin-top: -20px;
+        margin-bottom: 20px;
+        color: #666;
+        font-size: 15px;
+        padding: 3px 5px;
+        letter-spacing: 0.05em;
+      }
+
       @media (max-width: 600px) {
-        h2 {
-          display: none;
+        #expiredPanel {
+          margin-top: 0;
         }
       }
     </style>
     <div id="container">
-      <div id="main">
+      <div id="main" class="hidden">
         <h2>Card Promotion Budget</h2>
-
+        <div id="expiredPanel" class="hidden">Promotion has expired</div>
         <section>
           <label>Promotion Cost</label>
-          <div id="payToOpenImpressPanel">
+          <div id="impressionPriceLabel" class="hidden">
             You will pay the reader
-            <span class="cost">ℂ0.01</span> to see this card in their feed.
+            <span class="cost">ℂ[[promotionPrice]]</span> to see this card in their feed.
           </div>
-          <div id="impressionPanel" class="hidden">
+          <div id="openPriceLabel" class="hidden">
             You will pay the reader
-            <span class="cost">ℂ0.01</span> to see this card in their feed.
-          </div>
-          <div id="payToOpenPanel" class="hidden">
-            You will pay the reader
-            <span class="cost">ℂ0.01</span> to see this card in their feed.
+            <span class="cost">ℂ[[promotionPrice]]</span> to open this card.
           </div>
         </section>
 
-        <section id="dailySection">
+        <section id="promotionTotalSection" class="hidden">
+          <label>Total Budget</label>
+          <div class="row">
+            ℂ
+            <soso-number-input id="totalBudget" value="10" step="1" min="1"></soso-number-input>
+            <span id="budgetPlus">plus
+              <soso-number-input id="budgetPercent" value="20" step="1" min="0" max="90"></soso-number-input>
+              % of earnings from this card
+            </span>
+          </div>
+        </section>
+
+        <section id="dailySection" class="hidden">
           <label>Daily Budget</label>
           <div class="row">
             ℂ
@@ -117,7 +148,7 @@
           </div>
         </section>
 
-        <section>
+        <section id="endDateSection">
           <label>End Date</label>
           <div>This promotion campaign will run until:</div>
           <div class="row">
@@ -131,27 +162,320 @@
           <div class="row">
             <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
               <soso-radio-button name="none" label="All regions"></soso-radio-button>
-              <soso-radio-button name="conutries" label="Select countries"></soso-radio-button>
-              <soso-radio-button name="region" label="Select regions in a specific country"></soso-radio-button>
+              <soso-radio-button name="conutries" label="Selected countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Selected regions in a specific country"></soso-radio-button>
             </soso-radio-group>
           </div>
         </section>
+
+        <section id="countriesSection" class="hidden">
+          <label>Select Countries</label>
+          <template is="dom-repeat" items="[[continents]]">
+            <soso-collapsible-panel label="[[item.name]]" collapsed>
+              <div class="slidePanelContent">
+                <template is="dom-repeat" items="[[item.countries]]" as="country">
+                  <soso-checkbox class="countryCheck" data-continent$="[[item.code]]" data-code$="[[country.code]]" label="[[country.name]]"
+                    title="[[country.name]]" on-change="_onCountryChange"></soso-checkbox>
+                </template>
+                <soso-checkbox data-all-code$="[[item.code]]" class="allContinentCheck" label="All" on-change="_onAll"></soso-checkbox>
+              </div>
+            </soso-collapsible-panel>
+          </template>
+        </section>
+
+        <section id="regionsSection" class="hidden">
+
+          <label>Select a Country</label>
+          <filter-selector id="countrySelector" data="[[countries]]" fields="[[countryFields]]" on-select="_countrySelected"></filter-selector>
+
+          <section id="regionTypeSection" class="hidden">
+            <div>Select if you'd like to pick the regions or enter postal codes</div>
+            <div class="row">
+              <soso-radio-group id="regionTypeGroup" on-select="_regionTypeSlectionChange">
+                <soso-radio-button name="region" label="Selected regions"></soso-radio-button>
+                <soso-radio-button name="zip" label="Postal codes"></soso-radio-button>
+              </soso-radio-group>
+            </div>
+          </section>
+
+          <section id="countryRegionSection" class="hidden">
+            <template is="dom-repeat" items="[[regions]]">
+              <soso-checkbox class="regionsCheck" data-code$="[[item.code]]" label="[[item.name]]" title="[[item.name]]" on-change="_regionChange"></soso-checkbox>
+            </template>
+            <soso-checkbox id="chkAllRegions" label="All" on-change="_onAllRegions"></soso-checkbox>
+          </section>
+
+          <section id="countryZipSection" class="hidden">
+            <label class="row">Postal codes</label>
+            <div>Enter comma separated postal codes (zip codes) to set the region</div>
+            <soso-text-input id="zipCodes" label="" placeholder="Postal codes" class="row"></soso-text-input>
+          </section>
+
+        </section>
+
       </div>
     </div>
   </template>
   <script>
     class CardBudgetView extends Polymer.Element {
       static get is() { return 'card-budget-view'; }
+      static get properties() {
+        return {
+          continents: Object,
+          countries: Array,
+          regions: Array,
+          data: {
+            type: Object,
+            observer: '_refresh'
+          },
+          countryFields: {
+            type: Array,
+            value: () => { return ['code', 'name']; }
+          },
+          promotionPrice: String
+        };
+      }
 
+      get value() {
+        let endDate = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
+        let endDateValue = this.$.endDate.value;
+        if (endDateValue) {
+          let date = new Date(endDateValue);
+          date.setHours(23);
+          date.setMinutes(59);
+          date.setSeconds(59);
+          endDate = date.getTime();
+        }
+        const type = this.data.type;
+        let budget = null;
+        if (type === 'content-promotion') {
+          budget = RestUtils.cardCampaignBudgetForContent(this.$.totalBudget.value, this.$.budgetPercent.value);
+        } else {
+          budget = RestUtils.cardCampaignBudgetForAd(this.$.dailyBudget.value);
+        }
+        const geoTargets = [];
+        let regionType = this.$.regionGroup.selected;
+        if (regionType === 'conutries') {
+          const allBoxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+          const countryBoxes = this.shadowRoot.querySelectorAll(".countryCheck");
+          for (const cont of this.continents) {
+            let all = false;
+            for (let i = 0; i < allBoxes.length; i++) {
+              let b = allBoxes[i];
+              if (b.dataset.allCode === cont.code) {
+                all = b.checked;
+                break;
+              }
+            }
+            if (all) {
+              geoTargets.push(cont.code);
+            } else {
+              let selectedCountries = [];
+              for (const countryBox of countryBoxes) {
+                if (countryBox.dataset.continent === cont.code) {
+                  if (countryBox.checked) {
+                    geoTargets.push(cont.code + "." + countryBox.dataset.code);
+                  }
+                }
+              }
+            }
+          }
+        } else if (regionType === 'region') {
+          let country = this.$.countrySelector.selected;
+          if (country) {
+            let geoPrefix = country.continent + "." + country.code;
+            if (this.$.regionTypeGroup.selected === 'region') {
+              if (this.$.chkAllRegions.checked) {
+                geoPrefix.push(geoPrefix);
+              } else {
+                const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+                for (const rbox of regionBoxes) {
+                  if (rbox.checked) {
+                    geoPrefix.push(geoPrefix + "." + rbox.dataset.code);
+                  }
+                }
+              }
+            } else {
+              let zips = this.$.zipCodes.value.trim();
+              let split = zips.split(',');
+              if (split && split.length) {
+                split.forEach((d) => {
+                  let z = d.trim();
+                  if (z) {
+                    geoTargets.push(geoPrefix + "." + z);
+                  }
+                });
+              }
+            }
+          }
+        }
 
+        let campaignInfo = RestUtils.cardCampaignInfo(type, budget, endDate, geoTargets);
+        return campaignInfo;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._refresh();
+      }
+
+      _refresh() {
+        if (this.data) {
+          this.$.main.classList.remove("hidden");
+          let type = this.data.type;
+          this.promotionPrice = $core.getPromotionPriceByType(type);
+          switch (type) {
+            case "content-promotion":
+              this.$.promotionTotalSection.classList.remove("hidden");
+              this.$.dailySection.classList.add("hidden");
+              this.$.impressionPriceLabel.classList.remove("hidden");
+              this.$.openPriceLabel.classList.add("hidden");
+              break;
+            case "impression-ad":
+              this.$.promotionTotalSection.classList.add("hidden");
+              this.$.dailySection.classList.remove("hidden");
+              this.$.impressionPriceLabel.classList.remove("hidden");
+              this.$.openPriceLabel.classList.add("hidden");
+              break;
+            case "pay-to-open":
+            case "pay-to-click":
+              this.$.promotionTotalSection.classList.add("hidden");
+              this.$.dailySection.classList.remove("hidden");
+              this.$.impressionPriceLabel.classList.add("hidden");
+              this.$.openPriceLabel.classList.remove("hidden");
+              break;
+          }
+
+          // refresh end date
+          let endTime = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
+          this.$.endDate.value = this._dateFormat(endTime);
+          this._refreshRgionGroup();
+        }
+      }
+
+      _dateFormat(date) {
+        var d = new Date(date),
+          month = '' + (d.getMonth() + 1),
+          day = '' + d.getDate(),
+          year = d.getFullYear();
+
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+        return [year, month, day].join('-');
+      }
+
+      _refreshRgionGroup() {
+        this.$.regionGroup.selected = "none";
+        this._onRegionSelectionChange();
+      }
 
       _onRegionSelectionChange() {
+        switch (this.$.regionGroup.selected) {
+          case "none":
+            this.$.countriesSection.classList.add("hidden");
+            this.$.regionsSection.classList.add("hidden");
+            break;
+          case "conutries":
+            this._fetchAllCountries();
+            this.$.countriesSection.classList.remove("hidden");
+            this.$.regionsSection.classList.add("hidden");
+            break;
+          case "region":
+            this._fetchAllCountries();
+            this.$.countriesSection.classList.add("hidden");
+            this.$.regionsSection.classList.remove("hidden");
+            break;
+        }
+      }
+
+      _fetchAllCountries() {
+        if (this.continents && this.continents.length) {
+          return;
+        }
         $core.getGeoDescriptors().then(result => {
-          console.log("geo", result);
+          let countries = [];
+          for (let cont of result.continents) {
+            let cByC = result.countriesByContinent[cont.code];
+            for (let c of cByC) {
+              c.selected = false;
+            }
+            cByC.forEach((d) => {
+              d.continent = cont.code;
+            });
+            countries = countries.concat(cByC);
+            cont.countries = cByC;
+          }
+          this.continents = result.continents;
+          countries.sort((a, b) => {
+            let an = a.name.toLowerCase();
+            let bn = b.name.toLowerCase();
+            if (an < bn) return -1;
+            if (an > bn) return 1;
+            return 0;
+          });
+          this.countries = countries;
         });
       }
 
+      _onAll(event) {
+        let all = event.target;
+        let continent = all.dataset.allCode;
+        let checked = all.checked;
+        const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.continent === continent) {
+            b.checked = checked;
+          }
+        }
+      }
 
+      _onCountryChange(event) {
+        let chk = event.target;
+        if (!chk.checked) {
+          const boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+          for (let i = 0; i < boxes.length; i++) {
+            let b = boxes[i];
+            if (b.dataset.allCode === chk.dataset.continent) {
+              b.checked = false;
+              break;
+            }
+          }
+        }
+      }
+
+      _countrySelected(event) {
+        let selected = event.detail.selection;
+        this.$.zipCodes.value = "";
+        if (selected) {
+          $core.getGeoDescriptors(selected.code).then((result) => {
+            let regions = result && result.regionsByCountry && result.regionsByCountry[selected.code];
+            if (regions && regions.length) {
+              this.$.regionTypeSection.classList.remove("hidden");
+              this.$.regionTypeGroup.selected = null;
+            } else {
+              this.$.regionTypeGroup.selected = "zip";
+              this.$.regionTypeSection.classList.add("hidden");
+              this.$.countryRegionSection.classList.add("hidden");
+              this.$.countryZipSection.classList.remove("hidden");
+            }
+          });
+        } else {
+          this.$.regionTypeSection.classList.add("hidden");
+          this.$.countryZipSection.classList.add("hidden");
+          this.$.countryRegionSection.classList.add("hidden");
+        }
+      }
+
+      _regionTypeSlectionChange() {
+        if (this.$.regionTypeGroup.selected === 'zip') {
+          this.$.countryRegionSection.classList.add("hidden");
+          this.$.countryZipSection.classList.remove("hidden");
+        } else {
+          this.$.countryRegionSection.classList.remove("hidden");
+          this.$.countryZipSection.classList.add("hidden");
+        }
+      }
     }
     window.customElements.define(CardBudgetView.is, CardBudgetView);
   </script>

@@ -1,0 +1,15 @@
+<dom-module id="tabbed-panel">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+    </style>
+  </template>
+  <script>
+    class TabbedPanel extends Polymer.Element {
+      static get is() { return 'tabbed-panel'; }
+    }
+    window.customElements.define(TabbedPanel.is, TabbedPanel);
+  </script>
+</dom-module>
