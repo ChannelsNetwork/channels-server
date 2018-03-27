@@ -177,14 +177,7 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "stats.revenue.value": -1 }); // findCardsByRevenue
     await this.cards.createIndex({ state: 1, "curation.block": 1, createdById: 1, "pricing.openFeeUnits": 1, score: -1 }); // findCardsByScore
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.a": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.b": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.c": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.d": -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "promotionScores.e": -1 });
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "pricing.openFeeUnits": 1, postedAt: -1 });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.openPayment": 1, id: 1 }, { name: "promoted-open-payment" });
-    await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "budget.available": 1, createdById: 1, "pricing.openFeeUnits": 1, "pricing.promotionFee": 1, id: 1 }, { name: "promoted-impression" });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
   }
 
@@ -1086,17 +1079,17 @@ export class Database {
     return this.cards.count({ postedAt: { $lt: before, $gte: after } });
   }
 
-  async countNonPromotedCards(before: number, after: number): Promise<number> {
-    return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
-  }
+  // async countNonPromotedCards(before: number, after: number): Promise<number> {
+  //   return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
+  // }
 
-  async countPromotedCards(before: number, after: number): Promise<number> {
-    return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
-  }
+  // async countPromotedCards(before: number, after: number): Promise<number> {
+  //   return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
+  // }
 
-  async countAdCards(before: number, after: number): Promise<number> {
-    return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openPayment": { $gt: 0 } });
-  }
+  // async countAdCards(before: number, after: number): Promise<number> {
+  //   return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": 0 });
+  // }
 
   async lockCard(cardId: string, timeout: number, serverId: string): Promise<CardRecord> {
     const count = 0;
@@ -1469,66 +1462,66 @@ export class Database {
     return this.cards.find<CardRecord>({ state: "active" }, { searchText: 0 }).sort({ postedAt: -1 }).limit(limit).toArray();
   }
 
-  async findRandomPayToOpenCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
-    const count = await cursor.count();
-    if (count === 0) {
-      return null;
-    }
-    const skip = Math.floor(Math.random() * count);
-    if (skip > 0) {
-      cursor = cursor.skip(skip);
-    }
-    const result = await cursor.next();
-    await cursor.close();
-    return result;
-  }
+  // async findRandomPayToOpenCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+  //   let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.openPayment": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  //   const count = await cursor.count();
+  //   if (count === 0) {
+  //     return null;
+  //   }
+  //   const skip = Math.floor(Math.random() * count);
+  //   if (skip > 0) {
+  //     cursor = cursor.skip(skip);
+  //   }
+  //   const result = await cursor.next();
+  //   await cursor.close();
+  //   return result;
+  // }
 
-  async findRandomImpressionAdCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
-    const count = await cursor.count();
-    // console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
-    if (count === 0) {
-      return null;
-    }
-    const skip = Math.floor(Math.random() * count);
-    if (skip > 0) {
-      cursor = cursor.skip(skip);
-    }
-    const result = await cursor.next();
-    // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
-    await cursor.close();
-    return result;
-  }
+  // async findRandomImpressionAdCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+  //   let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": 0, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  //   const count = await cursor.count();
+  //   // console.log("Db.findRandomImpressionAdCard", excludeAuthorId, excludedCardIds, count);
+  //   if (count === 0) {
+  //     return null;
+  //   }
+  //   const skip = Math.floor(Math.random() * count);
+  //   if (skip > 0) {
+  //     cursor = cursor.skip(skip);
+  //   }
+  //   const result = await cursor.next();
+  //   // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
+  //   await cursor.close();
+  //   return result;
+  // }
 
-  async findRandomPromotedCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
-    let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
-    const count = await cursor.count();
-    // console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
-    if (count === 0) {
-      return null;
-    }
-    const skip = Math.floor(Math.random() * count);
-    if (skip > 0) {
-      cursor = cursor.skip(skip);
-    }
-    const result = await cursor.next();
-    // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
-    await cursor.close();
-    return result;
-  }
+  // async findRandomPromotedCard(excludeAuthorIds: string[], excludedCardIds: string[]): Promise<CardRecord> {
+  //   let cursor = this.cards.find<CardRecord>({ state: "active", "curation.block": false, private: false, "budget.available": true, createdById: { $nin: excludeAuthorIds }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 }, id: { $nin: excludedCardIds } });
+  //   const count = await cursor.count();
+  //   // console.log("Db.findRandomPromotedCard", excludeAuthorId, excludedCardIds, count);
+  //   if (count === 0) {
+  //     return null;
+  //   }
+  //   const skip = Math.floor(Math.random() * count);
+  //   if (skip > 0) {
+  //     cursor = cursor.skip(skip);
+  //   }
+  //   const result = await cursor.next();
+  //   // console.log("Db.findRandomImpressionAdCard after next", skip, result ? result.id : null);
+  //   await cursor.close();
+  //   return result;
+  // }
 
-  getCardCursorByPostedAt(from: number, to: number): Cursor<CardRecord> {
-    return this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: from, $lte: to } }, { searchText: 0 });
-  }
+  // getCardCursorByPostedAt(from: number, to: number): Cursor<CardRecord> {
+  //   return this.cards.find<CardRecord>({ state: "active", postedAt: { $gt: from, $lte: to } }, { searchText: 0 });
+  // }
 
-  async findFirstCardByUser(userId: string): Promise<CardRecord> {
-    const result = await this.cards.find<CardRecord>({ state: "active", createdById: userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
-    if (result.length > 0) {
-      return result[0];
-    }
-    return null;
-  }
+  // async findFirstCardByUser(userId: string): Promise<CardRecord> {
+  //   const result = await this.cards.find<CardRecord>({ state: "active", createdById: userId }, { searchText: 0 }).sort({ postedAt: 1 }).limit(1).toArray();
+  //   if (result.length > 0) {
+  //     return result[0];
+  //   }
+  //   return null;
+  // }
 
   getAccessibleCardsByTime(before: number, after: number, userId: string, excludeAds: boolean, excludeReportedCards: boolean): Cursor<CardRecord> {
     const query: any = { state: "active" };
@@ -1592,16 +1585,6 @@ export class Database {
       query.score = { $lt: scoreLessThan };
     }
     return this.cards.find<CardRecord>(query).sort({ score: -1 }).limit(limit).toArray();
-  }
-
-  findCardsByPromotionScore(bin: CardPromotionBin, openPaymentOnly: boolean): Cursor<CardRecord> {
-    const sort: any = {};
-    sort["promotionScores." + bin] = -1;
-    const query: any = { state: "active", "curation.block": false, private: false };
-    if (openPaymentOnly) {
-      query["pricing.openPayment"] = { $gt: 0 };
-    }
-    return this.cards.find<CardRecord>(query, { searchText: 0 }).sort(sort);
   }
 
   async countCardPostsByUser(userId: string, from: number, to: number): Promise<number> {
@@ -3600,18 +3583,6 @@ export class Database {
           private: { $cond: { if: "$private", then: 1, else: 0 } },
           blocked: { $cond: { if: "$curation.block", then: 1, else: 0 } },
           ad: { $cond: { if: { $eq: ["$pricing.openFeeUnits", 0] }, then: 1, else: 0 } },
-          promoted: {
-            $cond: {
-              if: {
-                $and: [
-                  { $gt: ["$pricing.openFeeUnits", 0] },
-                  { $gt: ["$pricing.promotionFee", 0] }
-                ]
-              },
-              then: 1,
-              else: 0
-            }
-          },
           budget: "$budget.amount",
           spent: "$budget.spent",
           revenue: "$stats.revenue.value",
@@ -3629,7 +3600,6 @@ export class Database {
             private: { $sum: "$private" },
             blocked: { $sum: "$blocked" },
             ads: { $sum: "$ad" },
-            promoted: { $sum: "$promoted" },
             budget: { $sum: "$budget" },
             spent: { $sum: "$spent" },
             revenue: { $sum: "$revenue" },
@@ -4354,7 +4324,7 @@ export class Database {
           codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.regionCode);
         }
         if (geoLocation.zipCode) {
-          codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
+          codes.push(geoLocation.continentCode + "." + geoLocation.countryCode + ":" + geoLocation.zipCode);
         }
       }
       query.$or = [
