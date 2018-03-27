@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord, BankCouponRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, CardPricingInfo, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -286,7 +286,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           result.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.regionCode);
         }
         if (geoLocation.zipCode) {
-          result.push(geoLocation.continentCode + "." + geoLocation.countryCode + "." + geoLocation.zipCode);
+          result.push(geoLocation.continentCode + "." + geoLocation.countryCode + ":" + geoLocation.zipCode);
         }
       }
     }
@@ -1833,8 +1833,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const componentResponse = await channelsComponentManager.ensureComponent(request, details.cardType);
     let couponId: string;
     const cardId = uuid.v4();
-    if (details.coupon) {
-      const couponRecord = await bank.registerCoupon(user, cardId, details.coupon, sessionId);
+    if (details.campaignInfo && details.campaignInfo.coupon) {
+      this.validateCoupon(user, details);
+      const couponRecord = await bank.registerCoupon(user, cardId, details.campaignInfo.coupon, sessionId);
       couponId = couponRecord.id;
     }
     // const promotionScores = this.getPromotionScoresFromData(details.pricing.budget && details.pricing.budget.amount > 0, details.pricing.openFeeUnits, details.pricing.promotionFee, details.pricing.openPayment, 0, 0, 0);
@@ -1897,6 +1898,22 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
+  private validateCoupon(user: UserRecord, details: PostCardDetails): void {
+    const couponDetails = JSON.parse(details.campaignInfo.coupon.objectString) as BankCouponDetails;
+    if (!couponDetails.reason || !couponDetails.amount || !couponDetails.budget) {
+      throw new ErrorWithStatusCode(400, "Invalid coupon:  missing fields");
+    }
+    if (couponDetails.amount <= 0) {
+      throw new ErrorWithStatusCode(400, "Invalid coupon amount:  must be greater than zero");
+    }
+    if (!couponDetails.budget.amount || couponDetails.budget.amount < 0) {
+      throw new ErrorWithStatusCode(400, "Coupon budget amount is invalid");
+    }
+    if (couponDetails.budget.plusPercent && couponDetails.budget.plusPercent < 0 || couponDetails.budget.plusPercent > 90) {
+      throw new ErrorWithStatusCode(400, "Coupon budget plusPercent is invalid");
+    }
+  }
+
   private validateCardCampaign(user: UserRecord, details: PostCardDetails): void {
     if (!details.campaignInfo) {
       return;
@@ -1955,7 +1972,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private validateCardPricing(user: UserRecord, details: PostCardDetails): void {
     if (details.openFeeUnits && details.openFeeUnits > 0) {
-      if (details.campaignInfo) {
+      if (details.campaignInfo && details.campaignInfo.type !== "content-promotion") {
         throw new ErrorWithStatusCode(400, "You cannot use an ad campaign on a card that has an open fee.");
       }
       details.openFeeUnits = Math.round(details.openFeeUnits);
@@ -1966,8 +1983,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       if (!details.campaignInfo.type || !details.campaignInfo.budget) {
         throw new ErrorWithStatusCode(400, "Incomplete campaignInfo");
       }
-      if (["content-impression", "impression-ad", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
-        throw new ErrorWithStatusCode(400, "Invalid type");
+      if (["impression-ad", "pay-to-open", "pay-to-click"].indexOf(details.campaignInfo.type) < 0) {
+        throw new ErrorWithStatusCode(400, "Invalid campaign type");
       }
       if (details.campaignInfo.type === 'content-promotion') {
         if (!details.campaignInfo.budget.promotionTotal || details.campaignInfo.budget.promotionTotal < 0) {
@@ -2257,10 +2274,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           royaltyFraction: record.cardType.royaltyFraction
         },
         pricing: {
-          promotionFee: campaign && (campaign.type === "content-promotion" || campaign.type === "impression-ad") ? campaign.paymentAmount : 0,
           openFeeUnits: record.pricing.openFeeUnits,
-          openFee: record.pricing.openFeeUnits > 0 ? record.pricing.openFeeUnits * basePrice : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? -campaign.paymentAmount : 0,
-          discountedOpenFee: record.pricing.openFeeUnits > 0 ? (user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT) : campaign && (campaign.type === "pay-to-open" || campaign.type === "pay-to-click") ? -campaign.paymentAmount : 0
+          openFee: record.pricing.openFeeUnits * basePrice,
+          discountedOpenFee: user && user.firstCardPurchasedId ? record.pricing.openFeeUnits * basePrice : FIRST_CARD_PURCHASE_AMOUNT
         },
         promoted: promoted,
         campaign: campaign,
@@ -2420,6 +2436,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       return null;
     }
     const now = Date.now();
+    let coupon: BankCouponRecord;
+    if (campaign.couponId) {
+      coupon = await db.findBankCouponById(campaign.couponId);
+    }
+    if (!coupon) {
+      return null;
+    }
     const result: CardCampaignDescriptor = {
       id: campaign.id,
       created: campaign.created,
@@ -2428,13 +2451,31 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       paymentAmount: campaign.paymentAmount,
       advertiserSubsidy: campaign.advertiserSubsidy,
       couponId: campaign.couponId,
+      coupon: coupon ? coupon.signedObject : null,
+      couponDescriptor: coupon ? this.getCouponDescriptor(coupon) : null,
       budget: campaign.budget,
       ends: campaign.ends,
-      geoTargets: await userManager.getGeoTargetDescriptors(campaign.geoTargets),
+      geoTargets: campaign.geoTargets,
+      geoTargetDescriptors: await userManager.getGeoTargetDescriptors(campaign.geoTargets),
       statsTotal: await this.getCardCampaignStats(cardId, campaign, 0, now),
       statsLast24Hours: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24, now),
       statsLast7Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 7, now),
       statsLast30Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 30, now)
+    };
+    return result;
+  }
+
+  private getCouponDescriptor(coupon: BankCouponRecord): BankCouponDetails {
+    const result: BankCouponDetails = {
+      address: coupon.byAddress,
+      fingerprint: null,
+      timestamp: coupon.timestamp,
+      reason: coupon.reason,
+      amount: coupon.amount,
+      budget: {
+        amount: coupon.budget.amount,
+        plusPercent: coupon.budget.plusPercent
+      }
     };
     return result;
   }

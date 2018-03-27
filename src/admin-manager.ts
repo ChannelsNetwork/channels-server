@@ -140,9 +140,6 @@ export class AdminManager implements RestServer {
   private async computeCardGoals(from: number, to: number): Promise<AdminCardGoalsInfo> {
     const result: AdminCardGoalsInfo = {
       total: 0,
-      totalNonPromoted: 0,
-      totalPromoted: 0,
-      totalAds: 0,
       totalPaidOpens: 0,
       totalFirstTimePaidOpens: 0,
       totalNormalPaidOpens: 0,
@@ -150,9 +147,6 @@ export class AdminManager implements RestServer {
       totalGrossRevenue: 0,
       totalWeightedRevenue: 0,
       newCards: 0,
-      newNonPromoted: 0,
-      newPromoted: 0,
-      newAds: 0,
       newPaidOpens: 0,
       newFirstTimePaidOpens: 0,
       newNormalPaidOpens: 0,
@@ -162,9 +156,6 @@ export class AdminManager implements RestServer {
     };
     const starting = Date.now();
     result.total = await db.countCards(to, 0);
-    result.totalNonPromoted = await db.countNonPromotedCards(to, 0);
-    result.totalPromoted = await db.countPromotedCards(to, 0);
-    result.totalAds = await db.countAdCards(to, 0);
     const currentStats = await db.getNetworkCardStatsAt(to, true);
     result.totalPaidOpens = currentStats.stats.paidOpens;
     result.totalFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens;
@@ -176,9 +167,6 @@ export class AdminManager implements RestServer {
     const priorStats = await db.getNetworkCardStatsAt(from);
 
     result.newCards = await db.countCards(to, from);
-    result.newNonPromoted = await db.countNonPromotedCards(to, from);
-    result.newPromoted = await db.countPromotedCards(to, from);
-    result.newAds = await db.countAdCards(to, from);
     result.newPaidOpens = currentStats.stats.paidOpens - priorStats.stats.paidOpens;
     result.newFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens - priorStats.stats.firstTimePaidOpens;
     result.newNormalPaidOpens = currentStats.stats.paidOpens - currentStats.stats.firstTimePaidOpens - (priorStats.stats.paidOpens - priorStats.stats.firstTimePaidOpens);

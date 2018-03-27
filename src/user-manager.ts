@@ -1670,21 +1670,22 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         };
         if (parts.length > 0) {
           item.continentCode = parts[0];
-          item.continentName = continentNameByContinentCode[parts[0]];
+          item.continentName = continentNameByContinentCode[item.continentCode];
         }
         if (parts.length > 1) {
-          item.countryCode = parts[1];
-          const info = infoByCountryCode[parts[1]];
+          const subparts = parts[1].split(/[\.\:]/);
+          item.countryCode = subparts[0];
+          const info = infoByCountryCode[item.countryCode];
           if (info) {
             item.countryName = info.name;
           }
-        }
-        if (parts.length > 2) {
-          if (parts[2].length > 2) {
-            item.zipCode = parts[2];
-          } else {
-            item.regionCode = parts[2];
-            item.regionName = await this.getRegionNameByCode(parts[1], parts[2]);
+          if (subparts.length > 1) {
+            if (parts[1].indexOf(':') >= 0) {
+              item.zipCode = subparts[1];
+            } else {
+              item.regionCode = subparts[1];
+              item.regionName = await this.getRegionNameByCode(item.countryCode, item.regionCode);
+            }
           }
         }
       }

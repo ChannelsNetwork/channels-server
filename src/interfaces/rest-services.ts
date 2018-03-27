@@ -218,8 +218,7 @@ export interface CardDescriptor {
     royaltyAddress: string;
   };
   pricing: {
-    promotionFee: number;
-    openFee: number;  // in ChannelCoin, -ve for ads
+    openFee: number;  // in ChannelCoin
     discountedOpenFee: number;  // 0.01 for first-time card purchase, otherwise = openFee
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
@@ -401,7 +400,6 @@ export interface PostCardDetails extends Signable {
   openFeeUnits: number;
   sharedState: CardState;
   fileIds: string[];
-  coupon: SignedObject;
   campaignInfo?: CardCampaignInfo;
 }
 
@@ -422,17 +420,6 @@ export interface UpdateCardStateResponse extends RestResponse { }
 export interface UpdateCardPricingDetails extends Signable {
   cardId: string;
   openFeeUnits: number;
-}
-
-export interface CardPricingInfo {
-  promotionFee?: number;
-  openPayment?: number; // for ads, in ChannelCoin
-  openFeeUnits?: number; // for content, 1..10
-  budget?: {
-    amount: number;
-    plusPercent: number;
-  };
-  coupon?: SignedObject;   // BankCouponDetails
 }
 
 export interface UpdateCardPricingResponse extends RestResponse { }
@@ -840,9 +827,6 @@ export interface AdminPublisherGoalsInfo {
 
 export interface AdminCardGoalsInfo {
   total: number;
-  totalNonPromoted: number;
-  totalPromoted: number;
-  totalAds: number;
   totalPaidOpens: number;
   totalFirstTimePaidOpens: number;
   totalNormalPaidOpens: number;
@@ -850,9 +834,6 @@ export interface AdminCardGoalsInfo {
   totalGrossRevenue: number;
   totalWeightedRevenue: number;
   newCards: number;
-  newNonPromoted: number;
-  newPromoted: number;
-  newAds: number;
   newPaidOpens: number;
   newFirstTimePaidOpens: number;
   newNormalPaidOpens: number;
@@ -1273,6 +1254,7 @@ export interface CardCampaignDescriptor extends CardCampaignInfo {
   paymentAmount: number;
   advertiserSubsidy: number;
   couponId: string;
+  couponDescriptor: BankCouponDetails;
   geoTargetDescriptors: GeoTargetDescriptor[];
   statsTotal: CardCampaignStats;
   statsLast24Hours: CardCampaignStats;
@@ -1300,6 +1282,7 @@ export interface CardCampaignInfo {
   budget: CardCampaignBudget;
   ends: number;
   geoTargets: string[];
+  coupon: SignedObject;
 }
 
 export interface UpdateCardCampaignResponse extends RestResponse { }

@@ -94,7 +94,6 @@
           <div class="headerCell right">Score (boost)</div>
           <div class="headerCell right">Score (total)</div>
           <div class="headerCell right">Revenue</div>
-          <div class="headerCell right">Promotion Fee</div>
           <div class="headerCell right">Open Fee</div>
           <div class="headerCell right">Impressions</div>
           <div class="headerCell right">Unique Impressions</div>
@@ -124,7 +123,6 @@
             <div class="cell right">[[item.scoreBoost]]</div>
             <div class="cell right">[[item.scoreTotal]]</div>
             <div class="cell right">[[item.revenue]]</div>
-            <div class="cell right">[[item.promotionFee]]</div>
             <div class="cell right">[[item.openFee]]</div>
             <div class="cell right">[[item.impressions]]</div>
             <div class="cell right">[[item.uniqueImpressions]]</div>
@@ -198,7 +196,6 @@
               scoreBoost: cardInfo.scoring.boost.toFixed(3),
               scoreTotal: cardInfo.scoring.total.toFixed(3),
               revenue: card.stats.revenue ? card.stats.revenue.toFixed(2) : "",
-              promotionFee: card.pricing.promotionFee ? card.pricing.promotionFee.toFixed(2) : "",
               openFee: card.pricing.openFee ? card.pricing.openFee.toFixed(2) : "",
               impressions: card.stats.impressions,
               uniqueImpressions: card.stats.uniqueImpressions,
