@@ -2,7 +2,7 @@
 <link rel="import" href="compose-card-type.html">
 <link rel="import" href="compose-card-content.html">
 <link rel="import" href="compose-card-pricing.html">
-<link rel="import" href="compose-card-promotion.html">
+<link rel="import" href="compose-card-budget.html">
 <link rel="import" href="compose-card-publish.html">
 
 <dom-module id="compose-view">
@@ -29,7 +29,7 @@
       <compose-card-type data-label="Card type"></compose-card-type>
       <compose-card-content data-label="Card content"></compose-card-content>
       <compose-card-pricing data-label="Pricing"></compose-card-pricing>
-      <compose-card-promotion data-label="Budget"></compose-card-promotion>
+      <compose-card-budget data-label="Budget"></compose-card-budget>
       <compose-card-publish id="publishPage" data-label="Publish" on-compose-publish="_onPublish"></compose-card-publish>
     </soso-wizard>
   </template>
@@ -57,7 +57,6 @@
         this.$.wiz.navigationEnabled = true;
         this.$.wiz.reset();
         $core.cardManager.cardService.clearUploadedFileIds();
-
         this.$.wiz.instanceStamp = (new Date()).getTime();
 
         $core.register().then((info) => {
@@ -145,23 +144,13 @@
         this.$.wiz.navigationEnabled = false;
         let data = this.$.wiz.data;
         this._userClosed = true;
-        $core.postCard(data.summary.imageId,
-          data.summary.linkURL,
-          data.summary.iframeUrl,
-          data.summary.title,
-          data.summary.text,
-          data.summary.langCode,
+
+        $core.postCard(
+          data.imageId, data.linkURL, data.iframeUrl, data.title, data.text, data.langCode,
           data.isPrivate ? true : false,
-          data.repo,
-          (data.pricing && data.pricing.pay && data.pricing.pay.basedOn === 'impressions' || data.pricing.fee && data.pricing.fee.expandReach) ? (data.promotion ? data.promotion.amount : 0) : 0,
-          data.pricing && data.pricing.pay && data.pricing.pay.basedOn === 'clicks' ? (data.promotion ? data.promotion.amount : 0) : 0,
-          data.pricing && data.pricing.fee ? data.pricing.fee.priceLevel : 0,
-          data.promotion && data.promotion.budgetCoins ? data.promotion.budgetCoins : 0,
-          data.promotion && data.promotion.budgetPercent ? data.promotion.budgetPercent : 0,
-          data.keywords,
-          data.searchText,
-          $core.cardManager.cardService.uploadedFileIds,
-          data.cardSharedState
+          data.packageName, data.openFeeUnits, data.keywords, data.searchText, $core.cardManager.cardService.uploadedFileIds,
+          data.initialState,
+          data.campaignInfo
         ).then(() => {
           $core.analytics.event("card", "publish");
           $core.cardManager.cardService.clearUploadedFileIds();

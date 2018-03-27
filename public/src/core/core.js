@@ -967,13 +967,13 @@ class CoreService extends Polymer.Element {
   getPromotionPriceByType(type) {
     switch (type) {
       case "content-promotion":
-        return promotionPricing.contentImpression;
+        return this.promotionPricing.contentImpression;
       case "impression-ad":
-        return promotionPricing.adImpression;
+        return this.promotionPricing.adImpression;
       case "pay-to-open":
-        return promotionPricing.payToOpen;
+        return this.promotionPricing.payToOpen;
       case "pay-to-click":
-        return promotionPricing.payToClick;
+        return this.promotionPricing.payToClick;
     }
     return 0;
   }

@@ -1,0 +1,83 @@
+<link rel="import" href="../card/edit/card-budget-view.html">
+<dom-module id="compose-card-budget">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        padding: 40px 0 20px;
+      }
+
+      .buttons {
+        padding: 40px 10px 30px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      #noBudget {
+        padding: 0 10px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      @media (max-width: 600px) {
+        #container {
+          padding: 20px 0 20px;
+        }
+      }
+    </style>
+    <div id="container">
+      <card-budget-view id="view"></card-budget-view>
+      <div id="noBudget" class="hidden">
+        <section>
+          You don't need to configure any budget for this card.
+        </section>
+      </div>
+      <div class="buttons">
+        <button id="cancel" on-click="_onCancel">Cancel</button>
+        <button id="next" on-click="_onNext">Next</button>
+      </div>
+    </div>
+  </template>
+  <script>
+    class ComposeCardBudget extends Polymer.Element {
+      static get is() { return 'compose-card-budget'; }
+      static get properties() {
+        return {
+          wizard: Object
+        };
+      }
+      _onCancel() {
+        this.wizard.cancel();
+      }
+      _onNext() {
+        this.wizard.next();
+      }
+
+      onTransitioningIn() {
+        const data = this.wizard.data;
+        if (data.campaignInfo) {
+          this.$.view.classList.remove("hidden");
+          this.$.noBudget.classList.add("hidden");
+          this.$.view.data = data.campaignInfo;
+        } else {
+          this.$.view.classList.add("hidden");
+          this.$.noBudget.classList.remove("hidden");
+        }
+      }
+
+      onTransitioningOut() {
+        return new Promise(resolve => {
+          const data = this.wizard.data;
+          if (data.campaignInfo) {
+            data.campaignInfo = this.$.view.value;
+          }
+          resolve();
+        });
+      }
+    }
+    window.customElements.define(ComposeCardBudget.is, ComposeCardBudget);
+  </script>
+</dom-module>
