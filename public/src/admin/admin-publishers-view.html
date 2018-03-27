@@ -247,6 +247,7 @@
               grossRevenue: publisherInfo.grossRevenue.toFixed(2),
               weightedRevenue: publisherInfo.weightedRevenue.toFixed(2),
               recentRevenue: publisherInfo.recentRevenue.toFixed(2),
+              recentRevenueAmount: publisherInfo.recentRevenue,
               subscribers: publisherInfo.subscribers,
               purchases: publisherInfo.cardsPurchased,
               recentPurchases: publisherInfo.recentPurchases,
@@ -355,6 +356,24 @@
         this.set('publishers', []);
         newItems.sort((a, b) => {
           return b.info.weightedRevenue - a.info.weightedRevenue;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onRecentRevenueClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.info.recentRevenueAmount - a.info.recentRevenueAmount;
+        });
+        this.set('publishers', newItems);
+      }
+
+      _onRecentPurchasesClick(event) {
+        const newItems = this.publishers;
+        this.set('publishers', []);
+        newItems.sort((a, b) => {
+          return b.info.recentPurchases - a.info.recentPurchases;
         });
         this.set('publishers', newItems);
       }
