@@ -752,7 +752,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           response.status(400).send("Transaction amount does not match card promotion fee.");
           return;
         }
-        if (transaction.reason !== "card-promotion") {
+        if ((transaction.reason !== 'card-promotion') && (transaction.reason !== 'impression-ad')) {
           response.status(400).send("Transaction reason must be card-promotion.");
           return;
         }
@@ -789,7 +789,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         //   response.status(400).send("Invalid coupon: promotion fee mismatch: " + coupon.amount + " vs " + card.pricing.promotionFee);
         //   return;
         // }
-        if (coupon.reason !== 'card-promotion') {
+        if ((coupon.reason !== 'card-promotion') && (coupon.reason !== 'impression-ad')) {
           response.status(400).send("Invalid coupon: invalid type");
           return;
         }

@@ -1162,7 +1162,7 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
             const cardUser = await db.findUserCardInfo(user.id, card.id);
             if (!cardUser || cardUser.lastOpened === 0) {
-              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, null, false, null, user);
+              const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, null, true, null, user);
               cards.push(descriptor);
               if (sentChannelIds.indexOf(channelCard.channelId) < 0) {
                 sentChannelIds.push(channelCard.channelId);

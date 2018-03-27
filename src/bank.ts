@@ -378,7 +378,7 @@ export class Bank implements RestServer, Initializable {
     if (["transfer", "deposit"].indexOf(details.type) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction type");
     }
-    if (["card-open-fee", "interest", "subsidy", "grant", "deposit", "publisher-subsidy", "referral-bonus", "registration-bonus", "paypal-payment-received"].indexOf(details.reason) < 0) {
+    if (["card-open-fee", "interest", "subsidy", "grant", "deposit", "publisher-subsidy", "referral-bonus", "registration-bonus", "paypal-payment-received", "advertiser-subsidy"].indexOf(details.reason) < 0) {
       throw new ErrorWithStatusCode(400, "Invalid transaction reasons");
     }
     switch (details.reason) {

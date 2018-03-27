@@ -242,17 +242,6 @@
           cardData.pricing.openFee = data.openFeeUnits * $core.baseCardPrice;
         }
         cardData.promoted = data.campaignInfo ? true : false;
-        if (data.campaignInfo) {
-          switch (data.campaignInfo.type) {
-            case "impression-ad":
-              cardData.pricing.promotionFee = $core.getPromotionPriceByType(data.campaignInfo.type);
-              break;
-            case "pay-to-open":
-            case "pay-to-click":
-              cardData.pricing.openFee = -$core.getPromotionPriceByType(data.campaignInfo.type);
-              break;
-          }
-        }
 
         this.$.languageSelect.selection = cardData.summary.langCode || $core.lastLanguagePublished || "en";
         this.$.preview.disabled = cardData.summary.linkURL ? true : false;

@@ -1277,7 +1277,7 @@ export class FeedManager implements Initializable, RestServer {
       if (pinInfos && pinInfos.length > i) {
         pinInfo = pinInfos[i];
       }
-      promises.push(cardManager.populateCardState(request, card.id, false, promoted, adSlotId, channelId, pinInfo, false, null, user));
+      promises.push(cardManager.populateCardState(request, card.id, false, promoted, adSlotId, channelId, pinInfo, true, null, user));
     }
     const result = await Promise.all(promises);
     const finalResult: CardDescriptor[] = [];
@@ -1290,7 +1290,7 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, adSlotId: string, sourceChannelId: string, includeCardCampaign: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
-    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, includeCardCampaign, cardCampaignIfAvailable, user, includeAdmin);
+    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, true, cardCampaignIfAvailable, user, includeAdmin);
   }
 
   private async poll(): Promise<void> {
