@@ -325,22 +325,6 @@ class RestUtils {
     };
   }
 
-  // static cardPricing(openFeeUnits, budgetAmount, budgetPlusPercent, coupon) {
-  //   const result = {
-  //     promotionFee: promotionFee,
-  //     openPayment: openPayment,
-  //     openFeeUntis: openFeeUnits,
-  //     budget: {
-  //       amount: budgetAmount,
-  //       plusPercent: budgetPlusPercent
-  //     }
-  //   };
-  //   if (coupon) {
-  //     result.coupon = coupon;
-  //   }
-  //   return result;
-  // }
-
   static cardImpressionDetails(address, fingerprint, cardId, adSlotId, transactionString, transactionSignature) {
     const result = {
       address: address,
