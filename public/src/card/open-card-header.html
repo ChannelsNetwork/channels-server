@@ -255,9 +255,27 @@
         this._refreshMore();
       }
 
+      get campaignPayment() {
+        if (this.data && this.data.campaign) {
+          return this.data.campaign.paymentAmount;
+        }
+        return 0;
+      }
+
+      _isImpressionCampaign() {
+        if (this.data && this.data.campaign) {
+          let type = this.data.campaign.type;
+          return (type === 'impression-ad' || type == 'content-promotion');
+        }
+        return false;
+      }
+
       _refreshPrice() {
         this._refreshPaidCheck();
         let cost = this.data.pricing.discountedOpenFee;
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
+        }
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
         if (cost <= 0) {
@@ -369,8 +387,13 @@
       }
 
       _refreshPaidCheck() {
+        let cost = this.data.pricing.openFee;
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
+        }
+
         let showCheck = (!this.data.userSpecific.isPoster) && (!this.data.userSpecific.openFeeRefunded) &&
-          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+          ((cost > 0 && this.data.userSpecific.paidToAuthor) || (cost < 0 && this.data.userSpecific.earnedFromAuthor));
         if (showCheck) {
           this.$.pricePanel.classList.add("paid");
         } else {
