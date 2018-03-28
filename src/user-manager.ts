@@ -725,15 +725,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     record = await db.findIpAddress(ipAddress);
     const lifetime = record && record.status === 'success' ? MAX_IP_ADDRESS_LIFETIME : IP_ADDRESS_FAIL_RETRY_INTERVAL;
     if (record && Date.now() - record.lastUpdated < lifetime) {
+      this.ipCache.set(ipAddress, record);
       return record;
     }
     if (configuration.get('ipAddress.geo.enabled')) {
       if (record) {
         // Don't wait for response
         void this.initiateIpAddressUpdate(ipAddress, null);
+        this.ipCache.set(ipAddress, record);
         return record;
       } else {
-        return this.initiateIpAddressUpdate(ipAddress, record);
+        record = await this.initiateIpAddressUpdate(ipAddress, record);
+        this.ipCache.set(ipAddress, record);
+        return record;
       }
     }
   }
