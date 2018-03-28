@@ -335,13 +335,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     };
     switch (type) {
       case "content-promotion":
-        budget.promotionTotal = card.budget.amount;
-        budget.plusPercent = card.budget.plusPercent;
+        budget.promotionTotal = Math.max(card.budget.amount, 1);
+        budget.plusPercent = card.budget.plusPercent || 0;
         break;
       case "impression-ad":
       case "pay-to-open":
       case "pay-to-click":
-        budget.maxPerDay = card.budget.amount / 30;
+        budget.maxPerDay = Math.max(card.budget.amount / 30, 1);
         break;
       default:
         throw new Error("Unhandled campaign type " + type);

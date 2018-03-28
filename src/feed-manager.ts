@@ -646,14 +646,14 @@ export class FeedManager implements Initializable, RestServer {
         throw new Error("Unsupported card campaign type " + cardCampaign.type);
     }
     const amount = cardCampaign ? cardCampaign.paymentAmount : 0;
-    return db.insertAdSlot(sessionId, user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
+    return db.insertAdSlot(sessionId, user.id, geo, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.createdById, amount);
   }
 
   private async createAdSlotFromDescriptor(sessionId: string, card: CardDescriptor, geo: GeoLocation, user: UserRecord, channelId: string, cardCampaign: CardCampaignRecord): Promise<AdSlotRecord> {
     let type: AdSlotType;
     type = card.pricing.openFee < 0 ? (card.summary.linkUrl ? "click-payment" : "open-payment") : (card.pricing.openFeeUnits ? "impression-content" : "impression-ad");
     const amount = cardCampaign ? cardCampaign.paymentAmount : 0;
-    return db.insertAdSlot(sessionId, user.id, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
+    return db.insertAdSlot(sessionId, user.id, geo, cardCampaign.geoTargets, user.balance, channelId, card.id, cardCampaign.id, type, card.by.id, amount);
   }
 
   // <<<<<<< HEAD

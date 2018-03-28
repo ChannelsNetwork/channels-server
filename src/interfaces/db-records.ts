@@ -727,6 +727,7 @@ export interface AdSlotRecord {
   redeemed: boolean;
   statusChanged: number;
   amount: number;
+  userGeo: GeoLocation;
   geoTargets: string[];
 }
 
