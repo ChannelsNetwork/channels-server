@@ -96,7 +96,7 @@
         padding: 20px 0;
       }
 
-      #expiredPanel {
+      #statusPanel {
         background: #f0f0f0;
         margin-top: -20px;
         margin-bottom: 20px;
@@ -106,8 +106,14 @@
         letter-spacing: 0.05em;
       }
 
+      #subsidyMessage {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #555;
+      }
+
       @media (max-width: 600px) {
-        #expiredPanel {
+        #statusPanel {
           margin-top: 0;
         }
       }
@@ -115,7 +121,9 @@
     <div id="container">
       <div id="main" class="hidden">
         <h2>Card Promotion Budget</h2>
-        <div id="expiredPanel" class="hidden">Promotion has expired</div>
+        <div id="statusPanel" class="hidden">Campaign status:
+          <span>[[status]]</span>
+        </div>
         <section>
           <label>Promotion Cost</label>
           <div id="impressionPriceLabel" class="hidden">
@@ -144,8 +152,10 @@
           <label>Daily Budget</label>
           <div class="row">
             ℂ
-            <soso-number-input id="dailyBudget" value="5" step="1" min="0"></soso-number-input>
+            <soso-number-input id="dailyBudget" value="5" step="1" min="1"></soso-number-input>
           </div>
+          <div id="subsidyMessage" class="hidden">Note: Channels is subsidizing
+            <span>[[subsidizedRatio]]</span> of this cost. You pay the rest.</div>
         </section>
 
         <section id="endDateSection">
@@ -232,7 +242,11 @@
             type: Array,
             value: () => { return ['code', 'name']; }
           },
-          promotionPrice: String
+          promotionPrice: String,
+          status: {
+            type: String,
+            observer: '_statusChange'
+          }
         };
       }
 
@@ -319,11 +333,25 @@
         this._refresh();
       }
 
+      _statusChange() {
+        if (this.status) {
+          this.$.statusPanel.classList.remove("hidden");
+        } else {
+          this.$.statusPanel.classList.add("hidden");
+        }
+      }
+
       _refresh() {
         if (this.data) {
+          this.$.statusPanel.classList.add("hidden");
+          this.status = this.data.status;
           this.$.main.classList.remove("hidden");
           let type = this.data.type;
-          this.promotionPrice = $core.getPromotionPriceByType(type);
+          let price = $core.getPromotionPriceByType(type);
+          let subsidized = $core.promotionPricing.payToOpenSubsidy;
+          this.subsidizedRatio = Math.round((subsidized / price) * 100) + "%";
+          this.promotionPrice = (Math.floor(price * 1000) / 1000).toFixed(3);
+          this.$.subsidyMessage.classList.add("hidden");
           switch (type) {
             case "content-promotion":
               this.$.promotionTotalSection.classList.remove("hidden");
@@ -343,6 +371,7 @@
               this.$.dailySection.classList.remove("hidden");
               this.$.impressionPriceLabel.classList.add("hidden");
               this.$.openPriceLabel.classList.remove("hidden");
+              this.$.subsidyMessage.classList.remove("hidden");
               break;
           }
 
@@ -375,6 +404,7 @@
       _refreshRgionGroup() {
         // select the region checkbox
         let targets = this.data.geoTargets || [];
+        let regionCountry = null;
         if (!targets.length) {
           this.$.regionGroup.selected = "none";
         } else {
@@ -384,11 +414,17 @@
             if (t.indexOf(':') > 0) {
               hasZip = true;
               hasRegion = true;
+              let split = t.split(":");
+              let split2 = split[0].split('.');
+              if (split2.length > 1) {
+                regionCountry = split2[1];
+              }
               break;
             }
             let split = t.split(".");
             if (split.length > 2) {
               hasRegion = true;
+              regionCountry = split[1];
             }
           }
           if (hasRegion) {
@@ -400,7 +436,16 @@
           this._regionTypeSlectionChange();
         }
         this._onRegionSelectionChange();
-        this._fetchAllCountries();
+        this._fetchAllCountries().then(() => {
+          if (regionCountry) {
+            for (let c of this.countries) {
+              if (c.code === regionCountry) {
+                this.$.countrySelector.selected = c;
+                break;
+              }
+            }
+          }
+        });
       }
 
       _onRegionSelectionChange() {
@@ -421,7 +466,7 @@
       }
 
       _fetchAllCountries() {
-        $core.getGeoDescriptors().then(result => {
+        return $core.getGeoDescriptors().then(result => {
           let countries = [];
           for (let cont of result.continents) {
             let cByC = result.countriesByContinent[cont.code];
