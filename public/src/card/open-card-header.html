@@ -196,6 +196,7 @@
         <li on-click="_onLink">Grab card URL</li>
         <li id="reportAction" class="menuDivider" on-click="_onReport">Report this card</li>
         <li id="editAction" class="menuDivider" on-click="_editCard">Edit Card</li>
+        <li id="promotionAction" on-click="_editCampaign">Promotion</li>
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
         <li id="addToHomeAction" on-click="_addToHome" class="menuDivider hidden">Add To My Channel</li>
@@ -364,6 +365,7 @@
           this.$.analyticsAction.classList.remove("hidden");
           this.$.deleteAction.classList.remove("hidden");
           this.$.editAction.classList.remove("hidden");
+          this.$.promotionAction.classList.remove("hidden");
           this.$.reportAction.classList.add("hidden");
           this.$.addToHomeAction.classList.add("hidden");
           this.$.removeFromHomeAction.classList.add("hidden");
@@ -371,6 +373,7 @@
           this.$.analyticsAction.classList.add("hidden");
           this.$.deleteAction.classList.add("hidden");
           this.$.editAction.classList.add("hidden");
+          this.$.promotionAction.classList.add("hidden");
           this.$.reportAction.classList.remove("hidden");
           this.$.addToHomeAction.classList.add("hidden");
           this.$.removeFromHomeAction.classList.add("hidden");
@@ -500,6 +503,10 @@
           });
           this.dispatchEvent(new CustomEvent('report-dialog', { bubbles: true, composed: true, detail: { open: true } }));
         });
+      }
+
+      _editCampaign() {
+        $router.goto('/card-budget/' + encodeURIComponent(this.data.id));
       }
 
       _editCard() {

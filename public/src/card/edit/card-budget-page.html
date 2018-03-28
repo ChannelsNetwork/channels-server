@@ -47,6 +47,13 @@
             <button id="save" on-click="_save">Save</button>
           </div>
         </div>
+        <div id="noCampaign" class="hidden">
+          <div class="buttons">This card does not have a promotion campain</div>
+          <div class="buttons">
+            <button on-click="_onCancel">Close</button>
+            <!-- <button on-click="_startCampaign">Create campaign</button> -->
+          </div>
+        </div>
       </div>
 
       <div id="progress" class="vertical layout hidden">
@@ -73,6 +80,7 @@
       onActivate(route) {
         this._showProgress(null);
         this.$.budgetSection.classList.add("hidden");
+        this.$.noCampaign.classList.add("hidden");
         $core.register().then(() => {
           if (route.segments.length < 2) {
             setTimeout(() => {
@@ -84,7 +92,11 @@
           return $core.getCard(this.cardId, null, 0, false).then(result => {
             this.card = result.card;
             this.campaign = this.card.campaign;
-            this.$.budgetSection.classList.remove("hidden");
+            if (this.campaign) {
+              this.$.budgetSection.classList.remove("hidden");
+            } else {
+              this.$.noCampaign.classList.remove("hidden");
+            }
           });
         }).catch(err => {
           console.error(err);
@@ -128,6 +140,12 @@
           console.error(err);
           $app.showError(err || "Oops. Something went wrong.");
         });
+      }
+
+      _startCampaign() {
+        this.campaign = { type: 'content-promotion' };
+        this.$.budgetSection.classList.remove("hidden");
+        this.$.noCampaign.classList.add("hidden");
       }
     }
     window.customElements.define(CardBudgetPage.is, CardBudgetPage);
