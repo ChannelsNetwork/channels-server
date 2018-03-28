@@ -1051,7 +1051,7 @@ export class FeedManager implements Initializable, RestServer {
         before = afterCard.postedAt;
       }
     }
-    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id, true, true);
+    const cursor = await db.getAccessibleCardsByTime(before || Date.now(), 0, user.id, !user.admin, !user.admin);
     const cards: CardRecord[] = [];
     while (await cursor.hasNext()) {
       const card = await cursor.next();
