@@ -346,10 +346,12 @@
               break;
           }
 
-          this.$.dailyBudget.value = this.data.budget.maxPerDay || 0;
-          this.$.budgetPercent.value = this.data.budget.plusPercent || 0;
-          if (this.data.budget.promotionTotal) {
-            this.$.totalBudget.value = this.data.budget.promotionTotal;
+          if (this.data.budget) {
+            this.$.dailyBudget.value = this.data.budget.maxPerDay || 0;
+            this.$.budgetPercent.value = this.data.budget.plusPercent || 0;
+            if (this.data.budget.promotionTotal) {
+              this.$.totalBudget.value = this.data.budget.promotionTotal;
+            }
           }
 
           // refresh end date
