@@ -71,8 +71,8 @@ export const PROMOTION_PRICING: PromotionPricingInfo = {
   adImpression: 0.02,
   payToOpen: 0.50,
   payToClick: 0.50,
-  payToOpenSubsidy: 0.40,
-  payToClickSubsidy: 0.40
+  payToOpenSubsidy: 0.45,
+  payToClickSubsidy: 0.45
 };
 
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
