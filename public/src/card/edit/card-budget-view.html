@@ -96,7 +96,7 @@
         padding: 20px 0;
       }
 
-      #expiredPanel {
+      #statusPanel {
         background: #f0f0f0;
         margin-top: -20px;
         margin-bottom: 20px;
@@ -113,7 +113,7 @@
       }
 
       @media (max-width: 600px) {
-        #expiredPanel {
+        #statusPanel {
           margin-top: 0;
         }
       }
@@ -121,7 +121,9 @@
     <div id="container">
       <div id="main" class="hidden">
         <h2>Card Promotion Budget</h2>
-        <div id="expiredPanel" class="hidden">Promotion has expired</div>
+        <div id="statusPanel" class="hidden">Campaign status:
+          <span>[[status]]</span>
+        </div>
         <section>
           <label>Promotion Cost</label>
           <div id="impressionPriceLabel" class="hidden">
@@ -240,7 +242,11 @@
             type: Array,
             value: () => { return ['code', 'name']; }
           },
-          promotionPrice: String
+          promotionPrice: String,
+          status: {
+            type: String,
+            observer: '_statusChange'
+          }
         };
       }
 
@@ -327,8 +333,18 @@
         this._refresh();
       }
 
+      _statusChange() {
+        if (this.status) {
+          this.$.statusPanel.classList.remove("hidden");
+        } else {
+          this.$.statusPanel.classList.add("hidden");
+        }
+      }
+
       _refresh() {
         if (this.data) {
+          this.$.statusPanel.classList.add("hidden");
+          this.status = this.data.status;
           this.$.main.classList.remove("hidden");
           let type = this.data.type;
           let price = $core.getPromotionPriceByType(type);
