@@ -34,6 +34,12 @@
         margin-bottom: 20px;
         margin-left: -10px;
       }
+
+      .note {
+        margin-top: 25px;
+        font-size: 14px;
+        color: #777;
+      }
     </style>
     <soso-app-header>
       <dialog-bar text="Promotion Campaign" on-cancel="_onCancel"></dialog-bar>
@@ -45,6 +51,7 @@
           <div class="buttons">
             <button id="cancel" on-click="_onCancel">Cancel</button>
             <button id="save" on-click="_save">Save</button>
+            <div class="note">To suspend the campaign, simply set the 'end date' to today.</div>
           </div>
         </div>
         <div id="noCampaign" class="hidden">
