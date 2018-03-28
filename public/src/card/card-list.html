@@ -201,15 +201,31 @@
         }
       }
 
+      _getCampaignPayment(card) {
+        if (card.campaign) {
+          return card.campaign.paymentAmount;
+        }
+        return 0;
+      }
+
+      _isImpressionCampaign(card) {
+        if (card.campaign) {
+          let type = card.campaign.type;
+          return (type === 'impression-ad' || type == 'content-promotion');
+        }
+        return false;
+      }
+
       _onImpression(event) {
         event.stopPropagation();
         if (event.detail && event.detail.view) {
           let view = event.detail.view;
           let card = view.data;
           if (card) {
-            if ((!card.userSpecific.isPoster) && card.promoted && card.pricing.promotionFee && card.couponId) {
-              $core.cardImpression(card.id, card.adSlotId, card.couponId, card.pricing.promotionFee, card.by.address);
-              view.data.userSpecific.earnedFromAuthor = card.pricing.promotionFee;
+            if ((!card.userSpecific.isPoster) && card.promoted && this._isImpressionCampaign(card) && card.couponId) {
+              console.log(card);
+              $core.cardImpression(card.id, card.adSlotId, card.couponId, this._getCampaignPayment(card), card.by.address, card.campaign);
+              view.data.userSpecific.earnedFromAuthor = this._getCampaignPayment(card);
             } else {
               $core.cardImpression(card.id, card.adSlotId);
             }

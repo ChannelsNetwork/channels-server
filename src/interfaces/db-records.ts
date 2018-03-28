@@ -508,7 +508,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy" | "impression-ad";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
