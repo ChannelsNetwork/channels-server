@@ -78,7 +78,7 @@
       _send(event) {
         event.stopPropagation();
         let v = this.$.txt.value.trim();
-        if (v) {
+        if (v && v.length <= 280) {
           if (!$core.profile || !$core.profile.handle) {
             setTimeout(() => {
               this.clear();
