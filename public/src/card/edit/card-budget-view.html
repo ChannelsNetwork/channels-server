@@ -479,8 +479,26 @@
                 });
                 if (countryCode) {
                   $core.getGeoDescriptors(countryCode).then((result) => {
-                    // TODO: 
-                    // let regions = result && result.regionsByCountry && result.regionsByCountry[countryCode];
+                    let regions = result && result.regionsByCountry && result.regionsByCountry[countryCode];
+                    this.regions = regions;
+                    setTimeout(() => {
+                      const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+                      if (regionBoxes.length) {
+                        targets.forEach((d) => {
+                          let split = d.split(".");
+                          if (split.length > 2) {
+                            let regionCode = split[2].trim();
+                            if (regionCode) {
+                              for (const rbox of regionBoxes) {
+                                if (rbox.dataset.code === regionCode) {
+                                  rbox.checked = true;
+                                }
+                              }
+                            }
+                          }
+                        });
+                      }
+                    }, 1000);
                   });
                 }
               }
@@ -495,6 +513,10 @@
             this._refreshChecks();
           }, 200);
         }
+      }
+
+      _refreshRegionChecks() {
+
       }
 
       _selectCountry(code) {
@@ -553,6 +575,22 @@
         }
       }
 
+      _onAllRegions(event) {
+        const checked = this.$.chkAllRegions.checked;
+        const boxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          b.checked = checked;
+        }
+      }
+
+      _regionChange(event) {
+        let chk = event.target;
+        if (!chk.checked) {
+          this.$.chkAllRegions.checked = false;
+        }
+      }
+
       _countrySelected(event) {
         let selected = event.detail.selection;
         this.$.zipCodes.value = "";
@@ -568,6 +606,7 @@
               this.$.countryRegionSection.classList.add("hidden");
               this.$.countryZipSection.classList.remove("hidden");
             }
+            this.regions = regions;
           });
         } else {
           this.$.regionTypeSection.classList.add("hidden");
