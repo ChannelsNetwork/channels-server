@@ -196,6 +196,7 @@
         <li on-click="_onLink">Grab card URL</li>
         <li id="reportAction" class="menuDivider" on-click="_onReport">Report this card</li>
         <li id="editAction" class="menuDivider" on-click="_editCard">Edit Card</li>
+        <li id="promotionAction" on-click="_editCampaign">Promotion</li>
         <li id="analyticsAction" on-click="_analytics" class="hidden">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard" class="hidden">Delete</li>
         <li id="addToHomeAction" on-click="_addToHome" class="menuDivider hidden">Add To My Channel</li>
@@ -255,9 +256,27 @@
         this._refreshMore();
       }
 
+      get campaignPayment() {
+        if (this.data && this.data.campaign) {
+          return this.data.campaign.paymentAmount;
+        }
+        return 0;
+      }
+
+      _isImpressionCampaign() {
+        if (this.data && this.data.campaign) {
+          let type = this.data.campaign.type;
+          return (type === 'impression-ad' || type == 'content-promotion');
+        }
+        return false;
+      }
+
       _refreshPrice() {
         this._refreshPaidCheck();
         let cost = this.data.pricing.discountedOpenFee;
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
+        }
         let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
         if (cost <= 0) {
@@ -346,6 +365,7 @@
           this.$.analyticsAction.classList.remove("hidden");
           this.$.deleteAction.classList.remove("hidden");
           this.$.editAction.classList.remove("hidden");
+          this.$.promotionAction.classList.remove("hidden");
           this.$.reportAction.classList.add("hidden");
           this.$.addToHomeAction.classList.add("hidden");
           this.$.removeFromHomeAction.classList.add("hidden");
@@ -353,6 +373,7 @@
           this.$.analyticsAction.classList.add("hidden");
           this.$.deleteAction.classList.add("hidden");
           this.$.editAction.classList.add("hidden");
+          this.$.promotionAction.classList.add("hidden");
           this.$.reportAction.classList.remove("hidden");
           this.$.addToHomeAction.classList.add("hidden");
           this.$.removeFromHomeAction.classList.add("hidden");
@@ -369,8 +390,13 @@
       }
 
       _refreshPaidCheck() {
+        let cost = this.data.pricing.openFee;
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
+        }
+
         let showCheck = (!this.data.userSpecific.isPoster) && (!this.data.userSpecific.openFeeRefunded) &&
-          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+          ((cost > 0 && this.data.userSpecific.paidToAuthor) || (cost < 0 && this.data.userSpecific.earnedFromAuthor));
         if (showCheck) {
           this.$.pricePanel.classList.add("paid");
         } else {
@@ -477,6 +503,10 @@
           });
           this.dispatchEvent(new CustomEvent('report-dialog', { bubbles: true, composed: true, detail: { open: true } }));
         });
+      }
+
+      _editCampaign() {
+        $router.goto('/card-budget/' + encodeURIComponent(this.data.id));
       }
 
       _editCard() {

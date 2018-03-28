@@ -334,7 +334,7 @@
         this._import("compose-card-preview.html").then(() => {
           this.$.previewDialog.classList.remove("hidden");
           setTimeout(() => {
-            this.$.previewDialog.showCard(this.wizard.data.cardInfo, this.cardData.summary, this.wizard.data.cardSharedState, this.cardData.by);
+            this.$.previewDialog.showCard(this.wizard.data.cardInfo, this.cardData.summary, this.wizard.data.initialState, this.cardData.by);
           });
         });
       }

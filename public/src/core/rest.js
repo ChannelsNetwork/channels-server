@@ -978,18 +978,8 @@ class RestUtils {
     };
   }
 
-  static updateCardCampaign(address, fingerprint, campaignId, state, type, budget, ends, geoTargets) {
-    return {
-      address: address,
-      fingerprint: fingerprint,
-      timestamp: RestUtils.now(),
-      campaignId: campaignId,
-      state: state,
-      type: type,
-      budget: budget,
-      ends: ends,
-      geoTargets: geoTargets
-    };
+  static updateCardCampaign(address, fingerprint, campaignId, info) {
+    return { address, fingerprint, campaignId, info, timestamp: RestUtils.now() };
   }
 
   static getUserCardAnalytics(address, fingerprint, cardId, maxCount, after) {
