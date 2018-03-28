@@ -302,7 +302,7 @@
                 split.forEach((d) => {
                   let z = d.trim();
                   if (z) {
-                    geoTargets.push(geoPrefix + "." + z);
+                    geoTargets.push(geoPrefix + ":" + z);
                   }
                 });
               }
@@ -346,6 +346,12 @@
               break;
           }
 
+          this.$.dailyBudget.value = this.data.budget.maxPerDay || 0;
+          this.$.budgetPercent.value = this.data.budget.plusPercent || 0;
+          if (this.data.budget.promotionTotal) {
+            this.$.totalBudget.value = this.data.budget.promotionTotal;
+          }
+
           // refresh end date
           let endTime = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
           this.$.endDate.value = this._dateFormat(endTime);
@@ -378,7 +384,7 @@
               hasRegion = true;
               break;
             }
-            let split = r.split(".");
+            let split = t.split(".");
             if (split.length > 2) {
               hasRegion = true;
             }
@@ -490,7 +496,7 @@
       }
 
       _selectCountry(code) {
-        boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        let boxes = this.shadowRoot.querySelectorAll(".countryCheck");
         for (let i = 0; i < boxes.length; i++) {
           let b = boxes[i];
           if (b.dataset.code === code) {
@@ -501,7 +507,7 @@
       }
 
       _selectContinent(code) {
-        const boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+        let boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
         for (let i = 0; i < boxes.length; i++) {
           let b = boxes[i];
           if (b.dataset.allCode === code) {

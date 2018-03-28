@@ -1,11 +1,23 @@
 <link rel="import" href="../../../bower_components/soso-app-header/soso-app-header.html">
 <link rel="import" href="../../app/dialog-bar.html">
 <link rel="import" href="card-budget-view.html">
+<link rel="import" href="../../../bower_components/soso-spinner/soso-spinner.html">
 <dom-module id="card-budget-page">
   <template>
     <style is="custom-style" include="app-styles">
       :host {
         display: block;
+      }
+
+      #container {
+        position: relative;
+      }
+
+      #progress {
+        padding: 70px 10px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: center;
       }
 
       #budgetSection {
@@ -17,15 +29,33 @@
         max-width: 600px;
         margin: 0 auto;
       }
+
+      soso-spinner {
+        margin-bottom: 20px;
+        margin-left: -10px;
+      }
     </style>
     <soso-app-header>
       <dialog-bar text="Promotion Campaign" on-cancel="_onCancel"></dialog-bar>
     </soso-app-header>
-    <div id="budgetSection" class="hidden">
-      <card-budget-view data="[[campaign]]"></card-budget-view>
-      <div class="buttons">
-        <button id="cancel" on-click="_onCancel">Cancel</button>
-        <button id="save" on-click="_save">Save</button>
+    <div id="container">
+      <div id="main">
+        <div id="budgetSection" class="hidden">
+          <card-budget-view id="editor" data="[[campaign]]"></card-budget-view>
+          <div class="buttons">
+            <button id="cancel" on-click="_onCancel">Cancel</button>
+            <button id="save" on-click="_save">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="progress" class="vertical layout hidden">
+        <div class="flex"></div>
+        <div>
+          <soso-spinner id="spinner"></soso-spinner>
+        </div>
+        <div>[[message]]</div>
+        <div class="flex"></div>
       </div>
     </div>
   </template>
@@ -35,7 +65,8 @@
       static get properties() {
         return {
           card: Object,
-          campaign: Object
+          campaign: Object,
+          message: String
         };
       }
 
@@ -63,15 +94,40 @@
         });
       }
 
-      _showProgress() {
+      _showProgress(message) {
+        if (message) {
+          this.message = message;
+          this.$.spinner.spinning = true;
+          this.$.progress.classList.remove("hidden");
+          this.$.main.classList.add("hidden");
+        } else {
+          this.$.spinner.spinning = true;
+          this.$.progress.classList.add("hidden");
+          this.$.main.classList.remove("hidden");
+        }
       }
 
-      _onCancel() {
+      _onCancel(event) {
+        if (event) {
+          event.stopPropagation();
+        }
         if ($core.profile && $core.profile.handle) {
           $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
         } else {
           $router.goto("/");
         }
+      }
+
+      _save() {
+        let value = this.$.editor.value;
+        this._showProgress("Saving");
+        $core.updateCardCampaign(this.campaign.id, value).then(() => {
+          this._onCancel();
+        }).catch((err) => {
+          this._showProgress(null);
+          console.error(err);
+          $app.showError(err || "Oops. Something went wrong.");
+        });
       }
     }
     window.customElements.define(CardBudgetPage.is, CardBudgetPage);

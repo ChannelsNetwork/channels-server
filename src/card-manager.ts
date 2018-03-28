@@ -1945,7 +1945,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!info) {
       throw new ErrorWithStatusCode(400, "Missing campaign info");
     }
-    if (info.type) {
+    if (info.type !== campaign.type) {
       throw new ErrorWithStatusCode(400, "You cannot change the campaign type after creation");
     }
     if (!info.budget && !info.ends && !info.geoTargets) {
