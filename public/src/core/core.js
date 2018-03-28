@@ -449,7 +449,7 @@ class CoreService extends Polymer.Element {
           reason = "card-click-payment";
           break;
       }
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, this.getPromotionPriceByType(campaignInfo.type), campaignInfo.budget.maxPerDay, campaignInfo.budget.plusPercent);
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, this.getPromotionPriceByType(campaignInfo.type), campaignInfo.budget.maxPerDay || campaignInfo.budget.promotionTotal, campaignInfo.budget.plusPercent || 0);
       const couponDetailsString = JSON.stringify(couponDetails);
       const coupon = {
         objectString: couponDetailsString,
