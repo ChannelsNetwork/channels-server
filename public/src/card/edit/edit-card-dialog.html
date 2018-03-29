@@ -74,7 +74,10 @@
       </div>
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
-      <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
+      <soso-text-input id="keywords" placeholder="Up to 5 keywords" label="Keywords"></soso-text-input>
+      <div id="linkPanel" class="hidden">
+        <soso-text-input id="link" label="Link" placeholder="URL to external site"></soso-text-input>
+      </div>
       <div class="languageSelection">
         <span class="languageLabel">Language:</span>
         <lang-select id="languageSelect"></lang-select>
@@ -136,6 +139,7 @@
         this.$.filePicker.clear();
         this.$.title.value = card.summary.title || "";
         this.$.text.value = card.summary.text || "";
+        this.$.link.value = card.summary.linkUrl || "";
         this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
         this.$.filePicker.image = card.summary.imageURL;
@@ -146,6 +150,11 @@
           this._onEarnPriceChange();
         } else {
           this.$.pricePanel.classList.add("hidden");
+        }
+        if (card.summary.linkUrl) {
+          this.$.linkPanel.classList.remove("hidden");
+        } else {
+          this.$.linkPanel.classList.add("hidden");
         }
         return this.$.dlg.show();
       }
@@ -168,7 +177,26 @@
         }
       }
 
+      _validate() {
+        if (this._card && this._card.summary.linkUrl) {
+          let newLink = this.$.link.value.trim();
+          if (!newLink) {
+            return "Link (URL to external site) cannot be empty.";
+          }
+          const validUrl = /^https?\:\/\/\S+$/i.test(this.$.link.value.trim());
+          if (!validUrl) {
+            return "Invalid URL.  Must start with http:// or https://";
+          }
+        }
+        return null;
+      }
+
       _doSave() {
+        const validationError = this._validate();
+        if (validationError) {
+          this.$.dlg.showError(validationError);
+          return;
+        }
         let file = this.$.filePicker.file;
         if (file) {
           this.$.dlg.showProgress("Uploading image");
@@ -234,7 +262,11 @@
           imgURL = null;
         }
         let keywords = this._getKeywords();
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.selection || 'en', null, imgId, imgURL, keywords).then((summary) => {
+        let linkUrl = null;
+        if (this._card && this._card.summary.linkUrl) {
+          linkUrl = this.$.link.value.trim() || this._card.summary.linkUrl;
+        }
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.selection || 'en', linkUrl, imgId, imgURL, keywords).then((summary) => {
           this._summary = summary;
           this._summary.keywords = keywords;
         });
