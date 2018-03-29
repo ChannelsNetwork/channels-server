@@ -1164,9 +1164,9 @@ export class Database {
     }
   }
 
-  getCardsWithPromotion(since: number): Cursor<CardRecord> {
+  getCardsWithPromotion(): Cursor<CardRecord> {
     return this.cards.find<CardRecord>({
-      postedAt: { $gt: since },
+      state: "active",
       "curation.block": false,
       $or: [
         { "pricing.promotionFee": { $gt: 0 } },
