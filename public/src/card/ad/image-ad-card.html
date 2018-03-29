@@ -262,7 +262,7 @@
             <soso-icon icon="navigation" icon-map="[[iconMap]]"></soso-icon>
           </div>
         </div>
-        <card-header id="cardHeader" data="[[data]]" no-share></card-header>
+        <card-header id="cardHeader" data="[[data]]" no-share on-summary-updated="_onSummaryUpdated"></card-header>
         <soso-tooltip for="price" position="[[priceTipPosition]]" offset="20">
           <div style="max-width: 210px;">[[priceTip]]</div>
         </soso-tooltip>
@@ -461,6 +461,15 @@
           } else {
             $core.cardClicked(this.data.id, this.data.adSlotId);
           }
+        }
+      }
+
+      _onSummaryUpdated(event) {
+        let summary = event.detail.summary;
+        if (summary && this.data) {
+          $core.getCard(this.data.id, null, 0, false).then((response) => {
+            this.data = response.card;
+          });
         }
       }
     }
