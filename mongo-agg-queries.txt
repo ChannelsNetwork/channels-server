@@ -2455,14 +2455,15 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "50b8dfa3-5a22-4048-8b4f-2b2856c0728e", 
+    authorId: "9eab044d-a163-44ac-901b-c768a101516c", 
     action: "pay",
-    at: {$gt: 1420527372000}
+    at: {$gt: 1522165740000}
   }},
   {$group: {
     _id: "$userId",
     count: {$sum: 1},
-    revenue: {$sum: "$payment.amount"},    
+    revenue: {$sum: "$payment.amount"},
+    cards: {$addToSet: "$cardId"}    
   }},
   {$lookup: {
     from: "users",
@@ -2474,18 +2475,19 @@ db.userCardActions.aggregate([
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
   {$match: {
-    "registration.at": {$gt: 1420527372000}
+    "registration.at": {$gt: 1517503740000}
   }},
   {$group: {
-    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed"},
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed", cards: "$cards"},
     registrations: {$sum: 1},
     fingerprints: {$addToSet: "$registration.fingerprint"},
     ipAddresses: {$addToSet: "$registration.ipAddress"},
     userAgents: {$addToSet: "$registration.userAgent"},
-    at: {$push: "$registration.at"}
   }},
-  {$sort: {"_id.revenue": -1}}
+  {$sort: {"_id.revenue": -1}},
 ]).pretty()
+
+    at: {$push: "$registration.at"}
 
 db.bankTransactions.aggregate([
   {$match: {"details.reason": "referral-bonus"}},
@@ -2802,4 +2804,65 @@ db.userCardActions.aggregate([
     lastContact: {$gt: 1520440972000}
   }},
   {$sort: {balance: 1}}
+]).pretty()
+
+
+db.userCardActions.aggregate([
+  {$match: {action: "pay", at: {$gt: 1522165740000}}},
+  {$group: {
+    _id: "$authorId",
+    purchases: {$sum: 1},
+    revenue: {$sum: "$payment.amount"},
+    buyers: {$addToSet: "$userId"},
+    cards: {$addToSet: "$cardId"},
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    purchases: 1,
+    revenue: 1,
+    cards: {$size: "$cards"},
+    buyers: {$size: "$buyers"},
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    referrer: "$user.originalReferrer",
+    landingPage: "$user.originalLandingPage",    
+  }},
+  {$sort: {revenue: -1}}
+]).pretty()
+
+db.userCardActions.aggregate([
+  {$match: {
+    authorId: "9eab044d-a163-44ac-901b-c768a101516c", 
+    action: "pay",
+    at: {$gt: 1522165740000}
+  }},
+  {$group: {
+    _id: "$cardId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"},
+    buyers: {$addToSet: "$userId"}
+  }},
+  {$lookup: {
+    from: "cards",
+    localField: "_id",
+    foreignField: "id",
+    as: "card"
+  }},
+  {$unwind: "$card"},
+  {$project: {
+    count: 1,
+    revenue: 1,
+    buyers: {$size: "$buyers"},
+    title: "$card.summary.title",
+    price: "$card.pricing.openFeeUnits"
+  }},
+  {$sort: {"revenue": -1}},
 ]).pretty()
