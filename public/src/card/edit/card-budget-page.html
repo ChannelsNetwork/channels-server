@@ -42,7 +42,7 @@
       }
     </style>
     <soso-app-header>
-      <dialog-bar text="Promotion Campaign" on-cancel="_onCancel"></dialog-bar>
+      <dialog-bar text="[[pageTitle]]" on-cancel="_onCancel"></dialog-bar>
     </soso-app-header>
     <div id="container">
       <div id="main">
@@ -80,12 +80,14 @@
         return {
           card: Object,
           campaign: Object,
-          message: String
+          message: String,
+          pageTitle: String
         };
       }
 
       onActivate(route) {
         this._showProgress(null);
+        this.pageTitle = "Promotion";
         this.$.budgetSection.classList.add("hidden");
         this.$.noCampaign.classList.add("hidden");
         $core.register().then(() => {
@@ -98,6 +100,8 @@
           this.cardId = route.segments[1].trim();
           return $core.getCard(this.cardId, null, 0, false).then(result => {
             this.card = result.card;
+            console.log(this.card);
+            this.pageTitle = "Promotion: " + (this.card.summary.title || "Card");
             this.campaign = this.card.campaign;
             if (this.campaign) {
               this.$.budgetSection.classList.remove("hidden");
