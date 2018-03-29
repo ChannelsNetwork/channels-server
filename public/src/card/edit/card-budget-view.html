@@ -173,12 +173,12 @@
 
         <section>
           <label>Grography</label>
-          <div>Select if you'd like to focus the promotion campaign to a specific region</div>
+          <div>Choose one of these geographic targeting options</div>
           <div class="row">
             <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
-              <soso-radio-button name="none" label="Everywhere"></soso-radio-button>
-              <soso-radio-button name="countries" label="Selected countries"></soso-radio-button>
-              <soso-radio-button name="region" label="Selected regions in a specific country"></soso-radio-button>
+              <soso-radio-button name="none" label="All countries"></soso-radio-button>
+              <soso-radio-button name="countries" label="Specific countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Regions in one specific country"></soso-radio-button>
             </soso-radio-group>
           </div>
         </section>
@@ -208,7 +208,7 @@
               <soso-checkbox class="regionsCheck" data-code$="[[item.code]]" label="[[item.name]]" title="[[item.name]]" on-change="_regionChange"></soso-checkbox>
             </template>
             <soso-checkbox id="chkAllRegions" label="All regions" on-change="_onAllRegions"></soso-checkbox>
-            <div id="regionsMessage">Note: We only show regions where we've seen traffice from.</div>
+            <div id="regionsMessage">Note: Only regions for which Channels has a substantial user base are shown.</div>
           </section>
 
         </section>
