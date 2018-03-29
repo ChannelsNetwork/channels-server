@@ -730,10 +730,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           return;
         }
         const info = await db.ensureUserCardInfo(user.id, card.id);
-        if (info.earnedFromAuthor > 0) {
-          response.status(409).send("You have already been paid a promotion on this card");
-          return;
-        }
         author = await userManager.getUser(card.createdById, true);
         if (!author) {
           response.status(404).send("The author no longer has an account.");
