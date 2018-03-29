@@ -100,7 +100,6 @@
           this.cardId = route.segments[1].trim();
           return $core.getCard(this.cardId, null, 0, false).then(result => {
             this.card = result.card;
-            console.log(this.card);
             this.pageTitle = "Promotion: " + (this.card.summary.title || "Card");
             this.campaign = this.card.campaign;
             if (this.campaign) {
