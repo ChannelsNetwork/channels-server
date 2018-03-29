@@ -513,6 +513,11 @@
           this.set("data.keywords", summary.keywords || []);
           this.updateSummary(summary);
           this.onPrivateUpdated();
+          if (this.data) {
+            $core.getCard(this.data.id, null, 0, false).then((response) => {
+              this.data = response.card;
+            });
+          }
         }
       }
 
