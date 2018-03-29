@@ -302,6 +302,7 @@ export class FeedManager implements Initializable, RestServer {
     for (const card of cards) {
       result.push(card.card);
     }
+    console.log("Feed.selectPromotedCards", result.length);
     return result;
   }
 
@@ -564,8 +565,12 @@ export class FeedManager implements Initializable, RestServer {
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
   private positionAdSlots(user: UserRecord, cardCount: number, more: boolean): AdSlotInfo {
+    let result: AdSlotInfo = {
+      slotCount: 0, slotSeparation: 0, firstSlotIndex: 0
+    };
     if (user.balance >= TARGET_BALANCE || cardCount <= 1) {
-      return { slotCount: 0, slotSeparation: 0, firstSlotIndex: 0 };
+      console.log("Feed.positionAdSlots", result, user.balance, cardCount);
+      return result;
     }
     // Based on the user balance, we choose the appropriate ratio between ads and
     // content
@@ -578,11 +583,13 @@ export class FeedManager implements Initializable, RestServer {
     // const slotCount = Math.max(Math.round(cardCount * adRatio), 1);
     const firstSlotIndex = more ? 0 : Math.round((1 / adRatio));
     const slotSeparation = Math.ceil(1 / adRatio);
-    return {
+    result = {
       slotCount: slotCount,
       slotSeparation: slotSeparation,
       firstSlotIndex: firstSlotIndex
     };
+    console.log("Feed.positionAdSlots", result, user.balance, cardCount);
+    return result;
   }
 
   private async mergeWithAdCards(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, cards: CardDescriptor[], more: boolean, limit: number, existingPromotedCardIds: string[], channelId: string): Promise<CardBatch> {
