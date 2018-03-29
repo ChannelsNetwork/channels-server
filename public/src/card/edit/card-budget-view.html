@@ -105,6 +105,12 @@
         letter-spacing: 0.05em;
       }
 
+      #regionsMessage {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #555;
+      }
+
       #subsidyMessage {
         margin-top: 20px;
         font-size: 14px;
@@ -201,7 +207,8 @@
             <template is="dom-repeat" items="[[regions]]">
               <soso-checkbox class="regionsCheck" data-code$="[[item.code]]" label="[[item.name]]" title="[[item.name]]" on-change="_regionChange"></soso-checkbox>
             </template>
-            <soso-checkbox id="chkAllRegions" label="All" on-change="_onAllRegions"></soso-checkbox>
+            <soso-checkbox id="chkAllRegions" label="All regions" on-change="_onAllRegions"></soso-checkbox>
+            <div id="regionsMessage">Note: We only show regions where we've seen traffice from.</div>
           </section>
 
         </section>
