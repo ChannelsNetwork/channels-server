@@ -411,7 +411,7 @@
 
       _refreshPaidCheck() {
         let showCheck = (!this.data.userSpecific.isPoster) &&
-          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earnedFromAuthor));
         if (showCheck) {
           this.$.price.classList.add("paid");
         } else {
@@ -453,9 +453,9 @@
 
       _onContentClick() {
         if (this.data) {
-          if (this.data.promoted && this.data.pricing.openFee < 0 && this.data.couponId && this.data.userSpecific.earnedFromAuthor === 0) {
-            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, -this.data.pricing.openFee, this.data.by.address).then(() => {
-              this.data.userSpecific.earnedFromAuthor = -this.data.pricing.openFee;
+          if (this.data.promoted && (!this._isImpressionCampaign()) && this.data.couponId && this.data.userSpecific.earnedFromAuthor === 0) {
+            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, -this.campaignPayment, this.data.by.address).then(() => {
+              this.data.userSpecific.earnedFromAuthor = this.campaignPayment;
               this._refreshPaidCheck();
             });
           } else {
