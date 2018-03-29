@@ -589,7 +589,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       let referringUserId: string;
       if (requestBody.detailsObject.landingUrl) {
         try {
-          const landingUrl = new URL(requestBody.detailsObject.landingUrl);
+          const landingUrl = new url.URL(requestBody.detailsObject.landingUrl);
           const address = landingUrl.searchParams.get('s');
           if (address) {
             let referringUser = await db.findUserByAddress(address);

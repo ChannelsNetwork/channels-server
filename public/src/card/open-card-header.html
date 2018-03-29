@@ -553,7 +553,7 @@
           if (!root) {
             root = window.location.protocol + "://" + window.location.host;
           }
-          const shareUrl = root + "/c/" + this.data.id + ($core.address ? "?s=" + $core.address : "");
+          const shareUrl = root + "/c/" + this.data.id + ($core.address ? "?s=" + encodeURIComponent($core.address) : "");
           $core.shortenUrl(shareUrl).then((shortUrl) => {
             this._shareUrl = shortUrl;
             resolve(this._shareUrl);
