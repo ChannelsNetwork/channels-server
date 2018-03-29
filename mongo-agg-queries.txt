@@ -2866,3 +2866,112 @@ db.userCardActions.aggregate([
   }},
   {$sort: {"revenue": -1}},
 ]).pretty()
+
+db.cards.aggregate([
+  {$match: {
+    "pricing.openFeeUnits": 0,
+    "budget.available": true,
+    state: "active"
+  }},
+  {$group: {
+    _id: "$createdById",
+    cards: {$sum: 1},
+    payment: {$sum: "$pricing.openPayment"},
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$match: {"user.curation": {$exists: false}}},
+  {$project: {
+    cards: 1,
+    payment: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    curation: "$user.curation",
+  }},
+  {$sort: {
+    payment: -1
+  }},
+  {$group: {
+    _id: "all",
+    count: {$sum: 1},
+    cards: {$sum: "$cards"},
+    total: {$sum: "$payment"}
+  }}
+]).pretty()
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: {$in: ["redeem-open-payment", "redeem-click-payment"]}
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    redeemed: {$sum: "$redeemOpen.amount"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1,
+    redeemed: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    curation: "$user.curation",
+  }},
+  {$sort: {
+    redeemed: -1
+  }},  
+])
+
+db.cards.aggregate([
+  {$match: {
+    "pricing.openFeeUnits": {$gt: 0},
+    "pricing.promotionFee": {$gt: 0},
+    "budget.available": true,
+    state: "active"
+  }},
+  {$group: {
+    _id: "$createdById",
+    cards: {$sum: 1},
+    payment: {$sum: "$pricing.promotionFee"},
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$match: {"user.curation": {$exists: false}}},
+  {$project: {
+    cards: 1,
+    payment: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    curation: "$user.curation",
+  }},
+  {$sort: {
+    payment: -1
+  }},
+  {$group: {
+    _id: "all",
+    count: {$sum: 1},
+    cards: {$sum: "$cards"},
+    total: {$sum: "$payment"}
+  }}
+]).pretty()

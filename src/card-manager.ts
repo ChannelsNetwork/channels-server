@@ -177,7 +177,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
     // Migrate promoted cards to use campaigns and populate geo into adslots
     if (await db.countCardCampaigns() === 0) {
-      const cursor = db.getCardsWithPromotion(Date.now() - 1000 * 60 * 60 * 30);
+      const cursor = db.getCardsWithPromotion(Date.now() - 1000 * 60 * 60 * 30 * 6);
       let count = await cursor.count();
       while (await cursor.hasNext()) {
         const card = await cursor.next();
