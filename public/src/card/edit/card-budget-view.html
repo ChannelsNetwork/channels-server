@@ -4,7 +4,6 @@
 <link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
 <link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
 <link rel="import" href="../../../bower_components/soso-collapsible-panel/soso-collapsible-panel.html">
-<link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../controls/filter-selector.html">
 
 <dom-module id="card-budget-view">
@@ -106,6 +105,12 @@
         letter-spacing: 0.05em;
       }
 
+      #regionsMessage {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #555;
+      }
+
       #subsidyMessage {
         margin-top: 20px;
         font-size: 14px;
@@ -167,13 +172,13 @@
         </section>
 
         <section>
-          <label>Region</label>
-          <div>Select if you'd like to focus the promotion campaign to a specific region</div>
+          <label>Grography</label>
+          <div>Choose one of these geographic targeting options</div>
           <div class="row">
             <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
-              <soso-radio-button name="none" label="All regions"></soso-radio-button>
-              <soso-radio-button name="countries" label="Selected countries"></soso-radio-button>
-              <soso-radio-button name="region" label="Selected regions in a specific country"></soso-radio-button>
+              <soso-radio-button name="none" label="All countries"></soso-radio-button>
+              <soso-radio-button name="countries" label="Specific countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Regions in one specific country"></soso-radio-button>
             </soso-radio-group>
           </div>
         </section>
@@ -198,27 +203,12 @@
           <label>Select a Country</label>
           <filter-selector id="countrySelector" data="[[countries]]" fields="[[countryFields]]" on-select="_countrySelected"></filter-selector>
 
-          <section id="regionTypeSection" class="hidden">
-            <div>Select if you'd like to pick the regions or enter postal codes</div>
-            <div class="row">
-              <soso-radio-group id="regionTypeGroup" on-select="_regionTypeSlectionChange">
-                <soso-radio-button name="region" label="Selected regions"></soso-radio-button>
-                <soso-radio-button name="zip" label="Postal codes"></soso-radio-button>
-              </soso-radio-group>
-            </div>
-          </section>
-
           <section id="countryRegionSection" class="hidden">
             <template is="dom-repeat" items="[[regions]]">
               <soso-checkbox class="regionsCheck" data-code$="[[item.code]]" label="[[item.name]]" title="[[item.name]]" on-change="_regionChange"></soso-checkbox>
             </template>
-            <soso-checkbox id="chkAllRegions" label="All" on-change="_onAllRegions"></soso-checkbox>
-          </section>
-
-          <section id="countryZipSection" class="hidden">
-            <label class="row">Postal codes</label>
-            <div>Enter comma separated postal codes (zip codes) to set the region</div>
-            <soso-text-input id="zipCodes" label="" placeholder="Postal codes" class="row"></soso-text-input>
+            <soso-checkbox id="chkAllRegions" label="All regions" on-change="_onAllRegions"></soso-checkbox>
+            <div id="regionsMessage">Note: Only regions for which Channels has a substantial user base are shown.</div>
           </section>
 
         </section>
@@ -298,27 +288,14 @@
           let country = this.$.countrySelector.selected;
           if (country) {
             let geoPrefix = country.continent + "." + country.code;
-            if (this.$.regionTypeGroup.selected === 'region') {
-              if (this.$.chkAllRegions.checked) {
-                geoPrefix.push(geoPrefix);
-              } else {
-                const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
-                for (const rbox of regionBoxes) {
-                  if (rbox.checked) {
-                    geoPrefix.push(geoPrefix + "." + rbox.dataset.code);
-                  }
-                }
-              }
+            if (this.$.chkAllRegions.checked) {
+              geoTargets.push(geoPrefix);
             } else {
-              let zips = this.$.zipCodes.value.trim();
-              let split = zips.split(',');
-              if (split && split.length) {
-                split.forEach((d) => {
-                  let z = d.trim();
-                  if (z) {
-                    geoTargets.push(geoPrefix + ":" + z);
-                  }
-                });
+              const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+              for (const rbox of regionBoxes) {
+                if (rbox.checked) {
+                  geoTargets.push(geoPrefix + "." + rbox.dataset.code);
+                }
               }
             }
           }
@@ -432,8 +409,6 @@
           } else {
             this.$.regionGroup.selected = "countries";
           }
-          this.$.regionTypeGroup.selected = hasZip ? "zip" : "region";
-          this._regionTypeSlectionChange();
         }
         this._onRegionSelectionChange();
         this._fetchAllCountries().then(() => {
@@ -493,6 +468,9 @@
       _refreshChecks() {
         const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
         if (boxes.length >= this.countries.length) {
+          for (let i = 0; i < boxes.length; i++) {
+            boxes[i].checked = false;
+          }
           let targets = this.data.geoTargets || [];
           if (this.$.regionGroup.selected === 'countries') {
             targets.forEach((d) => {
@@ -505,47 +483,36 @@
             });
           } else if (this.$.regionGroup.selected === 'region') {
             if (targets.length) {
-              if (this.$.regionTypeGroup.selected === 'zip') {
-                let zips = [];
-                targets.forEach((d) => {
-                  let split = d.split(':');
-                  if (split.length > 1) {
-                    zips.push(split[1].trim());
-                  }
-                });
-                this.$.zipCodes.value = zips.join(', ').trim();
-              } else {
-                let countryCode = "";
-                targets.forEach((d) => {
-                  let split = d.split(".");
-                  if (split.length > 2) {
-                    countryCode = split[1].trim();
-                  }
-                });
-                if (countryCode) {
-                  $core.getGeoDescriptors(countryCode).then((result) => {
-                    let regions = result && result.regionsByCountry && result.regionsByCountry[countryCode];
-                    this.regions = regions;
-                    setTimeout(() => {
-                      const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
-                      if (regionBoxes.length) {
-                        targets.forEach((d) => {
-                          let split = d.split(".");
-                          if (split.length > 2) {
-                            let regionCode = split[2].trim();
-                            if (regionCode) {
-                              for (const rbox of regionBoxes) {
-                                if (rbox.dataset.code === regionCode) {
-                                  rbox.checked = true;
-                                }
+              let countryCode = "";
+              targets.forEach((d) => {
+                let split = d.split(".");
+                if (split.length > 2) {
+                  countryCode = split[1].trim();
+                }
+              });
+              if (countryCode) {
+                $core.getGeoDescriptors(countryCode).then((result) => {
+                  let regions = result && result.regionsByCountry && result.regionsByCountry[countryCode];
+                  this.regions = regions;
+                  setTimeout(() => {
+                    const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+                    if (regionBoxes.length) {
+                      targets.forEach((d) => {
+                        let split = d.split(".");
+                        if (split.length > 2) {
+                          let regionCode = split[2].trim();
+                          if (regionCode) {
+                            for (const rbox of regionBoxes) {
+                              if (rbox.dataset.code === regionCode) {
+                                rbox.checked = true;
                               }
                             }
                           }
-                        });
-                      }
-                    }, 1000);
-                  });
-                }
+                        }
+                      });
+                    }
+                  }, 1000);
+                });
               }
             }
           }
@@ -634,35 +601,15 @@
 
       _countrySelected(event) {
         let selected = event.detail.selection;
-        this.$.zipCodes.value = "";
         if (selected) {
+          this.$.countryRegionSection.classList.remove("hidden");
+          this.$.chkAllRegions.checked = true;
+          this._onAllRegions();
           $core.getGeoDescriptors(selected.code).then((result) => {
-            let regions = result && result.regionsByCountry && result.regionsByCountry[selected.code];
-            if (regions && regions.length) {
-              this.$.regionTypeSection.classList.remove("hidden");
-              this.$.regionTypeGroup.selected = null;
-            } else {
-              this.$.regionTypeGroup.selected = "zip";
-              this.$.regionTypeSection.classList.add("hidden");
-              this.$.countryRegionSection.classList.add("hidden");
-              this.$.countryZipSection.classList.remove("hidden");
-            }
-            this.regions = regions;
+            this.regions = result && result.regionsByCountry && result.regionsByCountry[selected.code];
           });
         } else {
-          this.$.regionTypeSection.classList.add("hidden");
-          this.$.countryZipSection.classList.add("hidden");
           this.$.countryRegionSection.classList.add("hidden");
-        }
-      }
-
-      _regionTypeSlectionChange() {
-        if (this.$.regionTypeGroup.selected === 'zip') {
-          this.$.countryRegionSection.classList.add("hidden");
-          this.$.countryZipSection.classList.remove("hidden");
-        } else {
-          this.$.countryRegionSection.classList.remove("hidden");
-          this.$.countryZipSection.classList.add("hidden");
         }
       }
     }
