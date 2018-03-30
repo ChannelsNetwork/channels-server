@@ -2278,7 +2278,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         stats: {
           revenue: record.stats.revenue.value,
           promotionsPaid: record.stats.promotionsPaid.value,
-          openFeesPaid: (record.stats.openFeesPaid.value || 0) + (record.stats.clickFeesPaid.value || 0),
+          openFeesPaid: (record.stats.openFeesPaid ? record.stats.openFeesPaid.value : 0) + (record.stats.clickFeesPaid ? record.stats.clickFeesPaid.value : 0),
           impressions: record.stats.impressions.value,
           uniqueImpressions: record.stats.uniqueImpressions.value,
           opens: record.stats.opens.value,
