@@ -364,7 +364,7 @@
         const newItems = this.publishers;
         this.set('publishers', []);
         newItems.sort((a, b) => {
-          return b.info.recentRevenueAmount - a.info.recentRevenueAmount;
+          return b.recentRevenueAmount - a.recentRevenueAmount;
         });
         this.set('publishers', newItems);
       }
