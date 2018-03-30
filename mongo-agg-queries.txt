@@ -2455,7 +2455,7 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "7710a84e-179a-4233-a28c-42b825ecedd7", 
+    authorId: "43b15bc6-118e-4c42-910c-3216f630fd38", 
     action: "pay"
   }},
   {$group: {
@@ -2974,3 +2974,50 @@ db.cards.aggregate([
     total: {$sum: "$payment"}
   }}
 ]).pretty()
+
+
+// Payment percentage for cards based on price level
+
+db.cards.aggregate([
+  {$match: {
+    postedAt: {$gt: 1521788400000},
+    "pricing.openFeeUnits": {$gt: 0},
+    "curation.block": false
+  }},
+  {$lookup: {
+    from: "userCardInfo",
+    localField: "id",
+    foreignField: "cardId",
+    as: "userCardInfo"
+  }},
+  {$unwind: "$userCardInfo"},
+  {$match: {
+    "userCardInfo.lastImpression": {$gt: 0}
+  }},
+  {$project: {
+    cardId: "$id",
+    level: "$pricing.openFeeUnits",
+    opened: { $cond: { if: {$gt: ["$userCardInfo.lastOpened", 0]} , then: 1, else: 0 }},
+    bought: { $cond: { if: {$gt: ["$userCardInfo.paidToAuthor", 0]} , then: 1, else: 0 }},
+    refunded: { $cond: { if: "$userCardInfo.openFeeRefunded" , then: 1, else: 0 }},
+  }},
+  {$group: {
+    _id: "$level",
+    cards: {$addToSet: "$cardId"},
+    impressions: {$sum: 1},
+    opened: {$sum: "$opened"},
+    bought: {$sum: "$bought"},
+    refunded: {$sum: "$refunded"}
+  }},
+  {$project: {
+    cards: {$size: "$cards"},
+    impressions: 1,
+    opened: 1,
+    bought: 1,
+    refunded: 1,
+    openPerImpression: {$divide: ["$opened", "$impressions"]},
+    buyPerOpen: {$divide: ["$bought", "$opened"]},
+    buyPerImpression: {$divide: ["$bought", "$impressions"]},
+  }},
+  {$sort: {"_id": 1}}
+])
