@@ -28,7 +28,7 @@ import * as url from 'url';
 import { Utils } from "./utils";
 import { rootPageManager } from "./root-page-manager";
 import { fileManager } from "./file-manager";
-import { feedManager, CardWithCampaign } from "./feed-manager";
+import { feedManager, CardWithCampaign, MINIMUM_AD_AUTHOR_BALANCE } from "./feed-manager";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import * as LRU from 'lru-cache';
@@ -320,9 +320,6 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const amount = (card.pricing.openPayment || 0) + (card.pricing.promotionFee || 0);
     if (card.budget.spent + amount >= card.budget.amount) {
       return "exhausted";
-    }
-    if (card.budget.spent + amount >= author.balance) {
-      return "insufficient-funds";
     }
     return "active";
   }
@@ -1896,18 +1893,18 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
   private validateCoupon(user: UserRecord, details: PostCardDetails): void {
     const couponDetails = JSON.parse(details.campaignInfo.coupon.objectString) as BankCouponDetails;
-    if (!couponDetails.reason || !couponDetails.amount || !couponDetails.budget) {
+    if (!couponDetails.reason || !couponDetails.amount) {
       throw new ErrorWithStatusCode(400, "Invalid coupon:  missing fields");
     }
     if (couponDetails.amount <= 0) {
       throw new ErrorWithStatusCode(400, "Invalid coupon amount:  must be greater than zero");
     }
-    if (!couponDetails.budget.amount || couponDetails.budget.amount < 0) {
-      throw new ErrorWithStatusCode(400, "Coupon budget amount is invalid");
-    }
-    if (couponDetails.budget.plusPercent && couponDetails.budget.plusPercent < 0 || couponDetails.budget.plusPercent > 90) {
-      throw new ErrorWithStatusCode(400, "Coupon budget plusPercent is invalid");
-    }
+    // if (!couponDetails.budget.amount || couponDetails.budget.amount < 0) {
+    //   throw new ErrorWithStatusCode(400, "Coupon budget amount is invalid");
+    // }
+    // if (couponDetails.budget.plusPercent && couponDetails.budget.plusPercent < 0 || couponDetails.budget.plusPercent > 90) {
+    //   throw new ErrorWithStatusCode(400, "Coupon budget plusPercent is invalid");
+    // }
   }
 
   private validateCardCampaign(user: UserRecord, details: PostCardDetails): void {
@@ -2439,10 +2436,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!coupon) {
       return null;
     }
+    let status = campaign.status;
+    if (status === "active") {
+      if (campaign.ends <= Date.now()) {
+        status = "expired";
+      } else {
+        const author = await userManager.getUser(campaign.createdById, true);
+        if (!author) {
+          return null;
+        }
+        if (author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+          status = "insufficient-funds";
+        }
+      }
+    }
     const result: CardCampaignDescriptor = {
       id: campaign.id,
       created: campaign.created,
-      status: campaign.status,
+      status: status,
       type: campaign.type,
       paymentAmount: campaign.paymentAmount,
       advertiserSubsidy: campaign.advertiserSubsidy,

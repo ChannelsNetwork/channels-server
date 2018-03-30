@@ -321,8 +321,8 @@
 
       _refresh() {
         if (this.data) {
-          this.$.statusPanel.classList.add("hidden");
           this.status = this.data.status;
+          this._statusChange();
           this.$.main.classList.remove("hidden");
           let type = this.data.type;
           let price = this.data.paymentAmount || $core.getPromotionPriceByType(type);

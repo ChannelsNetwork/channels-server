@@ -61,7 +61,7 @@ const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 const ADSLOTS_PER_PAYBUMP = 2;
-const MINIMUM_AD_AUTHOR_BALANCE = 1.5;
+export const MINIMUM_AD_AUTHOR_BALANCE = 1;
 
 const adToContentRatioByBalance: RangeValue[] = [
   { lowerBound: 0, value: 0.25 },

@@ -579,17 +579,17 @@ export class Bank implements RestServer, Initializable {
     return result;
   }
 
-  private async isCouponRedeemable(coupon: BankCouponRecord, card: CardRecord): Promise<boolean> {
-    if (coupon.budget.plusPercent === 0 || !coupon.cardId) {
-      return coupon.budget.amount > coupon.budget.spent;
-    }
-    const authorCardInfo = await db.findUserCardInfo(card.createdById, card.id);
-    if (!authorCardInfo) {
-      return coupon.budget.amount > coupon.budget.spent;
-    }
-    const budget = coupon.budget.amount + authorCardInfo.earnedFromReader * coupon.budget.plusPercent / 100;
-    return budget > coupon.budget.spent;
-  }
+  // private async isCouponRedeemable(coupon: BankCouponRecord, card: CardRecord): Promise<boolean> {
+  //   if (coupon.budget.plusPercent === 0 || !coupon.cardId) {
+  //     return coupon.budget.amount > coupon.budget.spent;
+  //   }
+  //   const authorCardInfo = await db.findUserCardInfo(card.createdById, card.id);
+  //   if (!authorCardInfo) {
+  //     return coupon.budget.amount > coupon.budget.spent;
+  //   }
+  //   const budget = coupon.budget.amount + authorCardInfo.earnedFromReader * coupon.budget.plusPercent / 100;
+  //   return budget > coupon.budget.spent;
+  // }
 
   async registerCoupon(user: UserRecord, cardId: string, details: SignedObject, sessionId: string): Promise<BankCouponRecord> {
     const coupon = JSON.parse(details.objectString) as BankCouponDetails;
