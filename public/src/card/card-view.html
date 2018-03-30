@@ -414,7 +414,7 @@
         }
 
         // Price tag visibility
-        let hidePriceTag = (cost === 0) || this._isImpressionCampaign() || (cost < 0 && (!this.data.promoted));
+        let hidePriceTag = (cost === 0) || ((cost < 0) && this._isImpressionCampaign()) || (cost < 0 && (!this.data.promoted));
         if (hidePriceTag && this._cardConsumed && cost) {
           hidePriceTag = false;
         }

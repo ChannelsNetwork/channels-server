@@ -302,6 +302,7 @@
         }
 
         let campaignInfo = RestUtils.cardCampaignInfo(type, budget, endDate, geoTargets);
+        campaignInfo.paymentAmount = this._price || $core.getPromotionPriceByType(type);
         return campaignInfo;
       }
 
@@ -325,6 +326,7 @@
           this.$.main.classList.remove("hidden");
           let type = this.data.type;
           let price = this.data.paymentAmount || $core.getPromotionPriceByType(type);
+          this._price = price;
           let subsidized = (typeof this.data.advertiserSubsidy === 'undefined') ? $core.promotionPricing.payToOpenSubsidy : (this.data.advertiserSubsidy || 0);
           this.subsidizedRatio = Math.round((subsidized / price) * 100) + "%";
           this.promotionPrice = (Math.floor(price * 1000) / 1000).toFixed(3);
