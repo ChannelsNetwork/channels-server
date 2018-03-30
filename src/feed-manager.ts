@@ -380,7 +380,7 @@ export class FeedManager implements Initializable, RestServer {
           } else if (info.userCardInfo && info.userCardInfo.lastOpened > 0) {
             // This card is not eligible because the user has already opened it (presumably when a fee was not applicable)
             continue;
-          } else if (!info.userCardInfo || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
+          } else if (!info.userCardInfo || (campaign.type !== "content-promotion" && campaign.type !== "impression-ad") || Date.now() - info.userCardInfo.lastImpression > MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
             // Check again based on a recent impression
             const adSlot = await this.createAdSlot(sessionId, card, user, geoLocation, channelId, campaign);
             const descriptor = await this.populateCard(request, card, null, true, adSlot.id, channelId, true, campaign, user);
