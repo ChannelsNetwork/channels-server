@@ -1929,9 +1929,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         throw new ErrorWithStatusCode(400, "Invalid daily budget");
       }
     }
-    if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
-      throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
-    }
+    // if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
+    //   throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
+    // }
   }
 
   private validateCardCampaignInfo(user: UserRecord, info: CardCampaignInfo, campaign: CardCampaignRecord): void {
@@ -1958,9 +1958,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
       }
     }
-    if (info.ends && Date.now() > info.ends) {
-      throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
-    }
+    // if (info.ends && Date.now() > info.ends) {
+    //   throw new ErrorWithStatusCode(400, "Invalid end date for campaign");
+    // }
   }
 
   private validateCardPricing(user: UserRecord, details: PostCardDetails): void {
@@ -1986,16 +1986,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         if (details.campaignInfo.budget.plusPercent && details.campaignInfo.budget.plusPercent < 0 || details.campaignInfo.budget.plusPercent > 90) {
           throw new ErrorWithStatusCode(40, "Invalid plusPercent value on campaign");
         }
-        if (details.campaignInfo.ends && Date.now() > details.campaignInfo.ends) {
-          throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
-        }
+        // if (details.campaignInfo.ends && Date.now() > details.campaignInfo.ends) {
+        //   throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
+        // }
       } else {
         if (!details.campaignInfo.budget.maxPerDay || details.campaignInfo.budget.maxPerDay < 0) {
           throw new ErrorWithStatusCode(40, "Invalid budget maxPerDay value on campaign");
         }
-        if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
-          throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
-        }
+        // if (!details.campaignInfo.ends || Date.now() > details.campaignInfo.ends) {
+        //   throw new ErrorWithStatusCode(40, "Invalid end date on campaign");
+        // }
       }
     } else {
       throw new ErrorWithStatusCode(400, "You must provide a pricing level or campaign info.");
