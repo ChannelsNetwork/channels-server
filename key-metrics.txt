@@ -126,7 +126,7 @@ db.adSlots.aggregate([
   {$project: {
     adslots: 1, redemptions: 1, consumers: {$size: "$consumers"}, cards: {$size: "$cards"}, revenue: 1, countries: {$size: "$countries"}
   }}  
-])
+]).pretty()
 
 
 In total, who are our most successful publishers?
@@ -138,22 +138,24 @@ db.users.aggregate([
     id: 1,
     handle: "$identity.handle",
     country: "$country",
-    added: "$added"
+    added: "$added",
+    lastContact: "$lastContact"
   }},
   {$lookup: {from: "userCardActions", localField: "id", foreignField: "authorId", as: "action"}},
   {$unwind: "$action"},
-  {$match: {"action.action": "pay", "action.at": {$gt: 1518681600000}, "action.fraudReason": {$exists: false}}},
+  {$match: {"action.action": "pay", "action.at": {$gt: 0}, "action.fraudReason": {$exists: false}}},
   {$project: {
     id: 1,
     handle: 1,
     country: 1,
     added: 1,
+    lastContact: 1,
     buyer: "$action.userId",
     amount: "$action.payment.amount",
     category: "$action.payment.category"
   }},
   {$group: {
-    _id: {id: "$id", handle: "$handle", country: "$country", buyer: "$buyer", added: "$added"},
+    _id: {id: "$id", handle: "$handle", country: "$country", buyer: "$buyer", added: "$added", lastContact: "$lastContact"},
     revenueFromBuyer: {$sum: "$amount"},
     categories: {$addToSet: "$category"}
   }},
@@ -172,7 +174,7 @@ db.users.aggregate([
     }}
   }},
   {$group: {
-    _id: {id: "$_id.id", handle: "$_id.handle", country: "$_id.country", added: "$added"},
+    _id: {id: "$_id.id", handle: "$_id.handle", country: "$_id.country", added: "$_id.added", lastContact: "$_id.lastContact"},
     revenue: {$sum: "$revenueFromBuyer"},
     buyers: {$sum: 1},
     fans: {$sum: {$cond: {if: {$eq: ["$category", "fan"]}, then: 1, else: 0}}},
@@ -180,12 +182,10 @@ db.users.aggregate([
     firstTimes: {$sum: {$cond: {if: {$eq: ["$category", "firstTime"]}, then: 1, else: 0}}},
   }},
   {$match: {fans: {$gt: 3}, revenue: {$gt: 5}}},
-  {$sort: {revenue: -1}},
-])
-
+  {$sort: {"_id.lastContact": 1}},
+]).pretty()
   {$group: {
     _id: "all",
     publishers: {$sum: 1},
     revenue: {$sum: "$revenue"}
   }},
-])
