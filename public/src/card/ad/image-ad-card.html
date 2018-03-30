@@ -454,7 +454,7 @@
       _onContentClick() {
         if (this.data) {
           if (this.data.promoted && (!this._isImpressionCampaign()) && this.data.couponId && this.data.userSpecific.earnedFromAuthor === 0) {
-            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, -this.campaignPayment, this.data.by.address).then(() => {
+            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, this.campaignPayment, this.data.by.address).then(() => {
               this.data.userSpecific.earnedFromAuthor = this.campaignPayment;
               this._refreshPaidCheck();
             });
