@@ -473,6 +473,7 @@ export interface UserCardInfoRecord {
   userId: string;
   cardId: string;
   created: number;
+  impressions: number;
   lastImpression: number;
   lastOpened: number;
   lastClicked: number;

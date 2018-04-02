@@ -61,6 +61,9 @@ const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 const ADSLOTS_PER_PAYBUMP = 2;
+const MAX_IMPRESSIONS_FOR_RECOMMENDED_CARD = 10;
+const MAX_IMPRESSIONS_FOR_AD_CARD = 10;
+
 export const MINIMUM_AD_AUTHOR_BALANCE = 1;
 
 const adToContentRatioByBalance: RangeValue[] = [
@@ -369,6 +372,8 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         } else if ((campaign.type === "content-promotion" || campaign.type === "impression-ad") && info.userCardInfo && Date.now() - info.userCardInfo.lastImpression < MINIMUM_AD_CARD_IMPRESSION_INTERVAL) {
           // This isn't eligible because it is impression-based and the user recently saw it
+          continue;
+        } else if ((campaign.type === "content-promotion" || campaign.type === "impression-ad") && info.userCardInfo && info.userCardInfo.impressions > MAX_IMPRESSIONS_FOR_AD_CARD) {
           continue;
         } else if (info.fromCache) {
           // We got this userInfo from cache, so it may be out of date.  Check again before committing to this
@@ -874,7 +879,7 @@ export class FeedManager implements Initializable, RestServer {
   //   return null;
   // }
 
-  private async getUserCardInfo(userId: string, cardId: string, force: boolean): Promise<UserCardInfoRecordPlusCached> {
+  async getUserCardInfo(userId: string, cardId: string, force: boolean): Promise<UserCardInfoRecordPlusCached> {
     const key = userId + '/' + cardId;
     const record = this.userCardInfoCache.get(key);
     const result: UserCardInfoRecordPlusCached = {
@@ -966,6 +971,10 @@ export class FeedManager implements Initializable, RestServer {
           continue;  // exclude cards that have been reported and not overridden by an admin
         }
         if (!this.isCardLanguageInterest(user, cardByScore)) {
+          continue;
+        }
+        const userCard = await this.getUserCardInfo(user.id, cardByScore.id, false);
+        if (userCard && userCard.userCardInfo && userCard.userCardInfo.impressions > MAX_IMPRESSIONS_FOR_RECOMMENDED_CARD) {
           continue;
         }
         if (cardIds.indexOf(cardByScore.id) < 0) {
@@ -1236,9 +1245,9 @@ export class FeedManager implements Initializable, RestServer {
   private async getRecentlyOpenedFeed(request: Request, sessionId: string, geoLocation: GeoLocation, user: UserRecord, fingerprint: string, limit: number, afterCardId: string, existingPromotedCardIds: string[]): Promise<CardBatch> {
     let before = 0;
     if (afterCardId) {
-      const afterCardInfo = await db.findUserCardInfo(user.id, afterCardId);
-      if (afterCardInfo) {
-        before = afterCardInfo.lastOpened;
+      const afterCardInfo = await this.getUserCardInfo(user.id, afterCardId, false);
+      if (afterCardInfo && afterCardInfo.userCardInfo) {
+        before = afterCardInfo.userCardInfo.lastOpened;
       }
     }
     const infos = await db.findRecentCardOpens(user.id, limit + 1, before);

@@ -789,11 +789,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-impression", requestBody.detailsObject);
       const now = Date.now();
-      const userCard = await db.findUserCardInfo(user.id, card.id);
-      if (!userCard || !userCard.lastImpression) {
+      const userCard = await feedManager.getUserCardInfo(user.id, card.id, true);
+      if (!userCard || !userCard.userCardInfo || !userCard.userCardInfo.lastImpression) {
         await this.incrementStat(card, "uniqueImpressions", 1, now, UNIQUE_IMPRESSIONS_SNAPSHOT_INTERVAL);
       }
       await this.incrementStat(card, "impressions", 1, now, IMPRESSIONS_SNAPSHOT_INTERVAL);
+      await db.updateUserCardIncrementImpressions(user.id, card.id);
       const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
       const referringUserId = await this.getReferringUserId(requestBody.sessionId);
       await db.insertUserCardAction(requestBody.sessionId, user.id, geo, card.id, card.createdById, now, "impression", null, 0, 0, 0, 0, null, null, null, null, referringUserId);
@@ -866,9 +867,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
       console.log("CardManager.card-opened", requestBody.detailsObject);
       const now = Date.now();
-      const userCard = await db.findUserCardInfo(user.id, card.id);
+      const userCard = await feedManager.getUserCardInfo(user.id, card.id, true);
       let uniques = 0;
-      if (!userCard || !userCard.lastOpened) {
+      if (!userCard || !userCard.userCardInfo || !userCard.userCardInfo.lastOpened) {
         await this.incrementStat(card, "uniqueOpens", 1, now, UNIQUE_OPENS_SNAPSHOT_INTERVAL);
         uniques = 1;
       }
@@ -1030,9 +1031,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
       }
       console.log("CardManager.card-clicked", requestBody.detailsObject);
-      const userCard = await db.findUserCardInfo(user.id, card.id);
+      const userCard = await feedManager.getUserCardInfo(user.id, card.id, true);
       let uniques = 0;
-      if (!userCard || !userCard.lastClicked) {
+      if (!userCard || !userCard.userCardInfo || !userCard.userCardInfo.lastClicked) {
         await this.incrementStat(card, "uniqueClicks", 1, now, UNIQUE_CLICKS_SNAPSHOT_INTERVAL);
         uniques = 1;
       }
@@ -2223,7 +2224,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       return null;
     }
     const basePrice = await priceRegulator.getBaseCardFee();
-    const userInfo = user ? await db.findUserCardInfo(user.id, cardId) : null;
+    const userInfo = user ? await feedManager.getUserCardInfo(user.id, cardId, true) : null;
+    const userCardInfo = userInfo ? userInfo.userCardInfo : null;
     const packageRootUrl = await channelsComponentManager.getPackageRootUrl(request, record.cardType.package);
     if (!packageRootUrl) {
       return null;
@@ -2285,15 +2287,15 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         score: record.score,
         userSpecific: {
           isPoster: user && record.createdById === user.id ? true : false,
-          lastImpression: userInfo ? userInfo.lastImpression : 0,
-          lastOpened: userInfo ? userInfo.lastOpened : 0,
-          lastClosed: userInfo ? userInfo.lastClosed : 0,
-          likeState: userInfo ? userInfo.like : "none",
-          paidToAuthor: userInfo ? userInfo.paidToAuthor : 0,
-          paidToReader: userInfo ? userInfo.paidToReader : 0,
-          earnedFromAuthor: userInfo ? userInfo.earnedFromAuthor : 0,
-          earnedFromReader: userInfo ? userInfo.earnedFromReader : 0,
-          openFeeRefunded: userInfo ? userInfo.openFeeRefunded : false,
+          lastImpression: userCardInfo ? userCardInfo.lastImpression : 0,
+          lastOpened: userCardInfo ? userCardInfo.lastOpened : 0,
+          lastClosed: userCardInfo ? userCardInfo.lastClosed : 0,
+          likeState: userCardInfo ? userCardInfo.like : "none",
+          paidToAuthor: userCardInfo ? userCardInfo.paidToAuthor : 0,
+          paidToReader: userCardInfo ? userCardInfo.paidToReader : 0,
+          earnedFromAuthor: userCardInfo ? userCardInfo.earnedFromAuthor : 0,
+          earnedFromReader: userCardInfo ? userCardInfo.earnedFromReader : 0,
+          openFeeRefunded: userCardInfo ? userCardInfo.openFeeRefunded : false,
           addedToHomeChannel: channelCard ? true : false
         },
         blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,

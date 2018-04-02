@@ -23,6 +23,7 @@ import { NotificationHandler, ChannelsServerNotification, awsManager } from "./a
 import { errorManager } from "./error-manager";
 import { rootPageManager } from "./root-page-manager";
 import { networkEntity } from "./network-entity";
+import { feedManager } from "./feed-manager";
 
 const MINIMUM_CONTENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 24;
 const MAX_KEYWORDS_PER_CHANNEL = 16;
@@ -1160,8 +1161,8 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
         const channelUser = await db.findChannelUser(channelCard.channelId, user.id, "subscribed");
         if (channelUser) {
           if (card.postedAt > channelUser.lastNotification && card.postedAt > channelUser.added) {
-            const cardUser = await db.findUserCardInfo(user.id, card.id);
-            if (!cardUser || cardUser.lastOpened === 0) {
+            const cardUser = await feedManager.getUserCardInfo(user.id, card.id, true);
+            if (!cardUser || !cardUser.userCardInfo || cardUser.userCardInfo.lastOpened === 0) {
               const descriptor = await cardManager.populateCardState(null, card.id, false, false, null, channelUser.channelId, null, true, null, user);
               cards.push(descriptor);
               if (sentChannelIds.indexOf(channelCard.channelId) < 0) {

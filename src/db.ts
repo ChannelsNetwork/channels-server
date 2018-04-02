@@ -299,6 +299,7 @@ export class Database {
     await this.userCardInfo.createIndex({ userId: 1, commentNotificationPending: 1 });
 
     await this.userCardInfo.updateMany({ referredPurchases: { $exists: false } }, { $set: { referredPurchases: 0 } });
+    await this.userCardInfo.updateMany({ impressions: { $exists: false } }, { $set: { impressions: 0 } });
   }
 
   private async initializeBankCoupons(): Promise<void> {
@@ -2385,6 +2386,7 @@ export class Database {
           userId: userId,
           cardId: cardId,
           created: Date.now(),
+          impressions: 0,
           lastImpression: 0,
           lastOpened: 0,
           lastClicked: 0,
@@ -2480,6 +2482,11 @@ export class Database {
   async updateUserCardIncrementEarnedFromReader(userId: string, cardId: string, amount: number, transactionId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
     await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { earnedFromReader: amount }, $push: { transactionIds: transactionId } });
+  }
+
+  async updateUserCardIncrementImpressions(userId: string, cardId: string): Promise<void> {
+    await this.ensureUserCardInfo(userId, cardId);
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { impressions: 1 }});
   }
 
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {
