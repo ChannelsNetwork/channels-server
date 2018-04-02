@@ -3022,3 +3022,28 @@ db.cards.aggregate([
   }},
   {$sort: {"_id": 1}}
 ])
+
+privateCampaigns = db.cardCampaigns.aggregate([
+  {$match: {
+    status: "active"
+  }},
+  {$unwind: "$cardIds"},
+  {$lookup: {
+    from: "cards",
+    localField: "cardIds",
+    foreignField: "id",
+    as: "card"
+  }},
+  {$match: {
+    "card.private": true
+  }},
+  {$project: {
+    campaignId: "$id",    
+    cardId: "$card.id",
+    handle: "$card.by.handle"
+  }}
+])
+
+privateCampaigns.forEach( function(x) {
+  db.cardCampaigns.update({id: x.campaignId}, {$set: {ends: 1522704169000}})
+})
