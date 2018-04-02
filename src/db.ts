@@ -369,35 +369,9 @@ export class Database {
     this.networkCardStats = this.db.collection('networkCardStats');
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
     const existing = await this.ensureNetworkCardStats(true);
-    if (existing && !existing.stats.purchases) {
-      // Some of these stats were added later, so we need to initialize their values
-      // based on other queries
-
-      console.log("Db.initializeNetworkCardStats: Generating missing stats...");
-      const purchaserInfo = await this.userCardActions.aggregate([
-        { $match: { action: "pay", fraudReason: { $exists: false } } },
-        {
-          $group: {
-            _id: "$userId",
-            revenue: { $sum: "$payment.amount" }
-          }
-        },
-        {
-          $group: {
-            _id: "all",
-            count: { $sum: 1 },
-            revenue: { $sum: "$revenue" }
-          }
-        }
-      ]).toArray();
-      const purchasers = purchaserInfo.length > 0 ? purchaserInfo[0].count as number : 0;
-      const registrants = await this.users.count({ "identity.handle": { $exists: true } });
-      const publishers = await this.users.count({ lastPosted: { $gt: 0 } });
-      const purchases = await this.userCardActions.count({ action: "pay", fraudReason: { $exists: false } });
-      const cards = await this.cards.count({});
-      const cardPayments = purchaserInfo.length > 0 ? purchaserInfo[0].revenue as number : 0;
-      await this.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, purchasers, registrants, publishers, purchases, cards, cardPayments, 0, 0, 0, 0, 0, 0, 0);
-      console.log("Db.initializeNetworkCardStats: Done");
+    if (existing && existing.stats.advertisers === 908) {
+      console.log("Db.initializeNetworkCardStats: Fixing erroneous advertiser stats...");
+      await this.networkCardStats.updateMany({ advertisers: 908 }, { $set: { advertisers: 0 } });
     }
   }
 
@@ -1197,7 +1171,7 @@ export class Database {
   }
 
   async countAdvertisers(): Promise<number> {
-    const authors = await this.cards.distinct('createdById', { "pricing.openFeeUnits": { $gt: 0 } });
+    const authors = await this.cards.distinct('createdById', { "pricing.openFeeUnits": 0 });
     return authors.length;
   }
 
@@ -2486,7 +2460,7 @@ export class Database {
 
   async updateUserCardIncrementImpressions(userId: string, cardId: string): Promise<void> {
     await this.ensureUserCardInfo(userId, cardId);
-    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { impressions: 1 }});
+    await this.userCardInfo.updateOne({ userId: userId, cardId: cardId }, { $inc: { impressions: 1 } });
   }
 
   async updateUserCardInfoLikeState(userId: string, cardId: string, state: CardLikeState): Promise<void> {
