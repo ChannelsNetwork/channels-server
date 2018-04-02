@@ -3012,7 +3012,7 @@ export class Database {
   }
 
   getChannels(): Cursor<ChannelRecord> {
-    return this.channels.find<ChannelRecord>().sort({ created: -1 });
+    return this.channels.find<ChannelRecord>().sort({ featuredWeight: -1, listingWeight: -1, created: -1 });
   }
 
   getChannelsWithoutFirstCard(): Cursor<ChannelRecord> {
