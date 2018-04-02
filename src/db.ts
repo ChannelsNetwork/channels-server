@@ -371,7 +371,7 @@ export class Database {
     const existing = await this.ensureNetworkCardStats(true);
     if (existing && existing.stats.advertisers === 908) {
       console.log("Db.initializeNetworkCardStats: Fixing erroneous advertiser stats...");
-      await this.networkCardStats.updateMany({ advertisers: 908 }, { $set: { advertisers: 0 } });
+      await this.networkCardStats.updateMany({ "stats.advertisers": 908 }, { $set: { "stats.advertisers": 0 } });
     }
   }
 
