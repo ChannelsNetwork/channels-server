@@ -1,0 +1,163 @@
+<link rel="import" href="../../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../app/dialog-bar.html">
+<link rel="import" href="card-budget-view.html">
+<link rel="import" href="../../../bower_components/soso-spinner/soso-spinner.html">
+<dom-module id="card-budget-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        position: relative;
+      }
+
+      #progress {
+        padding: 70px 10px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      #budgetSection {
+        padding-top: 30px;
+      }
+
+      .buttons {
+        padding: 20px 10px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      soso-spinner {
+        margin-bottom: 20px;
+        margin-left: -10px;
+      }
+
+      .note {
+        margin-top: 25px;
+        font-size: 14px;
+        color: #777;
+      }
+    </style>
+    <soso-app-header>
+      <dialog-bar text="[[pageTitle]]" on-cancel="_onCancel"></dialog-bar>
+    </soso-app-header>
+    <div id="container">
+      <div id="main">
+        <div id="budgetSection" class="hidden">
+          <card-budget-view id="editor" data="[[campaign]]"></card-budget-view>
+          <div class="buttons">
+            <button id="cancel" on-click="_onCancel">Cancel</button>
+            <button id="save" on-click="_save">Save</button>
+            <div class="note">To suspend the campaign, set the 'end date' to today.</div>
+          </div>
+        </div>
+        <div id="noCampaign" class="hidden">
+          <div class="buttons">This card does not have a promotion campain</div>
+          <div class="buttons">
+            <button on-click="_onCancel">Close</button>
+            <!-- <button on-click="_startCampaign">Create campaign</button> -->
+          </div>
+        </div>
+      </div>
+
+      <div id="progress" class="vertical layout hidden">
+        <div class="flex"></div>
+        <div>
+          <soso-spinner id="spinner"></soso-spinner>
+        </div>
+        <div>[[message]]</div>
+        <div class="flex"></div>
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardBudgetPage extends Polymer.Element {
+      static get is() { return 'card-budget-page'; }
+      static get properties() {
+        return {
+          card: Object,
+          campaign: Object,
+          message: String,
+          pageTitle: String
+        };
+      }
+
+      onActivate(route) {
+        this._showProgress(null);
+        this.pageTitle = "Promotion";
+        this.$.budgetSection.classList.add("hidden");
+        this.$.noCampaign.classList.add("hidden");
+        $core.register().then(() => {
+          if (route.segments.length < 2) {
+            setTimeout(() => {
+              this._onCancel();
+            });
+            return;
+          }
+          this.cardId = route.segments[1].trim();
+          return $core.getCard(this.cardId, null, 0, false).then(result => {
+            this.card = result.card;
+            this.pageTitle = "Promotion: " + (this.card.summary.title || "Card");
+            this.campaign = this.card.campaign;
+            if (this.campaign) {
+              this.$.budgetSection.classList.remove("hidden");
+            } else {
+              this.$.noCampaign.classList.remove("hidden");
+            }
+          });
+        }).catch(err => {
+          console.error(err);
+          $app.showError(err).then(() => {
+            this._onCancel();
+          });
+        });
+      }
+
+      _showProgress(message) {
+        if (message) {
+          this.message = message;
+          this.$.spinner.spinning = true;
+          this.$.progress.classList.remove("hidden");
+          this.$.main.classList.add("hidden");
+        } else {
+          this.$.spinner.spinning = true;
+          this.$.progress.classList.add("hidden");
+          this.$.main.classList.remove("hidden");
+        }
+      }
+
+      _onCancel(event) {
+        if (event) {
+          event.stopPropagation();
+        }
+        if ($core.profile && $core.profile.handle) {
+          $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
+        } else {
+          $router.goto("/");
+        }
+      }
+
+      _save() {
+        let value = this.$.editor.value;
+        this._showProgress("Saving");
+        $core.updateCardCampaign(this.campaign.id, value).then(() => {
+          this._onCancel();
+        }).catch((err) => {
+          this._showProgress(null);
+          console.error(err);
+          $app.showError(err || "Oops. Something went wrong.");
+        });
+      }
+
+      _startCampaign() {
+        this.campaign = { type: 'content-promotion' };
+        this.$.budgetSection.classList.remove("hidden");
+        this.$.noCampaign.classList.add("hidden");
+      }
+    }
+    window.customElements.define(CardBudgetPage.is, CardBudgetPage);
+  </script>
+</dom-module>

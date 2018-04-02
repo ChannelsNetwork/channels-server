@@ -1,9 +1,10 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
 export interface RestRequest<T extends Signable> {
+  sessionId: string;
   version: number;
   details: string;
   detailsObject?: T;
@@ -30,6 +31,7 @@ export interface Signable {
 }
 
 export interface RegisterUserResponse extends RestResponseWithUserStatus {
+  sessionId: string;
   id: string;
   interestRatePerMillisecond: number;
   subsidyRate: number;
@@ -41,6 +43,16 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   withdrawalsEnabled: boolean;
   depositUrl: string;
   admin: boolean;
+  promotionPricing: PromotionPricingInfo;
+}
+
+export interface PromotionPricingInfo {
+  contentImpression: number;
+  adImpression: number;
+  payToOpen: number;
+  payToClick: number;
+  payToOpenSubsidy: number;
+  payToClickSubsidy: number;
 }
 
 export interface SignInDetails extends Signable {
@@ -206,14 +218,12 @@ export interface CardDescriptor {
     royaltyAddress: string;
   };
   pricing: {
-    promotionFee: number;
-    openFee: number;  // in ChannelCoin, -ve for ads
+    openFee: number;  // in ChannelCoin
     discountedOpenFee: number;  // 0.01 for first-time card purchase, otherwise = openFee
     openFeeUnits: number;  // 1..10 for paid content, 0 for ads
   };
   promoted: boolean;
   adSlotId: string;
-  couponId: string;
   stats: CardDescriptorStatistics;
   score: number;
   userSpecific: {
@@ -241,6 +251,8 @@ export interface CardDescriptor {
   sourceChannelId: string;
   commentCount: number;
   pinning?: ChannelCardPinInfo;
+  campaign: CardCampaignDescriptor;
+  couponId: string;
 }
 
 export interface ChannelCardPinInfo {
@@ -356,6 +368,7 @@ export interface CardStatsHistoryDetails extends Signable {
 }
 
 export interface CardStatsHistoryResponse extends RestResponse {
+  currentStats: CardDescriptorStatistics;
   revenue: CardStatDatapoint[];
   promotionsPaid: CardStatDatapoint[];
   openFeesPaid: CardStatDatapoint[];
@@ -385,9 +398,10 @@ export interface PostCardDetails extends Signable {
   searchText: string;
   private: boolean;
   cardType?: string;
-  pricing: CardPricingInfo;
+  openFeeUnits: number;
   sharedState: CardState;
   fileIds: string[];
+  campaignInfo?: CardCampaignInfo;
 }
 
 export interface PostCardResponse extends RestResponse {
@@ -406,18 +420,7 @@ export interface UpdateCardStateResponse extends RestResponse { }
 
 export interface UpdateCardPricingDetails extends Signable {
   cardId: string;
-  pricing: CardPricingInfo;
-}
-
-export interface CardPricingInfo {
-  promotionFee?: number;
-  openPayment?: number; // for ads, in ChannelCoin
-  openFeeUnits?: number; // for content, 1..10
-  budget?: {
-    amount: number;
-    plusPercent: number;
-  };
-  coupon?: SignedObject;   // BankCouponDetails
+  openFeeUnits: number;
 }
 
 export interface UpdateCardPricingResponse extends RestResponse { }
@@ -546,6 +549,7 @@ export interface BankTransactionDetails extends Signable {
   type: BankTransactionType;
   reason: BankTransactionReason;
   relatedCardId: string;
+  relatedCardCampaignId: string;
   relatedCouponId: string;
   amount: number;  // ChannelCoin
   toRecipients: BankTransactionRecipientDirective[];
@@ -567,7 +571,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus" | "advertiser-subsidy";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 
@@ -824,9 +828,6 @@ export interface AdminPublisherGoalsInfo {
 
 export interface AdminCardGoalsInfo {
   total: number;
-  totalNonPromoted: number;
-  totalPromoted: number;
-  totalAds: number;
   totalPaidOpens: number;
   totalFirstTimePaidOpens: number;
   totalNormalPaidOpens: number;
@@ -834,9 +835,6 @@ export interface AdminCardGoalsInfo {
   totalGrossRevenue: number;
   totalWeightedRevenue: number;
   newCards: number;
-  newNonPromoted: number;
-  newPromoted: number;
-  newAds: number;
   newPaidOpens: number;
   newFirstTimePaidOpens: number;
   newNormalPaidOpens: number;
@@ -1079,7 +1077,7 @@ export interface ConfirmEmailDetails extends Signable {
   code: string;
 }
 
-export interface ConfirmEmailResponse extends RestResponse {
+export interface ConfirmEmailResponse extends RestResponseWithUserStatus {
   userId: string;
   handle: string;
 }
@@ -1192,6 +1190,13 @@ export interface RealtimeStats {
   purchases: number;
   cards: number;
   cardPayments: number;
+  advertisers: number;
+  adCardsOpenOrClick: number;
+  adCardsImpression: number;
+  adPaidOpenOrClicks: number;
+  adPaidImpressions: number;
+  adOpenOrClickRedemptions: number;
+  adImpressionRedemptions: number;
 }
 
 export interface AdminBankDepositDetails extends Signable {
@@ -1231,4 +1236,117 @@ export interface GetChannelSubscribersResponse extends RestResponse {
 export interface ChannelSubscriberInfo {
   user: UserDescriptor;
   homeChannel: ChannelDescriptor;
+}
+
+export interface GetCardCampaignsDetails extends Signable {
+  afterCampaignId: string;
+  maxCount: number;
+}
+
+export interface GetCardCampaignsResponse extends RestResponse {
+  campaigns: CardCampaignDescriptor[];
+  moreAvailable: boolean;
+}
+
+export interface CardCampaignDescriptor extends CardCampaignInfo {
+  id: string;
+  created: number;
+  status: CardCampaignStatus;
+  paymentAmount: number;
+  advertiserSubsidy: number;
+  couponId: string;
+  couponDescriptor: BankCouponDetails;
+  geoTargetDescriptors: GeoTargetDescriptor[];
+  statsTotal: CardCampaignStats;
+  statsLast24Hours: CardCampaignStats;
+  statsLast7Days: CardCampaignStats;
+  statsLast30Days: CardCampaignStats;
+}
+
+export interface GeoTargetDescriptor {
+  continentCode: string;
+  continentName: string;
+  countryCode?: string;
+  countryName?: string;
+  regionCode?: string;
+  regionName?: string;
+  zipCode?: string;
+}
+
+export interface UpdateCardCampaignDetails extends Signable {
+  campaignId: string;
+  info: CardCampaignInfo;
+}
+
+export interface CardCampaignInfo {
+  type: CardCampaignType;
+  budget: CardCampaignBudget;
+  ends: number;
+  geoTargets: string[];
+  coupon: SignedObject;
+}
+
+export interface UpdateCardCampaignResponse extends RestResponse { }
+
+export interface GetGeoDescriptorsDetails extends Signable {
+  countryCode?: string;
+}
+
+export interface GetGeoDescriptorsResponse extends RestResponse {
+  continents: CodeAndName[];  // only if countryCode omitted
+  countriesByContinent: { [continentCode: string]: CodeAndName[] }; // only if countryCode omitted
+  regionsByCountry: { [countryCode: string]: CodeAndName[] };  // only if countryCode provided
+}
+
+export interface CodeAndName {
+  code: string;
+  name: string;
+}
+
+export interface GetAvailableAdSlotsDetails extends Signable {
+  geoTargets: string[];
+}
+
+export interface GetAvailableAdSlotsResponse extends RestResponse {
+  pastWeek: number;
+}
+
+export interface GetUserCardAnalyticsDetails extends Signable {
+  cardId: string;
+  after: number;
+  maxCount: number;
+}
+
+export interface GetUserCardAnalyticsResponse extends RestResponse {
+  actions: UserCardActionDescriptor[];
+}
+
+export interface UserCardActionDescriptor {
+  cardId: string;
+  at: number;
+  geo?: {
+    lat: number;
+    lon: number;
+    countryCode: string;
+    regionCode: string;
+    city: string;
+  };
+  action: CardActionType;
+}
+
+export interface ShortenUrlDetails extends Signable {
+  url: string;
+}
+
+export interface ShortenUrlResponse extends RestResponse {
+  shortUrl: string;
+}
+
+export interface GetUserStatsDetails extends Signable { }
+
+export interface GetUserStatsResponse extends RestResponse {
+  totals: UserStats;
+  last24Hours: UserStats;
+  last7Days: UserStats;
+  last30Days: UserStats;
 }

@@ -1,0 +1,627 @@
+<link rel="import" href="../../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../../../bower_components/soso-number-input/soso-number-input.html">
+<link rel="import" href="../../../bower_components/soso-radio-group/soso-radio-group.html">
+<link rel="import" href="../../../bower_components/soso-radio-button/soso-radio-button.html">
+<link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../../bower_components/soso-collapsible-panel/soso-collapsible-panel.html">
+<link rel="import" href="../../controls/filter-selector.html">
+
+<dom-module id="card-budget-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #progress {
+        padding: 70px 10px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      #main {
+        padding: 0 10px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      h2 {
+        margin-bottom: 25px;
+      }
+
+      label {
+        display: block;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        color: var(--dark-green);
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+      }
+
+      .cost {
+        background: var(--bg-yellow);
+        display: inline-block;
+        font-size: 16px;
+        padding: 3px 6px;
+        border-radius: 3px;
+        letter-spacing: 0.03em;
+        color: #000;
+      }
+
+      section {
+        padding-bottom: 30px;
+      }
+
+      .row {
+        padding-top: 5px;
+      }
+
+      input[type="date"] {
+        outline: none;
+        font-family: inherit;
+        font-size: 16px;
+        padding: 5px 2px;
+        border: none;
+        color: inherit;
+        background: transparent;
+        border-bottom: 2px solid #4CAF50;
+      }
+
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        color: var(--dark-green);
+      }
+
+      input[type="date"]::-webkit-clear-button,
+      input[type="date"]::-webkit-inner-spin-button,
+      input[type="date"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        display: none;
+      }
+
+      soso-checkbox {
+        font-size: 14px;
+        margin: 3px 0 0;
+        display: inline-block;
+        width: 144px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .slidePanelContent {
+        padding: 20px 0;
+      }
+
+      #statusPanel {
+        background: #f0f0f0;
+        margin-top: -20px;
+        margin-bottom: 20px;
+        color: #666;
+        font-size: 15px;
+        padding: 3px 5px;
+        letter-spacing: 0.05em;
+      }
+
+      #regionsMessage {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #555;
+      }
+
+      #subsidyMessage {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #555;
+      }
+
+      @media (max-width: 600px) {
+        #statusPanel {
+          margin-top: 0;
+        }
+      }
+    </style>
+    <div id="container">
+      <div id="main" class="hidden">
+        <h2>Card Promotion Budget</h2>
+        <div id="statusPanel" class="hidden">Campaign status:
+          <span>[[status]]</span>
+        </div>
+        <section>
+          <label>Promotion Cost</label>
+          <div id="impressionPriceLabel" class="hidden">
+            You will pay the reader
+            <span class="cost">ℂ[[promotionPrice]]</span> to see this card in their feed.
+          </div>
+          <div id="openPriceLabel" class="hidden">
+            You will pay the reader
+            <span class="cost">ℂ[[promotionPrice]]</span> to open this card.
+          </div>
+        </section>
+
+        <section id="promotionTotalSection" class="hidden">
+          <label>Total Budget</label>
+          <div class="row">
+            ℂ
+            <soso-number-input id="totalBudget" value="10" step="1" min="1"></soso-number-input>
+            <span id="budgetPlus">plus
+              <soso-number-input id="budgetPercent" value="20" step="1" min="0" max="90"></soso-number-input>
+              % of earnings from this card
+            </span>
+          </div>
+        </section>
+
+        <section id="dailySection" class="hidden">
+          <label>Daily Budget</label>
+          <div class="row">
+            ℂ
+            <soso-number-input id="dailyBudget" value="5" step="1" min="1"></soso-number-input>
+          </div>
+          <div id="subsidyMessage" class="hidden">Note: Channels is subsidizing
+            <span>[[subsidizedRatio]]</span> of this cost. You pay the rest.</div>
+        </section>
+
+        <section id="endDateSection">
+          <label>End Date</label>
+          <div>This promotion campaign will run until:</div>
+          <div class="row">
+            <input id="endDate" type="date">
+          </div>
+        </section>
+
+        <section id="geographySection" class="hidden">
+          <label>Geography</label>
+          <div>Choose one of these geographic targeting options</div>
+          <div class="row">
+            <soso-radio-group id="regionGroup" on-select="_onRegionSelectionChange">
+              <soso-radio-button name="none" label="All countries"></soso-radio-button>
+              <soso-radio-button name="countries" label="Specific countries"></soso-radio-button>
+              <soso-radio-button name="region" label="Regions in one specific country"></soso-radio-button>
+            </soso-radio-group>
+          </div>
+        </section>
+
+        <section id="countriesSection" class="hidden">
+          <label>Select Countries</label>
+          <template is="dom-repeat" items="[[continents]]">
+            <soso-collapsible-panel label="[[item.name]]" collapsed>
+              <div class="slidePanelContent">
+                <template is="dom-repeat" items="[[item.countries]]" as="country">
+                  <soso-checkbox class="countryCheck" data-continent$="[[item.code]]" data-code$="[[country.code]]" label="[[country.name]]"
+                    title="[[country.name]]" on-change="_onCountryChange"></soso-checkbox>
+                </template>
+                <soso-checkbox data-all-code$="[[item.code]]" class="allContinentCheck" label="All" on-change="_onAll"></soso-checkbox>
+              </div>
+            </soso-collapsible-panel>
+          </template>
+        </section>
+
+        <section id="regionsSection" class="hidden">
+
+          <label>Select a Country</label>
+          <filter-selector id="countrySelector" data="[[countries]]" fields="[[countryFields]]" on-select="_countrySelected"></filter-selector>
+
+          <section id="countryRegionSection" class="hidden">
+            <template is="dom-repeat" items="[[regions]]">
+              <soso-checkbox class="regionsCheck" data-code$="[[item.code]]" label="[[item.name]]" title="[[item.name]]" on-change="_regionChange"></soso-checkbox>
+            </template>
+            <soso-checkbox id="chkAllRegions" label="All regions" on-change="_onAllRegions"></soso-checkbox>
+            <div id="regionsMessage">Note: Only regions for which Channels has a substantial user base are shown.</div>
+          </section>
+
+        </section>
+
+      </div>
+    </div>
+  </template>
+  <script>
+    class CardBudgetView extends Polymer.Element {
+      static get is() { return 'card-budget-view'; }
+      static get properties() {
+        return {
+          continents: Object,
+          countries: Array,
+          regions: Array,
+          data: {
+            type: Object,
+            observer: '_refresh'
+          },
+          countryFields: {
+            type: Array,
+            value: () => { return ['code', 'name']; }
+          },
+          promotionPrice: String,
+          status: {
+            type: String,
+            observer: '_statusChange'
+          }
+        };
+      }
+
+      get value() {
+        let endDate = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
+        let endDateValue = this.$.endDate.value;
+        if (endDateValue) {
+          let date = new Date(endDateValue);
+          date.setHours(23);
+          date.setMinutes(59);
+          date.setSeconds(59);
+          endDate = date.getTime();
+        }
+        const type = this.data.type;
+        let budget = null;
+        if (type === 'content-promotion') {
+          budget = RestUtils.cardCampaignBudgetForContent(this.$.totalBudget.value, this.$.budgetPercent.value);
+        } else {
+          budget = RestUtils.cardCampaignBudgetForAd(this.$.dailyBudget.value);
+        }
+        const geoTargets = [];
+        let regionType = this.$.regionGroup.selected;
+        if (type !== "content-promotion") {
+          if (regionType === 'countries') {
+            const allBoxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+            const countryBoxes = this.shadowRoot.querySelectorAll(".countryCheck");
+            for (const cont of this.continents) {
+              let all = false;
+              for (let i = 0; i < allBoxes.length; i++) {
+                let b = allBoxes[i];
+                if (b.dataset.allCode === cont.code) {
+                  all = b.checked;
+                  break;
+                }
+              }
+              if (all) {
+                geoTargets.push(cont.code);
+              } else {
+                let selectedCountries = [];
+                for (const countryBox of countryBoxes) {
+                  if (countryBox.dataset.continent === cont.code) {
+                    if (countryBox.checked) {
+                      geoTargets.push(cont.code + "." + countryBox.dataset.code);
+                    }
+                  }
+                }
+              }
+            }
+          } else if (regionType === 'region') {
+            let country = this.$.countrySelector.selected;
+            if (country) {
+              let geoPrefix = country.continent + "." + country.code;
+              if (this.$.chkAllRegions.checked) {
+                geoTargets.push(geoPrefix);
+              } else {
+                const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+                for (const rbox of regionBoxes) {
+                  if (rbox.checked) {
+                    geoTargets.push(geoPrefix + "." + rbox.dataset.code);
+                  }
+                }
+              }
+            }
+          }
+        }
+        let campaignInfo = RestUtils.cardCampaignInfo(type, budget, endDate, geoTargets);
+        campaignInfo.paymentAmount = this._price || $core.getPromotionPriceByType(type);
+        return campaignInfo;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this._refresh();
+      }
+
+      _statusChange() {
+        if (this.status) {
+          this.$.statusPanel.classList.remove("hidden");
+        } else {
+          this.$.statusPanel.classList.add("hidden");
+        }
+      }
+
+      _refresh() {
+        this.$.geographySection.classList.add("hidden");
+        if (this.data) {
+          this.status = this.data.status;
+          this._statusChange();
+          this.$.main.classList.remove("hidden");
+          let type = this.data.type;
+          if (type !== 'content-promotion') {
+            this.$.geographySection.classList.remove("hidden");
+          }
+          let price = this.data.paymentAmount || $core.getPromotionPriceByType(type);
+          this._price = price;
+          let subsidized = (typeof this.data.advertiserSubsidy === 'undefined') ? $core.promotionPricing.payToOpenSubsidy : (this.data.advertiserSubsidy || 0);
+          this.subsidizedRatio = Math.round((subsidized / price) * 100) + "%";
+          this.promotionPrice = (Math.floor(price * 1000) / 1000).toFixed(3);
+          this.$.subsidyMessage.classList.add("hidden");
+          switch (type) {
+            case "content-promotion":
+              this.$.promotionTotalSection.classList.remove("hidden");
+              this.$.dailySection.classList.add("hidden");
+              this.$.impressionPriceLabel.classList.remove("hidden");
+              this.$.openPriceLabel.classList.add("hidden");
+              break;
+            case "impression-ad":
+              this.$.promotionTotalSection.classList.add("hidden");
+              this.$.dailySection.classList.remove("hidden");
+              this.$.impressionPriceLabel.classList.remove("hidden");
+              this.$.openPriceLabel.classList.add("hidden");
+              break;
+            case "pay-to-open":
+            case "pay-to-click":
+              this.$.promotionTotalSection.classList.add("hidden");
+              this.$.dailySection.classList.remove("hidden");
+              this.$.impressionPriceLabel.classList.add("hidden");
+              this.$.openPriceLabel.classList.remove("hidden");
+              if (subsidized) {
+                this.$.subsidyMessage.classList.remove("hidden");
+              }
+              break;
+          }
+
+          if (this.data.budget) {
+            this.$.dailyBudget.value = this.data.budget.maxPerDay || 0;
+            this.$.budgetPercent.value = this.data.budget.plusPercent || 0;
+            if (this.data.budget.promotionTotal) {
+              this.$.totalBudget.value = this.data.budget.promotionTotal;
+            }
+          }
+
+          // refresh end date
+          let endTime = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
+          this.$.endDate.value = this._dateFormat(endTime);
+          this._refreshRgionGroup();
+        }
+      }
+
+      _dateFormat(date) {
+        var d = new Date(date),
+          month = '' + (d.getMonth() + 1),
+          day = '' + d.getDate(),
+          year = d.getFullYear();
+
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+        return [year, month, day].join('-');
+      }
+
+      _refreshRgionGroup() {
+        // select the region checkbox
+        let targets = this.data.geoTargets || [];
+        let regionCountry = null;
+        if (!targets.length) {
+          this.$.regionGroup.selected = "none";
+        } else {
+          let hasZip = false;
+          let hasRegion = false;
+          for (const t of targets) {
+            if (t.indexOf(':') > 0) {
+              hasZip = true;
+              hasRegion = true;
+              let split = t.split(":");
+              let split2 = split[0].split('.');
+              if (split2.length > 1) {
+                regionCountry = split2[1];
+              }
+              break;
+            }
+            let split = t.split(".");
+            if (split.length > 2) {
+              hasRegion = true;
+              regionCountry = split[1];
+            }
+          }
+          if (hasRegion) {
+            this.$.regionGroup.selected = "region";
+          } else {
+            this.$.regionGroup.selected = "countries";
+          }
+        }
+        this._onRegionSelectionChange();
+        this._fetchAllCountries().then(() => {
+          if (regionCountry) {
+            for (let c of this.countries) {
+              if (c.code === regionCountry) {
+                this.$.countrySelector.selected = c;
+                break;
+              }
+            }
+          }
+        });
+      }
+
+      _onRegionSelectionChange() {
+        switch (this.$.regionGroup.selected) {
+          case "none":
+            this.$.countriesSection.classList.add("hidden");
+            this.$.regionsSection.classList.add("hidden");
+            break;
+          case "countries":
+            this.$.countriesSection.classList.remove("hidden");
+            this.$.regionsSection.classList.add("hidden");
+            break;
+          case "region":
+            this.$.countriesSection.classList.add("hidden");
+            this.$.regionsSection.classList.remove("hidden");
+            break;
+        }
+      }
+
+      _fetchAllCountries() {
+        return $core.getGeoDescriptors().then(result => {
+          let countries = [];
+          for (let cont of result.continents) {
+            let cByC = result.countriesByContinent[cont.code];
+            cByC.forEach((d) => {
+              d.continent = cont.code;
+            });
+            countries = countries.concat(cByC);
+            cont.countries = cByC;
+          }
+          this.continents = result.continents;
+          countries.sort((a, b) => {
+            let an = a.name.toLowerCase();
+            let bn = b.name.toLowerCase();
+            if (an < bn) return -1;
+            if (an > bn) return 1;
+            return 0;
+          });
+          this.countries = countries;
+          this._refreshCheckAttempts = 0;
+          this._refreshChecks();
+        });
+      }
+
+      _refreshChecks() {
+        const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        if (boxes.length >= this.countries.length) {
+          for (let i = 0; i < boxes.length; i++) {
+            boxes[i].checked = false;
+          }
+          let targets = this.data.geoTargets || [];
+          if (this.$.regionGroup.selected === 'countries') {
+            targets.forEach((d) => {
+              let split = d.split(".");
+              if (split.length > 1) {
+                this._selectCountry(split[1].trim());
+              } else if (split.length === 1) {
+                this._selectContinent(split[0].trim());
+              }
+            });
+          } else if (this.$.regionGroup.selected === 'region') {
+            if (targets.length) {
+              let countryCode = "";
+              targets.forEach((d) => {
+                let split = d.split(".");
+                if (split.length > 2) {
+                  countryCode = split[1].trim();
+                }
+              });
+              if (countryCode) {
+                $core.getGeoDescriptors(countryCode).then((result) => {
+                  let regions = result && result.regionsByCountry && result.regionsByCountry[countryCode];
+                  this.regions = regions;
+                  setTimeout(() => {
+                    const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+                    if (regionBoxes.length) {
+                      targets.forEach((d) => {
+                        let split = d.split(".");
+                        if (split.length > 2) {
+                          let regionCode = split[2].trim();
+                          if (regionCode) {
+                            for (const rbox of regionBoxes) {
+                              if (rbox.dataset.code === regionCode) {
+                                rbox.checked = true;
+                              }
+                            }
+                          }
+                        }
+                      });
+                    }
+                  }, 1000);
+                });
+              }
+            }
+          }
+        } else {
+          if (this._refreshCheckAttempts > 15) {
+            return;
+          }
+          this._refreshCheckAttempts++;
+          setTimeout(() => {
+            this._refreshChecks();
+          }, 200);
+        }
+      }
+
+      _selectCountry(code) {
+        let boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.code === code) {
+            b.checked = true;
+            break;
+          }
+        }
+      }
+
+      _selectContinent(code) {
+        let boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.allCode === code) {
+            b.checked = true;
+            break;
+          }
+        }
+        boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.continent === code) {
+            b.checked = true;
+          }
+        }
+      }
+
+      _onAll(event) {
+        let all = event.target;
+        let continent = all.dataset.allCode;
+        let checked = all.checked;
+        const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          if (b.dataset.continent === continent) {
+            b.checked = checked;
+          }
+        }
+      }
+
+      _onCountryChange(event) {
+        let chk = event.target;
+        if (!chk.checked) {
+          const boxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+          for (let i = 0; i < boxes.length; i++) {
+            let b = boxes[i];
+            if (b.dataset.allCode === chk.dataset.continent) {
+              b.checked = false;
+              break;
+            }
+          }
+        }
+      }
+
+      _onAllRegions(event) {
+        const checked = this.$.chkAllRegions.checked;
+        const boxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+        for (let i = 0; i < boxes.length; i++) {
+          let b = boxes[i];
+          b.checked = checked;
+        }
+      }
+
+      _regionChange(event) {
+        let chk = event.target;
+        if (!chk.checked) {
+          this.$.chkAllRegions.checked = false;
+        }
+      }
+
+      _countrySelected(event) {
+        let selected = event.detail.selection;
+        if (selected) {
+          this.$.countryRegionSection.classList.remove("hidden");
+          this.$.chkAllRegions.checked = true;
+          this._onAllRegions();
+          $core.getGeoDescriptors(selected.code).then((result) => {
+            this.regions = result && result.regionsByCountry && result.regionsByCountry[selected.code];
+          });
+        } else {
+          this.$.countryRegionSection.classList.add("hidden");
+        }
+      }
+    }
+    window.customElements.define(CardBudgetView.is, CardBudgetView);
+  </script>
+</dom-module>

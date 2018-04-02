@@ -1,0 +1,199 @@
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<dom-module id="filter-selector">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #clear {
+        padding: 5px 2px 5px 10px;
+        color: #808080;
+        cursor: pointer;
+      }
+
+      .disabled {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #options {
+        padding: 10px 1px;
+        max-height: 131px;
+        overflow: auto;
+        border: none;
+      }
+
+      .option {
+        font-size: 14px;
+        font-family: sans-serif;
+        background: #eaeaea;
+        padding: 3px 5px;
+        display: inline-block;
+        margin: 5px 5px 0 0;
+        border: 1px solid #d8d8d8;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.03em;
+      }
+
+      .selected {
+        font-size: 14px;
+        font-family: sans-serif;
+        background: var(--highlight-green);
+        color: white;
+        padding: 3px 5px;
+        display: inline-block;
+        margin: 0;
+        border-radius: 3px;
+        letter-spacing: 0.03em;
+        vertical-align: middle;
+      }
+
+      .selected soso-icon {
+        padding-left: 5px;
+        border-left: 1px solid #e5e5e5;
+        margin-left: 5px;
+        cursor: pointer;
+      }
+
+      #selectedPanel {
+        padding: 10px 0;
+      }
+
+      .optionIcon {
+        max-width: 240px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        vertical-align: middle;
+      }
+    </style>
+    <div id="editPanel">
+      <div class="horizontal layout end">
+        <soso-text-input id="filter" label="Filter" on-input="_filter" on-keydown="_filterKeyDown" class="flex"></soso-text-input>
+        <div id="clearPanel">
+          <soso-icon id="clear" icon="close" class="disabled" on-click="_clear"></soso-icon>
+        </div>
+      </div>
+      <div id="options">
+        <template is="dom-repeat" items="[[matches]]">
+          <div class="option" on-click="_optionClick">[[item.name]]</div>
+        </template>
+      </div>
+    </div>
+    <div id="selectedPanel" class="hidden">
+      Selected:
+      <span class="selected">
+        <span class="optionIcon">[[selected.name]]</span>
+        <soso-icon icon="close" on-click="_clearSelection"></soso-icon>
+      </span>
+    </div>
+  </template>
+  <script>
+    class FilterSelector extends Polymer.Element {
+      static get is() { return 'filter-selector'; }
+      static get properties() {
+        return {
+          selected: {
+            type: Object,
+            observer: '_onSelect'
+          },
+          data: {
+            type: Array,
+            observer: '_filter'
+          },
+          fields: {
+            type: Array,
+            observer: '_filter'
+          },
+          filterText: {
+            type: String,
+            observer: '_refreshFilter'
+          },
+          matches: Array
+        };
+      }
+
+      _clear() {
+        this.$.filter.value = "";
+        this._filter();
+        setTimeout(() => {
+          this.$.filter.input.focus();
+        }, 5);
+      }
+
+      _clearNode(node) {
+        while (node.hasChildNodes()) {
+          node.removeChild(node.lastChild);
+        }
+      }
+
+      _filter() {
+        let txt = this.$.filter.value.toLowerCase().trim();
+        if (txt) {
+          this.$.clear.classList.remove("disabled");
+        } else {
+          this.$.clear.classList.add("disabled");
+        }
+        if (this.data && this.fields) {
+          this.filterText = txt;
+        }
+      }
+
+      _refreshFilter() {
+        if (this.data && this.fields) {
+          let matches = [];
+          for (let d of this.data) {
+            if (!d._searchText) {
+              d._searchText = this.fields.reduce((prev, current) => {
+                return (prev ? (prev + " ") : "") + d[current].toLowerCase();
+              }, "");
+            }
+            if (this.filterText) {
+              if (d._searchText.indexOf(this.filterText) >= 0) {
+                matches.push(d);
+              }
+            } else {
+              matches.push(d);
+            }
+          }
+          this.matches = matches;
+        }
+      }
+
+      _optionClick(event) {
+        let item = event.model.item;
+        this.selected = item;
+      }
+
+      _onSelect() {
+        if (this.selected) {
+          this.$.selectedPanel.classList.remove("hidden");
+          this.$.editPanel.classList.add("hidden");
+        } else {
+          this.$.selectedPanel.classList.add("hidden");
+          this.$.editPanel.classList.remove("hidden");
+        }
+        this.dispatchEvent(new CustomEvent('select', { bubbles: true, composed: true, detail: { selection: this.selected } }));
+      }
+
+      _clearSelection() {
+        this.selected = null;
+        this._clear();
+      }
+
+      _filterKeyDown(event) {
+        if (event.keyCode === 13) {
+          if (this.matches.length === 1) {
+            this.selected = this.matches[0];
+          }
+        }
+      }
+    }
+    window.customElements.define(FilterSelector.is, FilterSelector);
+  </script>
+</dom-module>

@@ -13,7 +13,7 @@ db.cards.aggregate([
   }},
   {$bucket: {
       groupBy: "$postedAt",
-      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000],
+      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000, 1522911600000],
       default: -1,
       output: {
         cards: {$sum: 1},
@@ -29,7 +29,7 @@ db.cards.aggregate([
     countries: {$size: "$countries"},
     cardsPerPublisher: {$divide: ["$cards", {$size: "$publishers"}]}
   }}
-])
+]).pretty()
 
 By week, content consumers
 
@@ -46,7 +46,7 @@ db.userCardActions.aggregate([
   }},
   {$bucket: {
       groupBy: "$postedAt",
-      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000],
+      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000, 1522911600000],
       default: -1,
       output: {
         purchases: {$sum: 1},
@@ -59,7 +59,7 @@ db.userCardActions.aggregate([
   {$project: {
     purchases: 1, cards: {$size: "$cards"}, consumers: {$size: "$consumers"}, expenses: "$expenses", countries: {$size: "$countries"}
   }}
-])
+]).pretty()
 
 By week, pure advertisers
 
@@ -78,7 +78,7 @@ db.adSlots.aggregate([
   }},
   {$bucket: {
       groupBy: "$created",
-      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000],
+      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000, 1522911600000],
       default: -1,
       output: {
         adslots: {$sum: 1},
@@ -94,7 +94,7 @@ db.adSlots.aggregate([
   {$project: {
     adslots: 1, payImpressions: 1, payToOpens: 1, openRedemptions: 1, advertisers: {$size: "$advertisers"}, cards: {$size: "$cards"}, expenses: 1, countries: {$size: "$countries"}
   }}  
-])
+]).pretty()
 
 By week, advertising consumers
 
@@ -112,7 +112,7 @@ db.adSlots.aggregate([
   }},
   {$bucket: {
       groupBy: "$created",
-      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000],
+      boundaries: [1513238400000, 1513843200000, 1514448000000, 1515052800000, 1515657600000, 1516262400000, 1516867200000, 1517472000000, 1518076800000, 1518681600000,1519286400000, 1519891200000, 1520496000000, 1521097200000, 1521702000000, 1522306800000, 1522911600000],
       default: -1,
       output: {
         adslots: {$sum: 1},
@@ -126,7 +126,7 @@ db.adSlots.aggregate([
   {$project: {
     adslots: 1, redemptions: 1, consumers: {$size: "$consumers"}, cards: {$size: "$cards"}, revenue: 1, countries: {$size: "$countries"}
   }}  
-])
+]).pretty()
 
 
 In total, who are our most successful publishers?
@@ -138,22 +138,24 @@ db.users.aggregate([
     id: 1,
     handle: "$identity.handle",
     country: "$country",
-    added: "$added"
+    added: "$added",
+    lastContact: "$lastContact"
   }},
   {$lookup: {from: "userCardActions", localField: "id", foreignField: "authorId", as: "action"}},
   {$unwind: "$action"},
-  {$match: {"action.action": "pay", "action.at": {$gt: 1518681600000}, "action.fraudReason": {$exists: false}}},
+  {$match: {"action.action": "pay", "action.at": {$gt: 0}, "action.fraudReason": {$exists: false}}},
   {$project: {
     id: 1,
     handle: 1,
     country: 1,
     added: 1,
+    lastContact: 1,
     buyer: "$action.userId",
     amount: "$action.payment.amount",
     category: "$action.payment.category"
   }},
   {$group: {
-    _id: {id: "$id", handle: "$handle", country: "$country", buyer: "$buyer", added: "$added"},
+    _id: {id: "$id", handle: "$handle", country: "$country", buyer: "$buyer", added: "$added", lastContact: "$lastContact"},
     revenueFromBuyer: {$sum: "$amount"},
     categories: {$addToSet: "$category"}
   }},
@@ -172,7 +174,7 @@ db.users.aggregate([
     }}
   }},
   {$group: {
-    _id: {id: "$_id.id", handle: "$_id.handle", country: "$_id.country", added: "$added"},
+    _id: {id: "$_id.id", handle: "$_id.handle", country: "$_id.country", added: "$_id.added", lastContact: "$_id.lastContact"},
     revenue: {$sum: "$revenueFromBuyer"},
     buyers: {$sum: 1},
     fans: {$sum: {$cond: {if: {$eq: ["$category", "fan"]}, then: 1, else: 0}}},
@@ -180,13 +182,10 @@ db.users.aggregate([
     firstTimes: {$sum: {$cond: {if: {$eq: ["$category", "firstTime"]}, then: 1, else: 0}}},
   }},
   {$match: {fans: {$gt: 3}, revenue: {$gt: 5}}},
-  {$sort: {revenue: -1}},
-])
-
+  {$sort: {"_id.lastContact": 1}},
+]).pretty()
   {$group: {
     _id: "all",
     publishers: {$sum: 1},
     revenue: {$sum: "$revenue"}
   }},
-])
-

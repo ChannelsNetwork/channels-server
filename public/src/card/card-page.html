@@ -387,12 +387,30 @@
         $router.goto(this.channelUrl);
       }
 
+      get campaignPayment() {
+        if (this.data && this.data.campaign) {
+          return this.data.campaign.paymentAmount;
+        }
+        return 0;
+      }
+
+      _isImpressionCampaign() {
+        if (this.data && this.data.campaign) {
+          let type = this.data.campaign.type;
+          return (type === 'impression-ad' || type == 'content-promotion');
+        }
+        return false;
+      }
+
       _showTermsPanel() {
         this._termsAccepted = true;
         if ($core.profile && $core.profile.handle) {
           return;
         }
         let cost = this.data.pricing.openFee;
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
+        }
         if (cost < 0) {
           return;
         }
@@ -752,8 +770,12 @@
 
         let startTimer = false;
         if (!this.data.userSpecific.isPoster) {
-          if ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor === 0) ||
-            (this.data.pricing.openFee < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor == 0)) {
+          let cost = this.data.pricing.openFee;
+          if ((!cost) && (!this._isImpressionCampaign())) {
+            cost = -this.campaignPayment;
+          }
+          if ((cost > 0 && this.data.userSpecific.paidToAuthor === 0) ||
+            (cost < 0 && this.data.promoted && this.data.userSpecific.earnedFromAuthor == 0)) {
             startTimer = true;
           }
         }
@@ -791,9 +813,13 @@
 
         // make payment
         const card = this.data;
+        let cost = this.data.pricing.openFee;
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
+        }
         if (!card.userSpecific.isPoster) {
-          if (card.pricing.openFee > 0 && card.userSpecific.paidToAuthor === 0) {
-            card.userSpecific.paidToAuthor = card.pricing.openFee;
+          if (cost > 0 && card.userSpecific.paidToAuthor === 0) {
+            card.userSpecific.paidToAuthor = cost;
             $core.cardPay(card.id, card.pricing.discountedOpenFee, card.by.address, card.cardType.royaltyAddress, card.cardType.royaltyFraction, card.referredBy ? card.referredBy.address : null).then((response) => {
               card.stats.revenue = response.totalCardRevenue;
               $core.analytics.event("card", "paid");
@@ -801,9 +827,9 @@
             }).catch((err) => {
               console.error("Failed to make card payment", err);
             });
-          } else if (card.pricing.openFee < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
-            card.userSpecific.earnedFromAuthor = -card.pricing.openFee;
-            $core.cardOpenPaymentRedeem(card.id, this.adSlotId, card.couponId, -card.pricing.openFee, card.by.address).then(() => {
+          } else if (cost < 0 && card.promoted && card.userSpecific.earnedFromAuthor === 0 && card.couponId) {
+            card.userSpecific.earnedFromAuthor = -cost;
+            $core.cardOpenPaymentRedeem(card.id, this.adSlotId, card.couponId, -cost, card.by.address).then(() => {
               this._onPaymentSuccess();
             }).catch((err) => {
               console.error("Failed to make card payment", err);

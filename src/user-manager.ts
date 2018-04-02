@@ -4,9 +4,9 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName } from "./interfaces/rest-services";
 import { db } from "./db";
-import { UserRecord, IpAddressRecord, IpAddressStatus } from "./interfaces/db-records";
+import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
@@ -27,13 +27,16 @@ import * as LRU from 'lru-cache';
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
+import { PROMOTION_PRICING } from "./card-manager";
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
 const INVITATIONS_ALLOWED = 5;
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
-const NON_ZERO_DIGITS = '123456789';
 const DIGITS = '0123456789';
+const URL_SYMBOLS = '-._~';
+const CODE_SYMBOLS = LETTERS + LETTERS.toUpperCase() + DIGITS + URL_SYMBOLS;
+const NON_ZERO_DIGITS = '123456789';
 const ANNUAL_INTEREST_RATE = 0.03;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
@@ -47,11 +50,274 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
+const continentNameByContinentCode: { [continentCode: string]: string } = {
+  "AF": "Africa",
+  "AS": "Asia",
+  "EU": "Europe",
+  "OC": "Oceania",
+  "NA": "North America",
+  "SA": "South America"
+};
+
+const infoByCountryCode: { [countryCode: string]: CountryInfo } = {
+  "AD": { continentCode: "EU", name: "Andorra" },
+  "AE": { continentCode: "AS", name: "United Arab Emirates" },
+  "AF": { continentCode: "AS", name: "Afghanistan" },
+  "AG": { continentCode: "NA", name: "Antigua and Barbuda" },
+  "AI": { continentCode: "NA", name: "Anguilla" },
+  "AL": { continentCode: "EU", name: "Albania" },
+  "AM": { continentCode: "EU", name: "Armenia" },
+  "AO": { continentCode: "AF", name: "Angola" },
+  "AR": { continentCode: "SA", name: "Argentina" },
+  "AS": { continentCode: "OC", name: "American Samoa" },
+  "AT": { continentCode: "EU", name: "Austria" },
+  "AU": { continentCode: "OC", name: "Australia" },
+  "AW": { continentCode: "NA", name: "Aruba" },
+  "AX": { continentCode: "EU", name: "Åland Islands" },
+  "AZ": { continentCode: "EU", name: "Azerbaijan" },
+  "BA": { continentCode: "EU", name: "Bosnia and Herzegovina" },
+  "BB": { continentCode: "NA", name: "Barbados" },
+  "BD": { continentCode: "AS", name: "Bangladesh" },
+  "BE": { continentCode: "EU", name: "Belgium" },
+  "BF": { continentCode: "AF", name: "Burkina Faso" },
+  "BG": { continentCode: "EU", name: "Bulgaria" },
+  "BH": { continentCode: "AS", name: "Bahrain" },
+  "BI": { continentCode: "AF", name: "Burundi" },
+  "BJ": { continentCode: "AF", name: "Benin" },
+  "BL": { continentCode: "NA", name: "Saint Barthélemy" },
+  "BM": { continentCode: "NA", name: "Bermuda" },
+  "BN": { continentCode: "AS", name: "Brunei Darussalam" },
+  "BO": { continentCode: "SA", name: "Bolivia (Plurinational State of)" },
+  "BQ": { continentCode: "SA", name: "Bonaire, Sint Eustatius and Saba" },
+  "BR": { continentCode: "SA", name: "Brazil" },
+  "BS": { continentCode: "NA", name: "Bahamas" },
+  "BT": { continentCode: "AS", name: "Bhutan" },
+  "BW": { continentCode: "AF", name: "Botswana" },
+  "BY": { continentCode: "EU", name: "Belarus" },
+  "BZ": { continentCode: "NA", name: "Belize" },
+  "CA": { continentCode: "NA", name: "Canada" },
+  "CC": { continentCode: "AS", name: "Cocos (Keeling) Islands" },
+  "CD": { continentCode: "AF", name: "Congo (Democratic Republic of the)" },
+  "CF": { continentCode: "AF", name: "Central African Republic" },
+  "CG": { continentCode: "AF", name: "Congo" },
+  "CH": { continentCode: "EU", name: "Switzerland" },
+  "CI": { continentCode: "AF", name: "Côte d'Ivoire" },
+  "CK": { continentCode: "OC", name: "Cook Islands" },
+  "CL": { continentCode: "SA", name: "Chile" },
+  "CM": { continentCode: "AF", name: "Cameroon" },
+  "CN": { continentCode: "AS", name: "China" },
+  "CO": { continentCode: "SA", name: "Colombia" },
+  "CR": { continentCode: "NA", name: "Costa Rica" },
+  "CU": { continentCode: "NA", name: "Cuba" },
+  "CV": { continentCode: "AF", name: "Cabo Verde" },
+  "CW": { continentCode: "NA", name: "Curaçao" },
+  "CX": { continentCode: "AS", name: "Christmas Island" },
+  "CY": { continentCode: "EU", name: "Cyprus" },
+  "CZ": { continentCode: "EU", name: "Czechia" },
+  "DE": { continentCode: "EU", name: "Germany" },
+  "DJ": { continentCode: "AF", name: "Djibouti" },
+  "DK": { continentCode: "EU", name: "Denmark" },
+  "DM": { continentCode: "NA", name: "Dominica" },
+  "DO": { continentCode: "NA", name: "Dominican Republic" },
+  "DZ": { continentCode: "AF", name: "Algeria" },
+  "EC": { continentCode: "SA", name: "Ecuador" },
+  "EE": { continentCode: "EU", name: "Estonia" },
+  "EG": { continentCode: "AF", name: "Egypt" },
+  "EH": { continentCode: "AF", name: "Western Sahara" },
+  "ER": { continentCode: "AF", name: "Eritrea" },
+  "ES": { continentCode: "EU", name: "Spain" },
+  "ET": { continentCode: "AF", name: "Ethiopia" },
+  "FI": { continentCode: "EU", name: "Finland" },
+  "FJ": { continentCode: "OC", name: "Fiji" },
+  "FK": { continentCode: "SA", name: "Falkland Islands (Malvinas)" },
+  "FM": { continentCode: "OC", name: "Micronesia (Federated States of)" },
+  "FO": { continentCode: "EU", name: "Faroe Islands" },
+  "FR": { continentCode: "EU", name: "France" },
+  "GA": { continentCode: "AF", name: "Gabon" },
+  "GB": { continentCode: "EU", name: "United Kingdom of Great Britain and Northern Ireland" },
+  "GD": { continentCode: "NA", name: "Grenada" },
+  "GE": { continentCode: "AS", name: "Georgia" },
+  "GF": { continentCode: "SA", name: "French Guiana" },
+  "GG": { continentCode: "EU", name: "Guernsey" },
+  "GH": { continentCode: "AF", name: "Ghana" },
+  "GI": { continentCode: "EU", name: "Gibraltar" },
+  "GL": { continentCode: "NA", name: "Greenland" },
+  "GM": { continentCode: "AF", name: "Gambia" },
+  "GN": { continentCode: "AF", name: "Guinea" },
+  "GP": { continentCode: "NA", name: "Guadeloupe" },
+  "GQ": { continentCode: "AF", name: "Equatorial Guinea" },
+  "GR": { continentCode: "EU", name: "Greece" },
+  "GT": { continentCode: "NA", name: "Guatemala" },
+  "GU": { continentCode: "OC", name: "Guam" },
+  "GW": { continentCode: "AF", name: "Guinea-Bissau" },
+  "GY": { continentCode: "SA", name: "Guyana" },
+  "HK": { continentCode: "AS", name: "Hong Kong" },
+  "HM": { continentCode: "OC", name: "Heard Island and McDonald Islands" },
+  "HN": { continentCode: "NA", name: "Honduras" },
+  "HR": { continentCode: "EU", name: "Croatia" },
+  "HT": { continentCode: "NA", name: "Haiti" },
+  "HU": { continentCode: "EU", name: "Hungary" },
+  "ID": { continentCode: "AS", name: "Indonesia" },
+  "IE": { continentCode: "EU", name: "Ireland" },
+  "IL": { continentCode: "AS", name: "Israel" },
+  "IM": { continentCode: "EU", name: "Isle of Man" },
+  "IN": { continentCode: "AS", name: "India" },
+  "IO": { continentCode: "AS", name: "British Indian Ocean Territory" },
+  "IQ": { continentCode: "AS", name: "Iraq" },
+  "IR": { continentCode: "AS", name: "Iran (Islamic Republic of)" },
+  "IS": { continentCode: "EU", name: "Iceland" },
+  "IT": { continentCode: "EU", name: "Italy" },
+  "JE": { continentCode: "EU", name: "Jersey" },
+  "JM": { continentCode: "NA", name: "Jamaica" },
+  "JO": { continentCode: "AS", name: "Jordan" },
+  "JP": { continentCode: "AS", name: "Japan" },
+  "KE": { continentCode: "AF", name: "Kenya" },
+  "KG": { continentCode: "AS", name: "Kyrgyzstan" },
+  "KH": { continentCode: "AS", name: "Cambodia" },
+  "KI": { continentCode: "OC", name: "Kiribati" },
+  "KM": { continentCode: "AF", name: "Comoros" },
+  "KN": { continentCode: "NA", name: "Saint Kitts and Nevis" },
+  "KP": { continentCode: "AS", name: "Korea (Democratic People's Republic of)" },
+  "KR": { continentCode: "AS", name: "Korea (Republic of)" },
+  "KW": { continentCode: "AS", name: "Kuwait" },
+  "KY": { continentCode: "NA", name: "Cayman Islands" },
+  "KZ": { continentCode: "AS", name: "Kazakhstan" },
+  "LA": { continentCode: "AS", name: "Lao People's Democratic Republic" },
+  "LB": { continentCode: "AS", name: "Lebanon" },
+  "LC": { continentCode: "NA", name: "Saint Lucia" },
+  "LI": { continentCode: "EU", name: "Liechtenstein" },
+  "LK": { continentCode: "AS", name: "Sri Lanka" },
+  "LR": { continentCode: "AF", name: "Liberia" },
+  "LS": { continentCode: "AF", name: "Lesotho" },
+  "LT": { continentCode: "EU", name: "Lithuania" },
+  "LU": { continentCode: "EU", name: "Luxembourg" },
+  "LV": { continentCode: "EU", name: "Latvia" },
+  "LY": { continentCode: "AF", name: "Libya" },
+  "MA": { continentCode: "AF", name: "Morocco" },
+  "MC": { continentCode: "EU", name: "Monaco" },
+  "MD": { continentCode: "EU", name: "Moldova (Republic of)" },
+  "ME": { continentCode: "EU", name: "Montenegro" },
+  "MF": { continentCode: "NA", name: "Saint Martin (French part)" },
+  "MG": { continentCode: "AF", name: "Madagascar" },
+  "MH": { continentCode: "OC", name: "Marshall Islands" },
+  "MK": { continentCode: "EU", name: "Macedonia (the former Yugoslav Republic of)" },
+  "ML": { continentCode: "AF", name: "Mali" },
+  "MM": { continentCode: "AS", name: "Myanmar" },
+  "MN": { continentCode: "AS", name: "Mongolia" },
+  "MO": { continentCode: "AS", name: "Macao" },
+  "MP": { continentCode: "OC", name: "Northern Mariana Islands" },
+  "MQ": { continentCode: "NA", name: "Martinique" },
+  "MR": { continentCode: "AF", name: "Mauritania" },
+  "MS": { continentCode: "NA", name: "Montserrat" },
+  "MT": { continentCode: "EU", name: "Malta" },
+  "MU": { continentCode: "AF", name: "Mauritius" },
+  "MV": { continentCode: "AS", name: "Maldives" },
+  "MW": { continentCode: "AF", name: "Malawi" },
+  "MX": { continentCode: "NA", name: "Mexico" },
+  "MY": { continentCode: "AS", name: "Malaysia" },
+  "MZ": { continentCode: "AF", name: "Mozambique" },
+  "NA": { continentCode: "AF", name: "Namibia" },
+  "NC": { continentCode: "OC", name: "New Caledonia" },
+  "NE": { continentCode: "AF", name: "Niger" },
+  "NF": { continentCode: "OC", name: "Norfolk Island" },
+  "NG": { continentCode: "AF", name: "Nigeria" },
+  "NI": { continentCode: "NA", name: "Nicaragua" },
+  "NL": { continentCode: "EU", name: "Netherlands" },
+  "NO": { continentCode: "EU", name: "Norway" },
+  "NP": { continentCode: "AS", name: "Nepal" },
+  "NR": { continentCode: "OC", name: "Nauru" },
+  "NU": { continentCode: "OC", name: "Niue" },
+  "NZ": { continentCode: "OC", name: "New Zealand" },
+  "OM": { continentCode: "AS", name: "Oman" },
+  "PA": { continentCode: "NA", name: "Panama" },
+  "PE": { continentCode: "SA", name: "Peru" },
+  "PF": { continentCode: "OC", name: "French Polynesia" },
+  "PG": { continentCode: "OC", name: "Papua New Guinea" },
+  "PH": { continentCode: "OC", name: "Philippines" },
+  "PK": { continentCode: "AS", name: "Pakistan" },
+  "PL": { continentCode: "EU", name: "Poland" },
+  "PM": { continentCode: "NA", name: "Saint Pierre and Miquelon" },
+  "PN": { continentCode: "OC", name: "Pitcairn" },
+  "PR": { continentCode: "NA", name: "Puerto Rico" },
+  "PS": { continentCode: "AS", name: "Palestine, State of" },
+  "PT": { continentCode: "EU", name: "Portugal" },
+  "PW": { continentCode: "OC", name: "Palau" },
+  "PY": { continentCode: "SA", name: "Paraguay" },
+  "QA": { continentCode: "AS", name: "Qatar" },
+  "RE": { continentCode: "AF", name: "Réunion" },
+  "RO": { continentCode: "EU", name: "Romania" },
+  "RS": { continentCode: "EU", name: "Serbia" },
+  "RU": { continentCode: "AS", name: "Russian Federation" },
+  "RW": { continentCode: "AF", name: "Rwanda" },
+  "SA": { continentCode: "AS", name: "Saudi Arabia" },
+  "SB": { continentCode: "OC", name: "Solomon Islands" },
+  "SC": { continentCode: "NA", name: "Seychelles" },
+  "SD": { continentCode: "AF", name: "Sudan" },
+  "SE": { continentCode: "EU", name: "Sweden" },
+  "SG": { continentCode: "AS", name: "Singapore" },
+  "SH": { continentCode: "AF", name: "Saint Helena, Ascension and Tristan da Cunha" },
+  "SI": { continentCode: "EU", name: "Slovenia" },
+  "SJ": { continentCode: "EU", name: "Svalbard and Jan Mayen" },
+  "SK": { continentCode: "EU", name: "Slovakia" },
+  "SL": { continentCode: "AF", name: "Sierra Leone" },
+  "SM": { continentCode: "EU", name: "San Marino" },
+  "SN": { continentCode: "AF", name: "Senegal" },
+  "SO": { continentCode: "AF", name: "Somalia" },
+  "SR": { continentCode: "SA", name: "Suriname" },
+  "SS": { continentCode: "AF", name: "South Sudan" },
+  "ST": { continentCode: "AF", name: "Sao Tome and Principe" },
+  "SV": { continentCode: "NA", name: "El Salvador" },
+  "SX": { continentCode: "NA", name: "Sint Maarten (Dutch part)" },
+  "SY": { continentCode: "AS", name: "Syrian Arab Republic" },
+  "SZ": { continentCode: "AF", name: "Swaziland" },
+  "TC": { continentCode: "NA", name: "Turks and Caicos Islands" },
+  "TD": { continentCode: "AF", name: "Chad" },
+  "TG": { continentCode: "AF", name: "Togo" },
+  "TH": { continentCode: "AS", name: "Thailand" },
+  "TJ": { continentCode: "AS", name: "Tajikistan" },
+  "TK": { continentCode: "OC", name: "Tokelau" },
+  "TL": { continentCode: "OC", name: "Timor-Leste" },
+  "TM": { continentCode: "AS", name: "Turkmenistan" },
+  "TN": { continentCode: "AF", name: "Tunisia" },
+  "TO": { continentCode: "AF", name: "Tonga" },
+  "TR": { continentCode: "EU", name: "Turkey" },
+  "TT": { continentCode: "NA", name: "Trinidad and Tobago" },
+  "TV": { continentCode: "OC", name: "Tuvalu" },
+  "TW": { continentCode: "AS", name: "Taiwan, Province of China[a]" },
+  "TZ": { continentCode: "AF", name: "Tanzania, United Republic of" },
+  "UA": { continentCode: "EU", name: "Ukraine" },
+  "UG": { continentCode: "AF", name: "Uganda" },
+  "UM": { continentCode: "OC", name: "United States Minor Outlying Islands" },
+  "US": { continentCode: "NA", name: "United States of America" },
+  "UY": { continentCode: "SA", name: "Uruguay" },
+  "UZ": { continentCode: "AS", name: "Uzbekistan" },
+  "VA": { continentCode: "EU", name: "Holy See" },
+  "VC": { continentCode: "NA", name: "Saint Vincent and the Grenadines" },
+  "VE": { continentCode: "SA", name: "Venezuela (Bolivarian Republic of)" },
+  "VG": { continentCode: "NA", name: "Virgin Islands (British)" },
+  "VI": { continentCode: "NA", name: "Virgin Islands (U.S.)" },
+  "VN": { continentCode: "AS", name: "Viet Nam" },
+  "VU": { continentCode: "OC", name: "Vanuatu" },
+  "WF": { continentCode: "OC", name: "Wallis and Futuna" },
+  "WS": { continentCode: "OC", name: "Samoa" },
+  "YE": { continentCode: "AF", name: "Yemen" },
+  "YT": { continentCode: "AF", name: "Mayotte" },
+  "ZA": { continentCode: "AF", name: "South Africa" },
+  "ZM": { continentCode: "AF", name: "Zambia" },
+  "ZW": { continentCode: "AF", name: "Zimbabwe" },
+};
+
 export class UserManager implements RestServer, UserSocketHandler, Initializable, NotificationHandler {
   private app: express.Application;
   private urlManager: UrlManager;
   private goLiveDate: number;
   private userCache = LRU<string, UserRecord>({ max: 10000, maxAge: 1000 * 60 * 5 });
+  private ipCache = LRU<string, IpAddressRecord>({ max: 10000, maxAge: 1000 * 60 * 60 });
+
+  private countryCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
+  private regionCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
+
+  private countryRegionsCache = LRU<string, CodeAndName[]>({ max: 10000, maxAge: 1000 * 60 * 60 * 3 });
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -176,6 +442,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     this.app.post(this.urlManager.getDynamicUrl('admin-set-user-curation'), (request: Request, response: Response) => {
       void this.handleAdminSetUserCuration(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('get-geo-descriptors'), (request: Request, response: Response) => {
+      void this.handleGetGeoDescriptors(request, response);
+    });
   }
 
   async handleNotification(notification: ChannelsServerNotification): Promise<void> {
@@ -249,7 +518,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const ipAddress = this.getIpAddressFromRequest(request);
       let ipAddressInfo: IpAddressRecord;
       if (ipAddress && ipAddress.length > 0) {
-        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress);
+        ipAddressInfo = await this.fetchIpAddressInfo(ipAddress, false);
       }
       console.log("UserManager.register-user:", request.headers, ipAddress);
       const isMobile = requestBody.detailsObject.userAgent && requestBody.detailsObject.userAgent.toLowerCase().indexOf('mobi') >= 0;
@@ -310,31 +579,38 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             amount: initialGrant,
             relatedCardId: null,
             relatedCouponId: null,
+            relatedCardCampaignId: null,
             toRecipients: [grantRecipient]
           };
-          await networkEntity.performBankTransaction(request, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
+          await networkEntity.performBankTransaction(request, null, grant, null, "New user grant", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
           userRecord.balance = initialGrant;
-          // if (inviteeReward > 0) {
-          //   const inviteeRewardDetails: BankTransactionDetails = {
-          //     timestamp: null,
-          //     address: null,
-          //     fingerprint: null,
-          //     type: "transfer",
-          //     reason: "invitee-reward",
-          //     amount: inviteeReward,
-          //     relatedCardId: null,
-          //     relatedCouponId: null,
-          //     toRecipients: [grantRecipient]
-          //   };
-          //   await networkEntity.performBankTransaction(request, inviteeRewardDetails, null, true, false, "Invitee reward", userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint, Date.now());
-          //   userRecord.balance += inviteeReward;
-          // }
         }
       }
-      await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent);
-
-      const userStatus = await this.getUserStatus(request, userRecord, true);
+      let referringUserId: string;
+      if (requestBody.detailsObject.landingUrl) {
+        try {
+          const landingUrl = new url.URL(requestBody.detailsObject.landingUrl);
+          const address = landingUrl.searchParams.get('s');
+          if (address) {
+            let referringUser = await db.findUserByAddress(address);
+            if (referringUser) {
+              referringUserId = referringUser.id;
+            } else {
+              referringUser = await db.findUserByHistoricalAddress(address);
+              if (referringUser) {
+                referringUserId = referringUser.id;
+              }
+            }
+          }
+        } catch (err) {
+          errorManager.warning("User.handleRegisterUser: failure processing landingUrl", request, requestBody.detailsObject.landingUrl);
+        }
+      }
+      const registrationRecord = await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent, referringUserId);
+      await db.updateUserSessionId(userRecord.id, registrationRecord.sessionId);
+      const userStatus = await this.getUserStatus(request, userRecord, requestBody.sessionId, true);
       const registerResponse: RegisterUserResponse = {
+        sessionId: registrationRecord.sessionId,
         serverVersion: SERVER_VERSION,
         status: userStatus,
         id: userRecord.id,
@@ -347,7 +623,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         referralFraction: networkEntity.getReferralFraction(),
         withdrawalsEnabled: bank.withdrawalsEnabled,
         depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null,
-        admin: userRecord.admin
+        admin: userRecord.admin,
+        promotionPricing: PROMOTION_PRICING
       };
       response.json(registerResponse);
     } catch (err) {
@@ -369,6 +646,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   getIpAddressFromRequest(request: Request): string {
+    if (!request) {
+      return null;
+    }
+    if (configuration.get('ipOverride')) {
+      return configuration.get('ipOverride');
+    }
     const ipAddressHeader = request.headers['x-forwarded-for'] as string;
     let ipAddress: string;
     if (ipAddressHeader) {
@@ -382,22 +665,79 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return ipAddress;
   }
 
-  private async fetchIpAddressInfo(ipAddress: string): Promise<IpAddressRecord> {
+  async getGeoFromRequest(request: Request, fingerprint: string): Promise<GeoLocation> {
+    const ipAddress = this.getIpAddressFromRequest(request);
+    const ipInfo = await this.fetchIpAddressInfo(ipAddress, false);
+    return this.getGeoLocationFromIpInfo(fingerprint, ipInfo);
+  }
+
+  getGeoLocationFromIpInfo(fingerprint: string, ipInfo: IpAddressRecord): GeoLocation {
+    if (!ipInfo) {
+      return null;
+    }
+    const result: GeoLocation = {
+      ipAddress: ipInfo.ipAddress,
+      fingerprint: fingerprint,
+      continentCode: null,
+      countryCode: null,
+      regionCode: null,
+      city: null,
+      zipCode: null,
+      lat: null,
+      lon: null
+    };
+    if (ipInfo) {
+      if (ipInfo.countryCode) {
+        result.continentCode = this.getContinentCodeFromCountry(ipInfo.countryCode);
+        if (!result.continentCode) {
+          errorManager.error("Missing continent mapping for country code", null, ipInfo);
+        }
+        result.countryCode = ipInfo.countryCode;
+      }
+      result.regionCode = ipInfo.region;
+      result.city = ipInfo.city;
+      result.zipCode = ipInfo.zip;
+      result.lat = ipInfo.lat;
+      result.lon = ipInfo.lon;
+    }
+    return result;
+  }
+
+  private getContinentCodeFromCountry(countryCode: string): string {
+    if (!countryCode) {
+      return null;
+    }
+    const info = infoByCountryCode[countryCode];
+    return info ? info.continentCode : null;
+  }
+
+  async fetchIpAddressInfo(ipAddress: string, force: boolean): Promise<IpAddressRecord> {
+    if (!ipAddress) {
+      return null;
+    }
     if (ipAddress === "::1" || ipAddress === "localhost" || ipAddress === "127.0.0.1") {
       return null;
     }
-    const record = await db.findIpAddress(ipAddress);
+    let record = this.ipCache.get(ipAddress);
+    if (!force && record) {
+      return record;
+    }
+    record = await db.findIpAddress(ipAddress);
     const lifetime = record && record.status === 'success' ? MAX_IP_ADDRESS_LIFETIME : IP_ADDRESS_FAIL_RETRY_INTERVAL;
     if (record && Date.now() - record.lastUpdated < lifetime) {
+      this.ipCache.set(ipAddress, record);
       return record;
     }
     if (configuration.get('ipAddress.geo.enabled')) {
       if (record) {
         // Don't wait for response
         void this.initiateIpAddressUpdate(ipAddress, null);
+        this.ipCache.set(ipAddress, record);
         return record;
       } else {
-        return this.initiateIpAddressUpdate(ipAddress, record);
+        record = await this.initiateIpAddressUpdate(ipAddress, record);
+        this.ipCache.set(ipAddress, record);
+        return record;
       }
     }
   }
@@ -494,7 +834,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         return;
       }
       // console.log("UserManager.status", requestBody.detailsObject.address);
-      const status = await this.getUserStatus(request, user, false);
+      const status = await this.getUserStatus(request, user, requestBody.sessionId, false);
       const result: UserStatusResponse = {
         serverVersion: SERVER_VERSION,
         status: status
@@ -551,10 +891,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       if (!user.identity || !user.identity.handle) {
-        await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
+        await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       }
       await db.updateUserIdentity(user, requestBody.detailsObject.name, Utils.getFirstName(requestBody.detailsObject.name), Utils.getLastName(requestBody.detailsObject.name), requestBody.detailsObject.handle, requestBody.detailsObject.imageId, requestBody.detailsObject.location, requestBody.detailsObject.emailAddress, emailConfirmed, requestBody.detailsObject.encryptedPrivateKey);
-      await channelManager.ensureUserHomeChannel(user);
+      await channelManager.ensureUserHomeChannel(user, requestBody.sessionId);
       if (sendConfirmation) {
         void this.sendEmailConfirmation(user);
       }
@@ -698,7 +1038,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await db.updateUserAddress(user, registeredUser.address, registeredUser.publicKey, requestBody.detailsObject.encryptedPrivateKey ? requestBody.detailsObject.encryptedPrivateKey : registeredUser.encryptedPrivateKey);
       await this.announceUserUpdated(registeredUser);
       await this.announceUserUpdated(user);
-      const status = await this.getUserStatus(request, user, true);
+      const status = await this.getUserStatus(request, user, requestBody.sessionId, true);
       const result: RecoverUserResponse = {
         serverVersion: SERVER_VERSION,
         status: status,
@@ -787,6 +1127,48 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleGetGeoDescriptors(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetGeoDescriptorsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      console.log("UserManager.get-geo-descriptors", user.id, requestBody.detailsObject);
+      const reply: GetGeoDescriptorsResponse = {
+        serverVersion: SERVER_VERSION,
+        continents: null,
+        countriesByContinent: null,
+        regionsByCountry: null
+      };
+      if (requestBody.detailsObject.countryCode) {
+        reply.regionsByCountry = {};
+        reply.regionsByCountry[requestBody.detailsObject.countryCode] = [];
+        const regions = await this.getRegionsByCountry(requestBody.detailsObject.countryCode);
+        for (const region of regions) {
+          reply.regionsByCountry[requestBody.detailsObject.countryCode].push(region);
+        }
+      } else {
+        reply.continents = [];
+        for (const continentCode of Object.keys(continentNameByContinentCode)) {
+          reply.continents.push({ code: continentCode, name: continentNameByContinentCode[continentCode] });
+        }
+        reply.countriesByContinent = {};
+        for (const countryCode of Object.keys(infoByCountryCode)) {
+          const countryInfo = infoByCountryCode[countryCode];
+          if (!reply.countriesByContinent[countryInfo.continentCode]) {
+            reply.countriesByContinent[countryInfo.continentCode] = [];
+          }
+          reply.countriesByContinent[countryInfo.continentCode].push({ code: countryCode, name: countryInfo.name });
+        }
+      }
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetGeoDescriptors: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
@@ -836,10 +1218,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         await this.payRegistrationBonus(request, user, requestBody.detailsObject.fingerprint);
       }
       await this.announceUserUpdated(user);
+      const status = await this.getUserStatus(request, user, requestBody.sessionId, true);
       const reply: ConfirmEmailResponse = {
         serverVersion: SERVER_VERSION,
         userId: user.id,
-        handle: user.identity.handle
+        handle: user.identity.handle,
+        status: status
       };
       response.json(reply);
     } catch (err) {
@@ -866,9 +1250,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       amount: REGISTRATION_BONUS,
       relatedCardId: null,
       relatedCouponId: null,
+      relatedCardCampaignId: null,
       toRecipients: [grantRecipient]
     };
-    await networkEntity.performBankTransaction(request, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
+    await networkEntity.performBankTransaction(request, null, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
     user.balance += REGISTRATION_BONUS;
     console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
@@ -996,7 +1381,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
         const todayPaidOpens = await this.countUserPaidOpens(user, yesterday, Date.now());
         if (todayPaidOpens) {
-          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+          await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, todayPaidOpens, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
       }
       if (requestBody.detailsObject.curation === 'blocked') {
@@ -1072,9 +1457,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  async getUserStatus(request: Request, user: UserRecord, updateBalance: boolean): Promise<UserStatus> {
+  async getUserStatus(request: Request, user: UserRecord, sessionId: string, updateBalance: boolean): Promise<UserStatus> {
     if (updateBalance) {
-      await this.updateUserBalance(request, user);
+      await this.updateUserBalance(request, user, sessionId);
     }
     const network = await db.getNetwork();
     let timeUntilNextAllowedWithdrawal = 0;
@@ -1134,11 +1519,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const now = Date.now();
     const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
     for (const user of users) {
-      await this.updateUserBalance(null, user);
+      await this.updateUserBalance(null, user, null);
     }
   }
 
-  async updateUserBalance(request: Request, user: UserRecord): Promise<void> {
+  async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {
     const now = Date.now();
     let subsidy = 0;
     let balanceBelowTarget = false;
@@ -1165,9 +1550,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: subsidy,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [subsidyRecipient]
         };
-        await networkEntity.performBankTransaction(request, subsidyDetails, null, "User subsidy", null, null, Date.now());
+        await networkEntity.performBankTransaction(request, sessionId, subsidyDetails, null, "User subsidy", null, null, Date.now());
         await priceRegulator.onUserSubsidyPaid(subsidy);
       }
     }
@@ -1188,9 +1574,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           amount: interest,
           relatedCardId: null,
           relatedCouponId: null,
+          relatedCardCampaignId: null,
           toRecipients: [interestRecipient]
         };
-        await networkEntity.performBankTransaction(request, grant, null, "Interest", null, null, now);
+        await networkEntity.performBankTransaction(request, sessionId, grant, null, "Interest", null, null, now);
       }
     }
   }
@@ -1274,6 +1661,73 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     await db.updateUserCuration(user.id, "blocked");
     await db.updateCardsBlockedByAuthor(user.id, true);
     await this.announceUserUpdated(user);
+  }
+
+  async getGeoTargetDescriptors(targets: string[]): Promise<GeoTargetDescriptor[]> {
+    const result: GeoTargetDescriptor[] = [];
+    if (targets) {
+      for (const target of targets) {
+        const parts = target.split('.');
+        const item: GeoTargetDescriptor = {
+          continentCode: null,
+          continentName: null,
+        };
+        if (parts.length > 0) {
+          item.continentCode = parts[0];
+          item.continentName = continentNameByContinentCode[item.continentCode];
+        }
+        if (parts.length > 1) {
+          const subparts = parts[1].split(/[\.\:]/);
+          item.countryCode = subparts[0];
+          const info = infoByCountryCode[item.countryCode];
+          if (info) {
+            item.countryName = info.name;
+          }
+          if (subparts.length > 1) {
+            if (parts[1].indexOf(':') >= 0) {
+              item.zipCode = subparts[1];
+            } else {
+              item.regionCode = subparts[1];
+              item.regionName = await this.getRegionNameByCode(item.countryCode, item.regionCode);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  private async getRegionsByCountry(countryCode: string): Promise<CodeAndName[]> {
+    let result = this.countryRegionsCache.get(countryCode);
+    if (!result) {
+      result = [];
+      const regionCodes = await db.findIpAddressDistinctRegions(countryCode);
+      for (const regionCode of regionCodes) {
+        if (regionCode) {
+          const record = await db.findIpAddressRegionCode(countryCode, regionCode);
+          if (record) {
+            result.push({ code: regionCode, name: record.regionName });
+          }
+        }
+      }
+      this.countryRegionsCache.set(countryCode, result);
+    }
+    return result;
+  }
+
+  private async getRegionNameByCode(countryCode: string, regionCode: string): Promise<string> {
+    const key = countryCode + "." + regionCode;
+    const result = this.countryCache.get(key);
+    if (result) {
+      return result;
+    }
+    const ipInfo = await db.findIpAddressRegionCode(countryCode, regionCode);
+    if (ipInfo) {
+      this.regionCache.set(key, ipInfo.regionName);
+      return ipInfo.regionName;
+    } else {
+      return null;
+    }
   }
 }
 
@@ -1734,4 +2188,9 @@ interface IpApiResponse {
   "as": string;
   query: string;
   message: string;
+}
+
+interface CountryInfo {
+  continentCode: string;
+  name: string;
 }

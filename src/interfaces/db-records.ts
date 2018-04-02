@@ -4,6 +4,7 @@ import { SignedObject } from "./signed-object";
 
 export interface UserRecord {
   id: string;
+  sessionId: string;
   type: UserAccountType;
   address: string;
   publicKey: string;
@@ -116,6 +117,7 @@ export interface NetworkRecord {
 
 export interface CardRecord {
   id: string;
+  sessionId: string;
   state: CardActiveState;
   postedAt: number;
   createdById: string;
@@ -146,15 +148,12 @@ export interface CardRecord {
     royaltyFraction: number;
   };
   pricing: {
-    promotionFee: number;
-    openPayment: number; // in ChannelCoin
+    promotionFee?: number; // obsolete
+    openPayment?: number; //  obsolete
     openFeeUnits: number; // 1 - 10
   };
-  coupon?: SignedObject; // obsolete
-  couponId?: string; // obsolete
-  coupons: SignedObject[];
-  couponIds: string[];
-  budget: {
+  couponIds?: string[];  // obsolete
+  budget?: {  // obsolete
     amount: number;
     plusPercent: number;
     spent: number;
@@ -163,7 +162,6 @@ export interface CardRecord {
   stats: CardStatistics;
   score: number;
   lastScored: number;
-  promotionScores: CardPromotionScores;
   lock: {
     server: string;
     at: number;
@@ -173,6 +171,7 @@ export interface CardRecord {
     boost?: number;
     promotionBoost?: number;
     boostAt?: number;
+    reported?: boolean;
     overrideReports?: boolean;
   };
   searchText: string;
@@ -384,6 +383,7 @@ export interface BowerManagementRecord {
 }
 export interface BankTransactionRecord {
   id: string;
+  sessionId: string;
   at: number;
   originatorUserId: string;
   participantUserIds: string[];
@@ -415,9 +415,11 @@ export type BankTransactionRefundReason = "user-card-report";
 
 export interface UserCardActionRecord {
   id: string;
+  sessionId: string;
   userId: string;
-  fromIpAddress: string;
-  fromFingerprint: string;
+  fromIpAddress?: string; // obsolete, now part of geo
+  fromFingerprint?: string; // obsolete, now part of geo
+  referringUserId: string;
   cardId: string;
   authorId: string;
   at: number;
@@ -428,16 +430,26 @@ export interface UserCardActionRecord {
   redeemPromotion?: {
     amount: number;
     transactionId: string;
+    cardCampaignId: string;
+  };
+  redeemAdImpression?: {
+    amount: number;
+    transactionId: string;
+    cardCampaignId: string;
   };
   redeemOpen?: {
     amount: number;
+    netAmount: number;  // after advertiser subsidy
     transactionId: string;
+    cardCampaignId: string;
   };
+  geo: GeoLocation;
 }
 
 export interface UserCardActionPaymentInfo {
   amount: number;
   transactionId: string;
+  cardCampaignId: string;
   category: CardPaymentCategory;
   weight: number;
   weightedRevenue: number;
@@ -454,13 +466,14 @@ export interface UserCardActionReportInfo {
 
 export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
 
-export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
+export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-ad-impression" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
 
 export interface UserCardInfoRecord {
   userId: string;
   cardId: string;
   created: number;
+  impressions: number;
   lastImpression: number;
   lastOpened: number;
   lastClicked: number;
@@ -474,12 +487,14 @@ export interface UserCardInfoRecord {
   transactionIds: string[];
   like: CardLikeState;
   commentNotificationPending?: boolean;
+  referredPurchases: number;
 }
 
 export type CardLikeState = "none" | "like" | "dislike";
 
 export interface BankCouponRecord {
   id: string;
+  sessionId: string;
   signedObject: SignedObject;
   byUserId: string;
   byAddress: string;
@@ -494,7 +509,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy" | "impression-ad";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
@@ -507,6 +522,7 @@ export interface BankCouponDetails extends Signable {
 
 export interface ManualWithdrawalRecord {
   id: string;
+  sessionId: string;
   userId: string;
   transactionId: string;
   state: ManualWithdrawalState;
@@ -578,7 +594,13 @@ export interface NetworkCardStats {
   purchases: number;
   cards: number;
   cardPayments: number;
-
+  advertisers: number;
+  adCardsOpenOrClick: number;
+  adCardsImpression: number;
+  adPaidOpenOrClicks: number;
+  adPaidImpressions: number;
+  adImpressionRedemptions: number;
+  adOpenOrClickRedemptions: number;
 }
 
 export interface IpAddressRecord {
@@ -607,6 +629,7 @@ export type IpAddressStatus = "success" | "fail";
 
 export interface ChannelRecord {
   id: string;
+  sessionId: string;
   state: ChannelStatus;
   name: string;
   handle: string;
@@ -643,6 +666,7 @@ export type SocialNetwork = "Facebook" | "Twitter" | "Instagram" | "Snapchat" | 
 export interface ChannelUserRecord {
   channelId: string;
   userId: string;
+  sessionId: string;
   added: number;
   lastCardPosted: number;
   subscriptionState: ChannelSubscriptionState;
@@ -657,6 +681,7 @@ export type ChannelSubscriptionState = "subscribed" | "unsubscribed" | "blocked"
 export interface ChannelCardRecord {
   channelId: string;
   cardId: string;
+  sessionId: string;
   state: ChannelCardState;
   cardPostedAt: number;
   added: number;
@@ -668,6 +693,7 @@ export interface ChannelCardRecord {
 export type ChannelCardState = "active" | "inactive";
 
 export interface UserRegistrationRecord {
+  sessionId: string;
   userId: string;
   at: number;
   ipAddress: string;
@@ -677,6 +703,7 @@ export interface UserRegistrationRecord {
   referrer: string;
   landingPage: string;
   userAgent: string;
+  referringUserId: string;
 }
 
 export interface ChannelKeywordRecord {
@@ -688,10 +715,12 @@ export interface ChannelKeywordRecord {
 
 export interface AdSlotRecord {
   id: string;
+  sessionId: string;
   userId: string;
   userBalance: number;
   channelId: string;
   cardId: string;
+  cardCampaignId: string;
   created: number;
   authorId: string;
   type: AdSlotType;
@@ -699,6 +728,20 @@ export interface AdSlotRecord {
   redeemed: boolean;
   statusChanged: number;
   amount: number;
+  userGeo: GeoLocation;
+  geoTargets: string[];
+}
+
+export interface GeoLocation {
+  fingerprint: string;
+  ipAddress: string;
+  continentCode: string;
+  countryCode: string;
+  regionCode: string;
+  city: string;
+  zipCode: string;
+  lat: number;
+  lon: number;
 }
 
 export type AdSlotType = "impression-ad" | "impression-content" | "open-payment" | "click-payment" | "announcement";
@@ -707,6 +750,7 @@ export type AdSlotStatus = "pending" | "impression" | "opened" | "open-paid" | "
 
 export interface CardCommentRecord {
   id: string;
+  sessionId: string;
   at: number;
   cardId: string;
   byId: string;
@@ -732,6 +776,7 @@ export type CardCommentFieldType = "hyperlink" | "handle";
 
 export interface DepositRecord {
   id: string;
+  sessionId: string;
   at: number;
   receivedBy: string;
   status: DepositStatus;
@@ -745,3 +790,88 @@ export interface DepositRecord {
 }
 
 export type DepositStatus = "pending" | "completed";
+
+export interface CardCampaignRecord {
+  id: string;
+  sessionId: string;
+  created: number;
+  createdById: string;
+  status: CardCampaignStatus;
+  eligibleAfter: number;
+  couponId: string;
+  cardIds: string[];
+  type: CardCampaignType;
+  paymentAmount: number;
+  advertiserSubsidy: number;
+  budget: CardCampaignBudget;
+  ends: number;  // date
+  geoTargets: string[];  // AS, NA.US, EU.UK, NA.US.CA, NA.US.94306, etc.
+  stats: CardCampaignStats;
+  lastStatsSnapshot: number;
+}
+
+export interface CardCampaignStats {
+  impressions: number;
+  opens: number;
+  clicks: number;
+  redemptions: number;
+  expenses: number;
+}
+
+export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted";
+
+export interface CardCampaignBudget {
+  promotionTotal: number; // content-promotion only
+  plusPercent: number;  // content-promotion only
+  maxPerDay: number;  // ad types only
+}
+
+export type CardCampaignType = "content-promotion" | "impression-ad" | "pay-to-open" | "pay-to-click";
+
+export interface CardCampaignStatsSnapshotRecord {
+  campaignId: string;
+  at: number;
+  stats: CardCampaignStats;
+}
+
+export interface ShortUrlRecord {
+  at: number;
+  byId: string;
+  sessionId: string;
+  code: string;
+  originalUrl: string;
+}
+
+export interface AuthorUserRecord {
+  authorId: string;
+  userId: string;
+  stats: AuthorUserStats;
+  isCurrent: boolean;
+  periodStarting: number;
+}
+
+export interface AuthorUserStats {
+  likes: number;
+  dislikes: number;
+  purchases: number;
+  referredCards: number;
+  referredPurchases: number;
+}
+
+export interface UserStatsRecord {
+  userId: string;
+  stats: UserStats;
+  isCurrent: boolean;
+  periodStarting: number;
+}
+
+export interface UserStats {
+  cardsSold: number;
+  distinctPurchasers: number;
+  cardsPurchased: number;
+  distinctVendors: number;
+  cardsReferred: number;
+  vendorsReferred: number;
+  purchasesReferred: number;
+  cardsLiked: number;
+}

@@ -111,6 +111,7 @@ class CoreService extends Polymer.Element {
     let json = JSON.stringify(details);
     let signature = this._sign(json);
     return {
+      sessionId: this.sessionId,
       version: 1,
       details: json,
       signature: signature
@@ -424,17 +425,39 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, keywords, searchText, fileIds, initialState) {
-    let coupon;
-    if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (linkURL ? "card-click-payment" : "card-open-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
+  getUserCardAnalytics(cardId, maxCount, after) {  // cardId is optional, after is a timestamp for paging (do not pass in on first call)
+    let details = RestUtils.getUserCardAnalytics(this._keys.address, this._fingerprint, cardId, maxCount, after);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-user-card-analytics";
+    return this.rest.post(url, request);
+  }
+
+  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
+    if (campaignInfo) {
+      let reason;
+      switch (campaignInfo.type) {
+        case "content-promotion":
+          reason = "card-promotion";
+          break;
+        case "impression-ad":
+          reason = "impression-ad";
+          break;
+        case "pay-to-open":
+          reason = "card-open-payment";
+          break;
+        case "pay-to-click":
+          reason = "card-click-payment";
+          break;
+      }
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, this.getPromotionPriceByType(campaignInfo.type), campaignInfo.budget.maxPerDay || campaignInfo.budget.promotionTotal, campaignInfo.budget.plusPercent || 0);
       const couponDetailsString = JSON.stringify(couponDetails);
-      coupon = {
+      const coupon = {
         objectString: couponDetailsString,
         signature: this._sign(couponDetailsString)
       }
+      campaignInfo.coupon = coupon;
     }
-    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, coupon, keywords, searchText, fileIds, initialState);
+    let details = RestUtils.postCardDetails(this._keys.address, this._fingerprint, imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo);
     let request = this._createRequest(details);
     const url = this.restBase + "/post-card";
     return this.rest.post(url, request);
@@ -457,26 +480,19 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateCardPricing(cardId, promotionFee, openPayment, openFeeUnits, budgetAmount, budgetPlusPercent, isClickBased) {
-    let coupon;
-    if (promotionFee + openPayment > 0) {
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, promotionFee ? "card-promotion" : (isClickBased ? "card-open-payment" : "card-click-payment"), promotionFee + openPayment, budgetAmount, budgetPlusPercent);
-      const couponDetailsString = JSON.stringify(couponDetails);
-      coupon = {
-        objectString: couponDetailsString,
-        signature: this._sign(couponDetailsString)
-      }
-    }
-    const details = RestUtils.updateCardState(this._keys.address, this._fingerprint, cardId, RestUtils.cardPricing(promotionFee, openPayment, openFeeUntis, budgetAmount, budgetPlusPercent, coupon));
+  updateCardPricing(cardId, openFeeUnits) {
+    const details = RestUtils.updateCardPricing(this._keys.address, this._fingerprint, cardId, openFeeUnits);
+    let request = this._createRequest(details);
     const url = this.restBase + "/card-pricing-update";
     return this.rest.post(url, request);
   }
 
-  cardImpression(cardId, adSlotId, couponId, amount, authorAddress) {
+  cardImpression(cardId, adSlotId, couponId, amount, authorAddress, campaign) {
     let details;
     if (couponId) {
       const recipient = RestUtils.bankTransactionRecipient(this._keys.address, "remainder", "coupon-redemption");
-      const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", "card-promotion", cardId, couponId, amount, [recipient]);
+      let reason = (campaign && campaign.type) === 'impression-ad' ? 'impression-ad' : "card-promotion";
+      const transaction = RestUtils.bankTransaction(authorAddress, this._fingerprint, "coupon-redemption", reason, cardId, couponId, amount, [recipient]);
       const transactionString = JSON.stringify(transaction);
       const transactionSignature = this._sign(transactionString);
       details = RestUtils.cardImpressionDetails(this._keys.address, this._fingerprint, cardId, adSlotId, transactionString, transactionSignature);
@@ -713,8 +729,9 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.confirmEmailDetails(this._keys.address, this._fingerprint, code);
     let request = this._createRequest(details);
     const url = this.restBase + "/confirm-email";
-    return this.rest.post(url, request).then(() => {
-      return this.getUserProfile();
+    return this.rest.post(url, request).then((response) => {
+      this._userStatus = response.status;
+      this._fire("channels-user-status", this._userStatus);
     });
   }
 
@@ -787,6 +804,50 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.getChannelSubscribers(this._keys.address, this._fingerprint, channelId, maxCount, afterSubscriberId);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-channel-subscribers";
+    return this.rest.post(url, request);
+  }
+
+  getCardCampaigns(maxCount, afterCampaignId) {
+    let details = RestUtils.getCardCampaigns(this._keys.address, this._fingerprint, maxCount, afterCampaignId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-card-campaigns";
+    return this.rest.post(url, request);
+  }
+
+  getGeoDescriptors(countryCode) {
+    let details = RestUtils.getGeoDescriptors(this._keys.address, this._fingerprint, countryCode);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-geo-descriptors";
+    return this.rest.post(url, request);
+  }
+
+  getAvailableAdSlots(geoTargets) {
+    let details = RestUtils.getAvailableAdSlots(this._keys.address, this._fingerprint, geoTargets);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-available-ad-slots";
+    return this.rest.post(url, request);
+  }
+
+  updateCardCampaign(campaignId, campaignInfo) {
+    let details = RestUtils.updateCardCampaign(this._keys.address, this._fingerprint, campaignId, campaignInfo);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-card-campaign";
+    return this.rest.post(url, request);
+  }
+
+  shortenUrl(originalUrl) {
+    let details = RestUtils.shortenUrl(this._keys.address, this._fingerprint, originalUrl);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/shorten-url";
+    return this.rest.post(url, request).then((response) => {
+      return response.shortUrl;
+    });
+  }
+
+  getUserStats() {
+    let details = RestUtils.getUserStats(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-user-stats";
     return this.rest.post(url, request);
   }
 
@@ -895,6 +956,28 @@ class CoreService extends Polymer.Element {
 
   get userId() {
     return this._registration ? this._registration.id : null;
+  }
+
+  get sessionId() {
+    return this._registration ? this._registration.sessionId : null;
+  }
+
+  get promotionPricing() {
+    return this._registration ? this._registration.promotionPricing : null;
+  }
+
+  getPromotionPriceByType(type) {
+    switch (type) {
+      case "content-promotion":
+        return this.promotionPricing.contentImpression;
+      case "impression-ad":
+        return this.promotionPricing.adImpression;
+      case "pay-to-open":
+        return this.promotionPricing.payToOpen;
+      case "pay-to-click":
+        return this.promotionPricing.payToClick;
+    }
+    return 0;
   }
 
   get balance() {
@@ -1113,6 +1196,7 @@ class CoreService extends Polymer.Element {
     const result = {};
     result.ar = "Arabic";
     result.hy = "Armenian";
+    result.bg = "Bulgarian";
     result.zh = "Chinese";
     result.cs = "Czech";
     result.da = "Danish";

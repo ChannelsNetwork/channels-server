@@ -20,7 +20,6 @@ import { feedManager } from "./feed-manager";
 import { cardManager } from "./card-manager";
 import { fileManager } from "./file-manager";
 import { rootPageManager } from "./root-page-manager";
-import { testClient } from "./testing/test-client";
 import { awsManager } from "./aws-manager";
 import { Initializable } from "./interfaces/initializable";
 import { ExpressWithSockets, SocketConnectionHandler } from "./interfaces/express-with-sockets";
@@ -48,7 +47,7 @@ class ChannelsNetworkWebClient {
   private initializables: Initializable[] = [networkEntity, awsManager, cardManager, feedManager, priceRegulator, userManager, bank, emailManager, rootPageManager, channelManager];
 
   // DO NOT INCLUDE rootPageHandler in restServers. It is added after adding the static handler
-  private restServers: RestServer[] = [userManager, testClient, fileManager, awsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager, channelManager, errorManager];
+  private restServers: RestServer[] = [userManager, fileManager, awsManager, mediumManager, channelsComponentManager, cardManager, feedManager, bank, depositPageHandler, searchManager, clientServices, adminManager, channelManager, errorManager];
   private socketServers: SocketConnectionHandler[] = [socketServer];
   private urlManager: UrlManager;
   private wsapp: ExpressWithSockets;
@@ -168,6 +167,7 @@ class ChannelsNetworkWebClient {
     for (const restServer of this.restServers) {
       await restServer.initializeRestServices(this.urlManager, this.app);
     }
+    await this.urlManager.initializeRestServices(this.urlManager, this.app);
 
     this.app.use('/s', express.static(path.join(__dirname, "../static"), { maxAge: 1000 * 60 * 60 * 24 }));
     if (configuration.get('client.ssl')) {

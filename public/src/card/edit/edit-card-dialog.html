@@ -3,6 +3,7 @@
 <link rel="import" href="../../controls/lang-select.html">
 <link rel="import" href="../../../bower_components/soso-text-input/soso-text-input.html">
 <link rel="import" href="../../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="../../../bower_components/soso-slider/soso-slider.html">
 
 <dom-module id="edit-card-dialog">
   <template>
@@ -48,6 +49,22 @@
         color: var(--dark-green);
         margin-right: 10px;
       }
+
+      soso-slider {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #pricePanel {
+        margin-bottom: 30px;
+      }
+
+      .caption {
+        font-size: 14px;
+        color: #777;
+        letter-spacing: 0.05em;
+        margin-top: 5px;
+      }
     </style>
     <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
       <h3>Edit Card</h3>
@@ -57,10 +74,22 @@
       </div>
       <soso-text-input id="title" label="Title" placeholder="Title"></soso-text-input>
       <soso-text-input id="text" label="Subtitle" placeholder="Subtitle"></soso-text-input>
-      <soso-text-input id="keywords" label="Up to 5 keywords" placeholder="Keywords"></soso-text-input>
+      <soso-text-input id="keywords" placeholder="Up to 5 keywords" label="Keywords"></soso-text-input>
+      <div id="linkPanel" class="hidden">
+        <soso-text-input id="link" label="Link" placeholder="URL to external site"></soso-text-input>
+      </div>
       <div class="languageSelection">
         <span class="languageLabel">Language:</span>
         <lang-select id="languageSelect"></lang-select>
+      </div>
+      <div id="pricePanel" class="hidden">
+        <label class="languageLabel">Price level</label>
+        <div>
+          <soso-slider label id="earnPrice" min="1" max="5" value="1" step="1" on-input="_onEarnPriceChange"></soso-slider>
+        </div>
+        <div class="caption">Currently
+          <span>[[earnEstimate]]</span>
+        </div>
       </div>
       <soso-checkbox id="private" label="Keep this card private"></soso-checkbox>
     </dialog-view>
@@ -71,7 +100,8 @@
       static get properties() {
         return {
           _buttons: Array,
-          iconMap: Object
+          iconMap: Object,
+          earnEstimate: String
         };
       }
 
@@ -109,10 +139,23 @@
         this.$.filePicker.clear();
         this.$.title.value = card.summary.title || "";
         this.$.text.value = card.summary.text || "";
+        this.$.link.value = card.summary.linkUrl || "";
         this.$.keywords.value = card.keywords ? card.keywords.join(', ') : '';
         this.$.private.checked = card.private || false;
         this.$.filePicker.image = card.summary.imageURL;
         this.$.languageSelect.selection = card.summary.langCode || 'en';
+        if (card.pricing && card.pricing.openFee) {
+          this.$.pricePanel.classList.remove("hidden");
+          this.$.earnPrice.value = card.pricing.openFeeUnits || 1;
+          this._onEarnPriceChange();
+        } else {
+          this.$.pricePanel.classList.add("hidden");
+        }
+        if (card.summary.linkUrl) {
+          this.$.linkPanel.classList.remove("hidden");
+        } else {
+          this.$.linkPanel.classList.add("hidden");
+        }
         return this.$.dlg.show();
       }
 
@@ -134,32 +177,65 @@
         }
       }
 
+      _validate() {
+        if (this._card && this._card.summary.linkUrl) {
+          let newLink = this.$.link.value.trim();
+          if (!newLink) {
+            return "Link (URL to external site) cannot be empty.";
+          }
+          const validUrl = /^https?\:\/\/\S+$/i.test(this.$.link.value.trim());
+          if (!validUrl) {
+            return "Invalid URL.  Must start with http:// or https://";
+          }
+        }
+        return null;
+      }
+
       _doSave() {
+        const validationError = this._validate();
+        if (validationError) {
+          this.$.dlg.showError(validationError);
+          return;
+        }
         let file = this.$.filePicker.file;
         if (file) {
           this.$.dlg.showProgress("Uploading image");
           $core.uploadImageFile(file, null, 500).then((fileInfo) => {
-            return this._updateCard(fileInfo.fileId, fileInfo.url).then(() => {
-              return this._onCardUpdate();
-            });
+            this._updateCard(fileInfo.fileId, fileInfo.url);
           }).catch((err) => {
             console.error(err);
             this.$.dlg.showError(err.message || err || "Oops. Something went wrong.");
           });
         } else {
-          this._updateCard(null).then(() => {
-            return this._onCardUpdate();
-          });
+          this._updateCard(null);
         }
       }
 
-      _onCardUpdate() {
-        return this._updateCardPrivacy().then(() => {
-          $dialogs.hide(this);
-          if (this._summary) {
-            this._summary.private = this.$.private.checked;
-            this.dispatchEvent(new CustomEvent('summary-updated', { bubbles: true, composed: true, detail: { summary: this._summary } }));
+      _updateCard(imageId, imageURL) {
+        return this._updateCardSummary(imageId, imageURL).then(() => {
+          return this._updateCardPrivacy().then(() => {
+            return this._updateCardPricing().then(() => {
+              $dialogs.hide(this);
+              if (this._summary) {
+                this._summary.private = this.$.private.checked;
+                this.dispatchEvent(new CustomEvent('summary-updated', { bubbles: true, composed: true, detail: { summary: this._summary } }));
+              }
+            });
+          });
+        });
+      }
+
+      _updateCardPricing() {
+        if (this._card.pricing && this._card.pricing.openFee) {
+          let oldPrice = this._card.pricing.openFeeUnits || 1;
+          let newPrice = this.$.earnPrice.value;
+          if (newPrice != oldPrice) {
+            this._card.pricing.openFeeUnits = newPrice;
+            return $core.updateCardPricing(this._card.id, newPrice);
           }
+        }
+        return new Promise(resolve => {
+          resolve();
         });
       }
 
@@ -174,7 +250,7 @@
         });
       }
 
-      _updateCard(imageId, imageURL) {
+      _updateCardSummary(imageId, imageURL) {
         this.$.dlg.showProgress("Saving");
         let imgId = this._card.summary.imageId;
         let imgURL = this._card.summary.imageURL;
@@ -186,7 +262,11 @@
           imgURL = null;
         }
         let keywords = this._getKeywords();
-        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.selection || 'en', null, imgId, imgURL, keywords).then((summary) => {
+        let linkUrl = null;
+        if (this._card && this._card.summary.linkUrl) {
+          linkUrl = this.$.link.value.trim() || this._card.summary.linkUrl;
+        }
+        return $core.updateCardSummary(this._card.id, this.$.title.value.trim(), this.$.text.value.trim(), this.$.languageSelect.selection || 'en', linkUrl, imgId, imgURL, keywords).then((summary) => {
           this._summary = summary;
           this._summary.keywords = keywords;
         });
@@ -214,22 +294,10 @@
         return keywords;
       }
 
-      // _getImageSize(imageUrl) {
-      //   return new Promise((resolve, reject) => {
-      //     if (imageUrl) {
-      //       let img = new Image();
-      //       img.addEventListener('load', () => {
-      //         resolve([img.width, img.height]);
-      //       });
-      //       img.addEventListener('error', () => {
-      //         resolve(null);
-      //       });
-      //       img.src = imageUrl;
-      //     } else {
-      //       resolve(null);
-      //     }
-      //   });
-      // }
+      _onEarnPriceChange() {
+        let value = this.$.earnPrice.immediateValue || 1;
+        this.earnEstimate = "ℂ" + ($core.baseCardPrice * value).toFixed(2);
+      }
     }
     window.customElements.define(EditCardDialog.is, EditCardDialog);
   </script>

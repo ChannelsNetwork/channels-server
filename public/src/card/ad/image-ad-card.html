@@ -262,7 +262,7 @@
             <soso-icon icon="navigation" icon-map="[[iconMap]]"></soso-icon>
           </div>
         </div>
-        <card-header id="cardHeader" data="[[data]]" no-share></card-header>
+        <card-header id="cardHeader" data="[[data]]" no-share on-summary-updated="_onSummaryUpdated"></card-header>
         <soso-tooltip for="price" position="[[priceTipPosition]]" offset="20">
           <div style="max-width: 210px;">[[priceTip]]</div>
         </soso-tooltip>
@@ -350,13 +350,28 @@
         }
       }
 
+      get campaignPayment() {
+        if (this.data && this.data.campaign) {
+          return this.data.campaign.paymentAmount;
+        }
+        return 0;
+      }
+
+      _isImpressionCampaign() {
+        if (this.data && this.data.campaign) {
+          let type = this.data.campaign.type;
+          return (type === 'impression-ad' || type == 'content-promotion');
+        }
+        return false;
+      }
+
       _refreshPrice() {
         this._refreshPaidCheck();
         let cost = this.data.pricing.openFee;
-        let absCost = Math.abs(cost).toFixed(2);
-        if (cost === 0) {
-          absCost = this.data.pricing.promotionFee.toFixed(2);
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
         }
+        let absCost = Math.abs(cost).toFixed(2);
         this.price = 'ℂ' + absCost;
         if (cost < 0) {
           this.priceTip = "The author will pay you ℂ" + absCost + " after you open this card."
@@ -367,7 +382,7 @@
         }
 
         // Price tag visibility
-        let hidePriceTag = (cost === 0) || (cost < 0 && (!this.data.promoted));
+        let hidePriceTag = (cost === 0) || ((cost < 0) && this._isImpressionCampaign()) || (cost < 0 && (!this.data.promoted));
         if (hidePriceTag && this._cardConsumed && cost) {
           hidePriceTag = false;
         }
@@ -383,20 +398,20 @@
         }
 
         // Promoted tag visibility
-        let promotedVisible = (cost >= 0) && (this.data.pricing.promotionFee > 0) && this.data.promoted;
+        let promotedVisible = this._isImpressionCampaign() && this.data.promoted;
         if (promotedVisible) {
           this.$.promoted.classList.remove("hidden");
         } else {
           this.$.promoted.classList.add("hidden");
         }
-        this.promotedTip = "The author has paid you ℂ" + this.data.pricing.promotionFee + " to see this card";
+        this.promotedTip = "The author has paid you ℂ" + this.campaignPayment + " to see this card";
 
         // this._refreshPriceTip();
       }
 
       _refreshPaidCheck() {
         let showCheck = (!this.data.userSpecific.isPoster) &&
-          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee < 0 && this.data.userSpecific.earnedFromAuthor));
+          ((this.data.pricing.openFee > 0 && this.data.userSpecific.paidToAuthor) || (this.data.pricing.openFee <= 0 && this.data.userSpecific.earnedFromAuthor));
         if (showCheck) {
           this.$.price.classList.add("paid");
         } else {
@@ -408,10 +423,10 @@
 
       _refreshPriceTip() {
         let cost = this.data.pricing.openFee;
-        let absCost = Math.abs(cost).toFixed(2);
-        if (cost === 0) {
-          absCost = this.data.pricing.promotionFee.toFixed(2);
+        if ((!cost) && (!this._isImpressionCampaign())) {
+          cost = -this.campaignPayment;
         }
+        let absCost = Math.abs(cost).toFixed(2);
         if (cost < 0) {
           this.priceTip = this._cardConsumed ? ("The author paid you ℂ" + absCost + " for opening this card.") : ("The author will pay you ℂ" + absCost + " after you open this card.");
           this.priceTipPosition = "left";
@@ -438,14 +453,23 @@
 
       _onContentClick() {
         if (this.data) {
-          if (this.data.promoted && this.data.pricing.openFee < 0 && this.data.couponId && this.data.userSpecific.earnedFromAuthor === 0) {
-            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, -this.data.pricing.openFee, this.data.by.address).then(() => {
-              this.data.userSpecific.earnedFromAuthor = -this.data.pricing.openFee;
+          if (this.data.promoted && (!this._isImpressionCampaign()) && this.data.couponId && this.data.userSpecific.earnedFromAuthor === 0) {
+            $core.cardClicked(this.data.id, this.data.adSlotId, this.data.couponId, this.campaignPayment, this.data.by.address).then(() => {
+              this.data.userSpecific.earnedFromAuthor = this.campaignPayment;
               this._refreshPaidCheck();
             });
           } else {
             $core.cardClicked(this.data.id, this.data.adSlotId);
           }
+        }
+      }
+
+      _onSummaryUpdated(event) {
+        let summary = event.detail.summary;
+        if (summary && this.data) {
+          $core.getCard(this.data.id, null, 0, false).then((response) => {
+            this.data = response.card;
+          });
         }
       }
     }

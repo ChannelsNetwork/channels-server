@@ -140,9 +140,6 @@ export class AdminManager implements RestServer {
   private async computeCardGoals(from: number, to: number): Promise<AdminCardGoalsInfo> {
     const result: AdminCardGoalsInfo = {
       total: 0,
-      totalNonPromoted: 0,
-      totalPromoted: 0,
-      totalAds: 0,
       totalPaidOpens: 0,
       totalFirstTimePaidOpens: 0,
       totalNormalPaidOpens: 0,
@@ -150,9 +147,6 @@ export class AdminManager implements RestServer {
       totalGrossRevenue: 0,
       totalWeightedRevenue: 0,
       newCards: 0,
-      newNonPromoted: 0,
-      newPromoted: 0,
-      newAds: 0,
       newPaidOpens: 0,
       newFirstTimePaidOpens: 0,
       newNormalPaidOpens: 0,
@@ -162,9 +156,6 @@ export class AdminManager implements RestServer {
     };
     const starting = Date.now();
     result.total = await db.countCards(to, 0);
-    result.totalNonPromoted = await db.countNonPromotedCards(to, 0);
-    result.totalPromoted = await db.countPromotedCards(to, 0);
-    result.totalAds = await db.countAdCards(to, 0);
     const currentStats = await db.getNetworkCardStatsAt(to, true);
     result.totalPaidOpens = currentStats.stats.paidOpens;
     result.totalFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens;
@@ -176,9 +167,6 @@ export class AdminManager implements RestServer {
     const priorStats = await db.getNetworkCardStatsAt(from);
 
     result.newCards = await db.countCards(to, from);
-    result.newNonPromoted = await db.countNonPromotedCards(to, from);
-    result.newPromoted = await db.countPromotedCards(to, from);
-    result.newAds = await db.countAdCards(to, from);
     result.newPaidOpens = currentStats.stats.paidOpens - priorStats.stats.paidOpens;
     result.newFirstTimePaidOpens = currentStats.stats.firstTimePaidOpens - priorStats.stats.firstTimePaidOpens;
     result.newNormalPaidOpens = currentStats.stats.paidOpens - currentStats.stats.firstTimePaidOpens - (priorStats.stats.paidOpens - priorStats.stats.firstTimePaidOpens);
@@ -324,7 +312,14 @@ export class AdminManager implements RestServer {
           publishers: stats.stats.publishers,
           cards: stats.stats.cards,
           purchases: stats.stats.purchases,
-          cardPayments: stats.stats.cardPayments
+          cardPayments: stats.stats.cardPayments,
+          advertisers: stats.stats.advertisers,
+          adCardsOpenOrClick: stats.stats.adCardsOpenOrClick,
+          adCardsImpression: stats.stats.adCardsImpression,
+          adPaidOpenOrClicks: stats.stats.adPaidOpenOrClicks,
+          adPaidImpressions: stats.stats.adPaidImpressions || 0,
+          adOpenOrClickRedemptions: stats.stats.adOpenOrClickRedemptions || 0,
+          adImpressionRedemptions: stats.stats.adImpressionRedemptions || 0
         },
         past24Hours: {
           purchasers: stats.stats.purchasers - (yesterday.stats.purchasers || 0),
@@ -332,7 +327,14 @@ export class AdminManager implements RestServer {
           publishers: stats.stats.publishers - (yesterday.stats.publishers || 0),
           cards: stats.stats.cards - (yesterday.stats.cards || 0),
           purchases: stats.stats.purchases - (yesterday.stats.purchases || 0),
-          cardPayments: stats.stats.cardPayments - (yesterday.stats.cardPayments || 0)
+          cardPayments: stats.stats.cardPayments - (yesterday.stats.cardPayments || 0),
+          advertisers: stats.stats.advertisers - (yesterday.stats.advertisers || 0),
+          adCardsOpenOrClick: stats.stats.adCardsOpenOrClick - (yesterday.stats.adCardsOpenOrClick || 0),
+          adCardsImpression: stats.stats.adCardsImpression - (yesterday.stats.adCardsImpression || 0),
+          adPaidOpenOrClicks: stats.stats.adPaidOpenOrClicks - (yesterday.stats.adPaidOpenOrClicks || 0),
+          adPaidImpressions: (stats.stats.adPaidImpressions || 0) - (yesterday.stats.adPaidImpressions || 0),
+          adOpenOrClickRedemptions: (stats.stats.adOpenOrClickRedemptions || 0) - (yesterday.stats.adOpenOrClickRedemptions || 0),
+          adImpressionRedemptions: (stats.stats.adImpressionRedemptions || 0) - (yesterday.stats.adImpressionRedemptions || 0),
         }
       };
       response.json(reply);

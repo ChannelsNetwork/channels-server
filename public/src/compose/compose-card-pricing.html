@@ -103,8 +103,8 @@
       <section id="paySection" class="hidden">
         <div>I will pay readers who:</div>
         <soso-radio-group id="group2">
-          <soso-radio-button name="impressions" label="See this card in their feed for at least 2 seconds (impressions)"></soso-radio-button>
-          <soso-radio-button name="clicks" label="Open this card for at least 10 seconds (clicks)"></soso-radio-button>
+          <soso-radio-button name="impressions" label="See this card in their feed (impressions)"></soso-radio-button>
+          <soso-radio-button name="clicks" label="Open this card (clicks)"></soso-radio-button>
         </soso-radio-group>
       </section>
 
@@ -189,7 +189,7 @@
           this.$.next.disabled = true;
           this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
         }
-        if (this.wizard.data.summary.linkURL) {
+        if (this.wizard.data.linkURL) {
           this.$.group.selected = "pay";
           this.$.group2.selected = "impressions";
           this.$.earn.disabled = true;
@@ -201,19 +201,22 @@
 
       onTransitioningOut(forward) {
         return new Promise((resolve, reject) => {
-          let pricing = {}
-          let selected = this.$.group.selected;
-          if (selected == "earn") {
-            pricing.fee = {
-              priceLevel: this.$.earnPrice.value,
-              expandReach: this.$.chkPromote.checked
-            };
-          } else if (selected == "pay") {
-            pricing.pay = {
-              basedOn: this.$.group2.selected || "impressions"
-            };
+          let data = this.wizard.data;
+          let wantToEarn = this.$.group.selected == "earn";
+          data.openFeeUnits = wantToEarn ? this.$.earnPrice.value : 0;
+          let campaignInfo = null;
+          if (wantToEarn) {
+            if (this.$.chkPromote.checked) {
+              campaignInfo = { type: 'content-promotion' };
+            }
+          } else {
+            if (this.$.group2.selected === 'impressions') {
+              campaignInfo = { type: 'impression-ad' };
+            } else {
+              campaignInfo = { type: data.linkURL ? 'pay-to-click' : 'pay-to-open' };
+            }
           }
-          this.wizard.data.pricing = pricing;
+          data.campaignInfo = campaignInfo;
           resolve();
         });
       }

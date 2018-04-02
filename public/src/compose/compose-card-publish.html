@@ -181,13 +181,13 @@
       _onPublish() {
         this.$.overlay.classList.remove("hidden");
         this.$.spinner.spinning = true;
-        this.wizard.data.summary.imageId = this.cardData.summary.imageId;
-        this.wizard.data.summary.imageURL = this.cardData.summary.imageURL;
-        this.wizard.data.summary.title = this.cardData.summary.title;
-        this.wizard.data.summary.text = this.cardData.summary.text;
-        this.wizard.data.summary.linkURL = this.cardData.summary.linkURL;
-        this.wizard.data.summary.iframeUrl = this.cardData.summary.iframeUrl;
-        this.wizard.data.summary.langCode = this.$.languageSelect.selection || 'en';
+        this.wizard.data.imageId = this.cardData.summary.imageId;
+        this.wizard.data.imageURL = this.cardData.summary.imageURL;
+        this.wizard.data.title = this.cardData.summary.title;
+        this.wizard.data.text = this.cardData.summary.text;
+        this.wizard.data.linkURL = this.cardData.summary.linkURL;
+        this.wizard.data.iframeUrl = this.cardData.summary.iframeUrl;
+        this.wizard.data.langCode = this.$.languageSelect.selection || 'en';
         this.wizard.data.keywords = this._getKeywords();
         this.dispatchEvent(new CustomEvent('compose-publish', { bubbles: true, composed: true }));
       }
@@ -200,39 +200,19 @@
         });
       }
 
-      // _setImageSize() {
-      //   return new Promise((resolve, reject) => {
-      //     const imageUrl = this.cardData.summary.imageUrl;
-      //     if (imageUrl) {
-      //       let img = new Image();
-      //       img.addEventListener('load', () => {
-      //         this.wizard.data.summary.imageWidth = img.width;
-      //         this.wizard.data.summary.imageHeight = img.height;
-      //         resolve();
-      //       });
-      //       img.addEventListener('error', () => {
-      //         resolve();
-      //       });
-      //       img.src = imageUrl;
-      //     } else {
-      //       resolve();
-      //     }
-      //   });
-      // }
-
       onTransitioningIn(forward) {
         this.$.overlay.classList.add("hidden");
         this.$.spinner.spinning = false;
         let data = this.wizard.data;
         const cardData = {
           summary: {
-            imageId: data.summary.imageId,
-            imageURL: data.summary.imageURL,
-            title: data.summary.title,
-            text: data.summary.text,
-            linkURL: data.summary.linkURL,
-            iframeUrl: data.summary.iframeUrl,
-            langCode: data.summary.langCode
+            imageId: data.imageId,
+            imageURL: data.imageURL,
+            title: data.title,
+            text: data.text,
+            linkURL: data.linkURL,
+            iframeUrl: data.iframeUrl,
+            langCode: data.langCode
           },
           stats: {
             likes: 0,
@@ -255,19 +235,15 @@
           postedAtDisplay: "now",
           cardType: {
             iconUrl: data.cardInfo.iconUrl
-          }
+          },
+          campaign: data.campaignInfo
         };
-        if (data.pricing.fee) {
-          cardData.pricing.openFee = data.pricing.fee.priceLevel * $core.baseCardPrice;
-          cardData.promoted = data.pricing.expandReach;
-        } else if (data.pricing.pay) {
-          if (data.pricing.pay.basedOn === "impressions") {
-            cardData.pricing.promotionFee = data.promotion.amount;
-          } else {
-            cardData.pricing.openFee = -data.promotion.amount;
-          }
-          cardData.promoted = true;
+
+        if (data.openFeeUnits) {
+          cardData.pricing.openFee = data.openFeeUnits * $core.baseCardPrice;
         }
+        cardData.promoted = data.campaignInfo ? true : false;
+
         this.$.languageSelect.selection = cardData.summary.langCode || $core.lastLanguagePublished || "en";
         this.$.preview.disabled = cardData.summary.linkURL ? true : false;
         this.set('cardData', cardData);
@@ -359,7 +335,7 @@
         this._import("compose-card-preview.html").then(() => {
           this.$.previewDialog.classList.remove("hidden");
           setTimeout(() => {
-            this.$.previewDialog.showCard(this.wizard.data.cardInfo, this.cardData.summary, this.wizard.data.cardSharedState, this.cardData.by);
+            this.$.previewDialog.showCard(this.wizard.data.cardInfo, this.cardData.summary, this.wizard.data.initialState, this.cardData.by);
           });
         });
       }
