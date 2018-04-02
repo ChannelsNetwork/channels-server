@@ -349,6 +349,12 @@ export class FeedManager implements Initializable, RestServer {
       const index = Math.floor(Math.random() * campaign.cardIds.length);
       const card = await db.findCardById(campaign.cardIds[index], false);
       if (card) {
+        if (card.private) {
+          continue;
+        }
+        if (card.curation && card.curation.block) {
+          continue;
+        }
         if (card.createdById === user.id) {
           continue;
         }
@@ -357,6 +363,9 @@ export class FeedManager implements Initializable, RestServer {
         }
         const author = await userManager.getUser(card.createdById, false);
         if (!author || (!author.admin && author.balance < MINIMUM_AD_AUTHOR_BALANCE)) {
+          continue;
+        }
+        if (author.curation === "blocked") {
           continue;
         }
         const eligible = await this.reviewCampaignEligibility(request, user, campaign, card, author);
