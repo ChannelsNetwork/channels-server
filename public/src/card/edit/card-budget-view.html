@@ -322,6 +322,8 @@
 
       _refresh() {
         this.$.geographySection.classList.add("hidden");
+        this.$.countriesSection.classList.add("hidden");
+        this.$.regionsSection.classList.add("hidden");
         if (this.data) {
           this.status = this.data.status;
           this._statusChange();
