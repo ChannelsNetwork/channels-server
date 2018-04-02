@@ -2455,8 +2455,9 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "43b15bc6-118e-4c42-910c-3216f630fd38", 
-    action: "pay"
+    authorId: "a499d009-4699-4f7b-afb6-336ffcd87aec", 
+    action: "pay",
+    at: {$gt: 1519891200000}
   }},
   {$group: {
     _id: "$userId",
@@ -2474,7 +2475,7 @@ db.userCardActions.aggregate([
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
   {$match: {
-    "registration.at": {$gt: 1517503740000}
+    "registration.at": {$gt: 1519891200000}
   }},
   {$group: {
     _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed", cards: "$cards"},

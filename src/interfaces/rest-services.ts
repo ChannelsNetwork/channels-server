@@ -368,6 +368,7 @@ export interface CardStatsHistoryDetails extends Signable {
 }
 
 export interface CardStatsHistoryResponse extends RestResponse {
+  currentStats: CardDescriptorStatistics;
   revenue: CardStatDatapoint[];
   promotionsPaid: CardStatDatapoint[];
   openFeesPaid: CardStatDatapoint[];

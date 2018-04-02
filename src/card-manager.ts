@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -1649,6 +1649,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       console.log("CardManager.card-stat-history", requestBody.detailsObject);
       const reply: CardStatsHistoryResponse = {
         serverVersion: SERVER_VERSION,
+        currentStats: this.populateCardStats(card),
         revenue: [],
         promotionsPaid: [],
         openFeesPaid: [],
@@ -1856,17 +1857,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const card = await db.insertCard(user.id, sessionId, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.openFeeUnits, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (details.campaignInfo) {
-      let subsidy = 0;
-      switch (details.campaignInfo.type) {
-        case "pay-to-open":
-          subsidy = PROMOTION_PRICING.payToOpenSubsidy;
-          break;
-        case "pay-to-click":
-          subsidy = PROMOTION_PRICING.payToClickSubsidy;
-          break;
-        default:
-          break;
-      }
+      const subsidy = this.getCampaignSubsidy(details.campaignInfo.type);
       await db.insertCardCampaign(sessionId, user.id, "active", couponId, card.id, details.campaignInfo.type, this.getCampaignAmount(details.campaignInfo.type), subsidy, details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
     }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0, newAdvertisers, newAdCardsOpenOrClick, newAdCardsImpression, 0, 0, 0, 0);
@@ -1889,6 +1880,21 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       default:
         throw new ErrorWithStatusCode(500, "Unexpected campaign type " + type);
     }
+  }
+
+  private getCampaignSubsidy(type: CardCampaignType): number {
+    let subsidy = 0;
+    switch (type) {
+      case "pay-to-open":
+        subsidy = PROMOTION_PRICING.payToOpenSubsidy;
+        break;
+      case "pay-to-click":
+        subsidy = PROMOTION_PRICING.payToClickSubsidy;
+        break;
+      default:
+        break;
+    }
+    return subsidy;
   }
 
   private validateCoupon(user: UserRecord, details: PostCardDetails): void {
@@ -2275,21 +2281,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         campaign: campaign,
         couponId: campaign ? campaign.couponId : null,
         adSlotId: adSlotId,
-        stats: {
-          revenue: record.stats.revenue.value,
-          promotionsPaid: record.stats.promotionsPaid.value,
-          openFeesPaid: (record.stats.openFeesPaid ? record.stats.openFeesPaid.value : 0) + (record.stats.clickFeesPaid ? record.stats.clickFeesPaid.value : 0),
-          impressions: record.stats.impressions.value,
-          uniqueImpressions: record.stats.uniqueImpressions.value,
-          opens: (record.stats.opens ? record.stats.opens.value : 0) + (record.stats.clicks ? record.stats.clicks.value : 0),
-          uniqueOpens: (record.stats.uniqueOpens ? record.stats.uniqueOpens.value : 0) + (record.stats.uniqueClicks ? record.stats.uniqueClicks.value : 0),
-          likes: record.stats.likes.value,
-          dislikes: record.stats.dislikes.value,
-          reports: record.stats.reports ? record.stats.reports.value : 0,
-          refunds: record.stats.refunds ? record.stats.refunds.value : 0,
-          firstTimePurchases: record.stats.firstTimePurchases ? record.stats.firstTimePurchases.value : 0,
-          normalPurchases: record.stats.normalPurchases ? record.stats.normalPurchases.value : 0,
-        },
+        stats: this.populateCardStats(record),
         score: record.score,
         userSpecific: {
           isPoster: user && record.createdById === user.id ? true : false,
@@ -2422,6 +2414,24 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     } finally {
       await cardManager.unlockCard(record);
     }
+  }
+
+  private populateCardStats(record: CardRecord): CardDescriptorStatistics {
+    return {
+      revenue: record.stats.revenue.value,
+      promotionsPaid: record.stats.promotionsPaid.value,
+      openFeesPaid: (record.stats.openFeesPaid ? record.stats.openFeesPaid.value : 0) + (record.stats.clickFeesPaid ? record.stats.clickFeesPaid.value : 0),
+      impressions: record.stats.impressions.value,
+      uniqueImpressions: record.stats.uniqueImpressions.value,
+      opens: (record.stats.opens ? record.stats.opens.value : 0) + (record.stats.clicks ? record.stats.clicks.value : 0),
+      uniqueOpens: (record.stats.uniqueOpens ? record.stats.uniqueOpens.value : 0) + (record.stats.uniqueClicks ? record.stats.uniqueClicks.value : 0),
+      likes: record.stats.likes.value,
+      dislikes: record.stats.dislikes.value,
+      reports: record.stats.reports ? record.stats.reports.value : 0,
+      refunds: record.stats.refunds ? record.stats.refunds.value : 0,
+      firstTimePurchases: record.stats.firstTimePurchases ? record.stats.firstTimePurchases.value : 0,
+      normalPurchases: record.stats.normalPurchases ? record.stats.normalPurchases.value : 0,
+    };
   }
 
   private async populateCardCampaign(cardId: string, campaign: CardCampaignRecord, user: UserRecord): Promise<CardCampaignDescriptor> {
@@ -2804,7 +2814,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       this.validateCardCampaignInfo(user, requestBody.detailsObject.info, campaign);
-      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, "active");
+      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, "active", this.getCampaignAmount(campaign.type), this.getCampaignSubsidy(campaign.type), 0);
       console.log("CardManager.update-card-campaign", requestBody.detailsObject);
       const reply: UpdateCardCampaignResponse = {
         serverVersion: SERVER_VERSION

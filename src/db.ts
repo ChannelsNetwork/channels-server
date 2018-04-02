@@ -4292,8 +4292,8 @@ export class Database {
     return result.modifiedCount === 1;
   }
 
-  async updateCardCampaignInfo(campaignId: string, info: CardCampaignInfo, status: CardCampaignStatus): Promise<void> {
-    const update: any = { status: status };
+  async updateCardCampaignInfo(campaignId: string, info: CardCampaignInfo, status: CardCampaignStatus, paymentAmount: number, advertiserSubsidy: number, eligibleAfter: number): Promise<void> {
+    const update: any = { status: status, eligibleAfter: eligibleAfter, paymentAmount: paymentAmount, advertiserSubsidy: advertiserSubsidy };
     if (info.budget) {
       update.budget = info.budget;
     }
