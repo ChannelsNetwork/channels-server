@@ -171,7 +171,7 @@
           </div>
         </section>
 
-        <section>
+        <section id="geographySection" class="hidden">
           <label>Geography</label>
           <div>Choose one of these geographic targeting options</div>
           <div class="row">
@@ -259,48 +259,49 @@
         }
         const geoTargets = [];
         let regionType = this.$.regionGroup.selected;
-        if (regionType === 'countries') {
-          const allBoxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
-          const countryBoxes = this.shadowRoot.querySelectorAll(".countryCheck");
-          for (const cont of this.continents) {
-            let all = false;
-            for (let i = 0; i < allBoxes.length; i++) {
-              let b = allBoxes[i];
-              if (b.dataset.allCode === cont.code) {
-                all = b.checked;
-                break;
+        if (type !== "content-promotion") {
+          if (regionType === 'countries') {
+            const allBoxes = this.shadowRoot.querySelectorAll(".allContinentCheck");
+            const countryBoxes = this.shadowRoot.querySelectorAll(".countryCheck");
+            for (const cont of this.continents) {
+              let all = false;
+              for (let i = 0; i < allBoxes.length; i++) {
+                let b = allBoxes[i];
+                if (b.dataset.allCode === cont.code) {
+                  all = b.checked;
+                  break;
+                }
+              }
+              if (all) {
+                geoTargets.push(cont.code);
+              } else {
+                let selectedCountries = [];
+                for (const countryBox of countryBoxes) {
+                  if (countryBox.dataset.continent === cont.code) {
+                    if (countryBox.checked) {
+                      geoTargets.push(cont.code + "." + countryBox.dataset.code);
+                    }
+                  }
+                }
               }
             }
-            if (all) {
-              geoTargets.push(cont.code);
-            } else {
-              let selectedCountries = [];
-              for (const countryBox of countryBoxes) {
-                if (countryBox.dataset.continent === cont.code) {
-                  if (countryBox.checked) {
-                    geoTargets.push(cont.code + "." + countryBox.dataset.code);
+          } else if (regionType === 'region') {
+            let country = this.$.countrySelector.selected;
+            if (country) {
+              let geoPrefix = country.continent + "." + country.code;
+              if (this.$.chkAllRegions.checked) {
+                geoTargets.push(geoPrefix);
+              } else {
+                const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
+                for (const rbox of regionBoxes) {
+                  if (rbox.checked) {
+                    geoTargets.push(geoPrefix + "." + rbox.dataset.code);
                   }
                 }
               }
             }
           }
-        } else if (regionType === 'region') {
-          let country = this.$.countrySelector.selected;
-          if (country) {
-            let geoPrefix = country.continent + "." + country.code;
-            if (this.$.chkAllRegions.checked) {
-              geoTargets.push(geoPrefix);
-            } else {
-              const regionBoxes = this.shadowRoot.querySelectorAll(".regionsCheck");
-              for (const rbox of regionBoxes) {
-                if (rbox.checked) {
-                  geoTargets.push(geoPrefix + "." + rbox.dataset.code);
-                }
-              }
-            }
-          }
         }
-
         let campaignInfo = RestUtils.cardCampaignInfo(type, budget, endDate, geoTargets);
         campaignInfo.paymentAmount = this._price || $core.getPromotionPriceByType(type);
         return campaignInfo;
@@ -320,11 +321,15 @@
       }
 
       _refresh() {
+        this.$.geographySection.classList.add("hidden");
         if (this.data) {
           this.status = this.data.status;
           this._statusChange();
           this.$.main.classList.remove("hidden");
           let type = this.data.type;
+          if (type !== 'content-promotion') {
+            this.$.geographySection.classList.remove("hidden");
+          }
           let price = this.data.paymentAmount || $core.getPromotionPriceByType(type);
           this._price = price;
           let subsidized = (typeof this.data.advertiserSubsidy === 'undefined') ? $core.promotionPricing.payToOpenSubsidy : (this.data.advertiserSubsidy || 0);
