@@ -4494,13 +4494,13 @@ export class Database {
         userId: userId,
         stats: existing.stats,
         isCurrent: false,
-        periodStarting: existing.periodStarting
+        periodStarting: existing.periodStarting + 1
       };
       try {
         await this.userStats.insertOne(snapshot);
         updatePeriod = true;
       } catch (err) {
-        errorManager.warning("Db.incrementUserStats: race condition taking snapshot", request, userId);
+        errorManager.warning("Db.incrementUserStats: race condition taking snapshot", request, userId, err);
       }
     }
     const increments: any = {
