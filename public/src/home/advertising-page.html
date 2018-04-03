@@ -1,0 +1,230 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/title-bar.html">
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+
+<dom-module id="advertising-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      .content {
+        padding: 40px 16px;
+        max-width: 700px;
+        margin: 0 auto;
+        position: relative;
+      }
+
+      section {
+        border-bottom: 1px solid #e5e5e5;
+      }
+
+      section:nth-child(odd) {
+        background: #f5f5f5;
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+
+      li {
+        margin: 10px
+      }
+
+      #composeButton {
+        position: fixed;
+        cursor: pointer;
+        bottom: 32px;
+        right: 32px;
+        background: var(--bg-yellow);
+        color: var(--bg-dark);
+        padding: 16px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      #composeButton:active {
+        color: var(--bg-yellow);
+        background: var(--bg-dark);
+      }
+
+      #titleSection {
+        background: #283c41;
+        color: white;
+        font-size: 23px;
+      }
+
+      #titleSection h1 {
+        color: #000;
+        background: #ffeb3b;
+        display: inline-block;
+        padding: 3px 10px;
+      }
+
+      @media (max-width: 600px) {
+        #composeButton {
+          bottom: 24px;
+          right: 16px;
+        }
+        #titleSection {
+          font-size: 17px;
+        }
+        h1 {
+          font-size: 28px;
+        }
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <title-bar text="Advertising on Channels"></title-bar>
+    </soso-app-header>
+    <section id="titleSection">
+      <div class="content">
+        <h1>Advertising on Channels</h1>
+        <p>
+          Channels is the easiest, fastest, and most flexible way that an advertiser can get the attention of the people they want
+          to reach. We serve up thousands of ads per day to people from around the world.
+        </p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>How does it work?</h1>
+        <p>Channels is a network where anyone can post any type of content: stories, photos, songs, videos, games, etc. Each
+          new member of the network gets their own channel where they can publish their own content.</p>
+        <p>Unlike every other network, on Channels every time a person views some content, they pay the publisher, using tokens
+          that we call ChannelCoins. Alternatively, the publisher might offer to pay the viewer some tokens -- and that is
+          where advertising comes in. The network makes these token exchanges simple, fast, and seamless. </p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>How much does it cost?</h1>
+        <p>Channels is free and open to everyone who agrees to our terms of service. If you want to advertise on Channels, you'll
+          be paying the consumers to view your content. You can choose whether to pay for impressions or clicks. We're keeping
+          things very simple -- with fixed prices for each of these: currently 0.02 tokens per impression, or 0.50 tokens
+          per click. We use a special symbol, ℂ, for these tokens.</p>
+        <p>Since we are still growing, we are currently paying subsidies to advertisers. Every time your ad pays a consumer
+          ℂ0.50, we will pay 90% of that amount. So the net cost per click to you currently is ℂ0.05 tokens -- or US$0.05
+          per click at current token prices.
+        </p>
+        <p>
+          Advertisers need to purchase tokens to pay consumers. We sell and buy back tokens at US$1.00. All you need is a Paypal account
+          to buy or sell.
+        </p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>How hard is it to get started?</h1>
+        <p>All you need is an email address, an image for your ad, plus a title and description. (But you can make much more
+          sophisticated ads if you prefer.) You don't even need to buy coins before getting started. Whenever you see the
+          yellow "+" button in the bottom-right corner of the screen, tap on it to create an ad. If you haven't already registered,
+          you'll need to do that. Then you fill in a bit of information and you're done. You can have your first ad running
+          in less than a minute.</p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>Can I target my ads?</h1>
+        <p>Yes. You can choose which countries, regions, or states you want to target. Only consumers in those areas will be
+          offered to be paid to view your card. If others come looking for your content, they may find it in your channel,
+          but you won't pay them to see it.</p>
+        <p>We'll soon be adding the ability to target even more narrowly based on consumer interest. You'll be able to choose
+          search terms, keywords, channels, and/or cards such that your ads will only target consumers who have demonstrated
+          an interest in those items.</p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>What do ads look like on Channels?</h1>
+        <p>On Channels, all content is packaged into "cards". If you visit the Channels
+          <a href="/">home page</a>, you're likely to see several promoted card interleaved with content cards. Promoted cards are distinguished
+          with a green price tag or symbol in the top-right corner of the card. Otherwise promoted cards look like any other
+          content card.
+        </p>
+        <p>We support a variety of different types of cards for presenting different kinds of content. There are cards for showing
+          video, audio, stories, games, etc. There is even an "ad" card that just links from the consumer's feed directly
+          to any web page you designate.</p>
+        <p>You can choose whether you want to pay consumers to come directly and visit your site, or pay them to view some content
+          that you post inside a card on Channels itself. In the latter case, you can use any card that Channels supports
+          depending on the nature of your ad content.</p>
+      </div>
+    </section>
+    <section>
+      <div class="content">
+        <h1>How should I feel about consumers being paid to view ads?</h1>
+        <p>First, the only thing consumers can do with tokens they earn from advertisers is to spend them on content. So you
+          don't need to worry about people trolling ads to earn money.</p>
+        <p>Second, our informal studies show that consumers are much happier about ads when they know they are being compensated
+          to view them. They start to see the advertiser as their friend rather than as an annoyance.</p>
+        <p>Third, consumers are presented with a lot of advertising opportunities on Channels. This means that they can pick
+          and choose the ads that offer the most interesting content to them. That means viewers will usually be more qualified,
+          rather than less.</p>
+      </div>
+    </section>
+    <section style="padding-bottom: 80px;">
+      <div class="content">
+        <h1>Try it right now!</h1>
+        <p>Why wait? Follow these steps to publish an ad card that links to your website:</p>
+        <ol>
+          <li>Tap on the yellow "+" button in the bottom-right corner of the screen</li>
+          <li>If you haven't already registered, you'll be asked to do that next</li>
+          <li>In the compose wizard, choose "Ad" as the card type</li>
+          <li>Select an image for your card and fill in title, description, and the URL for your website</li>
+          <li>Choose the option to pay readers who open your card</li>
+          <li>Choose how much you want to spend per day, and locations where you want it to run</li>
+          <li>Click Publish to start running it</li>
+        </ol>
+        <p>New users are automatically granted a small balance to get started. And so you'll start getting clicks without having
+          to have paid anything out of your pocket. Your balance will get exhausted quickly. Then you can decide whether
+          you want to top it up by buying coins. Tap on the top-right corner to visit your Balance page and then tap on "buy
+          coins".
+        </p>
+        <p>Wasn't that easy?</p>
+      </div>
+    </section>
+    <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
+  </template>
+  <script>
+    class AdvertisingPage extends Polymer.Element {
+      static get is() { return 'advertising-page'; }
+
+      onActivate() {
+        if (!$core.hasKey) {
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        } else {
+          $core.register().then((info) => {
+            this.$.cbar.activate();
+          }).catch((err) => {
+            console.error(err);
+            setTimeout(() => {
+              $router.goto("");
+            }, 600);
+          });
+        }
+      }
+
+      onDeactivate() {
+        this.$.cbar.deactivate();
+      }
+
+      _compose() {
+        if (!$core.profile || !$core.profile.handle) {
+          $router.goto("/register", { message: "Before you compose your first card, you must first register an identity.", returnRoute: { success: "compose", cancel: "advertising" } });
+          return;
+        }
+        $router.goto("/compose");
+      }
+    }
+    window.customElements.define(AdvertisingPage.is, AdvertisingPage);
+  </script>
+</dom-module>
