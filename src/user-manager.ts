@@ -300,6 +300,7 @@ const infoByCountryCode: { [countryCode: string]: CountryInfo } = {
   "VU": { continentCode: "OC", name: "Vanuatu" },
   "WF": { continentCode: "OC", name: "Wallis and Futuna" },
   "WS": { continentCode: "OC", name: "Samoa" },
+  "XK": { continentCode: "EU", name: "Kosovo" },
   "YE": { continentCode: "AF", name: "Yemen" },
   "YT": { continentCode: "AF", name: "Mayotte" },
   "ZA": { continentCode: "AF", name: "South Africa" },
