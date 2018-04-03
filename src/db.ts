@@ -1512,12 +1512,14 @@ export class Database {
       query["pricing.openFeeUnits"] = { $gt: 0 };
     }
     if (excludeReportedCards) {
-      query.$or = [
-        { curation: { $exists: false } },
-        { "curation.reported": { $exists: false } },
-        { "curation.reported": false },
-        { "curation.overrideReports": true }
-      ];
+      query.$and = [{
+        $or: [
+          { curation: { $exists: false } },
+          { "curation.reported": { $exists: false } },
+          { "curation.reported": false },
+          { "curation.overrideReports": true }
+        ]
+      }];
     }
     return this.cards.find(query, { searchText: 0 }).sort({ postedAt: -1 });
   }
