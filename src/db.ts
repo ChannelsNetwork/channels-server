@@ -4420,7 +4420,7 @@ export class Database {
         userId: userId,
         stats: existing.stats,
         isCurrent: false,
-        periodStarting: existing.periodStarting
+        periodStarting: existing.periodStarting + 1
       };
       try {
         await this.authorUsers.insertOne(snapshot);
