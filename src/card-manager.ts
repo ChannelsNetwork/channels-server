@@ -1184,7 +1184,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         weightedRevenue: weight * amount,
         mobile: requestBody.detailsObject.mobile ? true : false
       };
-      await db.updateUserFirstCardPurchased(user.id, card.id);
+      if (!user.firstCardPurchasedId) {
+        await db.updateUserFirstCardPurchased(user.id, card.id);
+      }
       const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
       const referringUserId = await this.getReferringUserId(requestBody.sessionId);
       await db.insertUserCardAction(requestBody.sessionId, user.id, geo, card.id, card.createdById, now, "pay", paymentInfo, 0, 0, 0, 0, null, null, discountReason, null, referringUserId);
