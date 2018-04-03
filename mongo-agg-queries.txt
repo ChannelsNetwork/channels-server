@@ -156,14 +156,20 @@ db.userRegistrations.aggregate([
 ])
 
 db.userRegistrations.aggregate([
-  {$match: {fingerprint: "eb85de6c8d71ec545b1dff2cf278eaa7"}},
+  {$match: {fingerprint: "9c515b0384576b1facf6f20b06d2ed8d"}},
   {$group: {_id: "$userId"}}
 ])
 
 
 db.userCardActions.aggregate([
-  {$match: {action: "pay", fromFingerprint: "eb85de6c8d71ec545b1dff2cf278eaa7", at: {$gt: 1518459306000}}},
-  {$group: {_id: {cardId: "$cardId", authorId: "$authorId"}, count: {$sum: 1}, fraud: {$push: "$fraudReason"}}},
+  {$match: {
+    action: "pay", 
+    fromFingerprint: "9c515b0384576b1facf6f20b06d2ed8d"
+  }},
+  {$group: {
+    _id: {cardId: "$cardId", authorId: "$authorId"}, 
+    count: {$sum: 1}, 
+    fraud: {$push: "$fraudReason"}}},
   {$sort: {count: -1}}
 ])
 
@@ -2455,7 +2461,7 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "42b964db-55f4-4a14-b1ec-0d28907524ea", 
+    authorId: "fdc679a2-6d28-48c9-a236-7ea4560cc2ed", 
     action: "pay",
     at: {$gt: 1522047600000}
   }},

@@ -285,7 +285,7 @@ export class Database {
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ userId: 1, action: 1, at: 1 });
     await this.userCardActions.createIndex({ userId: 1, action: 1, author: 1 });
-    await this.userCardActions.createIndex({ cardId: 1, action: 1, fromIpAddress: 1, fromFingerprint: 1 });
+    await this.userCardActions.createIndex({ cardId: 1, action: 1, "geo.ipAddress": 1, "geo.fingerprint": 1 });
     await this.userCardActions.createIndex({ cardId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ authorId: 1, action: 1, at: -1 });
     await this.userCardActions.createIndex({ action: 1, at: -1 });
@@ -2130,7 +2130,7 @@ export class Database {
   }
 
   getUserCardActionsWithFromIpAddress(since: number): Cursor<UserCardActionRecord> {
-    return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: since }, fromIpAddress: { $exists: true } });
+    return this.userCardActions.find<UserCardActionRecord>({ at: { $gt: since }, "geo.ipAddress": { $exists: true } });
   }
 
   async findDistinctReportedCardIds(): Promise<string[]> {
@@ -2169,13 +2169,6 @@ export class Database {
 
   async updateUserActionPaymentWeightedRevenue(id: string, weightedRevenue: number): Promise<void> {
     await this.userCardActions.updateOne({ id: id }, { $set: { "payment.weightedRevenue": weightedRevenue } });
-  }
-
-  async updateUserActionWithGeo(id: string, geo: GeoLocation): Promise<void> {
-    await this.userCardActions.updateOne({ id: id }, {
-      $set: { geo: geo },
-      $unset: { fromIpAddress: 1, fromFingerprint: 1 }
-    });
   }
 
   getUserCardActionsWithoutGeo(since: number): Cursor<UserCardActionRecord> {
@@ -2225,13 +2218,13 @@ export class Database {
   }
 
   async countUserCardsPaidFromIpAddress(cardId: string, fromIpAddress: string, fromFingerprint: string): Promise<number> {
-    return this.userCardActions.count({ cardId: cardId, action: "pay", fromIpAddress: fromIpAddress, fromFingerprint: fromFingerprint });
+    return this.userCardActions.count({ cardId: cardId, action: "pay", "geo.ipAddress": fromIpAddress, "geo.fingerprint": fromFingerprint });
   }
 
   async countUserCardsPaidFromFingerprint(cardId: string, fromFingerprint: string, ipAddress: string): Promise<number> {
-    const query: any = { cardId: cardId, action: "pay", fromFingerprint: fromFingerprint };
+    const query: any = { cardId: cardId, action: "pay", "geo.fingerprint": fromFingerprint };
     if (ipAddress) {
-      query.fromIpAddress = ipAddress;
+      query["geo.ipAddress"] = ipAddress;
     }
     return this.userCardActions.count(query);
   }
