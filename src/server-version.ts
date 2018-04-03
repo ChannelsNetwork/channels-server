@@ -1,1 +1,1 @@
-export const SERVER_VERSION = 403;
+export const SERVER_VERSION = 404;
