@@ -100,7 +100,7 @@
         <a href="/subscriptions">subscriptions</a>
       </div>
       <card-list auto-layout label="[[channelsLabel]]" id="channelList" items="[[channels]]" more="[[_moreChannelsAvailable]]"
-        on-more="_onMoreChannels" class="hidden"></card-list>
+        on-channel-open="_onChannelOpen" on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
       <sectioned-card-list id="sectionedList" label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
         on-more="_onMore"></sectioned-card-list>
@@ -240,6 +240,12 @@
           return;
         }
         $router.goto("/compose");
+      }
+
+      _onChannelOpen() {
+        $router.updateContext({
+          scrollTop: $app.scrollValue
+        });
       }
 
       _onCardOpenRequest(event) {

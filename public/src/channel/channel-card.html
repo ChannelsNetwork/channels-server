@@ -265,6 +265,7 @@
 
       _gotoChannel() {
         if (this.channel) {
+          this.dispatchEvent(new CustomEvent("channel-open", { bubbles: true, composed: true, detail: { channel: this.channel } }));
           $router.goto("/channel/" + encodeURIComponent(this.channel.owner.handle));
         }
       }
