@@ -591,7 +591,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (requestBody.detailsObject.landingUrl) {
         try {
           const landingUrl = new url.URL(requestBody.detailsObject.landingUrl);
-          const address = landingUrl.searchParams.get('s');
+          if (!landingUrl.searchParams) {
+            console.warn("User.handleRegisterUser:  landingUrl has no searchParams", requestBody.detailsObject.landingUrl);
+          }
+          const address = landingUrl && landingUrl.searchParams ? landingUrl.searchParams.get('s') : null;
           if (address) {
             let referringUser = await db.findUserByAddress(address);
             if (referringUser) {
