@@ -240,10 +240,22 @@
         };
       }
 
+      validate() {
+        let endDateValue = this.$.endDate.value;
+        if (!endDateValue) {
+          return "No end date specified.";
+        }
+        let t = Date.parse(endDateValue);
+        if (isNaN(t)) {
+          return "Invalid end date. Date should be in the format YYYY-MM-DD or MM-DD-YYYY.";
+        }
+        return null;
+      }
+
       get value() {
         let endDate = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
         let endDateValue = this.$.endDate.value;
-        if (endDateValue) {
+        if (endDateValue && (!isNaN(Date.parse(endDateValue)))) {
           let date = new Date(endDateValue);
           date.setHours(23);
           date.setMinutes(59);

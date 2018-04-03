@@ -53,6 +53,11 @@
         this.wizard.cancel();
       }
       _onNext() {
+        let error = this.$.view.validate();
+        if (error) {
+          $app.showError(error);
+          return;
+        }
         this.wizard.next();
       }
 
