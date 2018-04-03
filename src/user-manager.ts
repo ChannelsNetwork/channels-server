@@ -300,6 +300,7 @@ const infoByCountryCode: { [countryCode: string]: CountryInfo } = {
   "VU": { continentCode: "OC", name: "Vanuatu" },
   "WF": { continentCode: "OC", name: "Wallis and Futuna" },
   "WS": { continentCode: "OC", name: "Samoa" },
+  "XK": { continentCode: "EU", name: "Kosovo" },
   "YE": { continentCode: "AF", name: "Yemen" },
   "YT": { continentCode: "AF", name: "Mayotte" },
   "ZA": { continentCode: "AF", name: "South Africa" },
@@ -603,7 +604,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
             }
           }
         } catch (err) {
-          errorManager.warning("User.handleRegisterUser: failure processing landingUrl", request, requestBody.detailsObject.landingUrl);
+          errorManager.warning("User.handleRegisterUser: failure processing landingUrl", request, requestBody.detailsObject.landingUrl, err);
         }
       }
       const registrationRecord = await db.insertUserRegistration(userRecord.id, ipAddress, requestBody.detailsObject.fingerprint, isMobile, requestBody.detailsObject.address, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, requestBody.detailsObject.userAgent, referringUserId);
