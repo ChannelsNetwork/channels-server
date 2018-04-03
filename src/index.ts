@@ -78,6 +78,13 @@ class ChannelsNetworkWebClient {
     }
 
     console.log("Channels Network Server is running");
+    const keys = Object.keys(process.versions);
+    keys.sort();
+    console.log("Component versions");
+    const versions = process.versions as any;
+    for (const key of keys) {
+      console.log(key + ": " + versions[key]);
+    }
   }
 
   private setupExceptionHandling(): void {
@@ -197,6 +204,7 @@ class ChannelsNetworkWebClient {
         console.log("Listening for client connections on port " + configuration.get('client.port'));
       }
     });
+
   }
 
   private getCertificateAuthority(): string[] {
