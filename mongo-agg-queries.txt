@@ -2461,7 +2461,7 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "fdc679a2-6d28-48c9-a236-7ea4560cc2ed", 
+    authorId: "527e7a24-b5eb-4847-ab03-dd4568b845fa", 
     action: "pay",
     at: {$gt: 1522047600000}
   }},
@@ -2921,6 +2921,8 @@ db.userCardActions.aggregate([
     count: {$sum: 1},
     redeemed: {$sum: "$redeemOpen.amount"}
   }},
+  {$sort: {redeemed: -1}},
+  {$limit: 25},
   {$lookup: {
     from: "users",
     localField: "_id",
@@ -2937,10 +2939,25 @@ db.userCardActions.aggregate([
     country: "$user.country",
     curation: "$user.curation",
   }},
+  {$lookup: {
+    from: "userCardActions",
+    localField: "_id",
+    foreignField: "userId",
+    as: "userCardAction"
+  }},
+  {$unwind: "$userCardAction"},
+  {$match: {
+    "userCardAction.action": "pay"
+  }},
+  {$group: {
+    _id: {userId: "$_id", balance: "$balance", count: "$count", redeemed: "$redeemed", handle: "$handle", city: "$city", country: "$country"},
+    purchases: {$sum: 1},
+    spent: {$sum: "$userCardAction.payment.amount"}
+  }},
   {$sort: {
-    redeemed: -1
+    "_id.redeemed": -1
   }},  
-])
+]).pretty()
 
 db.cards.aggregate([
   {$match: {
