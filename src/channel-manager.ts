@@ -78,12 +78,12 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
     // }
     // await channelCursor.close();
 
-    const userCursor = db.getUsersMissingHomeChannel();
-    while (await userCursor.hasNext()) {
-      const user = await userCursor.next();
-      await this.ensureUserHomeChannel(user, null);
-    }
-    await userCursor.close();
+    // const userCursor = db.getUsersMissingHomeChannel();
+    // while (await userCursor.hasNext()) {
+    //   const user = await userCursor.next();
+    //   await this.ensureUserHomeChannel(user, null);
+    // }
+    // await userCursor.close();
 
     // This code is because if there are no bonuses that have been paid so far,
     // we are migrating from when we were failing to record these bonuses in the ChannelUser collection.

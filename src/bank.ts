@@ -549,7 +549,7 @@ export class Bank implements RestServer, Initializable {
     if (!userManager.isUserAddress(from, coupon.byAddress)) {
       throw new ErrorWithStatusCode(401, "This coupon is not for a matching user.");
     }
-    if (!networkInitiated && !from.admin && from.balance < coupon.amount) {
+    if (!networkInitiated && !from.admin && from.balance < transaction.amount) {
       throw new ErrorWithStatusCode(402, "Insufficient funds");
     }
     const card = await db.findCardById(coupon.cardId, false);
@@ -561,15 +561,15 @@ export class Bank implements RestServer, Initializable {
       throw new ErrorWithStatusCode(401, "This coupon's budget is exhausted");
     }
     const originalBalance = to.balance;
-    const balanceBelowTarget = from.balance < 0 ? false : from.balance - coupon.amount < TARGET_BALANCE;
-    console.log("Bank.performRedemption: Debiting user account", coupon.reason, coupon.amount, from.id);
-    await db.incrementUserBalance(from, -coupon.amount, balanceBelowTarget, now);
+    const balanceBelowTarget = from.balance < 0 ? false : from.balance - transaction.amount < TARGET_BALANCE;
+    console.log("Bank.performRedemption: Debiting user account", coupon.reason, transaction.amount, from.id);
+    await db.incrementUserBalance(from, -transaction.amount, balanceBelowTarget, now);
     const record = await db.insertBankTransaction(sessionId, now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null, description, fromIpAddress, fromFingerprint);
-    console.log("Bank.performRedemption: Crediting user account", coupon.reason, coupon.amount, to.id);
-    await db.incrementUserBalance(to, coupon.amount, to.balance + coupon.amount < TARGET_BALANCE, now);
-    await db.incrementCouponSpent(coupon.id, coupon.amount);
+    console.log("Bank.performRedemption: Crediting user account", coupon.reason, transaction.amount, to.id);
+    await db.incrementUserBalance(to, transaction.amount, to.balance + transaction.amount < TARGET_BALANCE, now);
+    await db.incrementCouponSpent(coupon.id, transaction.amount);
     const amountByRecipientReason: { [reason: string]: number } = {};
-    amountByRecipientReason[transaction.toRecipients[0].reason] = coupon.amount;
+    amountByRecipientReason[transaction.toRecipients[0].reason] = transaction.amount;
     const result: BankTransactionResult = {
       record: record,
       updatedBalance: from.id === to.id ? originalBalance : to.balance,

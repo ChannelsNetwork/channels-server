@@ -243,11 +243,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     // }
     // await ipAddressCursor.close();
 
-    const networkStats = await db.ensureNetworkCardStats(true);
-    if (!networkStats.stats.advertisers) {
-      const advertisers = await db.countAdvertisers();
-      await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, advertisers, 0, 0, 0, 0, 0, 0);
-    }
+    // const networkStats = await db.ensureNetworkCardStats(true);
+    // if (!networkStats.stats.advertisers) {
+    //   const advertisers = await db.countAdvertisers();
+    //   await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, advertisers, 0, 0, 0, 0, 0, 0);
+    // }
 
     // const userCursor = db.getUsersWithIdentity();
     // let userCount = await userCursor.count();
