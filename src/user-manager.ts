@@ -11,7 +11,6 @@ import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
 import { KeyUtils, KeyInfo } from "./key-utils";
 import { RestHelper } from "./rest-helper";
-import * as url from 'url';
 import { socketServer, UserSocketHandler } from "./socket-server";
 import { priceRegulator } from "./price-regulator";
 import { networkEntity } from "./network-entity";
@@ -28,6 +27,7 @@ import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
 import { PROMOTION_PRICING } from "./card-manager";
+const { URL } = require("url");
 
 const INVITER_REWARD = 1;
 const INVITEE_REWARD = 1;
@@ -590,7 +590,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       let referringUserId: string;
       if (requestBody.detailsObject.landingUrl) {
         try {
-          const landingUrl = new url.URL(requestBody.detailsObject.landingUrl);
+          const landingUrl = new URL(requestBody.detailsObject.landingUrl);
           if (!landingUrl.searchParams) {
             console.warn("User.handleRegisterUser:  landingUrl has no searchParams", requestBody.detailsObject.landingUrl);
           }
