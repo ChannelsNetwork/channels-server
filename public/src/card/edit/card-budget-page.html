@@ -141,6 +141,11 @@
       }
 
       _save() {
+        let validationError = this.$.editor.validate();
+        if (validationError) {
+          $app.showError(validationError);
+          return;
+        }
         let value = this.$.editor.value;
         this._showProgress("Saving");
         $core.updateCardCampaign(this.campaign.id, value).then(() => {
