@@ -92,6 +92,10 @@
         margin-left: 5px;
       }
 
+      #chkCertify {
+        margin-top: 10px;
+      }
+
       @media (max-width: 600px) {
         .container {
           padding: 20px 16px 20px;
@@ -129,6 +133,8 @@
               <lang-select id="languageSelect"></lang-select>
             </div>
             <soso-checkbox id="chkboxPrivate" label="Keep this card private" on-change="_onPrivateChanged"></soso-checkbox>
+            <soso-checkbox id="chkCertify" label="I certify that this is my own original content and that any included material (including images) is properly cited and freely available for commercial reuse"
+              on-change="_onCertify"></soso-checkbox>
           </div>
           <div id="cardDeveloper" style="display:none;">
             <div>Card developer royalty:
@@ -172,6 +178,11 @@
         };
       }
 
+      _onCertify() {
+        let checked = this.$.chkCertify.checked;
+        this.$.publish.disabled = !checked;
+      }
+
       _onPrivateChanged() {
         this.set('cardData.private', this.$.chkboxPrivate.checked);
         this.wizard.data.isPrivate = this.$.chkboxPrivate.checked;
@@ -202,6 +213,8 @@
 
       onTransitioningIn(forward) {
         this.$.overlay.classList.add("hidden");
+        this.$.chkCertify.checked = false;
+        this._onCertify();
         this.$.spinner.spinning = false;
         let data = this.wizard.data;
         const cardData = {

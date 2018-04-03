@@ -53,10 +53,13 @@
         this.wizard.cancel();
       }
       _onNext() {
-        let error = this.$.view.validate();
-        if (error) {
-          $app.showError(error);
-          return;
+        const data = this.wizard.data;
+        if (data.campaignInfo) {
+          let error = this.$.view.validate();
+          if (error) {
+            $app.showError(error);
+            return;
+          }
         }
         this.wizard.next();
       }
