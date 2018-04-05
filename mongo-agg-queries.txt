@@ -2461,7 +2461,7 @@ db.users.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId: "527e7a24-b5eb-4847-ab03-dd4568b845fa", 
+    authorId:  "03036793-3a99-4ed9-947b-b6d3151056f9", 
     action: "pay",
     at: {$gt: 1522047600000}
   }},
@@ -3070,3 +3070,301 @@ privateCampaigns = db.cardCampaigns.aggregate([
 privateCampaigns.forEach( function(x) {
   db.cardCampaigns.update({id: x.campaignId}, {$set: {ends: 1522704169000}})
 })
+
+db.userRegistrations.aggregate([
+  {$match: {
+    "fingerprint": "de6f49e840af46059e079cab4c4d3c36"
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    grant: "$user.initialBalance",
+  }},
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    fraudReason: {$exists: false}
+  }},
+  {$group: {
+    _id: {card: "$cardId", author: "$authorId"},
+    purchases: {$sum: 1},
+    revenue: {$sum: "$payment.amount"}
+  }},
+  {$lookup: {
+    from: "cards",
+    localField: "_id.card",
+    foreignField: "id",
+    as: "card"
+  }},
+  {$unwind: "$card"},
+  {$project: {
+    purchases: 1,
+    revenue: 1,
+    title: "$card.summary.title",
+    handle: "$card.by.handle"
+  }},
+  {$sort: {
+    purchases: -1
+  }},
+])
+
+// What's going on with advertising campaigns?
+
+db.cardCampaigns.aggregate([
+  {$match: {
+    createdById: {$nin: ["bb7fe532-2c5f-4e8f-9ceb-29fcacad53fd", "81b62690-81e0-4561-9eba-1b0c84dcc9ab"]}
+  }},
+  {$unwind: "$cardIds"},  
+  {$group: {
+    _id: {author: "$createdById", type: "$type", status: "$status", cardId: "$cardIds"},
+    count: {$sum: 1},
+    opens: {$sum: "$stats.opens"},
+    clicks: {$sum: "$stats.clicks"},
+    impressions: {$sum: "$stats.impressions"},
+    redemptions: {$sum: "$stats.redemptions"},
+    expenses: {$sum: "$stats.expenses"}
+  }},
+  {$lookup: {
+    from: "cards",
+    localField: "_id.cardId",
+    foreignField: "id",
+    as: "card",
+  }},
+  {$unwind: "$card"},
+  {$project: {
+    count: 1,
+    opens: 1,
+    clicks: 1,
+    impressions: 1,
+    redemptions: 1,
+    expenses: 1,
+    title: "$card.summary.title"
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id.author",
+    foreignField: "id",
+    as: "author"
+  }},
+  {$unwind: "$author"},
+  {$project: {
+    count: 1,
+    opens: 1,
+    clicks: 1,
+    impressions: 1,
+    redemptions: 1,
+    expenses: 1,
+    title: 1,
+    handle: "$author.identity.handle",
+    city: "$author.city",
+    country: "$author.country",
+    balance: "$author.balance"
+  }},
+  {$sort: {expenses: -1}}
+]).pretty()
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    at: {$gt: 1520236800000}
+  }},
+  {$group: {
+    _id: {user: "$userId", author: "$authorId"},
+    count: {$sum: 1}
+  }},
+  {$group: {
+    _id: "$_id.author",
+    count: {$sum: 1}
+  }},
+  {$match: {count: {$gt: 1}}},
+  {$group: {
+    _id: "all",
+    count: {$sum: 1}
+  }}
+])
+
+db.authorUsers.aggregate([
+  {$match: {
+    isCurrent: true,
+    "stats.referredPurchases": {$gt: 0}
+  }},
+  {$group: {
+    _id: "$userId",
+    authors: {$sum: 1},
+    referredPurchases: {$sum: "$stats.referredPurchases"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    authors: 1,
+    referredPurchases: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    grant: "$user.initialBalance",
+  }},
+  {$sort: {referredPurchases: -1}}
+])
+
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    at: {$gt: 1517817600000}
+  }},
+  {$group: {
+    _id: {user: "$userId", author: "$authorId"},
+    count: {$sum: 1},
+    spent: {$sum: "$payment.amount"}
+  }},
+  {$group: {
+    _id: "$_id.user",
+    authors: {$sum: 1},
+    spent: {$sum: "$spent"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    authors: 1,
+    spent: 1,
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    city: "$user.city",
+    country: "$user.country",
+    grant: "$user.initialBalance",
+    lastPosted: "$user.lastPosted"
+  }},
+  {$match: {
+    lastPosted: 0
+  }},
+  {$sort: {authors: -1}}
+]).pretty()
+
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    at: {$gt: 1517817600000}
+  }},
+  {$group: {
+    _id: "$userId",
+    purchases: {$sum: 1},
+    spent: {$sum: "$payment.amount"},
+    authors: {$addToSet: "$authorId"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    purchases: 1,
+    spent: 1,
+    authors: {$size: "$authors"},
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    landingCardId: "$user.firstArrivalCardId"
+  }},
+  {$lookup: {
+    from: "cards",
+    localField: "landingCardId",
+    foreignField: "id",
+    as: "landingCard"
+  }},
+  {$unwind: "$landingCard"},
+  {$project: {
+    purchases: 1,
+    spent: 1,
+    authors: 1,
+    handle: 1,
+    balance: 1,
+    landingCardId: 1,
+    referringHandle: "$landingCard.by.handle"
+  }},
+  {$sort: {purchases: -1}}
+]).pretty()
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    at: {$gt: 1517817600000}
+  }},
+  {$group: {
+    _id: "$userId",
+    purchases: {$sum: 1},
+    spent: {$sum: "$payment.amount"},
+    authors: {$addToSet: "$authorId"}
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    purchases: 1,
+    spent: 1,
+    authors: {$size: "$authors"},
+    handle: "$user.identity.handle",
+    balance: "$user.balance",
+    landingPage: "$user.originalLandingPage"
+  }},
+  {$match: {
+    landingPage: /https\:\/\/channels\.cc\/channel\//
+  }},
+  {$project: {
+    purchases: 1,
+    spent: 1,
+    authors: 1,
+    handle: 1,
+    balance: 1,
+    landingChannel: {$substr: ["$landingPage", 28, 50]}
+  }},
+  {$sort: {purchases: -1}}
+]).pretty()
+  {$lookup: {
+    from: "channels",
+    localField: "landingChannel",
+    foreignField: "handle",
+    as: "channel"
+  }},
+  {$unwind: "$channel"},
+  {$project: {
+    purchases: 1,
+    spent: 1,
+    authors: 1,
+    handle: 1,
+    balance: 1,
+    landingChannel: 1
+  }},
+  {$sort: {purchases: -1}}
+]).pretty()

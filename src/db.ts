@@ -2653,7 +2653,7 @@ export class Database {
       await this.networkCardStats.updateOne({ periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
     } catch (err) {
       // May be race condition
-      errorManager.warning("Db.ensureNetworkCardStats: record insert/update failed, ignoring because of probable race condition", null);
+      errorManager.warning("Db.ensureNetworkCardStats: record insert/update failed, ignoring because of probable race condition", null, err);
     }
     result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
     return result[0];
