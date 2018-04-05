@@ -54,7 +54,7 @@
       <dom-repeat items="[[items]]">
         <template>
           <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.moreAvailable]]" on-card-open-request="_onCardOpenRequest"
-            on-more="_onMore"></card-list>
+            on-channel-open="_onChannelOpen" on-more="_onMore"></card-list>
         </template>
       </dom-repeat>
     </div>
@@ -147,6 +147,12 @@
           });
           $router.goto("/c/" + encodeURIComponent(card.id), context);
         }
+      }
+
+      _onChannelOpen() {
+        $router.updateContext({
+          scrollTop: $app.scrollValue
+        });
       }
 
       _onMore(event) {

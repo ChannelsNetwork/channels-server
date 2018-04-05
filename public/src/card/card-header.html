@@ -256,6 +256,7 @@
       }
 
       _openUserChannel() {
+        this.dispatchEvent(new CustomEvent("channel-open", { bubbles: true, composed: true, detail: { handle: this.data.by.handle } }));
         $router.goto("/channel/" + encodeURIComponent(this.data.by.handle));
       }
 
