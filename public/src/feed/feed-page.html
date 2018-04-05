@@ -103,7 +103,7 @@
         on-channel-open="_onChannelOpen" on-more="_onMoreChannels" class="hidden"></card-list>
       <div id="noItems" class="hidden">[[emptyMessage]]</div>
       <sectioned-card-list id="sectionedList" label="[[cardsLabel]]" items="[[items]]" more="[[_moreAvailable]]" on-card-open-request="_onCardOpenRequest"
-        on-more="_onMore"></sectioned-card-list>
+        on-channel-open="_onChannelOpen" on-more="_onMore"></sectioned-card-list>
     </div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
