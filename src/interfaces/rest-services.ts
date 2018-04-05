@@ -1023,6 +1023,7 @@ export interface UserDescriptor {
   name: string;
   image: FileInfo;
   location: string;
+  memberSince: number;
 }
 
 export interface FileInfo {
@@ -1349,4 +1350,33 @@ export interface GetUserStatsResponse extends RestResponse {
   last24Hours: UserStats;
   last7Days: UserStats;
   last30Days: UserStats;
+}
+
+export interface GetCommunityInfoDetails extends Signable {
+  maxCount: number;
+}
+
+export interface GetCommunityInfoResponse extends RestResponse {
+  networkHelpers: CommunityMemberInfo[];
+  myHelpers: CommunityMemberInfo[];
+  helpedByMe: CommunityMemberInfo[];
+}
+
+export interface CommunityMemberInfo {
+  user: UserDescriptor;
+  authors: number;
+  referredCards: number;
+  referredPurchases: number;
+}
+
+export interface GetCommunityInfoMoreDetails extends Signable {
+  list: CommunityInfoListType;
+  afterUserId: string;
+  maxCount: number;
+}
+
+export type CommunityInfoListType = "networkHelpers" | "myHelpers" | "helpedByMe";
+
+export interface GetCommunityInfoMoreResponse extends RestResponse {
+  members: CommunityMemberInfo[];
 }

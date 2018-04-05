@@ -851,6 +851,20 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  getCommunityInfo(maxCountPerList) {
+    let details = RestUtils.getCommunityInfo(this._keys.address, this._fingerprint, maxCountPerList);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-community-info";
+    return this.rest.post(url, request);
+  }
+
+  getCommunityInfoMore(listType, maxCount, afterUserId) {
+    let details = RestUtils.getCommunityInfo(this._keys.address, this._fingerprint, listType, maxCount, afterUserId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-community-info-more";
+    return this.rest.post(url, request);
+  }
+
   uploadImageFile(imageFile, filename, maxWidth) {
     return this.ensureImageLib().then(() => {
       return CoreImageUtils.resample(imageFile, maxWidth, true).then((blob) => {

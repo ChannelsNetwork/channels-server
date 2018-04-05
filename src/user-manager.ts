@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -445,6 +445,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('get-geo-descriptors'), (request: Request, response: Response) => {
       void this.handleGetGeoDescriptors(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-community-info'), (request: Request, response: Response) => {
+      void this.handleGetCommunityInfo(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-community-info-more'), (request: Request, response: Response) => {
+      void this.handleGetCommunityInfoMore(request, response);
     });
   }
 
@@ -1173,6 +1179,142 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleGetCommunityInfo(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetCommunityInfoDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const maxCount = requestBody.detailsObject.maxCount || 10;
+      console.log("UserManager.get-community-info", user.id, requestBody.detailsObject);
+      const reply: GetCommunityInfoResponse = {
+        serverVersion: SERVER_VERSION,
+        networkHelpers: await this.getNetworkCommunityInfo(request, user, "networkHelpers", maxCount, null),
+        myHelpers: await this.getMyHelpersCommunityInfo(request, user, "myHelpers", maxCount, null),
+        helpedByMe: await this.getHelpedByMeCommunityInfo(request, user, "helpedByMe", maxCount, null),
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetCommunityInfo: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async getNetworkCommunityInfo(request: Request, user: UserRecord, type: CommunityInfoListType, maxCount: number, afterUserId: string): Promise<CommunityMemberInfo[]> {
+    const result: CommunityMemberInfo[] = [];
+    const cursor = db.aggregateAuthorUsersReferrals();
+    let waiting = afterUserId ? true : false;
+    while (result.length < maxCount) {
+      const item = await cursor.next();
+      if (!item) {
+        break;
+      }
+      if (waiting) {
+        if (item.userId === afterUserId) {
+          waiting = false;
+        }
+        continue;
+      }
+      if (item.authors <= 1) {
+        break;
+      }
+      const resultItem: CommunityMemberInfo = {
+        user: await userManager.getUserDescriptor(item.userId, false),
+        authors: item.authors,
+        referredCards: item.referredCards,
+        referredPurchases: item.referredPurchases
+      };
+      result.push(resultItem);
+    }
+    await cursor.close();
+    return result;
+  }
+
+  private async getMyHelpersCommunityInfo(request: Request, user: UserRecord, type: CommunityInfoListType, maxCount: number, afterUserId: string): Promise<CommunityMemberInfo[]> {
+    const result: CommunityMemberInfo[] = [];
+    const cursor = db.getAuthorUsersByAuthor(user.id);
+    let waiting = afterUserId ? true : false;
+    while (await cursor.hasNext() && result.length < maxCount) {
+      const authorUser = await cursor.next();
+      if (waiting) {
+        if (authorUser.userId === afterUserId) {
+          waiting = false;
+        }
+        continue;
+      }
+      const resultItem: CommunityMemberInfo = {
+        user: await userManager.getUserDescriptor(authorUser.userId, false),
+        authors: 1,
+        referredCards: authorUser.stats.referredCards,
+        referredPurchases: authorUser.stats.referredPurchases
+      };
+      result.push(resultItem);
+    }
+    await cursor.close();
+    return result;
+  }
+
+  private async getHelpedByMeCommunityInfo(request: Request, user: UserRecord, type: CommunityInfoListType, maxCount: number, afterUserId: string): Promise<CommunityMemberInfo[]> {
+    const result: CommunityMemberInfo[] = [];
+    const cursor = db.getAuthorUsersByUser(user.id);
+    let waiting = afterUserId ? true : false;
+    while (await cursor.hasNext() && result.length < maxCount) {
+      const authorUser = await cursor.next();
+      if (waiting) {
+        if (authorUser.authorId === afterUserId) {
+          waiting = false;
+        }
+        continue;
+      }
+      const resultItem: CommunityMemberInfo = {
+        user: await userManager.getUserDescriptor(authorUser.authorId, false),
+        authors: 1,
+        referredCards: authorUser.stats.referredCards,
+        referredPurchases: authorUser.stats.referredPurchases
+      };
+      result.push(resultItem);
+    }
+    await cursor.close();
+    return result;
+  }
+
+  private async handleGetCommunityInfoMore(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetCommunityInfoMoreDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const maxCount = requestBody.detailsObject.maxCount || 10;
+      const sinceUserId = requestBody.detailsObject.afterUserId;
+      const type = requestBody.detailsObject.list;
+      console.log("UserManager.get-community-info-more", user.id, requestBody.detailsObject);
+      let info: CommunityMemberInfo[];
+      switch (type) {
+        case "networkHelpers":
+          info = await this.getNetworkCommunityInfo(request, user, type, maxCount, sinceUserId);
+          break;
+        case "myHelpers":
+          info = await this.getMyHelpersCommunityInfo(request, user, type, maxCount, sinceUserId);
+          break;
+        case "helpedByMe":
+          info = await this.getHelpedByMeCommunityInfo(request, user, type, maxCount, sinceUserId);
+          break;
+        default:
+          response.status(400).send("Invalid list type " + type);
+      }
+      const reply: GetCommunityInfoMoreResponse = {
+        serverVersion: SERVER_VERSION,
+        members: info
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetCommunityInfoMore: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
@@ -1626,7 +1768,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       publicKey: user.publicKey,
       name: user.identity ? user.identity.name : null,
       image: user.identity && user.identity.imageId ? await fileManager.getFileInfo(user.identity.imageId) : (user.identity ? { id: null, imageInfo: null, url: user.identity.imageUrl } : null),
-      location: user.identity ? user.identity.location : null
+      location: user.identity ? user.identity.location : null,
+      memberSince: user.added
     };
     return result;
   }

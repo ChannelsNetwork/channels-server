@@ -471,8 +471,8 @@ export class Database {
     this.authorUsers = this.db.collection('authorUsers');
     await this.authorUsers.createIndex({ authorId: 1, userId: 1, periodStarting: -1 }, { unique: true });
     await this.authorUsers.createIndex({ authorId: 1, userId: 1, isCurrent: 1 });
-    await this.authorUsers.createIndex({ userId: 1, isCurrent: 1 });
-    await this.authorUsers.createIndex({ authorId: 1, isCurrent: 1 });
+    await this.authorUsers.createIndex({ userId: 1, isCurrent: 1, "stats.referredPurchases": -1 });
+    await this.authorUsers.createIndex({ authorId: 1, isCurrent: 1, "stats.referredPurchases": -1 });
   }
 
   private async initializeUserStats(): Promise<void> {
@@ -4454,6 +4454,37 @@ export class Database {
     return result.length > 0 ? result[0] : null;
   }
 
+  aggregateAuthorUsersReferrals(): AggregationCursor<AuthorUserAggregationItem> {
+    return this.authorUsers.aggregate<AuthorUserAggregationItem>([
+      { $match: { isCurrent: true } },
+      {
+        $group: {
+          _id: "$userId",
+          authors: { $sum: 1 },
+          referredCards: { $sum: "$stats.referredCards" },
+          referredPurchases: { $sum: "$stats.referredPurchases" }
+        }
+      },
+      {
+        $project: {
+          userId: "$_id",
+          authors: 1,
+          referredCards: 1,
+          referredPurchases: 1
+        }
+      },
+      { $sort: { referredPurchases: -1 } }
+    ]);
+  }
+
+  getAuthorUsersByAuthor(authorId: string): Cursor<AuthorUserRecord> {
+    return this.authorUsers.find<AuthorUserRecord>({ authorId: authorId, isCurrent: true }).sort({ "stats.referredPurchases": -1 });
+  }
+
+  getAuthorUsersByUser(userId: string): Cursor<AuthorUserRecord> {
+    return this.authorUsers.find<AuthorUserRecord>({ userId: userId, isCurrent: true }).sort({ "stats.referredPurchases": -1 });
+  }
+
   async findCurrentUserStats(userId: string): Promise<UserStatsRecord> {
     return this.userStats.findOne<UserStatsRecord>({ userId: userId, isCurrent: true });
   }
@@ -4646,4 +4677,11 @@ export interface UserCardActionPromotionsInfo {
 export interface RedemptionInfo {
   count: number;
   total: number;
+}
+
+export interface AuthorUserAggregationItem {
+  userId: string;
+  authors: number;
+  referredCards: number;
+  referredPurchases: number;
 }

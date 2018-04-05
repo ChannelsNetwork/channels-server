@@ -1009,4 +1009,24 @@ class RestUtils {
       timestamp: RestUtils.now(),
     };
   }
+
+  static getCommunityInfo(address, fingerprint, maxCountPerList) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      maxCount: maxCountPerList
+    };
+  }
+
+  static getCommunityInfoMore(address, fingerprint, listType, maxCount, afterUserId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      list: listType,
+      maxCount: maxCount,
+      afterUserId: afterUserId
+    };
+  }
 }
