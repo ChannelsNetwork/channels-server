@@ -102,22 +102,22 @@
     </div>
     <channel-carousel id="carousel" label="Featured channels" channels="[[featured]]" class="hidden"></channel-carousel>
     <card-list id="subscribedList" label="Subscribed" items="[[subscribed]]" more clickable-label on-card-open-request="_onCardOpenRequest"
-      on-more="_gotoFeed" on-headline-click="_gotoFeed" class="hidden"></card-list>
+      on-channel-open="_onChannelOpen" on-more="_gotoFeed" on-headline-click="_gotoFeed" class="hidden"></card-list>
 
     <dom-repeat items="[[channelList]]">
       <template>
         <div class$="[[item.sectionClass]]">
           <card-list label="[[item.label]]" items="[[item.cards]]" more="[[item.more]]" clickable-label="[[item.more]]" on-card-open-request="_onCardOpenRequest"
-            on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
+            on-channel-open="_onChannelOpen" on-more="_gotoChannel" on-headline-click="_gotoChannel"></card-list>
         </div>
       </template>
     </dom-repeat>
 
     <card-list id="newList" label="New" items="[[newCards]]" more clickable-label on-card-open-request="_onCardOpenRequest" on-more="_gotoNew"
-      on-headline-click="_gotoNew" class="hidden"></card-list>
+      on-channel-open="_onChannelOpen" on-headline-click="_gotoNew" class="hidden"></card-list>
 
     <card-list id="recommendedList" label="Recommended" items="[[recommended]]" more="[[_moreRecommended]]" on-card-open-request="_onCardOpenRequest"
-      on-more="_onMoreRecommended" class="hidden"></card-list>
+      on-channel-open="_onChannelOpen" on-more="_onMoreRecommended" class="hidden"></card-list>
     <div id="spacer" style="height: 100px"></div>
     <soso-icon id="composeButton" on-click="_compose" icon="add"></soso-icon>
   </template>
@@ -326,6 +326,13 @@
           });
           $router.goto("/c/" + encodeURIComponent(card.id), context);
         }
+      }
+
+      _onChannelOpen() {
+        $router.updateContext({
+          scrollTop: $app.scrollValue,
+          page: "home"
+        });
       }
 
       _onMoreRecommended() {
