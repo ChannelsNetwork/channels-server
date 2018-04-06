@@ -48,6 +48,34 @@
         font-size: 16px;
       }
 
+      #more {
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        margin: 8px;
+        padding: 20px 16px;
+        height: 100%;
+      }
+
+      #moreButton {
+        text-align: center;
+        width: 85px;
+        height: 85px;
+        cursor: pointer;
+        margin: 0 auto;
+        border-radius: 50%;
+        font-size: 16px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        color: var(--highlight-green);
+        background: transparent;
+        border: 3px solid;
+      }
+
       @media (max-width: 600px) {
         .communityText {
           font-size: 14px;
@@ -72,7 +100,7 @@
             view your content.</div>
         </div>
       </section>
-      <dom-repeat items="[[data]]">
+      <dom-repeat items="[[data]]" id="dataRepeater">
         <template>
           <section>
             <h2 class="title">[[item.name]]</h2>
@@ -82,6 +110,15 @@
                   <community-user-item data="[[user]]" hide-author="[[item.hideAuthor]]"></community-user-item>
                 </template>
               </dom-repeat>
+              <div class$="[[item.moreClass]]">
+                <div id="more" class="horizontal layout center">
+                  <div id="moreButton" class="horizontal layout center" on-click="_onMore">
+                    <div style="width: 100%; box-sizing: border-box;">
+                      <div>More</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </template>
@@ -105,13 +142,15 @@
 
           this.$.nonePanel.classList.add('hidden');
           this.$.container.classList.add('hidden');
-          return $core.getCommunityInfo(12).then(response => {
+          let fetchCount = window.innerWidth <= 600 ? 5 : 11;
+          return $core.getCommunityInfo(fetchCount).then(response => {
             let data = [];
             if (response.networkHelpers && response.networkHelpers.length) {
               data.push({
                 id: 'networkHelpers',
                 name: 'Top Helpers',
-                items: response.networkHelpers
+                items: response.networkHelpers,
+                moreClass: response.networkHelpers.length === fetchCount ? '' : 'hidden'
               });
             }
             if (response.myHelpers && response.myHelpers.length) {
@@ -119,7 +158,8 @@
                 id: 'myHelpers',
                 name: 'My Helpers',
                 items: response.myHelpers,
-                hideAuthor: true
+                hideAuthor: true,
+                moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden'
               });
             }
             if (response.helpedByMe && response.helpedByMe.length) {
@@ -127,7 +167,8 @@
                 id: 'helpedByMe',
                 name: 'Helped By Me',
                 items: response.helpedByMe,
-                hideAuthor: true
+                hideAuthor: true,
+                moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden'
               });
             }
             this.data = data;
@@ -138,6 +179,33 @@
             }
           });
         }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _onMore(event) {
+        if (this._fetchingMore) {
+          return;
+        }
+        let item = event.model.item;
+        this._fetchingMore = true;
+        let last = item.items[item.items.length - 1].user.id;
+        let fetchCount = window.innerWidth <= 600 ? 8 : 12;
+        $core.getCommunityInfoMore(item.id, fetchCount, last).then(response => {
+          this._fetchingMore = false;
+          let moreItems = (response && response.members) || [];
+          let hasMore = moreItems.length === fetchCount;
+          for (let d of this.data) {
+            if (d.id === item.id) {
+              d.items = d.items.concat(moreItems);
+              d.moreClass = hasMore ? '' : 'hidden';
+              break;
+            }
+          }
+          this.data = JSON.parse(JSON.stringify(this.data));
+        }).catch((err) => {
+          this._fetchingMore = false;
           console.error(err);
           $app.showError(err);
         });

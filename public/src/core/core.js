@@ -859,7 +859,7 @@ class CoreService extends Polymer.Element {
   }
 
   getCommunityInfoMore(listType, maxCount, afterUserId) {
-    let details = RestUtils.getCommunityInfo(this._keys.address, this._fingerprint, listType, maxCount, afterUserId);
+    let details = RestUtils.getCommunityInfoMore(this._keys.address, this._fingerprint, listType, maxCount, afterUserId);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-community-info-more";
     return this.rest.post(url, request);
