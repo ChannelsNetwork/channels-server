@@ -978,6 +978,12 @@ export class FeedManager implements Initializable, RestServer {
       const authorIds: string[] = [];
       const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
       while (await cursor.hasNext()) {
+        // We want to spread out the best cards over multiple fetches.  This is
+        // a simple way to do that.
+        const randomSkip = Math.floor(Math.random() * 10);
+        if (randomSkip) {
+          await cursor.skip(randomSkip);
+        }
         const cardByScore = await cursor.next();
         if (cardByScore.score <= 0) {
           console.log("Feed.getCardsWithHighestScores:  card score is zero, so aborting");
