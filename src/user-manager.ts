@@ -1217,8 +1217,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
         continue;
       }
+      const referrer = await userManager.getUserDescriptor(item.userId, false);
+      if (!referrer.handle) {
+        continue;
+      }
       const resultItem: CommunityMemberInfo = {
-        user: await userManager.getUserDescriptor(item.userId, false),
+        user: referrer,
         authors: item.authorIds.length - (item.authorIds.indexOf(item.userId) >= 0 ? 1 : 0),
         referredCards: item.referredCards,
         referredPurchases: item.referredPurchases
@@ -1247,8 +1251,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (authorUser.stats.referredPurchases === 0) {
         break;
       }
+      const referrer = await userManager.getUserDescriptor(authorUser.userId, false);
+      if (!referrer.handle) {
+        continue;
+      }
       const resultItem: CommunityMemberInfo = {
-        user: await userManager.getUserDescriptor(authorUser.userId, false),
+        user: referrer,
         authors: 1,
         referredCards: authorUser.stats.referredCards,
         referredPurchases: authorUser.stats.referredPurchases
@@ -1277,8 +1285,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       if (authorUser.stats.referredPurchases === 0) {
         break;
       }
+      const referrer = await userManager.getUserDescriptor(authorUser.authorId, false);
+      if (!referrer.handle) {
+        continue;
+      }
       const resultItem: CommunityMemberInfo = {
-        user: await userManager.getUserDescriptor(authorUser.authorId, false),
+        user: referrer,
         authors: 1,
         referredCards: authorUser.stats.referredCards,
         referredPurchases: authorUser.stats.referredPurchases
