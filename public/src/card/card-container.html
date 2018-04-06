@@ -1,4 +1,6 @@
-<link rel="import" href="card-view.html">
+<link rel="import" href="../card2/card-view-test.html">
+<link rel="import" href="../card2/card-view-v.html">
+<!-- <link rel="import" href="card-view.html"> -->
 <link rel="import" href="../channel/channel-card.html">
 <link rel="import" href="ad/image-ad-card.html">
 
@@ -14,6 +16,7 @@
       }
 
       card-view,
+      card-view-v,
       image-ad-card {
         height: 100%;
       }
@@ -62,7 +65,7 @@
         if (this.data.summary && this.data.summary.imageId && this.data.summary.linkUrl && !this.data.summary.iframeUrl) {
           view = new ImageAdCard();
         } else {
-          view = new CardView();
+          view = new CardViewV();
         }
         view.data = this.data;
         view.showPinAction = this.showPinAction;
