@@ -36,11 +36,25 @@
         display: table-row;
       }
 
+      .row:hover {
+        background-color: #f8f8ff;
+      }
+
       .cell {
         display: table-cell;
         border: 1px solid #aaa;
         padding: 3px;
         max-width: 150px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .widecell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+        max-width: 300px;
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;
@@ -142,8 +156,8 @@
             <div class="cell">[[item.city]]</div>
             <div class="cell center">[[item.initialGrant]]</div>
             <div class="cell center toggle" on-click="_onMailingListToggle">[[item.mailingList]]</div>
-            <div class="cell">[[item.referer]]</div>
-            <div class="cell">[[item.landingPage]]</div>
+            <div class="widecell">[[item.referer]]</div>
+            <div class="widecell">[[item.landingPage]]</div>
             <div class="cell">[[item.curation]]</div>
             <div class="cell center toggle" on-click="_onDiscountActionClick">[[item.discountAction]]</div>
             <div class="cell center toggle" on-click="_onBlockActionClick">[[item.blockAction]]</div>

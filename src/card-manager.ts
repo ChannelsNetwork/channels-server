@@ -2314,7 +2314,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         sourceChannelId: sourceChannelId,
         commentCount: await db.countCardComments(cardId, user ? user.id : null),
       };
-      if (user.admin) {
+      if (includeAdmin) {
         card.quality = record.curation.quality;
         card.market = record.curation.market;
       }
