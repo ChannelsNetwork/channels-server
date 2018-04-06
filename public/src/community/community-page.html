@@ -56,7 +56,7 @@
             <div class="itemList horizontal layout wrap">
               <dom-repeat items="[[item.items]]" as="user">
                 <template>
-                  <community-user-item data="[[user]]"></community-user-item>
+                  <community-user-item data="[[user]]" hide-author="[[item.hideAuthor]]"></community-user-item>
                 </template>
               </dom-repeat>
             </div>
@@ -95,14 +95,16 @@
               data.push({
                 id: 'myHelpers',
                 name: 'My Helpers',
-                items: response.myHelpers
+                items: response.myHelpers,
+                hideAuthor: true
               });
             }
             if (response.helpedByMe && response.helpedByMe.length) {
               data.push({
                 id: 'helpedByMe',
                 name: 'Helped By Me',
-                items: response.helpedByMe
+                items: response.helpedByMe,
+                hideAuthor: true
               });
             }
             this.data = data;

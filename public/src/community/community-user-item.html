@@ -122,12 +122,21 @@
             type: Object,
             observer: '_refresh'
           },
+          hideAuthor: {
+            type: Boolean,
+            observer: '_refresh'
+          },
           userImage: String
         };
       }
       _refresh() {
         if (this.data) {
           this.userImage = (this.data.user.image ? this.data.user.image.url : null) || $core.userManager.getFallbackUserImage(this.data.user.handle);
+          if (this.hideAuthor) {
+            this.$.authors.classList.add("hidden");
+          } else {
+            this.$.authors.classList.remove("hidden");
+          }
         }
       }
       _gotoChannel() {
