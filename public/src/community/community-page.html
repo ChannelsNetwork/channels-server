@@ -19,7 +19,7 @@
       }
 
       #container {
-        max-width: 1200px;
+        max-width: 1296px;
         margin: 0 auto;
       }
 
@@ -40,6 +40,19 @@
       .itemList {
         padding-top: 10px;
       }
+
+      .communityText {
+        max-width: 850px;
+        text-align: left;
+        padding: 5px 12px 0;
+        font-size: 16px;
+      }
+
+      @media (max-width: 600px) {
+        .communityText {
+          font-size: 14px;
+        }
+      }
     </style>
     <soso-app-header collapse-height="50">
       <channels-bar id="cbar"></channels-bar>
@@ -49,6 +62,16 @@
       There is no community data available for your account.
     </div>
     <div id="container" class="hidden">
+      <section style="padding-bottom: 5px;">
+        <div class="communityText">
+          Channels is a community of content creators. To earn money for your work, you need viewers. That's true for every one of
+          us. Each of our social networks is small. But
+          <b>our combined social network is huge!</b>
+          <div style="margin-top: 12px">Let's help each other get more viewers. Your friends will appreciate interesting new content. Other creators will
+            appreciate the new viewers you bring them. And you win when they return the favor and bring their friends to
+            view your content.</div>
+        </div>
+      </section>
       <dom-repeat items="[[data]]">
         <template>
           <section>
@@ -82,12 +105,12 @@
 
           this.$.nonePanel.classList.add('hidden');
           this.$.container.classList.add('hidden');
-          return $core.getCommunityInfo(8).then(response => {
+          return $core.getCommunityInfo(12).then(response => {
             let data = [];
             if (response.networkHelpers && response.networkHelpers.length) {
               data.push({
                 id: 'networkHelpers',
-                name: 'Network Helpers',
+                name: 'Top Helpers',
                 items: response.networkHelpers
               });
             }
