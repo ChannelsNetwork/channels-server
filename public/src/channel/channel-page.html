@@ -298,6 +298,27 @@
         padding: 20px 0;
       }
 
+      #communityPanel {
+        max-width: 1264px;
+        margin: 0 auto;
+      }
+
+      #communityPanel a,
+      #communityPanel a:visited,
+      #communityPanel a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+      }
+
+      #communityMessage {
+        padding: 10px;
+        margin-top: 20px;
+        display: inline-block;
+        background: #f5f5fa;
+        font-size: 16px;
+        border-radius: 2px;
+      }
+
       @media (max-width: 1264px) {
         card-list {
           max-width: 948px;
@@ -389,6 +410,12 @@
       </div>
     </div>
     <div id="cardsSection" class="hidden">
+      <div id="communityPanel" class="hidden">
+        <div id="communityMessage">
+          Community grows when people share each other's content.
+          <a href="/community">See who's been sharing your cards.</a>
+        </div>
+      </div>
       <div id="noItems" class="hidden">There are no cards in this channel.</div>
       <sectioned-card-list id="feed" items="[[items]]" more="[[_moreAvailable]]" show-pin-action="[[showPinAction]]" on-card-open-request="_onCardOpenRequest"
         on-more="_onMore" on-update-pinning="_updateCradPinning"></sectioned-card-list>
@@ -453,6 +480,12 @@
           window.addEventListener("resize", this._resizeListener);
           this._onResize();
           this._moreAvailable = false;
+
+          if (route && route.context && route.context.showCommunityMessage) {
+            this.$.communityPanel.classList.remove("hidden");
+          } else {
+            this.$.communityPanel.classList.add("hidden");
+          }
 
           // check if pending actions
           if (route && route.context && route.context.action) {
