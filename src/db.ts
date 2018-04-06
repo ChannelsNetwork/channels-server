@@ -2643,7 +2643,7 @@ export class Database {
       stats.paidUnits = 0;
     }
     const newRecord: NetworkCardStatsHistoryRecord = {
-      periodStarting: newPeriodStart,
+      periodStarting: newPeriodStart + 1,
       isCurrent: true,
       stats: stats,
       baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)
