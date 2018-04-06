@@ -1,0 +1,148 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="community-user-item.html">
+
+<dom-module id="community-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #nonePanel {
+        padding: 16px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      #container {
+        max-width: 1296px;
+        margin: 0 auto;
+      }
+
+      section {
+        padding: 20px 0;
+      }
+
+      .title {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 8px;
+        display: inline-block;
+      }
+
+      .itemList {
+        padding-top: 10px;
+      }
+
+      .communityText {
+        max-width: 850px;
+        text-align: left;
+        padding: 5px 12px 0;
+        font-size: 16px;
+      }
+
+      @media (max-width: 600px) {
+        .communityText {
+          font-size: 14px;
+        }
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
+    <div id="nonePanel" class="hidden">
+      There is no community data available for your account.
+    </div>
+    <div id="container" class="hidden">
+      <section style="padding-bottom: 5px;">
+        <div class="communityText">
+          Channels is a community of content creators. To earn money for your work, you need viewers. That's true for every one of
+          us. Each of our social networks is small. But
+          <b>our combined social network is huge!</b>
+          <div style="margin-top: 12px">Let's help each other get more viewers. Your friends will appreciate interesting new content. Other creators will
+            appreciate the new viewers you bring them. And you win when they return the favor and bring their friends to
+            view your content.</div>
+        </div>
+      </section>
+      <dom-repeat items="[[data]]">
+        <template>
+          <section>
+            <h2 class="title">[[item.name]]</h2>
+            <div class="itemList horizontal layout wrap">
+              <dom-repeat items="[[item.items]]" as="user">
+                <template>
+                  <community-user-item data="[[user]]" hide-author="[[item.hideAuthor]]"></community-user-item>
+                </template>
+              </dom-repeat>
+            </div>
+          </section>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class CommunityPage extends Polymer.Element {
+      static get is() { return 'community-page'; }
+      static get properties() {
+        return {
+          data: Array
+        };
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          // activate top bars and home page content
+          this.$.cbar.activate();
+          this.$.fbar.selected = 'community';
+
+          this.$.nonePanel.classList.add('hidden');
+          this.$.container.classList.add('hidden');
+          return $core.getCommunityInfo(12).then(response => {
+            let data = [];
+            if (response.networkHelpers && response.networkHelpers.length) {
+              data.push({
+                id: 'networkHelpers',
+                name: 'Top Helpers',
+                items: response.networkHelpers
+              });
+            }
+            if (response.myHelpers && response.myHelpers.length) {
+              data.push({
+                id: 'myHelpers',
+                name: 'My Helpers',
+                items: response.myHelpers,
+                hideAuthor: true
+              });
+            }
+            if (response.helpedByMe && response.helpedByMe.length) {
+              data.push({
+                id: 'helpedByMe',
+                name: 'Helped By Me',
+                items: response.helpedByMe,
+                hideAuthor: true
+              });
+            }
+            this.data = data;
+            if (this.data.length) {
+              this.$.container.classList.remove('hidden');
+            } else {
+              this.$.nonePanel.classList.remove('hidden');
+            }
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+    }
+    window.customElements.define(CommunityPage.is, CommunityPage);
+  </script>
+</dom-module>
