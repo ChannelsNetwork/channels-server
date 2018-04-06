@@ -76,9 +76,25 @@
         border: 3px solid;
       }
 
+      .row {
+        margin-top: 12px
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+        cursor: pointer;
+      }
+
       @media (max-width: 600px) {
         .communityText {
           font-size: 14px;
+        }
+        .title {
+          font-size: 15px;
+          letter-spacing: 0.03em;
         }
       }
     </style>
@@ -95,9 +111,21 @@
           Channels is a community of content creators. To earn money for your work, you need viewers. That's true for every one of
           us. Each of our social networks is small. But
           <b>our combined social network is huge!</b>
-          <div style="margin-top: 12px">Let's help each other get more viewers. Your friends will appreciate interesting new content. Other creators will
+          <div class="row">Let's help each other get more viewers. Your friends will appreciate interesting new content. Other creators will
             appreciate the new viewers you bring them. And you win when they return the favor and bring their friends to
-            view your content.</div>
+            view your content.
+            <a id="btnMore" on-click="_learnMore">Learn more...</a>
+          </div>
+          <div id="morePanel" class="hidden">
+            <div class="row">Channels tracks referrals when you use the sharing menu to share a card. The URL that is shared includes a referral
+              code so that we know who was responsible for the share that resulted in someone later visiting a card.</div>
+            <div class="row">You are credited for all card purchases resulting from someone arriving on Channels via one of your shares, including
+              other cards that they purchase in that same session.</div>
+            <div class="row">If you wish to share a card anonymously, you can do that by using the URL for the card in the address bar. That
+              URL contains no information that identifies you.</div>
+            <div class="row">Otherwise,
+              <b>be sure to use the share menu on a card</b> so that you get credit for your referrals.</div>
+          </div>
         </div>
       </section>
       <dom-repeat items="[[data]]" id="dataRepeater">
@@ -135,6 +163,8 @@
       }
 
       onActivate(route) {
+        this.$.morePanel.classList.add("hidden");
+        this.$.btnMore.classList.remove("hidden");
         $core.register().then(() => {
           // activate top bars and home page content
           this.$.cbar.activate();
@@ -148,7 +178,7 @@
             if (response.networkHelpers && response.networkHelpers.length) {
               data.push({
                 id: 'networkHelpers',
-                name: 'Top Helpers',
+                name: 'Top Referrers',
                 items: response.networkHelpers,
                 moreClass: response.networkHelpers.length === fetchCount ? '' : 'hidden'
               });
@@ -156,7 +186,7 @@
             if (response.myHelpers && response.myHelpers.length) {
               data.push({
                 id: 'myHelpers',
-                name: 'My Helpers',
+                name: 'Users who have shared my cards',
                 items: response.myHelpers,
                 hideAuthor: true,
                 moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden'
@@ -165,7 +195,7 @@
             if (response.helpedByMe && response.helpedByMe.length) {
               data.push({
                 id: 'helpedByMe',
-                name: 'Helped By Me',
+                name: 'Users whose cards I have shared',
                 items: response.helpedByMe,
                 hideAuthor: true,
                 moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden'
@@ -182,6 +212,13 @@
           console.error(err);
           $app.showError(err);
         });
+      }
+
+      _learnMore(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.$.morePanel.classList.remove("hidden");
+        this.$.btnMore.classList.add("hidden");
       }
 
       _onMore(event) {
