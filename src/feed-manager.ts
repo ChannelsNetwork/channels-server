@@ -976,6 +976,7 @@ export class FeedManager implements Initializable, RestServer {
       while (await cursor.hasNext()) {
         const cardByScore = await cursor.next();
         if (cardByScore.score <= 0) {
+          console.log("Feed.getCardsWithHighestScores:  card score is zero, so aborting");
           break;
         }
         if (cardByScore.stats && cardByScore.stats.reports && cardByScore.stats.reports.value > 0 && (!cardByScore.curation || !cardByScore.curation.overrideReports)) {
