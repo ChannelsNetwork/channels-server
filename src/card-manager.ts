@@ -1661,14 +1661,23 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         normalPurchases: [],
         firstTimePurchases: []
       };
+      const timestamps: number[] = [];
+      const now = Date.now();
+      timestamps.push(now - 1000 * 60 * 60 * 24);
+      timestamps.push(now - 1000 * 60 * 60 * 24 * 8);
+      timestamps.push(now - 1000 * 60 * 60 * 24 * 38);
       for (const key of Object.keys(reply)) {
-        const items = await db.findCardStatsHistory(card.id, key, requestBody.detailsObject.historyLimit);
-        for (const item of items) {
-          const d: CardStatDatapoint = {
-            value: item.value,
-            at: item.at
-          };
-          (reply as any)[key].push(d);
+        for (const timestamp of timestamps) {
+          const item = await db.findCardStatsHistoryBefore(card.id, key, timestamp);
+          if (item) {
+            const d: CardStatDatapoint = {
+              value: item.value,
+              at: item.at
+            };
+            (reply as any)[key].push(d);
+          } else {
+            break;
+          }
         }
       }
       response.json(reply);

@@ -406,6 +406,8 @@ export class Bank implements RestServer, Initializable {
     let totalNonRemainder = 0;
     let remainders = 0;
     const participantIds: string[] = [user.id];
+    const balancesBefore: number[] = [user.balance];
+    const balancesAfter: number[] = [user.balance];
     const recipientUserIds: string[] = [];
     const recipientUsers: UserRecord[] = [];
     for (const recipient of details.toRecipients) {
@@ -424,6 +426,8 @@ export class Bank implements RestServer, Initializable {
       recipientUsers.push(recipientUser);
       if (participantIds.indexOf(recipientUser.id) < 0) {
         participantIds.push(recipientUser.id);
+        balancesBefore.push(recipientUser.balance);
+        balancesAfter.push(recipientUser.balance);
       }
       switch (recipient.portion) {
         case "remainder":
@@ -460,6 +464,7 @@ export class Bank implements RestServer, Initializable {
 
     // We may need to decrement withdrawable balance to make sure it is never more than your balance
     await db.incrementUserBalance(user, -totalAmount, balanceBelowTarget, now);
+    balancesAfter[0] -= totalAmount;
     let deductions = 0;
     let remainderShares = 0;
     for (const recipient of details.toRecipients) {
@@ -484,8 +489,29 @@ export class Bank implements RestServer, Initializable {
           throw new Error("Unhandled recipient portion " + recipient.portion);
       }
     }
-    const record = await db.insertBankTransaction(sessionId, now, user.id, participantIds, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null, description, fromIpAddress, fromFingerprint);
     let index = 0;
+    for (const recipient of details.toRecipients) {
+      const recipientUser = recipientUsers[index++];
+      let creditAmount = 0;
+      switch (recipient.portion) {
+        case "remainder":
+          creditAmount = (totalAmount - deductions) / remainders;
+          break;
+        case "fraction":
+          creditAmount = totalAmount * recipient.amount;
+          break;
+        case "absolute":
+          creditAmount = forceAmountToZero ? 0 : recipient.amount;
+          break;
+        default:
+          throw new Error("Unhandled recipient portion " + recipient.portion);
+      }
+      if (!doNotIncrementBalance && participantIds.indexOf(recipientUser.id) >= 0) {
+        balancesAfter[participantIds.indexOf(recipientUser.id)] += creditAmount;
+      }
+    }
+    const record = await db.insertBankTransaction(sessionId, now, user.id, participantIds, balancesBefore, balancesAfter, relatedCardTitle, details, recipientUserIds, signedTransaction, deductions, remainderShares, null, description, fromIpAddress, fromFingerprint);
+    index = 0;
     const amountByRecipientReason: { [reason: string]: number } = {};
     for (const recipient of details.toRecipients) {
       const recipientUser = recipientUsers[index++];
@@ -560,11 +586,13 @@ export class Bank implements RestServer, Initializable {
     if (!redeemable && !from.admin) {
       throw new ErrorWithStatusCode(401, "This coupon's budget is exhausted");
     }
+    const balancesBefore: number[] = [to.balance, from.balance];
+    const balancesAfter: number[] = [to.balance + transaction.amount, from.balance - transaction.amount];
     const originalBalance = to.balance;
     const balanceBelowTarget = from.balance < 0 ? false : from.balance - transaction.amount < TARGET_BALANCE;
     console.log("Bank.performRedemption: Debiting user account", coupon.reason, transaction.amount, from.id);
     await db.incrementUserBalance(from, -transaction.amount, balanceBelowTarget, now);
-    const record = await db.insertBankTransaction(sessionId, now, from.id, [to.id, from.id], card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null, description, fromIpAddress, fromFingerprint);
+    const record = await db.insertBankTransaction(sessionId, now, from.id, [to.id, from.id], balancesBefore, balancesAfter, card && card.summary ? card.summary.title : null, transaction, [to.id], null, 0, 1, null, description, fromIpAddress, fromFingerprint);
     console.log("Bank.performRedemption: Crediting user account", coupon.reason, transaction.amount, to.id);
     await db.incrementUserBalance(to, transaction.amount, to.balance + transaction.amount < TARGET_BALANCE, now);
     await db.incrementCouponSpent(coupon.id, transaction.amount);
@@ -653,8 +681,10 @@ export class Bank implements RestServer, Initializable {
 
   private async initiateWithdrawal(sessionId: string, user: UserRecord, signedWithdrawal: SignedObject, details: BankTransactionDetails, feeAmount: number, feeDescription: string, paidAmount: number, now: number, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionResult> {
     console.log("Bank.initiateWithdrawal: Debiting user account", details.amount, user.id);
+    const balanceBefore = user.balance;
+    const balanceAfter = user.balance - details.amount;
     await db.incrementUserBalance(user, -details.amount, user.balance - details.amount < TARGET_BALANCE, now);
-    const record = await db.insertBankTransaction(sessionId, now, user.id, [user.id], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism, description, fromIpAddress, fromFingerprint);
+    const record = await db.insertBankTransaction(sessionId, now, user.id, [user.id], [balanceBefore], [balanceAfter], null, details, [], signedWithdrawal, 0, 1, details.withdrawalRecipient.mechanism, description, fromIpAddress, fromFingerprint);
     const amountByRecipientReason: { [reason: string]: number } = {};
     const result: BankTransactionResult = {
       record: record,

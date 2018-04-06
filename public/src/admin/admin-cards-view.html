@@ -85,7 +85,7 @@
           <div class="headerCell">Keywords</div>
           <div class="headerCell clickable" on-click="_onPostedClick">Posted</div>
           <div class="headerCell clickable" on-click="_onAuthorClick">Author</div>
-          <div class="headerCell">Private</div>
+          <div class="headerCell clickable" on-click="_onPrivateClick">Private</div>
           <div class="headerCell">Package</div>
           <div class="headerCell right clickable" on-click="_onScoreClick">Score</div>
           <div class="headerCell right">Score (age)</div>
@@ -244,6 +244,15 @@
         this.set('cards', []);
         newItems.sort((a, b) => {
           return b.card.score - a.card.score;
+        });
+        this.set('cards', newItems);
+      }
+
+      _onPrivateClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        newItems.sort((a, b) => {
+          return (b.card.private ? 1 : 0) - (a.card.private ? 1 : 0);
         });
         this.set('cards', newItems);
       }
