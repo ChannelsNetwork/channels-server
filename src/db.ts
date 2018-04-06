@@ -155,7 +155,7 @@ export class Database {
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
-    await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
+    await this.users.createIndex({ type: 1, balanceLastUpdated: -1, lastContact: -1 });
     await this.users.createIndex({ type: 1, lastContact: -1 });
     await this.users.createIndex({ type: 1, lastPosted: -1 });
     await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
@@ -912,8 +912,8 @@ export class Database {
     user.storage += size;
   }
 
-  async findUsersForBalanceUpdates(before: number): Promise<UserRecord[]> {
-    return this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
+  getUsersForBalanceUpdates(before: number, lastContactAfter: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before }, lastContact: { $gt: lastContactAfter } });
   }
 
   async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
@@ -2564,7 +2564,7 @@ export class Database {
   }
 
   async findCardStatsHistoryBefore(cardId: string, statName: string, before: number): Promise<CardStatisticHistoryRecord> {
-    const result = await this.cardStatsHistory.find<CardStatisticHistoryRecord>({cardId: cardId, statName: statName, at: {$lte: before}}).sort({at: -1}).limit(1).toArray();
+    const result = await this.cardStatsHistory.find<CardStatisticHistoryRecord>({ cardId: cardId, statName: statName, at: { $lte: before } }).sort({ at: -1 }).limit(1).toArray();
     return result.length > 0 ? result[0] : null;
   }
 

@@ -41,6 +41,7 @@ const ANNUAL_INTEREST_RATE = 0.03;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 60 * 24;
+const BALANCE_DORMANT_ACCOUNT_INTERVAL = 1000 * 60 * 60 * 24 * 45;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 1;
@@ -1672,10 +1673,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
   private async updateBalances(): Promise<void> {
     const now = Date.now();
-    const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
-    for (const user of users) {
+    const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
+    while (await cursor.hasNext()) {
+      const user = await cursor.next();
       await this.updateUserBalance(null, user, null);
     }
+    await cursor.close();
   }
 
   async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {
