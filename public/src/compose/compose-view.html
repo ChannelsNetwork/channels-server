@@ -155,9 +155,9 @@
           $core.analytics.event("card", "publish");
           $core.cardManager.cardService.clearUploadedFileIds();
           if (this._context && this._context.returnPath) {
-            $router.goto(this._context.returnPath);
+            $router.goto(this._context.returnPath, { showCommunityMessage: true });
           } else {
-            $router.goto("/channel/" + encodeURIComponent($core.profile.handle));
+            $router.goto("/channel/" + encodeURIComponent($core.profile.handle), { showCommunityMessage: true });
           }
         }).catch((err) => {
           this.$.wiz.navigationEnabled = true;
