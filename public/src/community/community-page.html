@@ -18,6 +18,12 @@
         text-align: center;
       }
 
+      .message {
+        padding: 0 8px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+      }
+
       #container {
         max-width: 1296px;
         margin: 0 auto;
@@ -148,6 +154,11 @@
                 </div>
               </div>
             </div>
+            <dom-repeat items="[[item.messages]]" as="message">
+              <template>
+                <div class="message">[[message]]</div>
+              </template>
+            </dom-repeat>
           </section>
         </template>
       </dom-repeat>
@@ -183,24 +194,22 @@
                 moreClass: response.networkHelpers.length === fetchCount ? '' : 'hidden'
               });
             }
-            if (response.myHelpers && response.myHelpers.length) {
-              data.push({
-                id: 'myHelpers',
-                name: 'Users who have shared my cards',
-                items: response.myHelpers,
-                hideAuthor: true,
-                moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden'
-              });
-            }
-            if (response.helpedByMe && response.helpedByMe.length) {
-              data.push({
-                id: 'helpedByMe',
-                name: 'Users whose cards I have shared',
-                items: response.helpedByMe,
-                hideAuthor: true,
-                moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden'
-              });
-            }
+            data.push({
+              id: 'myHelpers',
+              name: 'Users who have shared my cards',
+              items: response.myHelpers,
+              hideAuthor: true,
+              moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden',
+              messages: response.myHelpers.length ? [] : ['No one has shared your cards yet.']
+            });
+            data.push({
+              id: 'helpedByMe',
+              name: 'Users whose cards I have shared',
+              items: response.helpedByMe,
+              hideAuthor: true,
+              moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden',
+              messages: response.helpedByMe.length ? [] : ["You have not shared anyone's cards yet."]
+            });
             this.data = data;
             if (this.data.length) {
               this.$.container.classList.remove('hidden');
