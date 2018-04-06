@@ -144,7 +144,7 @@ export class NetworkEntity implements Initializable {
   }
 
   getOperatorTaxFraction(): number {
-    return 0.03;
+    return 0.05;
   }
 
   getOperatorAddress(): string {

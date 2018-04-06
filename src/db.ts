@@ -1972,13 +1972,15 @@ export class Database {
     return this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(sessionId: string, at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(sessionId: string, at: number, originatorUserId: string, participantUserIds: string[], participantBalancesBefore: number[], participantBalancesAfter: number[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       sessionId: sessionId,
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
+      participantBalancesBefore: participantBalancesBefore,
+      participantBalancesAfter: participantBalancesAfter,
       relatedCardTitle: relatedCardTitle,
       details: details,
       recipientUserIds: recipientUserIds,
@@ -2559,6 +2561,11 @@ export class Database {
 
   async findCardStatsHistory(cardId: string, statName: string, maxCount: number): Promise<CardStatisticHistoryRecord[]> {
     return this.cardStatsHistory.find({ cardId: cardId, statName: statName }).sort({ at: -1 }).limit(maxCount ? maxCount : 50).toArray();
+  }
+
+  async findCardStatsHistoryBefore(cardId: string, statName: string, before: number): Promise<CardStatisticHistoryRecord> {
+    const result = await this.cardStatsHistory.find<CardStatisticHistoryRecord>({cardId: cardId, statName: statName, at: {$lte: before}}).sort({at: -1}).limit(1).toArray();
+    return result.length > 0 ? result[0] : null;
   }
 
   async upsertBowerPackage(packageName: string, pkg: BowerInstallResult, channelComponent: ChannelComponentDescriptor): Promise<BowerPackageRecord> {

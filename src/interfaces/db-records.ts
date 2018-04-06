@@ -387,6 +387,8 @@ export interface BankTransactionRecord {
   at: number;
   originatorUserId: string;
   participantUserIds: string[];
+  participantBalancesBefore: number[];
+  participantBalancesAfter: number[];
   deductions: number;
   remainderShares: number;
   relatedCardTitle: string;
