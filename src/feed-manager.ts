@@ -53,6 +53,7 @@ const SCORE_CARD_BOOST_HALF_LIFE = 1000 * 60 * 60 * 24 * 3;
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
 const CARD_SCORE_RANDOM_WEIGHT = 0.5;
+const CARD_SCORE_RANDOM_VALUE = 0.5;
 const MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.05;
 const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
@@ -984,7 +985,7 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         }
         const userCard = await this.getUserCardInfo(user.id, cardByScore.id, false);
-        if (userCard && userCard.userCardInfo && userCard.userCardInfo.lastImpression < Date.now() - MINIMUM_RECOMMENDED_CARD_IMPRESSION_INTERVAL) {
+        if (userCard && userCard.userCardInfo && userCard.userCardInfo.lastImpression > Date.now() - MINIMUM_RECOMMENDED_CARD_IMPRESSION_INTERVAL) {
           continue;
         }
         if (userCard && userCard.userCardInfo && userCard.userCardInfo.lastOpened > 0) {
@@ -1380,6 +1381,7 @@ export class FeedManager implements Initializable, RestServer {
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);
     score += this.getCardCurationScore(card);
+    score += Math.random() * CARD_SCORE_RANDOM_VALUE;
     score = +(score.toFixed(5));
     if (author && author.curation) {
       score = Math.min(MAX_DISCOUNTED_AUTHOR_CARD_SCORE, score);
