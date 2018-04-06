@@ -300,6 +300,7 @@
             if ($core.depositUrl) {
               this.$.btnDeposit.disabled = false;
             }
+            $core.getCommunityInfo(10);
           });
         }).catch((err) => {
           console.error(err);

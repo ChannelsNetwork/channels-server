@@ -3368,3 +3368,41 @@ db.userCardActions.aggregate([
   }},
   {$sort: {purchases: -1}}
 ]).pretty()
+
+
+db.authorUsers.aggregate([
+      { $match: { isCurrent: true, "stats.referredPurchases": {$gt: 0} } },
+      {
+        $group: {
+          _id: "$userId",
+          authorIds: { $addToSet: "$authorId" },
+          referredCards: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "authorId"] },
+                then: 0,
+                else: "$stats.referredCards"
+              }
+            }
+          },
+          referredPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "authorId"] },
+                then: 0,
+                else: "$stats.referredPurchases"
+              }
+            }
+          },
+        }
+      },
+      {
+        $project: {
+          userId: "$_id",
+          authorIds: 1,
+          referredCards: 1,
+          referredPurchases: 1
+        }
+      },
+      { $sort: { referredPurchases: -1 } }
+    ])

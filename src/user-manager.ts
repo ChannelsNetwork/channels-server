@@ -1216,12 +1216,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
         continue;
       }
-      if (item.authors <= 1) {
-        break;
-      }
       const resultItem: CommunityMemberInfo = {
         user: await userManager.getUserDescriptor(item.userId, false),
-        authors: item.authors,
+        authors: item.authorIds.length - (item.authorIds.indexOf(item.userId) >= 0 ? 1 : 0),
         referredCards: item.referredCards,
         referredPurchases: item.referredPurchases
       };
@@ -1242,6 +1239,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           waiting = false;
         }
         continue;
+      }
+      if (authorUser.userId === user.id) {
+        continue;
+      }
+      if (authorUser.stats.referredPurchases === 0) {
+        break;
       }
       const resultItem: CommunityMemberInfo = {
         user: await userManager.getUserDescriptor(authorUser.userId, false),
@@ -1266,6 +1269,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           waiting = false;
         }
         continue;
+      }
+      if (authorUser.authorId === user.id) {
+        continue;
+      }
+      if (authorUser.stats.referredPurchases === 0) {
+        break;
       }
       const resultItem: CommunityMemberInfo = {
         user: await userManager.getUserDescriptor(authorUser.authorId, false),

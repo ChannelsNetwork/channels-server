@@ -4456,19 +4456,35 @@ export class Database {
 
   aggregateAuthorUsersReferrals(): AggregationCursor<AuthorUserAggregationItem> {
     return this.authorUsers.aggregate<AuthorUserAggregationItem>([
-      { $match: { isCurrent: true } },
+      { $match: { isCurrent: true, "stats.referredPurchases": { $gt: 0 } } },
       {
         $group: {
           _id: "$userId",
-          authors: { $sum: 1 },
-          referredCards: { $sum: "$stats.referredCards" },
-          referredPurchases: { $sum: "$stats.referredPurchases" }
+          authorIds: { $addToSet: "$authorId" },
+          referredCards: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "authorId"] },
+                then: 0,
+                else: "$stats.referredCards"
+              }
+            }
+          },
+          referredPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "authorId"] },
+                then: 0,
+                else: "$stats.referredPurchases"
+              }
+            }
+          },
         }
       },
       {
         $project: {
           userId: "$_id",
-          authors: 1,
+          authorIds: 1,
           referredCards: 1,
           referredPurchases: 1
         }
@@ -4681,7 +4697,7 @@ export interface RedemptionInfo {
 
 export interface AuthorUserAggregationItem {
   userId: string;
-  authors: number;
+  authorIds: string[];
   referredCards: number;
   referredPurchases: number;
 }
