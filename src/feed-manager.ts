@@ -267,7 +267,11 @@ export class FeedManager implements Initializable, RestServer {
       return true;
     }
     if (!user.preferredLangCodes || user.preferredLangCodes.length === 0) {
-      return true;
+      if (user.country === "United States") {
+        return card.summary.langCode === 'en';
+      } else {
+        return true;
+      }
     }
     return user.preferredLangCodes.indexOf(card.summary.langCode) >= 0;
   }
