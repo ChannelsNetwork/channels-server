@@ -31,14 +31,14 @@ import * as shuffle from "shuffle-array";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 1.5;
+const SCORE_CARD_WEIGHT_AGE = 0.5;
 const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
 const SCORE_CARD_WEIGHT_REVENUE = 1;
 const SCORE_CARD_REVENUE_DOUBLING = 100;
 const SCORE_CARD_REVENUE_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_REVENUE = 1;
 const SCORE_CARD_RECENT_REVENUE_DOUBLING = 10;
-const SCORE_CARD_WEIGHT_OPENS = 10;
+const SCORE_CARD_WEIGHT_OPENS = 1;
 const SCORE_CARD_OPENS_DOUBLING = 250;
 const SCORE_CARD_OPENS_RECENT_INTERVAL = 1000 * 60 * 60 * 48;
 const SCORE_CARD_WEIGHT_RECENT_OPENS = 1;
@@ -47,13 +47,13 @@ const SCORE_CARD_WEIGHT_LIKES = 5;
 const SCORE_CARD_LIKES_DOUBLING = 0.1;
 const SCORE_CARD_WEIGHT_CONTROVERSY = 1;
 const SCORE_CARD_CONTROVERSY_DOUBLING = 10;
-const SCORE_CARD_DISLIKE_MULTIPLER = 5;
+const SCORE_CARD_DISLIKE_MULTIPLER = 4;
 const SCORE_CARD_BOOST_HALF_LIFE = 1000 * 60 * 60 * 24 * 3;
 
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
 const CARD_SCORE_RANDOM_WEIGHT = 0.5;
-const CARD_SCORE_RANDOM_VALUE = 0.5;
+const CARD_SCORE_RANDOM_VALUE = 1;
 const MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.05;
 const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
@@ -1434,6 +1434,7 @@ export class FeedManager implements Initializable, RestServer {
     return priorValue;
   }
   private getCardOpensScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats): number {
+    // return SCORE_CARD_WEIGHT_OPENS * (card.stats && card.stats.uniqueOpens ? card.stats.uniqueOpens.value : 0);
     // This returns a score based on what fraction of the unique opens network-wide during the period
     // since this card was posted were for this card.
     let ratio = 0;
@@ -1470,6 +1471,7 @@ export class FeedManager implements Initializable, RestServer {
     if (netLikes === 0 || networkStats.likes === 0) {
       return 0;
     }
+    // return SCORE_CARD_WEIGHT_LIKES * netLikes;
     let delta = 3;
     if (currentStats.likes) {
       delta = currentStats.likes;
