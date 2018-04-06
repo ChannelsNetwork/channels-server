@@ -1,0 +1,124 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="community-user-item.html">
+
+<dom-module id="community-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #nonePanel {
+        padding: 16px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      #container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      section {
+        padding: 20px 0;
+      }
+
+      .title {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 8px;
+        display: inline-block;
+      }
+
+      .itemList {
+        padding-top: 10px;
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
+    <div id="nonePanel" class="hidden">
+      There is no community data available for your account.
+    </div>
+    <div id="container" class="hidden">
+      <dom-repeat items="[[data]]">
+        <template>
+          <section>
+            <h2 class="title">[[item.name]]</h2>
+            <div class="itemList horizontal layout wrap">
+              <dom-repeat items="[[item.items]]" as="user">
+                <template>
+                  <community-user-item data="[[user]]"></community-user-item>
+                </template>
+              </dom-repeat>
+            </div>
+          </section>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class CommunityPage extends Polymer.Element {
+      static get is() { return 'community-page'; }
+      static get properties() {
+        return {
+          data: Array
+        };
+      }
+
+      onActivate(route) {
+        $core.register().then(() => {
+          // activate top bars and home page content
+          this.$.cbar.activate();
+          this.$.fbar.selected = 'community';
+
+          this.$.nonePanel.classList.add('hidden');
+          this.$.container.classList.add('hidden');
+          return $core.getCommunityInfo(8).then(response => {
+            let data = [];
+            if (response.networkHelpers && response.networkHelpers.length) {
+              data.push({
+                id: 'networkHelpers',
+                name: 'Network Helpers',
+                items: response.networkHelpers
+              });
+            }
+            if (response.myHelpers && response.myHelpers.length) {
+              data.push({
+                id: 'myHelpers',
+                name: 'My Helpers',
+                items: response.myHelpers
+              });
+            }
+            if (response.helpedByMe && response.helpedByMe.length) {
+              data.push({
+                id: 'helpedByMe',
+                name: 'Helped By Me',
+                items: response.helpedByMe
+              });
+            }
+            this.data = data;
+            if (this.data.length) {
+              this.$.container.classList.remove('hidden');
+            } else {
+              this.$.nonePanel.classList.remove('hidden');
+            }
+            console.log("community", response);
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+    }
+    window.customElements.define(CommunityPage.is, CommunityPage);
+  </script>
+</dom-module>

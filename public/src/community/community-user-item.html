@@ -1,0 +1,141 @@
+<link rel="import" href="../../bower_components/soso-icon/soso-icon.html">
+<link rel="import" href="../controls/user-image.html">
+<link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
+
+<dom-module id="community-user-item">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+        padding: 40px 8px 10px;
+        width: 200px;
+      }
+
+      .container {
+        background: #fafafa;
+        text-align: center;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+      }
+
+      label {
+        text-align: center;
+        padding: 8px;
+        font-size: 14px;
+      }
+
+      soso-icon {
+        color: #888888;
+        width: 18px;
+        height: 18px;
+        padding: 10px 8px;
+      }
+
+      .bottomBar {
+        border-radius: 0 0 3px 3px;
+        font-size: 13px;
+        border-top: 1px solid #e5e5e5;
+        color: #888888;
+      }
+
+      #name {
+        padding: 10px 8px;
+        font-size: 15px;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        box-sizing: border-box;
+        text-overflow: ellipsis;
+      }
+
+      user-image {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #fafafa;
+        cursor: pointer;
+        margin-top: -40px;
+      }
+
+      @media (max-width: 450px) {
+        :host {
+          padding: 40px 4px 10px;
+          width: 150px;
+        }
+        #name {
+          font-size: 14px;
+          letter-spacing: initial;
+        }
+        soso-icon {
+          padding: 10px 5px;
+        }
+        label {
+          padding: 8px 2px;
+          font-size: 12px;
+        }
+      }
+    </style>
+    <div class="vertical layout container">
+      <div class="imagePanel">
+        <user-image image="[[userImage]]" on-click="_gotoChannel"></user-image>
+      </div>
+      <div id="name" on-click="_gotoChannel">[[data.user.name]]</div>
+      <div class="bottomBar horizontal layout center">
+        <label id="cards" class="flex horizontal layout center">
+          <span class="flex"></span>
+          <soso-icon icon="nofilter"></soso-icon>
+          <div>[[data.referredCards]]</div>
+          <span class="flex"></span>
+        </label>
+        <label id="revenue" class="flex horizontal layout center">
+          <span class="flex"></span>
+          <soso-icon icon="monetization"></soso-icon>
+          <div>[[data.referredPurchases]]</div>
+          <span class="flex"></span>
+        </label>
+        <label id="authors" class="flex horizontal layout center">
+          <span class="flex"></span>
+          <soso-icon icon="account"></soso-icon>
+          <div>[[data.authors]]</div>
+          <span class="flex"></span>
+        </label>
+      </div>
+    </div>
+
+    <soso-tooltip for="cards" position="top" offset="-10">
+      No. of cards referred
+    </soso-tooltip>
+    <soso-tooltip for="revenue" position="top" offset="-10">
+      No. of purcahses from referrals
+    </soso-tooltip>
+    <soso-tooltip for="authors" position="top" offset="-10">
+      No. of publishers referred
+    </soso-tooltip>
+  </template>
+  <script>
+    class CommunityUserItem extends Polymer.Element {
+      static get is() { return 'community-user-item'; }
+      static get properties() {
+        return {
+          data: {
+            type: Object,
+            observer: '_refresh'
+          },
+          userImage: String
+        };
+      }
+      _refresh() {
+        if (this.data) {
+          this.userImage = (this.data.user.image ? this.data.user.image.url : null) || $core.userManager.getFallbackUserImage(this.data.user.handle);
+        }
+      }
+      _gotoChannel() {
+        if (this.data) {
+          $router.goto('/channel/' + encodeURIComponent(this.data.user.handle));
+        }
+      }
+    }
+    window.customElements.define(CommunityUserItem.is, CommunityUserItem);
+  </script>
+</dom-module>
