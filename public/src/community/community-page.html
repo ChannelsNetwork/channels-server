@@ -200,7 +200,7 @@
               items: response.myHelpers,
               hideAuthor: true,
               moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden',
-              messages: response.myHelpers.length ? [] : ['No one has shared your cards yet.']
+              messages: response.myHelpers.length ? [] : ['None of your card viewers came from a referral.']
             });
             data.push({
               id: 'helpedByMe',
@@ -208,7 +208,7 @@
               items: response.helpedByMe,
               hideAuthor: true,
               moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden',
-              messages: response.helpedByMe.length ? [] : ["You have not shared anyone's cards yet."]
+              messages: response.helpedByMe.length ? [] : ["No one has visited the cards you've referred."]
             });
             this.data = data;
             if (this.data.length) {
