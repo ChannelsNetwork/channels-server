@@ -977,12 +977,18 @@ export class FeedManager implements Initializable, RestServer {
     if (cards.length < count) {
       const authorIds: string[] = [];
       const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
+      const cursorCount = await cursor.count();
       while (await cursor.hasNext()) {
         // We want to spread out the best cards over multiple fetches.  This is
         // a simple way to do that.
-        const randomSkip = Math.floor(Math.random() * 10);
-        if (randomSkip) {
-          await cursor.skip(randomSkip);
+        if (cursorCount > 100) {
+          const randomSkip = Math.floor(Math.random() * 8);
+          if (randomSkip) {
+            await cursor.skip(randomSkip);
+          }
+          if (! await cursor.hasNext()) {
+            break;
+          }
         }
         const cardByScore = await cursor.next();
         if (cardByScore.score <= 0) {
