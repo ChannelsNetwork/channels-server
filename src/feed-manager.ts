@@ -58,10 +58,11 @@ const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
+const MINIMUM_RECOMMENDED_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 const ADSLOTS_PER_PAYBUMP = 2;
-const MAX_IMPRESSIONS_FOR_RECOMMENDED_CARD = 10;
+const MAX_IMPRESSIONS_FOR_RECOMMENDED_CARD = 2;
 const MAX_IMPRESSIONS_FOR_AD_CARD = 10;
 
 export const MINIMUM_AD_AUTHOR_BALANCE = 1;
@@ -983,7 +984,10 @@ export class FeedManager implements Initializable, RestServer {
           continue;
         }
         const userCard = await this.getUserCardInfo(user.id, cardByScore.id, false);
-        if (userCard && userCard.userCardInfo && userCard.userCardInfo.impressions > MAX_IMPRESSIONS_FOR_RECOMMENDED_CARD) {
+        if (userCard && userCard.userCardInfo && userCard.userCardInfo.lastImpression < Date.now() - MINIMUM_RECOMMENDED_CARD_IMPRESSION_INTERVAL) {
+          continue;
+        }
+        if (userCard && userCard.userCardInfo && userCard.userCardInfo.lastOpened > 0) {
           continue;
         }
         if (cardIds.indexOf(cardByScore.id) < 0) {
@@ -1372,7 +1376,7 @@ export class FeedManager implements Initializable, RestServer {
     if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
       return 0;
     }
-    score += this.getCardAgeScore(card, author);
+    // score += this.getCardAgeScore(card, author);
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);
     score += this.getCardCurationScore(card);
@@ -1488,9 +1492,10 @@ export class FeedManager implements Initializable, RestServer {
     if (!card.curation || !card.curation.boost) {
       return 0;
     }
-    const now = Date.now();
-    const age = now - (card.curation.boostAt || card.postedAt);
-    return this.getInverseScore(card.curation.boost, age, SCORE_CARD_BOOST_HALF_LIFE);
+    return card.curation.boost;
+    // const now = Date.now();
+    // const age = now - (card.curation.boostAt || card.postedAt);
+    // return this.getInverseScore(card.curation.boost, age, SCORE_CARD_BOOST_HALF_LIFE);
   }
   // private async addSampleEntries(): Promise<void> {
   //   console.log("FeedManager.addSampleEntries");
