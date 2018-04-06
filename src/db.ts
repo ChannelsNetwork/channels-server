@@ -368,7 +368,7 @@ export class Database {
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
-    const existing = await this.ensureNetworkCardStats(true);
+    const existing = await this.ensureNetworkCardStats(false);
     if (existing && existing.stats.advertisers === 908) {
       console.log("Db.initializeNetworkCardStats: Fixing erroneous advertiser stats...");
       await this.networkCardStats.updateMany({ "stats.advertisers": 908 }, { $set: { "stats.advertisers": 0 } });
@@ -2643,7 +2643,7 @@ export class Database {
       stats.paidUnits = 0;
     }
     const newRecord: NetworkCardStatsHistoryRecord = {
-      periodStarting: newPeriodStart + 1,
+      periodStarting: newPeriodStart,
       isCurrent: true,
       stats: stats,
       baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)

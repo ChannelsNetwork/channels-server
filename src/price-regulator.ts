@@ -48,7 +48,7 @@ export class PriceRegulator implements Initializable {
     }, POLL_INTERVAL);
     await this.onCardOpened(1);
     await this.onUserSubsidyPaid(0.0000000001);
-    await db.ensureNetworkCardStats(true);
+    await db.ensureNetworkCardStats();
   }
 
   private async contributeSubsidies(): Promise<void> {
