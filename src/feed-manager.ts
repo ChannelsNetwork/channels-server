@@ -31,7 +31,7 @@ import * as shuffle from "shuffle-array";
 
 const POLLING_INTERVAL = 1000 * 15;
 
-const SCORE_CARD_WEIGHT_AGE = 1.5;
+const SCORE_CARD_WEIGHT_AGE = 0.5;
 const SCORE_CARD_AGE_HALF_LIFE = 1000 * 60 * 60 * 6;
 const SCORE_CARD_WEIGHT_REVENUE = 1;
 const SCORE_CARD_REVENUE_DOUBLING = 100;
@@ -53,7 +53,7 @@ const SCORE_CARD_BOOST_HALF_LIFE = 1000 * 60 * 60 * 24 * 3;
 const HIGH_SCORE_CARD_CACHE_LIFE = 1000 * 60 * 3;
 const HIGH_SCORE_CARD_COUNT = 100;
 const CARD_SCORE_RANDOM_WEIGHT = 0.5;
-const CARD_SCORE_RANDOM_VALUE = 5;
+const CARD_SCORE_RANDOM_VALUE = 1;
 const MINIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.05;
 const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
@@ -1378,7 +1378,7 @@ export class FeedManager implements Initializable, RestServer {
     if (card.stats && card.stats.reports && card.stats.reports.value > 0 && (!card.curation || !card.curation.overrideReports)) {
       return 0;
     }
-    score += this.getCardAgeScore(card, author);
+    // score += this.getCardAgeScore(card, author);
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);
     score += this.getCardCurationScore(card);
@@ -1430,23 +1430,23 @@ export class FeedManager implements Initializable, RestServer {
     return priorValue;
   }
   private getCardOpensScore(card: CardRecord, currentStats: NetworkCardStats, networkStats: NetworkCardStats): number {
-    return SCORE_CARD_WEIGHT_OPENS * (card.stats && card.stats.uniqueOpens ? card.stats.uniqueOpens.value : 0);
-    // // This returns a score based on what fraction of the unique opens network-wide during the period
-    // // since this card was posted were for this card.
-    // let ratio = 0;
-    // let delta = (currentStats.uniqueOpens || 0) + (currentStats.uniqueClicks || 0);
-    // if (networkStats.uniqueOpens) {
-    //   delta = Math.max(25, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
-    // }
-    // let count = 0;
-    // if (card.stats.uniqueOpens) {
-    //   count += card.stats.uniqueOpens.value;
-    // }
-    // if (card.stats.uniqueClicks) {
-    //   count += card.stats.uniqueClicks.value;
-    // }
-    // ratio = Math.min(count / (delta || 1), 1);
-    // return SCORE_CARD_WEIGHT_OPENS * ratio;
+    // return SCORE_CARD_WEIGHT_OPENS * (card.stats && card.stats.uniqueOpens ? card.stats.uniqueOpens.value : 0);
+    // This returns a score based on what fraction of the unique opens network-wide during the period
+    // since this card was posted were for this card.
+    let ratio = 0;
+    let delta = (currentStats.uniqueOpens || 0) + (currentStats.uniqueClicks || 0);
+    if (networkStats.uniqueOpens) {
+      delta = Math.max(25, delta - (networkStats.uniqueOpens || 0) - (networkStats.uniqueClicks || 0));
+    }
+    let count = 0;
+    if (card.stats.uniqueOpens) {
+      count += card.stats.uniqueOpens.value;
+    }
+    if (card.stats.uniqueClicks) {
+      count += card.stats.uniqueClicks.value;
+    }
+    ratio = Math.min(count / (delta || 1), 1);
+    return SCORE_CARD_WEIGHT_OPENS * ratio;
   }
   // private async getCardRecentOpensScore(card: CardRecord): Promise<number> {
   //   const opens = card.stats.opens.value;
@@ -1467,17 +1467,17 @@ export class FeedManager implements Initializable, RestServer {
     if (netLikes === 0 || networkStats.likes === 0) {
       return 0;
     }
-    return SCORE_CARD_WEIGHT_LIKES * netLikes;
-    // let delta = 3;
-    // if (currentStats.likes) {
-    //   delta = currentStats.likes;
-    // }
-    // if (networkStats.likes) {
-    //   delta = Math.max(3, delta - networkStats.likes);
-    // }
+    // return SCORE_CARD_WEIGHT_LIKES * netLikes;
+    let delta = 3;
+    if (currentStats.likes) {
+      delta = currentStats.likes;
+    }
+    if (networkStats.likes) {
+      delta = Math.max(3, delta - networkStats.likes);
+    }
 
-    // const ratio = Math.min(1, netLikes / (delta || 3));
-    // return SCORE_CARD_WEIGHT_LIKES * ratio;
+    const ratio = Math.min(1, netLikes / (delta || 3));
+    return SCORE_CARD_WEIGHT_LIKES * ratio;
   }
 
   // private getCardControversyScore(card: CardRecord): number {
