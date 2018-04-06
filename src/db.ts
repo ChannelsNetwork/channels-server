@@ -3,7 +3,7 @@ import * as uuid from "uuid";
 
 import { Request, Response } from 'express';
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord, CardCurationQuality } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -179,6 +179,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "pricing.openFeeUnits": 1, postedAt: -1 });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
+
+    await this.cards.updateMany({ "curation.quality": { $exists: false } }, { $set: { "curation.quality": "unrated", "curation.market": false } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -1027,6 +1029,7 @@ export class Database {
         at: 0
       },
       curation: {
+        quality: "unrated",
         block: blocked
       },
       searchText: searchText,
@@ -1256,6 +1259,17 @@ export class Database {
 
   async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
     await this.cards.updateOne({ id: cardId }, { $set: { searchText: searchText } });
+  }
+
+  async updateCardCurationQuality(cardId: string, quality: CardCurationQuality, market: boolean): Promise<void> {
+    const update: any = {};
+    if (quality) {
+      update["curation.quality"] = quality;
+    }
+    if (typeof market === "boolean") {
+      update["curation.market"] = market;
+    }
+    await this.cards.updateOne({ id: cardId }, { $set: update });
   }
 
   async updateCardBy(cardId: string, address: string, handle: string, name: string): Promise<void> {

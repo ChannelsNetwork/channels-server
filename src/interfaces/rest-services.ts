@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats, CardCurationQuality } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData } from "../db";
 
@@ -253,6 +253,8 @@ export interface CardDescriptor {
   pinning?: ChannelCardPinInfo;
   campaign: CardCampaignDescriptor;
   couponId: string;
+  quality?: CardCurationQuality;
+  market?: boolean;
 }
 
 export interface ChannelCardPinInfo {
@@ -1380,3 +1382,11 @@ export type CommunityInfoListType = "networkHelpers" | "myHelpers" | "helpedByMe
 export interface GetCommunityInfoMoreResponse extends RestResponse {
   members: CommunityMemberInfo[];
 }
+
+export interface AdminCurateCardQualityDetails extends Signable {
+  cardId: string;
+  quality?: CardCurationQuality;
+  market?: boolean;
+}
+
+export interface AdminCurateCardQualityResponse extends RestResponse { }

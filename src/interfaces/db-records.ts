@@ -166,7 +166,9 @@ export interface CardRecord {
     server: string;
     at: number;
   };
-  curation?: {
+  curation: {
+    quality: CardCurationQuality;
+    market?: boolean;
     block?: boolean;
     boost?: number;
     promotionBoost?: number;
@@ -178,6 +180,8 @@ export interface CardRecord {
   type: CardType;
   fileIds: string[];
 }
+
+export type CardCurationQuality = "excellent" | "good" | "poor" | "unrated";
 
 export type CardType = "normal" | "announcement";
 

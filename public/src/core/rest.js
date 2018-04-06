@@ -726,6 +726,17 @@ class RestUtils {
     };
   }
 
+  static admin_curateCardQuality(address, fingerprint, cardId, quality, market) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      quality: quality,
+      market: market
+    };
+  }
+
   static queryPage(address, fingerprint, url) {
     return {
       address: address,

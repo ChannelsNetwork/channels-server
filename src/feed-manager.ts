@@ -1383,6 +1383,11 @@ export class FeedManager implements Initializable, RestServer {
       return 0;
     }
     // score += this.getCardAgeScore(card, author);
+    if (card.curation.quality === "excellent") {
+      score += 1000;
+    } else if (card.curation.quality === "poor") {
+      score -= 1000;
+    }
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);
     score += this.getCardCurationScore(card);

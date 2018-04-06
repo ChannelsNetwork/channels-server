@@ -1206,6 +1206,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_curateCardQuality(cardId, quality, market) {
+    let details = RestUtils.admin_curateCardQuality(this._keys.address, this._fingerprint, cardId, quality, market);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-curate-card-quality";
+    return this.rest.post(url, request);
+  }
+
   get languages() {
     const result = {};
     result.ar = "Arabic";

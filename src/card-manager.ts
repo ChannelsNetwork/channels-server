@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -167,6 +167,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('get-user-stats'), (request: Request, response: Response) => {
       void this.handleGetUserStats(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-curate-card-quality'), (request: Request, response: Response) => {
+      void this.handleAdminCurateCardQuality(request, response);
     });
   }
 
@@ -2309,8 +2312,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
         sourceChannelId: sourceChannelId,
-        commentCount: await db.countCardComments(cardId, user ? user.id : null)
+        commentCount: await db.countCardComments(cardId, user ? user.id : null),
       };
+      if (user.admin) {
+        card.quality = record.curation.quality;
+        card.market = record.curation.market;
+      }
       if (pinInfo) {
         card.pinning = pinInfo;
       }
@@ -2990,6 +2997,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("No such comment");
         return;
       }
+      console.log("CardManager.admin-set-comment-curation", requestBody.detailsObject);
       await db.updateCardCommentCuration(comment.id, requestBody.detailsObject.curation);
       console.log("CardManager.admin-set-comment-curation", requestBody.detailsObject);
       const reply: AdminSetCommentCurationResponse = {
@@ -2998,6 +3006,45 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleAdminSetCommentCuration: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminCurateCardQuality(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminCurateCardQualityDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing cardId");
+        return;
+      }
+      const card = await db.findCardById(requestBody.detailsObject.cardId, false);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      console.log("CardManager.admin-curate-card-quality", requestBody.detailsObject);
+      await db.updateCardCurationQuality(card.id, requestBody.detailsObject.quality, requestBody.detailsObject.market);
+      if (requestBody.detailsObject.quality) {
+        card.curation.quality = requestBody.detailsObject.quality;
+      }
+      if (typeof requestBody.detailsObject.market === "boolean") {
+        card.curation.market = requestBody.detailsObject.market;
+      }
+      await feedManager.rescoreCard(card, false);
+      const reply: AdminCurateCardQualityResponse = {
+        serverVersion: SERVER_VERSION,
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminCurateCardQuality: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
