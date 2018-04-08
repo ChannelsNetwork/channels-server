@@ -103,7 +103,7 @@
           <div class="headerCell right">Expenses</div>
           <div class="headerCell">Title</div>
           <div class="headerCell clickable" on-click="_onCreatorClick">Creator</div>
-          <div class="headerCell right">Balance</div>
+          <div class="headerCell right clickable" on-click="_onBalanceClick">Balance</div>
           <div class="headerCell">City</div>
           <div class="headerCell">Country</div>
         </div>
@@ -221,7 +221,7 @@
         const newItems = this.campaigns;
         this.set('campaigns', []);
         newItems.sort((a, b) => {
-          return a.type - b.type;
+          return a.type.localeCompare(b.type);
         });
         this.set('campaigns', newItems);
       }
@@ -264,11 +264,20 @@
         this.set('campaigns', newItems);
       }
 
+      _onBalanceClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        newItems.sort((a, b) => {
+          return b.balance - a.balance;
+        });
+        this.set('campaigns', newItems);
+      }
+
       _onCreatorClick(event) {
         const newItems = this.campaigns;
         this.set('campaigns', []);
         newItems.sort((a, b) => {
-          return a.handle - b.handle;
+          return a.handle.localeCompare(b.handle);
         });
         this.set('campaigns', newItems);
       }
