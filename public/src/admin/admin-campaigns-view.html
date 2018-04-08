@@ -1,0 +1,278 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+
+<dom-module id="admin-campaigns-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 30px 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+        max-width: 150px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <h1>Card Campaigns</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell">Id</div>
+          <div class="headerCell clickable" on-click="_onCreatedClick">Created</div>
+          <div class="headerCell clickable" on-click="_onEndsClick">Ends</div>
+          <div class="headerCell clickable" on-click="_onStatusClick">Status</div>
+          <div class="headerCell clickable" on-click="_onTypeClick">Type</div>
+          <div class="headerCell right">Amount</div>
+          <div class="headerCell right">Subsidy</div>
+          <div class="headerCell right">Max Per Day</div>
+          <div class="headerCell">GeoTargets</div>
+          <div class="headerCell right">Impressions</div>
+          <div class="headerCell right">Opens</div>
+          <div class="headerCell right">Clicks</div>
+          <div class="headerCell right">Redemptions</div>
+          <div class="headerCell right clickable" on-click="_onExpensesClick">Expenses</div>
+          <div class="headerCell right">CTR</div>
+          <div class="headerCell right">CPC</div>
+          <div class="headerCell right">Expenses</div>
+          <div class="headerCell">Title</div>
+          <div class="headerCell clickable" on-click="_onCreatorClick">Creator</div>
+          <div class="headerCell right">Balance</div>
+          <div class="headerCell">City</div>
+          <div class="headerCell">Country</div>
+        </div>
+        <template is="dom-repeat" items="[[campaigns]]">
+          <div class="row">
+            <div class="cell">[[item.campaignId]]</div>
+            <div class="cell">[[item.createdDate]]</div>
+            <div class="cell">[[item.endsDate]]</div>
+            <div class="cell">[[item.status]]</div>
+            <div class="cell">[[item.type]]</div>
+            <div class="cell right">[[item.amountF]]</div>
+            <div class="cell right">[[item.subsidyF]]</div>
+            <div class="cell right">[[item.maxPerDayF]]</div>
+            <div class="cell">[[item.geoTargetsF]]</div>
+            <div class="cell right">[[item.impressions]]</div>
+            <div class="cell right">[[item.opens]]</div>
+            <div class="cell right">[[item.clicks]]</div>
+            <div class="cell right">[[item.redemptions]]</div>
+            <div class="cell right">[[item.expensesF]]</div>
+            <div class="cell right">[[item.ctrF]]</div>
+            <div class="cell right">[[item.cpcF]]</div>
+            <div class="cell right">[[item.expensesF]]</div>
+            <div class="cell clickable">
+              <a href="[[item.cardUrl]]">[[item.title]]</a>
+            </div>
+            <div class="cell clickable">
+              <a href="[[item.channelUrl]]">[[item.handle]]</a>
+            </div>
+            <div class="cell right">[[item.balanceF]]</div>
+            <div class="cell">[[item.city]]</div>
+            <div class="cell">[[item.country]]</div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminCampaignsView extends Polymer.Element {
+      static get is() { return 'admin-campaigns-view'; }
+      static get properties() {
+        return {
+          campaigns: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('campaigns', []);
+        $core.admin_getCardCampaigns().then((response) => {
+          const campaigns = [];
+          for (const item of response.campaigns) {
+            item.createdDate = this._displayTimestamp(item.created);
+            item.endsDate = this._displayTimestamp(item.ends);
+            item.amountF = this._displayAmount(item.amount);
+            item.subsidyF = this._displayAmount(item.subsidy);
+            item.maxPerDayF = this._displayAmount(item.maxPerDay);
+            item.geoTargetsF = item.geoTargets && item.geoTargets.length > 0 ? item.geoTargets.join(',') : "";
+            item.expensesF = this._displayAmount(item.expenses);
+            item.cardUrl = "/c/" + item.cardId;
+            item.channelUrl = "/channel/" + item.handle;
+            item.ctr = item.impressions ? (100 * (item.opens + item.clicks) / item.impressions) : 0;
+            item.ctrF = item.ctr ? item.ctr.toFixed(1) + "%" : "";
+            let effectiveExpense = item.expenses;
+            if (item.expenses && item.subsidy) {
+              effectiveExpense *= (1 - (item.subsidy / item.amount));
+            }
+            item.cpc = item.opens + item.clicks > 0 ? effectiveExpense / (item.opens + item.clicks) : 0;
+            item.cpcF = item.cpc ? "ℂ" + item.cpc.toFixed(3) : "";
+            item.balanceF = this._displayAmount(item.balance);
+            campaigns.push(item);
+          }
+          this.set('campaigns', campaigns);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _displayAmount(value) {
+        if (value) {
+          return "ℂ" + value.toFixed(2);
+        } else {
+          return "";
+        }
+      }
+
+      _onTypeClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        newItems.sort((a, b) => {
+          return a.type - b.type;
+        });
+        this.set('campaigns', newItems);
+      }
+
+
+      _onCreatedClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        newItems.sort((a, b) => {
+          return b.created - a.created;
+        });
+        this.set('campaigns', newItems);
+      }
+
+      _onEndsClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        newItems.sort((a, b) => {
+          return b.ends - a.ends;
+        });
+        this.set('campaigns', newItems);
+      }
+
+      _onStatusClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        const statuses = ["active", "insufficient-funds", "expired", "suspended", "exhausted"];
+        newItems.sort((a, b) => {
+          return statuses.indexOf(a.status) - statuses.indexOf(b.status);
+        });
+        this.set('campaigns', newItems);
+      }
+
+      _onExpensesClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        newItems.sort((a, b) => {
+          return b.expenses - a.expenses;
+        });
+        this.set('campaigns', newItems);
+      }
+
+      _onCreatorClick(event) {
+        const newItems = this.campaigns;
+        this.set('campaigns', []);
+        newItems.sort((a, b) => {
+          return a.handle - b.handle;
+        });
+        this.set('campaigns', newItems);
+      }
+    }
+    window.customElements.define(AdminCampaignsView.is, AdminCampaignsView);
+  </script>
+</dom-module>
