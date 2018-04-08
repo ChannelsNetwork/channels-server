@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -167,6 +167,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('get-user-stats'), (request: Request, response: Response) => {
       void this.handleGetUserStats(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-card-campaigns'), (request: Request, response: Response) => {
+      void this.handleAdminGetCardCampaigns(request, response);
     });
   }
 
@@ -2961,6 +2964,38 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleAdminGetComments: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async  handleAdminGetCardCampaigns(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetCardCampaignsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      console.log("CardManager.admin-get-card-campaigns", requestBody.detailsObject);
+      const reply: AdminGetCardCampaignsResponse = {
+        serverVersion: SERVER_VERSION,
+        campaigns: []
+      };
+      const cursor = db.aggregateCardCampaigns();
+      while (reply.campaigns.length < 200) {
+        const item = await cursor.next();
+        if (!item) {
+          break;
+        }
+        reply.campaigns.push(item);
+      }
+      await cursor.close();
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminGetCardCampaigns: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
