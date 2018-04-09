@@ -186,6 +186,22 @@
           let fetchCount = window.innerWidth <= 600 ? 5 : 11;
           return $core.getCommunityInfo(fetchCount).then(response => {
             let data = [];
+            data.push({
+              id: 'helpedByMe',
+              name: 'Users whose cards I have shared',
+              items: response.helpedByMe,
+              hideAuthor: true,
+              moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden',
+              messages: response.helpedByMe.length ? [] : ["You haven't shared any cards that resulted in revenue for someone else."]
+            });
+            data.push({
+              id: 'myHelpers',
+              name: 'Users who have shared my cards',
+              items: response.myHelpers,
+              hideAuthor: true,
+              moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden',
+              messages: response.myHelpers.length ? [] : ['Noone else has shared a card that resulted in revenue for you.']
+            });
             if (response.networkHelpers && response.networkHelpers.length) {
               data.push({
                 id: 'networkHelpers',
@@ -194,22 +210,7 @@
                 moreClass: response.networkHelpers.length === fetchCount ? '' : 'hidden'
               });
             }
-            data.push({
-              id: 'myHelpers',
-              name: 'Users who have shared my cards',
-              items: response.myHelpers,
-              hideAuthor: true,
-              moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden',
-              messages: response.myHelpers.length ? [] : ['None of your card viewers came from a referral.']
-            });
-            data.push({
-              id: 'helpedByMe',
-              name: 'Users whose cards I have shared',
-              items: response.helpedByMe,
-              hideAuthor: true,
-              moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden',
-              messages: response.helpedByMe.length ? [] : ["No one has visited the cards you've referred."]
-            });
+
             this.data = data;
             if (this.data.length) {
               this.$.container.classList.remove('hidden');
