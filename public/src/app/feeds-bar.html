@@ -54,6 +54,7 @@
       @media (max-width: 600px) {
         button {
           font-size: 12px;
+          padding: 10px 6px;
         }
       }
     </style>
@@ -70,6 +71,9 @@
       </a>
       <a href="/top">
         <button id="top">Top</button>
+      </a>
+      <a href="/community">
+        <button id="community">Community</button>
       </a>
     </div>
   </template>
@@ -104,6 +108,7 @@
         this.$.subscribed.classList.remove("selected");
         this.$.top.classList.remove("selected");
         this.$.new.classList.remove("selected");
+        this.$.community.classList.remove('selected');
         switch (this.selected || "") {
           case "new":
             this.$.new.classList.add("selected");
@@ -116,6 +121,9 @@
             break;
           case "home":
             this.$.home.classList.add("selected");
+            break;
+          case 'community':
+            this.$.community.classList.add('selected');
             break;
         }
       }

@@ -166,7 +166,9 @@ export interface CardRecord {
     server: string;
     at: number;
   };
-  curation?: {
+  curation: {
+    quality: CardCurationQuality;
+    market?: boolean;
     block?: boolean;
     boost?: number;
     promotionBoost?: number;
@@ -178,6 +180,8 @@ export interface CardRecord {
   type: CardType;
   fileIds: string[];
 }
+
+export type CardCurationQuality = "excellent" | "good" | "poor" | "unrated";
 
 export type CardType = "normal" | "announcement";
 
@@ -387,6 +391,8 @@ export interface BankTransactionRecord {
   at: number;
   originatorUserId: string;
   participantUserIds: string[];
+  participantBalancesBefore: number[];
+  participantBalancesAfter: number[];
   deductions: number;
   remainderShares: number;
   relatedCardTitle: string;
@@ -818,7 +824,7 @@ export interface CardCampaignStats {
   expenses: number;
 }
 
-export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted";
+export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted" | "paused";
 
 export interface CardCampaignBudget {
   promotionTotal: number; // content-promotion only

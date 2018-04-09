@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo } from "./interfaces/rest-services";
 import { db } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -41,10 +41,13 @@ const ANNUAL_INTEREST_RATE = 0.03;
 const INTEREST_RATE_PER_MILLISECOND = Math.pow(1 + ANNUAL_INTEREST_RATE, 1 / (365 * 24 * 60 * 60 * 1000)) - 1;
 const MIN_INTEREST_INTERVAL = 1000 * 60 * 15;
 const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 60 * 24;
+const BALANCE_DORMANT_ACCOUNT_INTERVAL = 1000 * 60 * 60 * 24 * 45;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 1;
 const REGISTRATION_BONUS = 1.5;
+const STALE_USER_INTERVAL = 1000 * 60 * 60 * 24 * 30;
+const MAX_STALE_USERS_PER_CYCLE = 1000;
 
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
@@ -390,8 +393,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     // }
 
     setInterval(() => {
-      void this.updateBalances();
+      void this.poll();
     }, 30000);
+    await this.poll();
   }
 
   private registerHandlers(): void {
@@ -445,6 +449,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('get-geo-descriptors'), (request: Request, response: Response) => {
       void this.handleGetGeoDescriptors(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-community-info'), (request: Request, response: Response) => {
+      void this.handleGetCommunityInfo(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('get-community-info-more'), (request: Request, response: Response) => {
+      void this.handleGetCommunityInfoMore(request, response);
     });
   }
 
@@ -564,7 +574,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         // }
         // const inviteCode = await this.generateInviteCode();
         const initialGrant = await this.getInitialBalanceGrantAppropriate(request, ipAddress, requestBody.detailsObject.fingerprint, isMobile);
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, initialGrant);
+        const preferredLangCodes: string[] = ipAddressInfo && ipAddressInfo.countryCode === "US" ? ['en'] : null;
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, initialGrant, preferredLangCodes);
         if (initialGrant > 0) {
           const grantRecipient: BankTransactionRecipientDirective = {
             address: requestBody.detailsObject.address,
@@ -1173,6 +1184,163 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleGetCommunityInfo(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetCommunityInfoDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const maxCount = requestBody.detailsObject.maxCount || 10;
+      console.log("UserManager.get-community-info", user.id, requestBody.detailsObject);
+      const reply: GetCommunityInfoResponse = {
+        serverVersion: SERVER_VERSION,
+        networkHelpers: await this.getNetworkCommunityInfo(request, user, "networkHelpers", maxCount, null),
+        myHelpers: await this.getMyHelpersCommunityInfo(request, user, "myHelpers", maxCount, null),
+        helpedByMe: await this.getHelpedByMeCommunityInfo(request, user, "helpedByMe", maxCount, null),
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetCommunityInfo: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async getNetworkCommunityInfo(request: Request, user: UserRecord, type: CommunityInfoListType, maxCount: number, afterUserId: string): Promise<CommunityMemberInfo[]> {
+    const result: CommunityMemberInfo[] = [];
+    const cursor = db.aggregateAuthorUsersReferrals();
+    let waiting = afterUserId ? true : false;
+    while (result.length < maxCount) {
+      const item = await cursor.next();
+      if (!item) {
+        break;
+      }
+      if (waiting) {
+        if (item.userId === afterUserId) {
+          waiting = false;
+        }
+        continue;
+      }
+      const referrer = await userManager.getUserDescriptor(item.userId, false);
+      if (!referrer.handle || referrer.blocked) {
+        continue;
+      }
+      const resultItem: CommunityMemberInfo = {
+        user: referrer,
+        authors: item.authorIds.length - (item.authorIds.indexOf(item.userId) >= 0 ? 1 : 0),
+        referredCards: item.referredCards,
+        referredPurchases: item.referredPurchases
+      };
+      result.push(resultItem);
+    }
+    await cursor.close();
+    return result;
+  }
+
+  private async getMyHelpersCommunityInfo(request: Request, user: UserRecord, type: CommunityInfoListType, maxCount: number, afterUserId: string): Promise<CommunityMemberInfo[]> {
+    const result: CommunityMemberInfo[] = [];
+    const cursor = db.getAuthorUsersByAuthor(user.id);
+    let waiting = afterUserId ? true : false;
+    while (await cursor.hasNext() && result.length < maxCount) {
+      const authorUser = await cursor.next();
+      if (waiting) {
+        if (authorUser.userId === afterUserId) {
+          waiting = false;
+        }
+        continue;
+      }
+      if (authorUser.userId === user.id) {
+        continue;
+      }
+      if (authorUser.stats.referredPurchases === 0) {
+        break;
+      }
+      const referrer = await userManager.getUserDescriptor(authorUser.userId, false);
+      if (!referrer.handle || referrer.blocked) {
+        continue;
+      }
+      const resultItem: CommunityMemberInfo = {
+        user: referrer,
+        authors: 1,
+        referredCards: authorUser.stats.referredCards,
+        referredPurchases: authorUser.stats.referredPurchases
+      };
+      result.push(resultItem);
+    }
+    await cursor.close();
+    return result;
+  }
+
+  private async getHelpedByMeCommunityInfo(request: Request, user: UserRecord, type: CommunityInfoListType, maxCount: number, afterUserId: string): Promise<CommunityMemberInfo[]> {
+    const result: CommunityMemberInfo[] = [];
+    const cursor = db.getAuthorUsersByUser(user.id);
+    let waiting = afterUserId ? true : false;
+    while (await cursor.hasNext() && result.length < maxCount) {
+      const authorUser = await cursor.next();
+      if (waiting) {
+        if (authorUser.authorId === afterUserId) {
+          waiting = false;
+        }
+        continue;
+      }
+      if (authorUser.authorId === user.id) {
+        continue;
+      }
+      if (authorUser.stats.referredPurchases === 0) {
+        break;
+      }
+      const referrer = await userManager.getUserDescriptor(authorUser.authorId, false);
+      if (!referrer.handle || referrer.blocked) {
+        continue;
+      }
+      const resultItem: CommunityMemberInfo = {
+        user: referrer,
+        authors: 1,
+        referredCards: authorUser.stats.referredCards,
+        referredPurchases: authorUser.stats.referredPurchases
+      };
+      result.push(resultItem);
+    }
+    await cursor.close();
+    return result;
+  }
+
+  private async handleGetCommunityInfoMore(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<GetCommunityInfoMoreDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const maxCount = requestBody.detailsObject.maxCount || 10;
+      const sinceUserId = requestBody.detailsObject.afterUserId;
+      const type = requestBody.detailsObject.list;
+      console.log("UserManager.get-community-info-more", user.id, requestBody.detailsObject);
+      let info: CommunityMemberInfo[];
+      switch (type) {
+        case "networkHelpers":
+          info = await this.getNetworkCommunityInfo(request, user, type, maxCount, sinceUserId);
+          break;
+        case "myHelpers":
+          info = await this.getMyHelpersCommunityInfo(request, user, type, maxCount, sinceUserId);
+          break;
+        case "helpedByMe":
+          info = await this.getHelpedByMeCommunityInfo(request, user, type, maxCount, sinceUserId);
+          break;
+        default:
+          response.status(400).send("Invalid list type " + type);
+      }
+      const reply: GetCommunityInfoMoreResponse = {
+        serverVersion: SERVER_VERSION,
+        members: info
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleGetCommunityInfoMore: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleRequestEmailConfirmation(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<RequestEmailConfirmationDetails>;
@@ -1519,12 +1687,28 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return BAD_WORDS.indexOf(handle.toLowerCase()) < 0;
   }
 
-  private async updateBalances(): Promise<void> {
+  private async poll(): Promise<void> {
     const now = Date.now();
-    const users = await db.findUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL);
-    for (const user of users) {
+    const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
+    while (await cursor.hasNext()) {
+      const user = await cursor.next();
       await this.updateUserBalance(null, user, null);
     }
+    await cursor.close();
+
+    const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
+    let count = 0;
+    while (await staleCursor.hasNext()) {
+      const user = await staleCursor.next();
+      console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
+      await db.removeBankTransactionRecordsByReason(user.id, "interest");
+      await db.removeUserRegistrations(user.id);
+      await db.removeUser(user.id);
+      if (count > MAX_STALE_USERS_PER_CYCLE) {
+        break;
+      }
+    }
+    await staleCursor.close();
   }
 
   async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {
@@ -1626,7 +1810,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       publicKey: user.publicKey,
       name: user.identity ? user.identity.name : null,
       image: user.identity && user.identity.imageId ? await fileManager.getFileInfo(user.identity.imageId) : (user.identity ? { id: null, imageInfo: null, url: user.identity.imageUrl } : null),
-      location: user.identity ? user.identity.location : null
+      location: user.identity ? user.identity.location : null,
+      memberSince: user.added,
+      blocked: user.curation === "blocked"
     };
     return result;
   }

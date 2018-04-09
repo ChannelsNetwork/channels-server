@@ -1,0 +1,263 @@
+<link rel="import" href="../../bower_components/soso-app-header/soso-app-header.html">
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../app/channels-bar.html">
+<link rel="import" href="../app/feeds-bar.html">
+<link rel="import" href="community-user-item.html">
+
+<dom-module id="community-page">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #nonePanel {
+        padding: 16px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+
+      .message {
+        padding: 0 8px;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+      }
+
+      #container {
+        max-width: 1296px;
+        margin: 0 auto;
+      }
+
+      section {
+        padding: 20px 0;
+      }
+
+      .title {
+        color: #777;
+        font-size: 16px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 10px 8px;
+        display: inline-block;
+      }
+
+      .itemList {
+        padding-top: 10px;
+      }
+
+      .communityText {
+        max-width: 850px;
+        text-align: left;
+        padding: 5px 12px 0;
+        font-size: 16px;
+      }
+
+      #more {
+        box-sizing: border-box;
+        -ms-flex: 1 1 0.000000001px;
+        -webkit-flex: 1;
+        flex: 1;
+        -webkit-flex-basis: 0.000000001px;
+        flex-basis: 0.000000001px;
+        margin: 8px;
+        padding: 20px 16px;
+        height: 100%;
+      }
+
+      #moreButton {
+        text-align: center;
+        width: 85px;
+        height: 85px;
+        cursor: pointer;
+        margin: 0 auto;
+        border-radius: 50%;
+        font-size: 16px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        color: var(--highlight-green);
+        background: transparent;
+        border: 3px solid;
+      }
+
+      .row {
+        margin-top: 12px
+      }
+
+      a,
+      a:visited,
+      a:hover {
+        color: var(--dark-green);
+        letter-spacing: initial;
+        cursor: pointer;
+      }
+
+      @media (max-width: 600px) {
+        .communityText {
+          font-size: 14px;
+        }
+        .title {
+          font-size: 15px;
+          letter-spacing: 0.03em;
+        }
+      }
+    </style>
+    <soso-app-header collapse-height="50">
+      <channels-bar id="cbar"></channels-bar>
+      <feeds-bar id="fbar"></feeds-bar>
+    </soso-app-header>
+    <div id="nonePanel" class="hidden">
+      There is no community data available for your account.
+    </div>
+    <div id="container" class="hidden">
+      <section style="padding-bottom: 5px;">
+        <div class="communityText">
+          Channels is a community of content creators. To earn money for your work, you need viewers. That's true for every one of
+          us. Each of our social networks is small. But
+          <b>our combined social network is huge!</b>
+          <div class="row">Let's help each other get more viewers. Your friends will appreciate interesting new content. Other creators will
+            appreciate the new viewers you bring them. And you win when they return the favor and bring their friends to
+            view your content.
+            <a id="btnMore" on-click="_learnMore">Learn more...</a>
+          </div>
+          <div id="morePanel" class="hidden">
+            <div class="row">Channels tracks referrals when you use the sharing menu to share a card. The URL that is shared includes a referral
+              code so that we know who was responsible for the share that resulted in someone later visiting a card.</div>
+            <div class="row">You are credited for all card purchases resulting from someone arriving on Channels via one of your shares, including
+              other cards that they purchase in that same session.</div>
+            <div class="row">If you wish to share a card anonymously, you can do that by using the URL for the card in the address bar. That
+              URL contains no information that identifies you.</div>
+            <div class="row">Otherwise,
+              <b>be sure to use the share menu on a card</b> so that you get credit for your referrals.</div>
+          </div>
+        </div>
+      </section>
+      <dom-repeat items="[[data]]" id="dataRepeater">
+        <template>
+          <section>
+            <h2 class="title">[[item.name]]</h2>
+            <div class="itemList horizontal layout wrap">
+              <dom-repeat items="[[item.items]]" as="user">
+                <template>
+                  <community-user-item data="[[user]]" hide-author="[[item.hideAuthor]]"></community-user-item>
+                </template>
+              </dom-repeat>
+              <div class$="[[item.moreClass]]">
+                <div id="more" class="horizontal layout center">
+                  <div id="moreButton" class="horizontal layout center" on-click="_onMore">
+                    <div style="width: 100%; box-sizing: border-box;">
+                      <div>More</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <dom-repeat items="[[item.messages]]" as="message">
+              <template>
+                <div class="message">[[message]]</div>
+              </template>
+            </dom-repeat>
+          </section>
+        </template>
+      </dom-repeat>
+    </div>
+  </template>
+  <script>
+    class CommunityPage extends Polymer.Element {
+      static get is() { return 'community-page'; }
+      static get properties() {
+        return {
+          data: Array
+        };
+      }
+
+      onActivate(route) {
+        this.$.morePanel.classList.add("hidden");
+        this.$.btnMore.classList.remove("hidden");
+        $core.register().then(() => {
+          // activate top bars and home page content
+          this.$.cbar.activate();
+          this.$.fbar.selected = 'community';
+
+          this.$.nonePanel.classList.add('hidden');
+          this.$.container.classList.add('hidden');
+          let fetchCount = window.innerWidth <= 600 ? 5 : 11;
+          return $core.getCommunityInfo(fetchCount).then(response => {
+            let data = [];
+            data.push({
+              id: 'helpedByMe',
+              name: 'Users whose cards I have shared',
+              items: response.helpedByMe,
+              hideAuthor: true,
+              moreClass: response.helpedByMe.length === fetchCount ? '' : 'hidden',
+              messages: response.helpedByMe.length ? [] : ["You haven't shared any cards that resulted in revenue for someone else."]
+            });
+            data.push({
+              id: 'myHelpers',
+              name: 'Users who have shared my cards',
+              items: response.myHelpers,
+              hideAuthor: true,
+              moreClass: response.myHelpers.length === fetchCount ? '' : 'hidden',
+              messages: response.myHelpers.length ? [] : ['No one else has shared a card that resulted in revenue for you.']
+            });
+            if (response.networkHelpers && response.networkHelpers.length) {
+              data.push({
+                id: 'networkHelpers',
+                name: 'Top Referrers',
+                items: response.networkHelpers,
+                moreClass: response.networkHelpers.length === fetchCount ? '' : 'hidden'
+              });
+            }
+
+            this.data = data;
+            if (this.data.length) {
+              this.$.container.classList.remove('hidden');
+            } else {
+              this.$.nonePanel.classList.remove('hidden');
+            }
+          });
+        }).catch((err) => {
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+
+      _learnMore(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.$.morePanel.classList.remove("hidden");
+        this.$.btnMore.classList.add("hidden");
+      }
+
+      _onMore(event) {
+        if (this._fetchingMore) {
+          return;
+        }
+        let item = event.model.item;
+        this._fetchingMore = true;
+        let last = item.items[item.items.length - 1].user.id;
+        let fetchCount = window.innerWidth <= 600 ? 8 : 12;
+        $core.getCommunityInfoMore(item.id, fetchCount, last).then(response => {
+          this._fetchingMore = false;
+          let moreItems = (response && response.members) || [];
+          let hasMore = moreItems.length === fetchCount;
+          for (let d of this.data) {
+            if (d.id === item.id) {
+              d.items = d.items.concat(moreItems);
+              d.moreClass = hasMore ? '' : 'hidden';
+              break;
+            }
+          }
+          this.data = JSON.parse(JSON.stringify(this.data));
+        }).catch((err) => {
+          this._fetchingMore = false;
+          console.error(err);
+          $app.showError(err);
+        });
+      }
+    }
+    window.customElements.define(CommunityPage.is, CommunityPage);
+  </script>
+</dom-module>

@@ -835,6 +835,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  updateCardCampaignStatus(campaignId, paused) {
+    let details = RestUtils.updateCardCampaignStatus(this._keys.address, this._fingerprint, campaignId, paused);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-card-campaign-status";
+    return this.rest.post(url, request);
+  }
+
   shortenUrl(originalUrl) {
     let details = RestUtils.shortenUrl(this._keys.address, this._fingerprint, originalUrl);
     let request = this._createRequest(details);
@@ -848,6 +855,20 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.getUserStats(this._keys.address, this._fingerprint);
     let request = this._createRequest(details);
     const url = this.restBase + "/get-user-stats";
+    return this.rest.post(url, request);
+  }
+
+  getCommunityInfo(maxCountPerList) {
+    let details = RestUtils.getCommunityInfo(this._keys.address, this._fingerprint, maxCountPerList);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-community-info";
+    return this.rest.post(url, request);
+  }
+
+  getCommunityInfoMore(listType, maxCount, afterUserId) {
+    let details = RestUtils.getCommunityInfoMore(this._keys.address, this._fingerprint, listType, maxCount, afterUserId);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/get-community-info-more";
     return this.rest.post(url, request);
   }
 
@@ -1189,6 +1210,13 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.admin_bankDeposit(this._keys.address, this._fingerprint, fromHandle, amount, currency, net, paypalReference);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-bank-deposit";
+    return this.rest.post(url, request);
+  }
+
+  admin_curateCardQuality(cardId, quality, market) {
+    let details = RestUtils.admin_curateCardQuality(this._keys.address, this._fingerprint, cardId, quality, market);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-curate-card-quality";
     return this.rest.post(url, request);
   }
 

@@ -3,7 +3,7 @@ import * as uuid from "uuid";
 
 import { Request, Response } from 'express';
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord, CardCurationQuality } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -155,7 +155,7 @@ export class Database {
     await this.users.createIndex({ address: 1 }, { unique: true });
     await this.users.createIndex({ "identity.handle": 1 }, { unique: true, sparse: true });
     await this.users.createIndex({ "identity.emailAddress": 1 }, { unique: true, sparse: true });
-    await this.users.createIndex({ type: 1, balanceLastUpdated: -1 });
+    await this.users.createIndex({ type: 1, balanceLastUpdated: -1, lastContact: -1 });
     await this.users.createIndex({ type: 1, lastContact: -1 });
     await this.users.createIndex({ type: 1, lastPosted: -1 });
     await this.users.createIndex({ type: 1, balanceBelowTarget: 1 });
@@ -179,6 +179,8 @@ export class Database {
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, keywords: 1, score: -1 }); // findCardsUsingKeywords
     await this.cards.createIndex({ state: 1, "curation.block": 1, private: 1, "pricing.openFeeUnits": 1, postedAt: -1 });
     await this.cards.createIndex({ createdById: 1, postedAt: -1 });
+
+    await this.cards.updateMany({ "curation.quality": { $exists: false } }, { $set: { "curation.quality": "unrated", "curation.market": false } });
   }
 
   private async ensureStatistic(stat: string): Promise<void> {
@@ -471,8 +473,8 @@ export class Database {
     this.authorUsers = this.db.collection('authorUsers');
     await this.authorUsers.createIndex({ authorId: 1, userId: 1, periodStarting: -1 }, { unique: true });
     await this.authorUsers.createIndex({ authorId: 1, userId: 1, isCurrent: 1 });
-    await this.authorUsers.createIndex({ userId: 1, isCurrent: 1 });
-    await this.authorUsers.createIndex({ authorId: 1, isCurrent: 1 });
+    await this.authorUsers.createIndex({ userId: 1, isCurrent: 1, "stats.referredPurchases": -1 });
+    await this.authorUsers.createIndex({ authorId: 1, isCurrent: 1, "stats.referredPurchases": -1 });
   }
 
   private async initializeUserStats(): Promise<void> {
@@ -521,7 +523,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, preferredLangCodes: string[], id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -553,7 +555,7 @@ export class Database {
       firstArrivalCardId: firstArrivalCardId,
       referralBonusPaidToUserId: null,
       lastLanguagePublished: null,
-      preferredLangCodes: null,
+      preferredLangCodes: preferredLangCodes,
       commentsLastReviewed: 0,
       initialBalance: initialBalance
     };
@@ -765,6 +767,21 @@ export class Database {
     return this.users.find<UserRecord>({ referralBonusPaidToUserId: { $ne: null } }).toArray();
   }
 
+  async removeUser(userId: string): Promise<void> {
+    await this.users.deleteOne({ id: userId });
+  }
+
+  getStaleUsers(before: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({
+      lastContact: { $lt: before },
+      "identity.handle": { $exists: false },
+      $or: [
+        { firstCardPurchasedId: { $exists: false } },
+        { firstCardPurchasedId: null }
+      ]
+    }).sort({ lastContact: 1 });
+  }
+
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
     await this.users.updateOne({ id: userId }, {
       $unset: { "identity.imageUrl": 1 },
@@ -912,8 +929,8 @@ export class Database {
     user.storage += size;
   }
 
-  async findUsersForBalanceUpdates(before: number): Promise<UserRecord[]> {
-    return this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before } }).toArray();
+  getUsersForBalanceUpdates(before: number, lastContactAfter: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({ type: "normal", balanceLastUpdated: { $lt: before }, lastContact: { $gt: lastContactAfter } });
   }
 
   async incrementUserBalance(user: UserRecord, incrementBalanceBy: number, balanceBelowTarget: boolean, now: number, onlyIfLastBalanceUpdated = 0): Promise<void> {
@@ -1027,6 +1044,7 @@ export class Database {
         at: 0
       },
       curation: {
+        quality: "unrated",
         block: blocked
       },
       searchText: searchText,
@@ -1256,6 +1274,17 @@ export class Database {
 
   async updateCardSearchText(cardId: string, searchText: string): Promise<void> {
     await this.cards.updateOne({ id: cardId }, { $set: { searchText: searchText } });
+  }
+
+  async updateCardCurationQuality(cardId: string, quality: CardCurationQuality, market: boolean): Promise<void> {
+    const update: any = {};
+    if (quality) {
+      update["curation.quality"] = quality;
+    }
+    if (typeof market === "boolean") {
+      update["curation.market"] = market;
+    }
+    await this.cards.updateOne({ id: cardId }, { $set: update });
   }
 
   async updateCardBy(cardId: string, address: string, handle: string, name: string): Promise<void> {
@@ -1972,13 +2001,15 @@ export class Database {
     return this.bowerManagement.findOne<BowerManagementRecord>({ id: id });
   }
 
-  async insertBankTransaction(sessionId: string, at: number, originatorUserId: string, participantUserIds: string[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
+  async insertBankTransaction(sessionId: string, at: number, originatorUserId: string, participantUserIds: string[], participantBalancesBefore: number[], participantBalancesAfter: number[], relatedCardTitle: string, details: BankTransactionDetails, recipientUserIds: string[], signedObject: SignedObject, deductions: number, remainderShares: number, withdrawalType: string, description: string, fromIpAddress: string, fromFingerprint: string): Promise<BankTransactionRecord> {
     const record: BankTransactionRecord = {
       id: uuid.v4(),
       sessionId: sessionId,
       at: at,
       originatorUserId: originatorUserId,
       participantUserIds: participantUserIds,
+      participantBalancesBefore: participantBalancesBefore,
+      participantBalancesAfter: participantBalancesAfter,
       relatedCardTitle: relatedCardTitle,
       details: details,
       recipientUserIds: recipientUserIds,
@@ -2060,6 +2091,10 @@ export class Database {
         refundInfo: refundInfo
       }
     });
+  }
+
+  async removeBankTransactionRecordsByReason(participantUserId: string, reason: BankTransactionReason): Promise<void> {
+    await this.bankTransactions.deleteMany({ participantUserIds: participantUserId, "details.reason": reason });
   }
 
   async insertUserCardAction(sessionId: string, userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemAdImpression: number, redeemOpen: number, redeemOpenNet: number, redeemTransactionId: string, redeemCampaignId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo, referringUserId: string): Promise<UserCardActionRecord> {
@@ -2559,6 +2594,11 @@ export class Database {
 
   async findCardStatsHistory(cardId: string, statName: string, maxCount: number): Promise<CardStatisticHistoryRecord[]> {
     return this.cardStatsHistory.find({ cardId: cardId, statName: statName }).sort({ at: -1 }).limit(maxCount ? maxCount : 50).toArray();
+  }
+
+  async findCardStatsHistoryBefore(cardId: string, statName: string, before: number): Promise<CardStatisticHistoryRecord> {
+    const result = await this.cardStatsHistory.find<CardStatisticHistoryRecord>({ cardId: cardId, statName: statName, at: { $lte: before } }).sort({ at: -1 }).limit(1).toArray();
+    return result.length > 0 ? result[0] : null;
   }
 
   async upsertBowerPackage(packageName: string, pkg: BowerInstallResult, channelComponent: ChannelComponentDescriptor): Promise<BowerPackageRecord> {
@@ -3358,6 +3398,10 @@ export class Database {
   async existsFingerprintAndIpAddress(fingerprint: string, ipAddress: string): Promise<boolean> {
     const existing = await this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress });
     return existing ? true : false;
+  }
+
+  async removeUserRegistrations(userId: string): Promise<void> {
+    await this.userRegistrations.deleteMany({ userId: userId });
   }
 
   async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {
@@ -4533,6 +4577,53 @@ export class Database {
     return result.length > 0 ? result[0] : null;
   }
 
+  aggregateAuthorUsersReferrals(): AggregationCursor<AuthorUserAggregationItem> {
+    return this.authorUsers.aggregate<AuthorUserAggregationItem>([
+      { $match: { isCurrent: true, "stats.referredPurchases": { $gt: 0 } } },
+      {
+        $group: {
+          _id: "$userId",
+          authorIds: { $addToSet: "$authorId" },
+          referredCards: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "authorId"] },
+                then: 0,
+                else: "$stats.referredCards"
+              }
+            }
+          },
+          referredPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "authorId"] },
+                then: 0,
+                else: "$stats.referredPurchases"
+              }
+            }
+          },
+        }
+      },
+      {
+        $project: {
+          userId: "$_id",
+          authorIds: 1,
+          referredCards: 1,
+          referredPurchases: 1
+        }
+      },
+      { $sort: { referredPurchases: -1 } }
+    ]);
+  }
+
+  getAuthorUsersByAuthor(authorId: string): Cursor<AuthorUserRecord> {
+    return this.authorUsers.find<AuthorUserRecord>({ authorId: authorId, isCurrent: true }).sort({ "stats.referredPurchases": -1 });
+  }
+
+  getAuthorUsersByUser(userId: string): Cursor<AuthorUserRecord> {
+    return this.authorUsers.find<AuthorUserRecord>({ userId: userId, isCurrent: true }).sort({ "stats.referredPurchases": -1 });
+  }
+
   async findCurrentUserStats(userId: string): Promise<UserStatsRecord> {
     return this.userStats.findOne<UserStatsRecord>({ userId: userId, isCurrent: true });
   }
@@ -4725,6 +4816,13 @@ export interface UserCardActionPromotionsInfo {
 export interface RedemptionInfo {
   count: number;
   total: number;
+}
+
+export interface AuthorUserAggregationItem {
+  userId: string;
+  authorIds: string[];
+  referredCards: number;
+  referredPurchases: number;
 }
 
 export interface CardCampaignAggregationItem {

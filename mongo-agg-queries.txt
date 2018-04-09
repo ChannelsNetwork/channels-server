@@ -3405,6 +3405,9 @@ db.authorUsers.aggregate([
         }
       },
       { $sort: { referredPurchases: -1 } }
+<<<<<<< HEAD
+    ])
+=======
     ])
 
 
@@ -3473,4 +3476,85 @@ db.cardCampaigns.aggregate([
     country: "$user.country"
   }},
   {$sort: {created: -1}}
+]).pretty()
+>>>>>>> dc4f3e526521049a9850a9938985ffd69e52d545
+
+
+
+// Describe all purchasers for some author since date X
+
+db.userCardActions.aggregate([
+  {$match: {
+    authorId:  "a499d009-4699-4f7b-afb6-336ffcd87aec", 
+    action: "pay",
+    at: {$gt: 1520582400000}
+  }},
+  {$group: {
+    _id: "$userId",
+    count: {$sum: 1},
+    revenue: {$sum: "$payment.amount"},
+    cards: {$addToSet: "$cardId"}    
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "buyer"
+  }},
+  {$unwind: "$buyer"},
+  {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
+  {$unwind: "$registration"},
+  {$match: {
+    "registration.at": {$gt: 1522047600000}
+  }},
+  {$group: {
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed", cards: "$cards"},
+    registrations: {$sum: 1},
+    fingerprints: {$addToSet: "$registration.fingerprint"},
+    ipAddresses: {$addToSet: "$registration.ipAddress"},
+    userAgents: {$addToSet: "$registration.userAgent"},
+  }},
+  {$sort: {"_id.revenue": -1}},
+]).pretty()
+
+db.authorUsers.aggregate([
+  {$match: {
+    isCurrent: true,
+  }},
+  {$project: {
+    userId: 1,
+    authorId: 1,
+    stats: 1,
+    same: {$cond: {
+      if: {$eq: ["$userId", "$authorId"]},
+      then: 1,
+      else: 0
+    }}
+  }},
+  {$match: {
+    same: 0
+  }},
+  {$lookup: {
+    from: "users",
+    localField: "userId",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$lookup: {
+    from: "users",
+    localField: "authorId",
+    foreignField: "id",
+    as: "author"
+  }},
+  {$unwind: "$author"},
+  {$project: {
+    _id: 0,
+    userId: 1,
+    authorId: 1,
+    stats: 1,
+    userHandle: "$user.identity.handle",
+    authorHandle: "$author.identity.handle",
+  }},
+  {$sort: {"stats.referredPurchases": -1, "stats.purchases": -1}}
 ]).pretty()

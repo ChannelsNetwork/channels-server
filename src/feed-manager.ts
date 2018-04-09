@@ -973,7 +973,19 @@ export class FeedManager implements Initializable, RestServer {
     if (cards.length < count) {
       const authorIds: string[] = [];
       const cursor = db.getCardsByScore(user.id, ads, scoreLessThan);
+      const cursorCount = await cursor.count();
       while (await cursor.hasNext()) {
+        // We want to spread out the best cards over multiple fetches.  This is
+        // a simple way to do that.
+        if (cursorCount > 100) {
+          const randomSkip = Math.floor(Math.random() * 8);
+          if (randomSkip) {
+            await cursor.skip(randomSkip);
+          }
+          if (! await cursor.hasNext()) {
+            break;
+          }
+        }
         const cardByScore = await cursor.next();
         if (cardByScore.score <= 0) {
           console.log("Feed.getCardsWithHighestScores:  card score is zero, so aborting");
@@ -1320,8 +1332,8 @@ export class FeedManager implements Initializable, RestServer {
     return finalResult;
   }
 
-  private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, adSlotId: string, sourceChannelId: string, includeCardCampaign: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
-    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, true, cardCampaignIfAvailable, user, includeAdmin);
+  private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, adSlotId: string, sourceChannelId: string, includeCardCampaign: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord): Promise<CardDescriptor> {
+    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, true, cardCampaignIfAvailable, user);
   }
 
   private async poll(): Promise<void> {
@@ -1379,6 +1391,11 @@ export class FeedManager implements Initializable, RestServer {
       return 0;
     }
     // score += this.getCardAgeScore(card, author);
+    if (card.curation.quality === "excellent") {
+      score += 1000;
+    } else if (card.curation.quality === "poor") {
+      score -= 1000;
+    }
     score += this.getCardOpensScore(card, currentStats, networkStats);
     score += this.getCardLikesScore(card, currentStats, networkStats);
     score += this.getCardCurationScore(card);
@@ -1858,7 +1875,7 @@ export class FeedManager implements Initializable, RestServer {
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       fingerprint: null,
@@ -1954,7 +1971,7 @@ export class FeedManager implements Initializable, RestServer {
       const infos: AdminCardInfo[] = [];
       const currentStats = await db.ensureNetworkCardStats();
       for (const record of cardRecords) {
-        const descriptor = await this.populateCard(request, record, null, false, null, null, false, null, null, true);
+        const descriptor = await this.populateCard(request, record, null, false, null, null, false, null, user);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
         const author = await userManager.getUser(record.createdById, true);
         infos.push({

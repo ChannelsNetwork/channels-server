@@ -60,6 +60,18 @@
       .menuDivider {
         border-bottom: 1px solid #d8d8d8;
       }
+
+      .upperMenuDivider {
+        border-top: 1px solid #d8d8d8;
+      }
+
+      .selectedQuality {
+        font-weight: bold;
+      }
+
+      .selectedQuality::before {
+        content: "► ";
+      }
     </style>
     <div class="horizontal layout center bar">
       <user-image id="authorImage" on-click="_openUserChannel"></user-image>
@@ -79,6 +91,10 @@
         <li id="editCampaignAction" on-click="_editCampaign">Promotion</li>
         <li id="analyticsAction" on-click="_analytics">Analytics</li>
         <li id="deleteAction" on-click="_deleteCard">Delete</li>
+        <li id="curateLowQualityAction" on-click="_curateLowQuality" class="upperMenuDivider hidden">Poor</li>
+        <li id="curateGoodQualityAction" on-click="_curateGoodQuality" class="hidden">Good</li>
+        <li id="curateExcellentQualityAction" on-click="_curateExcellentQuality" class="hidden">Excellent</li>
+        <li id="curateMarket" on-click="_curateToggleMarket" class="upperMenuDivider hidden">Market</li>
       </soso-dropdown>
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
@@ -145,11 +161,47 @@
           this._refreshRevenue();
           this._refreshPrivate();
           this._refreshMore();
+          this._refreshCuration();
           if (this.noShare) {
             this.$.shareIcon.classList.add("hidden");
           } else {
             this.$.shareIcon.classList.remove("hidden");
           }
+        }
+      }
+
+      _refreshCuration() {
+        if ($core.isAdmin) {
+          this.$.curateLowQualityAction.classList.remove('hidden');
+          this.$.curateGoodQualityAction.classList.remove('hidden');
+          this.$.curateExcellentQualityAction.classList.remove('hidden');
+          this.$.curateMarket.classList.remove('hidden');
+          this.$.curateLowQualityAction.classList.remove('selectedQuality')
+          this.$.curateGoodQualityAction.classList.remove('selectedQuality')
+          this.$.curateExcellentQualityAction.classList.remove('selectedQuality')
+          switch (this.data.quality) {
+            case "poor":
+              this.$.curateLowQualityAction.classList.add('selectedQuality')
+              break;
+            case "good":
+              this.$.curateGoodQualityAction.classList.add('selectedQuality')
+              break;
+            case "excellent":
+              this.$.curateExcellentQualityAction.classList.add('selectedQuality')
+              break;
+            default:
+              break;
+          }
+          if (this.data.market) {
+            this.$.curateMarket.classList.add('selectedQuality');
+          } else {
+            this.$.curateMarket.classList.remove('selectedQuality');
+          }
+        } else {
+          this.$.curateLowQualityAction.classList.add('hidden');
+          this.$.curateGoodQualityAction.classList.add('hidden');
+          this.$.curateExcellentQualityAction.classList.add('hidden');
+          this.$.curateMarket.classList.add('hidden');
         }
       }
 
@@ -177,7 +229,7 @@
       _refreshMore() {
         let owner = this.data && (this.data.by.address === $core.address);
         let showPin = this.showPinAction && (!this.data.promoted);
-        if (owner || showPin) {
+        if (owner || showPin || $core.isAdmin) {
           this.$.moreIcon.classList.remove("hidden");
           if (showPin) {
             this.$.pinAction.classList.remove("hidden");
@@ -253,6 +305,30 @@
 
       _editCampaign() {
         $router.goto('/card-budget/' + encodeURIComponent(this.data.id));
+      }
+
+      _curateLowQuality() {
+        $core.admin_curateCardQuality(this.data.id, "poor", null);
+        this.data.quality = "poor";
+        this._refreshCuration();
+      }
+
+      _curateGoodQuality() {
+        $core.admin_curateCardQuality(this.data.id, "good", null);
+        this.data.quality = "good";
+        this._refreshCuration();
+      }
+
+      _curateExcellentQuality() {
+        $core.admin_curateCardQuality(this.data.id, "excellent", null);
+        this.data.quality = "excellent";
+        this._refreshCuration();
+      }
+
+      _curateToggleMarket() {
+        $core.admin_curateCardQuality(this.data.id, null, this.data.market ? false : true);
+        this.data.market = !this.data.market;
+        this._refreshCuration();
       }
 
       _openUserChannel() {

@@ -726,6 +726,17 @@ class RestUtils {
     };
   }
 
+  static admin_curateCardQuality(address, fingerprint, cardId, quality, market) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      quality: quality,
+      market: market
+    };
+  }
+
   static admin_getCardCampaigns(address, fingerprint) {
     return {
       address: address,
@@ -982,12 +993,29 @@ class RestUtils {
     return {
       address: address,
       fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
       geoTargets: geoTargets
     };
   }
 
   static updateCardCampaign(address, fingerprint, campaignId, info) {
-    return { address, fingerprint, campaignId, info, timestamp: RestUtils.now() };
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      campaignId: campaignId,
+      info: info
+    };
+  }
+
+  static updateCardCampaignStatus(address, fingerprint, campaignId, paused) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      campaignId: campaignId,
+      paused: paused
+    };
   }
 
   static getUserCardAnalytics(address, fingerprint, cardId, maxCount, after) {
@@ -1015,6 +1043,26 @@ class RestUtils {
       address: address,
       fingerprint: fingerprint,
       timestamp: RestUtils.now(),
+    };
+  }
+
+  static getCommunityInfo(address, fingerprint, maxCountPerList) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      maxCount: maxCountPerList
+    };
+  }
+
+  static getCommunityInfoMore(address, fingerprint, listType, maxCount, afterUserId) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      list: listType,
+      maxCount: maxCount,
+      afterUserId: afterUserId
     };
   }
 }

@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats, CardCurationQuality } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData, CardCampaignAggregationItem } from "../db";
 
@@ -253,6 +253,8 @@ export interface CardDescriptor {
   pinning?: ChannelCardPinInfo;
   campaign: CardCampaignDescriptor;
   couponId: string;
+  quality?: CardCurationQuality;
+  market?: boolean;
 }
 
 export interface ChannelCardPinInfo {
@@ -1023,6 +1025,8 @@ export interface UserDescriptor {
   name: string;
   image: FileInfo;
   location: string;
+  memberSince: number;
+  blocked?: boolean;
 }
 
 export interface FileInfo {
@@ -1288,6 +1292,15 @@ export interface CardCampaignInfo {
 
 export interface UpdateCardCampaignResponse extends RestResponse { }
 
+export interface UpdateCardCampaignStatusDetails extends Signable {
+  campaignId: string;
+  paused: boolean;
+}
+
+export interface UpdateCardCampaignStatusResponse extends RestResponse {
+  updatedStatus: CardCampaignStatus;
+}
+
 export interface GetGeoDescriptorsDetails extends Signable {
   countryCode?: string;
 }
@@ -1351,6 +1364,42 @@ export interface GetUserStatsResponse extends RestResponse {
   last30Days: UserStats;
 }
 
+export interface GetCommunityInfoDetails extends Signable {
+  maxCount: number;
+}
+
+export interface GetCommunityInfoResponse extends RestResponse {
+  networkHelpers: CommunityMemberInfo[];
+  myHelpers: CommunityMemberInfo[];
+  helpedByMe: CommunityMemberInfo[];
+}
+
+export interface CommunityMemberInfo {
+  user: UserDescriptor;
+  authors: number;
+  referredCards: number;
+  referredPurchases: number;
+}
+
+export interface GetCommunityInfoMoreDetails extends Signable {
+  list: CommunityInfoListType;
+  afterUserId: string;
+  maxCount: number;
+}
+
+export type CommunityInfoListType = "networkHelpers" | "myHelpers" | "helpedByMe";
+
+export interface GetCommunityInfoMoreResponse extends RestResponse {
+  members: CommunityMemberInfo[];
+}
+
+export interface AdminCurateCardQualityDetails extends Signable {
+  cardId: string;
+  quality?: CardCurationQuality;
+  market?: boolean;
+}
+
+export interface AdminCurateCardQualityResponse extends RestResponse { }
 export interface AdminGetCardCampaignsDetails extends Signable { }
 
 export interface AdminGetCardCampaignsResponse extends RestResponse {

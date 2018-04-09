@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse, UpdateCardCampaignStatusDetails, UpdateCardCampaignStatusResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -159,6 +159,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     this.app.post(this.urlManager.getDynamicUrl('update-card-campaign'), (request: Request, response: Response) => {
       void this.handleUpdateCardCampaign(request, response);
     });
+    this.app.post(this.urlManager.getDynamicUrl('update-card-campaign-status'), (request: Request, response: Response) => {
+      void this.handleUpdateCardCampaignStatus(request, response);
+    });
     this.app.post(this.urlManager.getDynamicUrl('get-available-ad-slots'), (request: Request, response: Response) => {
       void this.handleGetAvailableAdSlots(request, response);
     });
@@ -167,6 +170,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('get-user-stats'), (request: Request, response: Response) => {
       void this.handleGetUserStats(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-curate-card-quality'), (request: Request, response: Response) => {
+      void this.handleAdminCurateCardQuality(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-get-card-campaigns'), (request: Request, response: Response) => {
       void this.handleAdminGetCardCampaigns(request, response);
@@ -1664,14 +1670,23 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         normalPurchases: [],
         firstTimePurchases: []
       };
+      const timestamps: number[] = [];
+      const now = Date.now();
+      timestamps.push(now - 1000 * 60 * 60 * 24);
+      timestamps.push(now - 1000 * 60 * 60 * 24 * 8);
+      timestamps.push(now - 1000 * 60 * 60 * 24 * 38);
       for (const key of Object.keys(reply)) {
-        const items = await db.findCardStatsHistory(card.id, key, requestBody.detailsObject.historyLimit);
-        for (const item of items) {
-          const d: CardStatDatapoint = {
-            value: item.value,
-            at: item.at
-          };
-          (reply as any)[key].push(d);
+        for (const timestamp of timestamps) {
+          const item = await db.findCardStatsHistoryBefore(card.id, key, timestamp);
+          if (item) {
+            const d: CardStatDatapoint = {
+              value: item.value,
+              at: item.at
+            };
+            (reply as any)[key].push(d);
+          } else {
+            break;
+          }
         }
       }
       response.json(reply);
@@ -2219,7 +2234,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, includeCampaignInfo: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, includeCampaignInfo: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -2299,12 +2314,16 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFeeRefunded: userCardInfo ? userCardInfo.openFeeRefunded : false,
           addedToHomeChannel: channelCard ? true : false
         },
-        blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
+        blocked: (user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
         sourceChannelId: sourceChannelId,
-        commentCount: await db.countCardComments(cardId, user ? user.id : null)
+        commentCount: await db.countCardComments(cardId, user ? user.id : null),
       };
+      if (user && user.admin) {
+        card.quality = record.curation.quality;
+        card.market = record.curation.market;
+      }
       if (pinInfo) {
         card.pinning = pinInfo;
       }
@@ -2449,24 +2468,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!coupon) {
       return null;
     }
-    let status = campaign.status;
-    if (status === "active") {
-      if (campaign.ends <= Date.now()) {
-        status = "expired";
-      } else {
-        const author = await userManager.getUser(campaign.createdById, true);
-        if (!author) {
-          return null;
-        }
-        if (author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
-          status = "insufficient-funds";
-        }
-      }
+    const author = await userManager.getUser(campaign.createdById, true);
+    if (!author) {
+      return null;
     }
     const result: CardCampaignDescriptor = {
       id: campaign.id,
       created: campaign.created,
-      status: status,
+      status: this.getCardCampaignStatus(author, campaign),
       type: campaign.type,
       paymentAmount: campaign.paymentAmount,
       advertiserSubsidy: campaign.advertiserSubsidy,
@@ -2483,6 +2492,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       statsLast30Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 30, now)
     };
     return result;
+  }
+
+  private getCardCampaignStatus(user: UserRecord, campaign: CardCampaignRecord): CardCampaignStatus {
+    return campaign.ends <= Date.now() ? "expired" : (campaign.status === "paused" ? "paused" : (user.balance < MINIMUM_AD_AUTHOR_BALANCE ? "insufficient-funds" : "active"));
   }
 
   private getCouponDescriptor(coupon: BankCouponRecord): BankCouponDetails {
@@ -2817,7 +2830,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       this.validateCardCampaignInfo(user, requestBody.detailsObject.info, campaign);
-      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, "active", this.getCampaignAmount(campaign.type), this.getCampaignSubsidy(campaign.type), 0);
+      campaign.type = requestBody.detailsObject.info.type;
+      campaign.budget = requestBody.detailsObject.info.budget;
+      campaign.ends = requestBody.detailsObject.info.ends;
+      campaign.geoTargets = requestBody.detailsObject.info.geoTargets;      
+      const status = this.getCardCampaignStatus(user, campaign);
+      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, this.getCampaignAmount(campaign.type), this.getCampaignSubsidy(campaign.type), 0);
       console.log("CardManager.update-card-campaign", requestBody.detailsObject);
       const reply: UpdateCardCampaignResponse = {
         serverVersion: SERVER_VERSION
@@ -2825,6 +2843,37 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleUpdateCardCampaign: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleUpdateCardCampaignStatus(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<UpdateCardCampaignStatusDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const campaign = await db.findCardCampaignById(requestBody.detailsObject.campaignId);
+      if (!campaign) {
+        response.status(404).send("No such card campaign");
+        return;
+      }
+      if (campaign.createdById !== user.id) {
+        response.status(401).send("You are not the campaign owner");
+        return;
+      }
+      campaign.status = requestBody.detailsObject.paused ? "paused" : "active";
+      const status = this.getCardCampaignStatus(user, campaign);
+      await db.updateCardCampaignStatus(campaign.id, status);
+      console.log("CardManager.update-card-campaign", requestBody.detailsObject);
+      const reply: UpdateCardCampaignStatusResponse = {
+        serverVersion: SERVER_VERSION,
+        updatedStatus: status
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleUpdateCardCampaignStatus: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
@@ -2990,6 +3039,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         if (!item) {
           break;
         }
+        if (item.status === "active" && item.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+          item.status = "insufficient-funds";
+        }
         reply.campaigns.push(item);
       }
       await cursor.close();
@@ -3016,6 +3068,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         response.status(404).send("No such comment");
         return;
       }
+      console.log("CardManager.admin-set-comment-curation", requestBody.detailsObject);
       await db.updateCardCommentCuration(comment.id, requestBody.detailsObject.curation);
       console.log("CardManager.admin-set-comment-curation", requestBody.detailsObject);
       const reply: AdminSetCommentCurationResponse = {
@@ -3024,6 +3077,45 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleAdminSetCommentCuration: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminCurateCardQuality(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminCurateCardQualityDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing cardId");
+        return;
+      }
+      const card = await db.findCardById(requestBody.detailsObject.cardId, false);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      console.log("CardManager.admin-curate-card-quality", requestBody.detailsObject);
+      await db.updateCardCurationQuality(card.id, requestBody.detailsObject.quality, requestBody.detailsObject.market);
+      if (requestBody.detailsObject.quality) {
+        card.curation.quality = requestBody.detailsObject.quality;
+      }
+      if (typeof requestBody.detailsObject.market === "boolean") {
+        card.curation.market = requestBody.detailsObject.market;
+      }
+      await feedManager.rescoreCard(card, false);
+      const reply: AdminCurateCardQualityResponse = {
+        serverVersion: SERVER_VERSION,
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminCurateCardQuality: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

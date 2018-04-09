@@ -155,6 +155,18 @@
           width: 60px;
         }
       }
+
+      .upperMenuDivider {
+        border-top: 1px solid #d8d8d8;
+      }
+
+      .selectedQuality {
+        font-weight: bold;
+      }
+
+      .selectedQuality::before {
+        content: "► ";
+      }
     </style>
     <div class="horizontal layout center bar">
       <div id="pricePanel" class="horizontal layout center">
@@ -212,6 +224,10 @@
             </div>
           </div>
         </li>
+        <li id="curateLowQualityAction" on-click="_curateLowQuality" class="upperMenuDivider hidden">Poor</li>
+        <li id="curateGoodQualityAction" on-click="_curateGoodQuality" class="hidden">Good</li>
+        <li id="curateExcellentQualityAction" on-click="_curateExcellentQuality" class="hidden">Excellent</li>
+        <li id="curateMarket" on-click="_curateToggleMarket" class="upperMenuDivider hidden">Market</li>
       </soso-dropdown>
       <!-- <soso-dropdown for="authorImage" alignment="left" offset="5">
         <li on-click="_openUserChannel">More by [[data.by.name]]</li>
@@ -254,7 +270,68 @@
         this._refreshPrice();
         this.refreshRating();
         this._refreshMore();
+        this._refreshCuration();
       }
+
+      _refreshCuration() {
+        if ($core.isAdmin) {
+          this.$.curateLowQualityAction.classList.remove('hidden');
+          this.$.curateGoodQualityAction.classList.remove('hidden');
+          this.$.curateExcellentQualityAction.classList.remove('hidden');
+          this.$.curateMarket.classList.remove('hidden');
+          this.$.curateLowQualityAction.classList.remove('selectedQuality')
+          this.$.curateGoodQualityAction.classList.remove('selectedQuality')
+          this.$.curateExcellentQualityAction.classList.remove('selectedQuality')
+          switch (this.data.quality) {
+            case "poor":
+              this.$.curateLowQualityAction.classList.add('selectedQuality')
+              break;
+            case "good":
+              this.$.curateGoodQualityAction.classList.add('selectedQuality')
+              break;
+            case "excellent":
+              this.$.curateExcellentQualityAction.classList.add('selectedQuality')
+              break;
+            default:
+              break;
+          }
+          if (this.data.market) {
+            this.$.curateMarket.classList.add('selectedQuality');
+          } else {
+            this.$.curateMarket.classList.remove('selectedQuality');
+          }
+        } else {
+          this.$.curateLowQualityAction.classList.add('hidden');
+          this.$.curateGoodQualityAction.classList.add('hidden');
+          this.$.curateExcellentQualityAction.classList.add('hidden');
+          this.$.curateMarket.classList.add('hidden');
+        }
+      }
+
+      _curateLowQuality() {
+        $core.admin_curateCardQuality(this.data.id, "poor", null);
+        this.data.quality = "poor";
+        this._refreshCuration();
+      }
+
+      _curateGoodQuality() {
+        $core.admin_curateCardQuality(this.data.id, "good", null);
+        this.data.quality = "good";
+        this._refreshCuration();
+      }
+
+      _curateExcellentQuality() {
+        $core.admin_curateCardQuality(this.data.id, "excellent", null);
+        this.data.quality = "excellent";
+        this._refreshCuration();
+      }
+
+      _curateToggleMarket() {
+        $core.admin_curateCardQuality(this.data.id, null, this.data.market ? false : true);
+        this.data.market = !this.data.market;
+        this._refreshCuration();
+      }
+
 
       get campaignPayment() {
         if (this.data && this.data.campaign) {

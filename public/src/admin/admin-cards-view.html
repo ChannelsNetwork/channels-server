@@ -36,6 +36,10 @@
         display: table-row;
       }
 
+      .row:hover {
+        background-color: #f8f8ff;
+      }
+
       .cell {
         display: table-cell;
         border: 1px solid #aaa;
@@ -85,10 +89,10 @@
           <div class="headerCell">Keywords</div>
           <div class="headerCell clickable" on-click="_onPostedClick">Posted</div>
           <div class="headerCell clickable" on-click="_onAuthorClick">Author</div>
-          <div class="headerCell">Private</div>
+          <div class="headerCell clickable" on-click="_onPrivateClick">Private</div>
           <div class="headerCell">Package</div>
           <div class="headerCell right clickable" on-click="_onScoreClick">Score</div>
-          <div class="headerCell right">Score (age)</div>
+          <!-- <div class="headerCell right">Score (age)</div> -->
           <div class="headerCell right">Score (opens)</div>
           <div class="headerCell right">Score (likes)</div>
           <div class="headerCell right">Score (boost)</div>
@@ -106,6 +110,8 @@
           <div class="headerCell center">Language</div>
           <div class="headerCell center">Override</div>
           <div class="headerCell center">Blocked</div>
+          <div class="headerCell center clickable" on-click="_onQualityClick">Quality</div>
+          <div class="headerCell center clickable" on-click="_onMarketClick">Market</div>
           <div class="headerCell"></div>
         </div>
         <template is="dom-repeat" items="[[cards]]">
@@ -117,7 +123,7 @@
             <div class="cell center">[[item.private]]</div>
             <div class="cell">[[item.package]]</div>
             <div class="cell right">[[item.score]]</div>
-            <div class="cell right">[[item.scoreAge]]</div>
+            <!-- <div class="cell right">[[item.scoreAge]]</div> -->
             <div class="cell right">[[item.scoreOpens]]</div>
             <div class="cell right">[[item.scoreLikes]]</div>
             <div class="cell right">[[item.scoreBoost]]</div>
@@ -135,6 +141,8 @@
             <div class="cell center">[[item.langCode]]</div>
             <div class="cell center">[[item.overrideReports]]</div>
             <div class="cell center">[[item.blocked]]</div>
+            <div class="cell center">[[item.quality]]</div>
+            <div class="cell center">[[item.market]]</div>
             <div class="cell center toggle" on-click="_onEdit">edit</div>
           </div>
         </template>
@@ -207,7 +215,9 @@
               refunds: card.stats.refunds,
               langCode: $core.languages[card.summary.langCode],
               overrideReports: card.overrideReports ? "yes" : "",
-              blocked: card.blocked ? "yes" : ""
+              blocked: card.blocked ? "yes" : "",
+              quality: card.quality === "unrated" ? "" : card.quality,
+              market: card.market ? "yes" : ""
             });
           }
           this.set('cards', cards);
@@ -248,6 +258,15 @@
         this.set('cards', newItems);
       }
 
+      _onPrivateClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        newItems.sort((a, b) => {
+          return (b.card.private ? 1 : 0) - (a.card.private ? 1 : 0);
+        });
+        this.set('cards', newItems);
+      }
+
       _onPostedClick() {
         const newItems = this.cards;
         this.set('cards', []);
@@ -266,6 +285,25 @@
           } else {
             return a.card.by.name.localeCompare(b.card.by.name);
           }
+        });
+        this.set('cards', newItems);
+      }
+
+      _onQualityClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        const qualities = ["unrated", "excellent", "good", "poor"];
+        newItems.sort((a, b) => {
+          return qualities.indexOf(b.card.quality) - qualities.indexOf(a.card.quality);
+        });
+        this.set('cards', newItems);
+      }
+
+      _onMarketClick() {
+        const newItems = this.cards;
+        this.set('cards', []);
+        newItems.sort((a, b) => {
+          return (b.card.market ? 1 : 0) - (a.card.market ? 1 : 0);
         });
         this.set('cards', newItems);
       }
