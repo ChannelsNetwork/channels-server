@@ -881,3 +881,17 @@ export interface UserStats {
   purchasesReferred: number;
   cardsLiked: number;
 }
+
+export interface PromotionGeoPricingRecord {
+  geoTarget: string;
+  pricing: PromotionPricingInfo;
+}
+
+export interface PromotionPricingInfo {
+  contentImpression: number;
+  adImpression: number;
+  payToOpen: number;
+  payToClick: number;
+  payToOpenSubsidy: number;
+  payToClickSubsidy: number;
+}
