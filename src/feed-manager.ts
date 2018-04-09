@@ -59,7 +59,7 @@ const MAXIMUM_PROMOTED_CARD_TO_FEED_CARD_RATIO = 0.66;
 const MAX_AD_CARD_CACHE_LIFETIME = 1000 * 60 * 1;
 const AD_IMPRESSION_HALF_LIFE = 1000 * 60 * 10;
 const MINIMUM_AD_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 10;
-const MINIMUM_RECOMMENDED_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 60 * 24 * 7;
+const MINIMUM_RECOMMENDED_CARD_IMPRESSION_INTERVAL = 1000 * 60 * 60 * 24 * 3;
 const MAX_DISCOUNTED_AUTHOR_CARD_SCORE = 0;
 const RECOMMENDED_FEED_CARD_MAX_AGE = 1000 * 60 * 60 * 24 * 3;
 const ADSLOTS_PER_PAYBUMP = 2;
@@ -267,11 +267,7 @@ export class FeedManager implements Initializable, RestServer {
       return true;
     }
     if (!user.preferredLangCodes || user.preferredLangCodes.length === 0) {
-      if (user.country === "United States") {
-        return card.summary.langCode === 'en';
-      } else {
-        return true;
-      }
+      return true;
     }
     return user.preferredLangCodes.indexOf(card.summary.langCode) >= 0;
   }
@@ -1336,8 +1332,8 @@ export class FeedManager implements Initializable, RestServer {
     return finalResult;
   }
 
-  private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, adSlotId: string, sourceChannelId: string, includeCardCampaign: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
-    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, true, cardCampaignIfAvailable, user, includeAdmin);
+  private async populateCard(request: Request, card: CardRecord, pinInfo: ChannelCardPinInfo, promoted: boolean, adSlotId: string, sourceChannelId: string, includeCardCampaign: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord): Promise<CardDescriptor> {
+    return cardManager.populateCardState(request, card.id, false, promoted, adSlotId, sourceChannelId, pinInfo, true, cardCampaignIfAvailable, user);
   }
 
   private async poll(): Promise<void> {
@@ -1879,7 +1875,7 @@ export class FeedManager implements Initializable, RestServer {
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       fingerprint: null,
@@ -1975,7 +1971,7 @@ export class FeedManager implements Initializable, RestServer {
       const infos: AdminCardInfo[] = [];
       const currentStats = await db.ensureNetworkCardStats();
       for (const record of cardRecords) {
-        const descriptor = await this.populateCard(request, record, null, false, null, null, false, null, null, true);
+        const descriptor = await this.populateCard(request, record, null, false, null, null, false, null, user);
         const networkStats = await db.getNetworkCardStatsAt(record.postedAt);
         const author = await userManager.getUser(record.createdById, true);
         infos.push({

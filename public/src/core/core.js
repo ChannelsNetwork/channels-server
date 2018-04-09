@@ -1213,6 +1213,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_getCardCampaigns() {
+    let details = RestUtils.admin_getCardCampaigns(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-card-campaigns";
+    return this.rest.post(url, request);
+  }
+
   get languages() {
     const result = {};
     result.ar = "Arabic";

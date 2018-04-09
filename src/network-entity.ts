@@ -65,11 +65,11 @@ export class NetworkEntity implements Initializable {
   async initialize2(): Promise<void> {
     const existingNetwork = await db.findNetworkUser();
     if (!existingNetwork) {
-      await db.insertUser("network", this.networkEntityKeyInfo.address, this.networkEntityKeyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, "network");
+      await db.insertUser("network", this.networkEntityKeyInfo.address, this.networkEntityKeyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, null, "network");
     }
     const existingNetworkDeveloper = await db.findNetworkDeveloperUser();
     if (!existingNetworkDeveloper) {
-      await db.insertUser("networkDeveloper", this.networkDeveloperKeyInfo.address, this.networkDeveloperKeyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, "network developer");
+      await db.insertUser("networkDeveloper", this.networkDeveloperKeyInfo.address, this.networkDeveloperKeyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, null, "network developer");
     }
     // If there are no bank transactions in mongo yet, we need to retroactively add these
     // for the original grant and interest

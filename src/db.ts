@@ -523,7 +523,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, preferredLangCodes: string[], id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -555,7 +555,7 @@ export class Database {
       firstArrivalCardId: firstArrivalCardId,
       referralBonusPaidToUserId: null,
       lastLanguagePublished: null,
-      preferredLangCodes: null,
+      preferredLangCodes: preferredLangCodes,
       commentsLastReviewed: 0,
       initialBalance: initialBalance
     };
@@ -765,6 +765,21 @@ export class Database {
 
   async findUserChannelUserBonusPayers(): Promise<UserRecord[]> {
     return this.users.find<UserRecord>({ referralBonusPaidToUserId: { $ne: null } }).toArray();
+  }
+
+  async removeUser(userId: string): Promise<void> {
+    await this.users.deleteOne({ id: userId });
+  }
+
+  getStaleUsers(before: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({
+      lastContact: { $lt: before },
+      "identity.handle": { $exists: false },
+      $or: [
+        { firstCardPurchasedId: { $exists: false } },
+        { firstCardPurchasedId: null }
+      ]
+    }).sort({ lastContact: 1 });
   }
 
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
@@ -2078,6 +2093,10 @@ export class Database {
     });
   }
 
+  async removeBankTransactionRecordsByReason(participantUserId: string, reason: BankTransactionReason): Promise<void> {
+    await this.bankTransactions.deleteMany({ participantUserIds: participantUserId, "details.reason": reason });
+  }
+
   async insertUserCardAction(sessionId: string, userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemAdImpression: number, redeemOpen: number, redeemOpenNet: number, redeemTransactionId: string, redeemCampaignId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo, referringUserId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
@@ -3381,6 +3400,10 @@ export class Database {
     return existing ? true : false;
   }
 
+  async removeUserRegistrations(userId: string): Promise<void> {
+    await this.userRegistrations.deleteMany({ userId: userId });
+  }
+
   async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {
     const record: ChannelKeywordRecord = {
       channelId: channelId,
@@ -4280,6 +4303,85 @@ export class Database {
     return this.cardCampaigns.findOne<CardCampaignRecord>({ cardIds: cardId });
   }
 
+  aggregateCardCampaigns(): AggregationCursor<CardCampaignAggregationItem> {
+    return this.cardCampaigns.aggregate([
+      {
+        $match: {
+          type: { $ne: "content-promotion" },
+          status: { $ne: "exhausted" }
+        }
+      },
+      { $unwind: "$cardIds" },
+      {
+        $lookup: {
+          from: "cards",
+          localField: "cardIds",
+          foreignField: "id",
+          as: "card"
+        }
+      },
+      { $unwind: "$card" },
+      {
+        $project: {
+          campaignId: "$id",
+          created: "$created",
+          type: "$type",
+          createdById: "$createdById",
+          status: "$status",
+          ends: "$ends",
+          amount: "$paymentAmount",
+          subsidy: "$advertiserSubsidy",
+          maxPerDay: "$budget.maxPerDay",
+          geoTargets: "$geoTargets",
+          impressions: "$stats.impressions",
+          opens: "$stats.opens",
+          clicks: "$stats.clicks",
+          redemptions: "$stats.redemptions",
+          expenses: "$stats.expenses",
+          cardId: "$card.id",
+          title: "$card.summary.title",
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdById",
+          foreignField: "id",
+          as: "user"
+        }
+      },
+      { $unwind: "$user" },
+      {
+        $project: {
+          campaignId: 1,
+          created: 1,
+          createdById: 1,
+          status: 1,
+          type: 1,
+          ends: 1,
+          amount: 1,
+          subsidy: 1,
+          maxPerDay: 1,
+          geoTargets: 1,
+          impressions: 1,
+          opens: 1,
+          clicks: 1,
+          redemptions: 1,
+          expenses: 1,
+          cardId: 1,
+          title: 1,
+          creatorId: "$user.id",
+          handle: "$user.identity.handle",
+          balance: "$user.balance",
+          name: "$user.identity.name",
+          city: "$user.city",
+          country: "$user.country"
+        }
+      },
+      { $sort: { created: -1 } }
+    ]);
+  }
+
   async countCardCampaigns(): Promise<number> {
     return this.cardCampaigns.count({});
   }
@@ -4721,4 +4823,30 @@ export interface AuthorUserAggregationItem {
   authorIds: string[];
   referredCards: number;
   referredPurchases: number;
+}
+
+export interface CardCampaignAggregationItem {
+  campaignId: string;
+  created: number;
+  createdById: string;
+  status: CardCampaignStatus;
+  type: CardCampaignType;
+  ends: number;
+  amount: number;
+  subsidy: number;
+  maxPerDay: number;
+  geoTargets: string[];
+  impressions: number;
+  opens: number;
+  clicks: number;
+  redemptions: number;
+  expenses: number;
+  cardId: string;
+  title: string;
+  creatorId: string;
+  handle: string;
+  balance: number;
+  name: string;
+  city: string;
+  country: string;
 }
