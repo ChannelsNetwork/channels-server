@@ -1,0 +1,223 @@
+<link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
+<link rel="import" href="../controls/moment.html">
+
+<dom-module id="admin-referrals-view">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      #container {
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+
+      .table {
+        display: table;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin: 30px 0 50px;
+      }
+
+      .headerRow {
+        display: table-row;
+      }
+
+      .headerCell {
+        display: table-cell;
+        font-weight: bold;
+        border: 1px solid #aaa;
+        padding: 3px;
+      }
+
+      .row {
+        display: table-row;
+      }
+
+      .cell {
+        display: table-cell;
+        border: 1px solid #aaa;
+        padding: 3px;
+        max-width: 150px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .toggle {
+        cursor: pointer;
+        color: blue;
+      }
+
+      .toggle:hover {
+        font-weight: bold;
+      }
+
+      .csvCell {
+        display: inline;
+      }
+
+      .csvRow {
+        line-height: 1;
+      }
+
+      .csv {
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .clickable {
+        cursor: pointer;
+        color: blue;
+      }
+    </style>
+    <div id="container">
+      <h1>Referrals (author-user)</h1>
+      <div class="table">
+        <div class="headerRow">
+          <div class="headerCell clickable" on-click="_onAuthorClick">Author</div>
+          <div class="headerCell clickable" on-click="_onUserClick">User</div>
+          <div class="headerCell right">Likes</div>
+          <div class="headerCell right">Dislikes</div>
+          <div class="headerCell right clickable" on-click="_onPurchasesClick">Purchases</div>
+          <div class="headerCell right clickable" on-click="_onReferredCardsClick">Referred Cards</div>
+          <div class="headerCell right clickable" on-click="_onReferredPurchasesClick">Referred Purchases</div>
+          <div class="headerCell">Author Country</div>
+          <div class="headerCell">User Country</div>
+        </div>
+        <template is="dom-repeat" items="[[referrals]]">
+          <div class="row">
+            <div class="cell">[[item.authorHandle]]</div>
+            <div class="cell">[[item.userHandle]]</div>
+            <div class="cell right">[[item.stats.likes]]</div>
+            <div class="cell right">[[item.stats.dislikes]]</div>
+            <div class="cell right">[[item.stats.purchases]]</div>
+            <div class="cell right">[[item.stats.referredCards]]</div>
+            <div class="cell right">[[item.stats.referredPurchases]]</div>
+            <div class="cell">[[item.authorCountry]]</div>
+            <div class="cell">[[item.userCountry]]</div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+  <script>
+    class AdminReferralsView extends Polymer.Element {
+      static get is() { return 'admin-referrals-view'; }
+      static get properties() {
+        return {
+          referrals: Array
+        };
+      }
+
+      onActivate() {
+        $core.register().then((info) => {
+          if (!$core.profile || !$core.profile.handle || !info.admin) {
+            setTimeout(() => {
+              $router.goto("");
+              return;
+            }, 600);
+            return;
+          }
+          this._refresh();
+        }).catch((err) => {
+          console.error(err);
+          setTimeout(() => {
+            $router.goto("");
+          }, 600);
+        });
+      }
+
+      _refresh() {
+        this.set('referrals', []);
+        $core.admin_getReferrals().then((response) => {
+          this.set('referrals', response.items);
+        });
+      }
+
+      _displayTimestamp(value) {
+        if (!value) {
+          return "";
+        }
+        return moment(value).calendar(null, {
+          sameDay: 'h:mm a',
+          nextDay: '[Tomorrow]',
+          nextWeek: 'dddd',
+          lastWeek: '[Last] dddd',
+          sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _displayAmount(value) {
+        if (value) {
+          return "ℂ" + value.toFixed(2);
+        } else {
+          return "";
+        }
+      }
+
+      _onAuthorClick(event) {
+        const newItems = this.referrals;
+        this.set('referrals', []);
+        newItems.sort((a, b) => {
+          return a.authorHandle.localeCompare(b.authorHandle);
+        });
+        this.set('referrals', newItems);
+      }
+
+      _onUserClick(event) {
+        const newItems = this.referrals;
+        this.set('referrals', []);
+        newItems.sort((a, b) => {
+          if (a.userHandle && !b.userHandle) {
+            return -1;
+          } else if (!a.userHandle && b.userHandle) {
+            return 1;
+          } else if (!a.userHandle && !b.userHandle) {
+            return 0;
+          }
+          return a.userHandle.localeCompare(b.userHandle);
+        });
+        this.set('referrals', newItems);
+      }
+
+      _onPurchasesClick(event) {
+        const newItems = this.referrals;
+        this.set('referrals', []);
+        newItems.sort((a, b) => {
+          return b.stats.purchases - a.stats.purchases;
+        });
+        this.set('referrals', newItems);
+      }
+
+      _onReferredCardsClick(event) {
+        const newItems = this.referrals;
+        this.set('referrals', []);
+        newItems.sort((a, b) => {
+          return b.stats.referredCards - a.stats.referredCards;
+        });
+        this.set('referrals', newItems);
+      }
+
+      _onReferredPurchasesClick(event) {
+        const newItems = this.referrals;
+        this.set('referrals', []);
+        newItems.sort((a, b) => {
+          return b.stats.referredPurchases - a.stats.referredPurchases;
+        });
+        this.set('referrals', newItems);
+      }
+
+    }
+    window.customElements.define(AdminReferralsView.is, AdminReferralsView);
+  </script>
+</dom-module>

@@ -2833,7 +2833,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       campaign.type = requestBody.detailsObject.info.type;
       campaign.budget = requestBody.detailsObject.info.budget;
       campaign.ends = requestBody.detailsObject.info.ends;
-      campaign.geoTargets = requestBody.detailsObject.info.geoTargets;      
+      campaign.geoTargets = requestBody.detailsObject.info.geoTargets;
       const status = this.getCardCampaignStatus(user, campaign);
       await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, this.getCampaignAmount(campaign.type), this.getCampaignSubsidy(campaign.type), 0);
       console.log("CardManager.update-card-campaign", requestBody.detailsObject);

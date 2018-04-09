@@ -4,8 +4,8 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo } from "./interfaces/rest-services";
-import { db } from "./db";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo, AdminGetAuthorUserStatsResponse, AdminGetAuthorUserStatsDetails } from "./interfaces/rest-services";
+import { db, AuthorUserAggregationAdminItem } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
@@ -455,6 +455,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('get-community-info-more'), (request: Request, response: Response) => {
       void this.handleGetCommunityInfoMore(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-referrals'), (request: Request, response: Response) => {
+      void this.handleAdminGetReferrals(request, response);
     });
   }
 
@@ -1493,6 +1496,39 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleAdminGetUsers: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminGetReferrals(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetAuthorUserStatsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      const items: AuthorUserAggregationAdminItem[] = [];
+      const cursor = db.aggregateAuthorUserReferralsAdmin();
+      while (items.length < 200) {
+        const item = await cursor.next();
+        if (!item) {
+          break;
+        }
+        items.push(item);
+      }
+      await cursor.close();
+      console.log("UserManager.admin-get-referrals", user.id, requestBody.detailsObject);
+      const reply: AdminGetAuthorUserStatsResponse = {
+        serverVersion: SERVER_VERSION,
+        items: items
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminGetReferrals: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }

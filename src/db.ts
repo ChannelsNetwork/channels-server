@@ -3,7 +3,7 @@ import * as uuid from "uuid";
 
 import { Request, Response } from 'express';
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord, CardCurationQuality } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord, CardCurationQuality, AuthorUserStats } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -4616,6 +4616,54 @@ export class Database {
     ]);
   }
 
+  aggregateAuthorUserReferralsAdmin(): AggregationCursor<AuthorUserAggregationAdminItem> {
+    return this.authorUsers.aggregate([
+      {$match: {
+        isCurrent: true,
+      }},
+      {$project: {
+        userId: 1,
+        authorId: 1,
+        stats: 1,
+        same: {$cond: {
+          if: {$eq: ["$userId", "$authorId"]},
+          then: 1,
+          else: 0
+        }}
+      }},
+      {$match: {
+        same: 0
+      }},
+      {$lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "id",
+        as: "user"
+      }},
+      {$unwind: "$user"},
+      {$lookup: {
+        from: "users",
+        localField: "authorId",
+        foreignField: "id",
+        as: "author"
+      }},
+      {$unwind: "$author"},
+      {$project: {
+        _id: 0,
+        userId: 1,
+        authorId: 1,
+        stats: 1,
+        userHandle: "$user.identity.handle",
+        userCity: "$user.city",
+        userCountry: "$user.country",
+        authorHandle: "$author.identity.handle",
+        authorCity: "$author.city",
+        authorCountry: "$author.country",
+      }},
+      {$sort: {"stats.referredPurchases": -1, "stats.purchases": -1}}
+    ]);
+  }
+
   getAuthorUsersByAuthor(authorId: string): Cursor<AuthorUserRecord> {
     return this.authorUsers.find<AuthorUserRecord>({ authorId: authorId, isCurrent: true }).sort({ "stats.referredPurchases": -1 });
   }
@@ -4823,6 +4871,18 @@ export interface AuthorUserAggregationItem {
   authorIds: string[];
   referredCards: number;
   referredPurchases: number;
+}
+
+export interface AuthorUserAggregationAdminItem {
+  authorId: string;
+  userId: string;
+  stats: AuthorUserStats;
+  userHandle: string;
+  userCity: string;
+  userCountry: string;
+  authorHandle: string;
+  authorCity: string;
+  authorCountry: string;
 }
 
 export interface CardCampaignAggregationItem {
