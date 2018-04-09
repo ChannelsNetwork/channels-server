@@ -1210,6 +1210,12 @@ class CoreService extends Polymer.Element {
     let details = RestUtils.admin_curateCardQuality(this._keys.address, this._fingerprint, cardId, quality, market);
     let request = this._createRequest(details);
     const url = this.restBase + "/admin-curate-card-quality";
+  }
+
+  admin_getCardCampaigns() {
+    let details = RestUtils.admin_getCardCampaigns(this._keys.address, this._fingerprint);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-get-card-campaigns";
     return this.rest.post(url, request);
   }
 
