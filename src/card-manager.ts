@@ -2231,7 +2231,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, includeCampaignInfo: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord, includeAdmin = false): Promise<CardDescriptor> {
+  async populateCardState(request: Request, cardId: string, includeState: boolean, promoted: boolean, adSlotId: string, sourceChannelId: string, pinInfo: ChannelCardPinInfo, includeCampaignInfo: boolean, cardCampaignIfAvailable: CardCampaignRecord, user: UserRecord): Promise<CardDescriptor> {
     const record = await cardManager.lockCard(cardId);
     if (!record) {
       return null;
@@ -2311,13 +2311,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
           openFeeRefunded: userCardInfo ? userCardInfo.openFeeRefunded : false,
           addedToHomeChannel: channelCard ? true : false
         },
-        blocked: (includeAdmin || user && user.admin) && record.curation && record.curation.block ? true : false,
+        blocked: (user && user.admin) && record.curation && record.curation.block ? true : false,
         overrideReports: record.curation && record.curation.overrideReports ? true : false,
         reasons: [],
         sourceChannelId: sourceChannelId,
         commentCount: await db.countCardComments(cardId, user ? user.id : null),
       };
-      if (includeAdmin) {
+      if (user && user.admin) {
         card.quality = record.curation.quality;
         card.market = record.curation.market;
       }
