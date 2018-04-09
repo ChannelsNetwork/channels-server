@@ -3034,6 +3034,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         if (!item) {
           break;
         }
+        if (item.status === "active" && item.balance < MINIMUM_AD_AUTHOR_BALANCE) {
+          item.status = "insufficient-funds";
+        }
         reply.campaigns.push(item);
       }
       await cursor.close();
