@@ -771,9 +771,7 @@
             this._fetchingMore = false;
             const cards = feed.cards || [];
             this._lastCardId = null;
-            let list = [];
             for (let i = 0; i < cards.length; i++) {
-              list.push(cards[i]);
               if (cards[i].promoted) {
                 this._promotedCardIds.push(cards[i].id);
               } else {
@@ -781,9 +779,7 @@
               }
             }
             this._moreAvailable = feed.moreAvailable && this._lastCardId ? true : false;
-            for (let i = 0; i < list.length; i++) {
-              this.push("items", list[i]);
-            }
+            this.$.feed.append(cards);
           }).catch((err) => {
             this._fetchingMore = false;
             console.error(err);
