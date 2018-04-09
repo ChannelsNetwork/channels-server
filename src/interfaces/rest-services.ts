@@ -43,7 +43,6 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   withdrawalsEnabled: boolean;
   depositUrl: string;
   admin: boolean;
-  promotionPricing: PromotionPricingInfo;
 }
 
 export interface SignInDetails extends Signable {
@@ -1304,6 +1303,7 @@ export interface GetAvailableAdSlotsDetails extends Signable {
 
 export interface GetAvailableAdSlotsResponse extends RestResponse {
   pastWeek: number;
+  pricing: PromotionPricingInfo;
 }
 
 export interface GetUserCardAnalyticsDetails extends Signable {

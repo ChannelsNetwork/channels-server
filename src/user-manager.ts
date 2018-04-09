@@ -26,7 +26,6 @@ import * as LRU from 'lru-cache';
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
-import { DEFAULT_PROMOTION_PRICING } from "./card-manager";
 const { URL } = require("url");
 
 const INVITER_REWARD = 1;
@@ -639,7 +638,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         withdrawalsEnabled: bank.withdrawalsEnabled,
         depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null,
         admin: userRecord.admin,
-        promotionPricing: DEFAULT_PROMOTION_PRICING
       };
       response.json(registerResponse);
     } catch (err) {
