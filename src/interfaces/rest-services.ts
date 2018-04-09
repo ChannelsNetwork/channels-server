@@ -1292,6 +1292,15 @@ export interface CardCampaignInfo {
 
 export interface UpdateCardCampaignResponse extends RestResponse { }
 
+export interface UpdateCardCampaignStatusDetails extends Signable {
+  campaignId: string;
+  paused: boolean;
+}
+
+export interface UpdateCardCampaignStatusResponse extends RestResponse {
+  updatedStatus: CardCampaignStatus;
+}
+
 export interface GetGeoDescriptorsDetails extends Signable {
   countryCode?: string;
 }

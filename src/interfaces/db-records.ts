@@ -824,7 +824,7 @@ export interface CardCampaignStats {
   expenses: number;
 }
 
-export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted";
+export type CardCampaignStatus = "active" | "insufficient-funds" | "expired" | "suspended" | "exhausted" | "paused";
 
 export interface CardCampaignBudget {
   promotionTotal: number; // content-promotion only

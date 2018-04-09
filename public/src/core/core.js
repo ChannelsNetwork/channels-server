@@ -835,6 +835,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  updateCardCampaignStatus(campaignId, paused) {
+    let details = RestUtils.updateCardCampaignStatus(this._keys.address, this._fingerprint, campaignId, paused);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/update-card-campaign-status";
+    return this.rest.post(url, request);
+  }
+
   shortenUrl(originalUrl) {
     let details = RestUtils.shortenUrl(this._keys.address, this._fingerprint, originalUrl);
     let request = this._createRequest(details);

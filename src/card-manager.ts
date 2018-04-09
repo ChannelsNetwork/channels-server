@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse, UpdateCardCampaignStatusDetails, UpdateCardCampaignStatusResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -158,6 +158,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('update-card-campaign'), (request: Request, response: Response) => {
       void this.handleUpdateCardCampaign(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('update-card-campaign-status'), (request: Request, response: Response) => {
+      void this.handleUpdateCardCampaignStatus(request, response);
     });
     this.app.post(this.urlManager.getDynamicUrl('get-available-ad-slots'), (request: Request, response: Response) => {
       void this.handleGetAvailableAdSlots(request, response);
@@ -2465,24 +2468,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!coupon) {
       return null;
     }
-    let status = campaign.status;
-    if (status === "active") {
-      if (campaign.ends <= Date.now()) {
-        status = "expired";
-      } else {
-        const author = await userManager.getUser(campaign.createdById, true);
-        if (!author) {
-          return null;
-        }
-        if (author.balance < MINIMUM_AD_AUTHOR_BALANCE) {
-          status = "insufficient-funds";
-        }
-      }
+    const author = await userManager.getUser(campaign.createdById, true);
+    if (!author) {
+      return null;
     }
     const result: CardCampaignDescriptor = {
       id: campaign.id,
       created: campaign.created,
-      status: status,
+      status: this.getCardCampaignStatus(author, campaign),
       type: campaign.type,
       paymentAmount: campaign.paymentAmount,
       advertiserSubsidy: campaign.advertiserSubsidy,
@@ -2499,6 +2492,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       statsLast30Days: await this.getCardCampaignStats(cardId, campaign, now - 1000 * 60 * 60 * 24 * 30, now)
     };
     return result;
+  }
+
+  private getCardCampaignStatus(user: UserRecord, campaign: CardCampaignRecord): CardCampaignStatus {
+    return campaign.ends <= Date.now() ? "expired" : (campaign.status === "paused" ? "paused" : (user.balance < MINIMUM_AD_AUTHOR_BALANCE ? "insufficient-funds" : "active"));
   }
 
   private getCouponDescriptor(coupon: BankCouponRecord): BankCouponDetails {
@@ -2841,6 +2838,37 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleUpdateCardCampaign: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  async handleUpdateCardCampaignStatus(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<UpdateCardCampaignStatusDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      const campaign = await db.findCardCampaignById(requestBody.detailsObject.campaignId);
+      if (!campaign) {
+        response.status(404).send("No such card campaign");
+        return;
+      }
+      if (campaign.createdById !== user.id) {
+        response.status(401).send("You are not the campaign owner");
+        return;
+      }
+      campaign.status = requestBody.detailsObject.paused ? "paused" : "active";
+      const status = this.getCardCampaignStatus(user, campaign);
+      await db.updateCardCampaignStatus(campaign.id, status);
+      console.log("CardManager.update-card-campaign", requestBody.detailsObject);
+      const reply: UpdateCardCampaignStatusResponse = {
+        serverVersion: SERVER_VERSION,
+        updatedStatus: status
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleUpdateCardCampaignStatus: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
