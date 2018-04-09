@@ -1026,6 +1026,7 @@ export interface UserDescriptor {
   image: FileInfo;
   location: string;
   memberSince: number;
+  blocked?: boolean;
 }
 
 export interface FileInfo {

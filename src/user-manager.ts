@@ -1222,7 +1222,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         continue;
       }
       const referrer = await userManager.getUserDescriptor(item.userId, false);
-      if (!referrer.handle) {
+      if (!referrer.handle || referrer.blocked) {
         continue;
       }
       const resultItem: CommunityMemberInfo = {
@@ -1256,7 +1256,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         break;
       }
       const referrer = await userManager.getUserDescriptor(authorUser.userId, false);
-      if (!referrer.handle) {
+      if (!referrer.handle || referrer.blocked) {
         continue;
       }
       const resultItem: CommunityMemberInfo = {
@@ -1290,7 +1290,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         break;
       }
       const referrer = await userManager.getUserDescriptor(authorUser.authorId, false);
-      if (!referrer.handle) {
+      if (!referrer.handle || referrer.blocked) {
         continue;
       }
       const resultItem: CommunityMemberInfo = {
@@ -1811,7 +1811,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       name: user.identity ? user.identity.name : null,
       image: user.identity && user.identity.imageId ? await fileManager.getFileInfo(user.identity.imageId) : (user.identity ? { id: null, imageInfo: null, url: user.identity.imageUrl } : null),
       location: user.identity ? user.identity.location : null,
-      memberSince: user.added
+      memberSince: user.added,
+      blocked: user.curation === "blocked"
     };
     return result;
   }
