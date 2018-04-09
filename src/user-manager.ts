@@ -46,6 +46,8 @@ const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 1;
 const REGISTRATION_BONUS = 1.5;
+const STALE_USER_INTERVAL = 1000 * 60 * 60 * 24 * 30;
+const MAX_STALE_USERS_PER_CYCLE = 1000;
 
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
@@ -391,8 +393,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     // }
 
     setInterval(() => {
-      void this.updateBalances();
+      void this.poll();
     }, 30000);
+    await this.poll();
   }
 
   private registerHandlers(): void {
@@ -571,7 +574,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         // }
         // const inviteCode = await this.generateInviteCode();
         const initialGrant = await this.getInitialBalanceGrantAppropriate(request, ipAddress, requestBody.detailsObject.fingerprint, isMobile);
-        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, initialGrant);
+        const preferredLangCodes: string[] = ipAddressInfo && ipAddressInfo.countryCode === "US" ? ['en'] : null;
+        userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, initialGrant, preferredLangCodes);
         if (initialGrant > 0) {
           const grantRecipient: BankTransactionRecipientDirective = {
             address: requestBody.detailsObject.address,
@@ -1683,7 +1687,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     return BAD_WORDS.indexOf(handle.toLowerCase()) < 0;
   }
 
-  private async updateBalances(): Promise<void> {
+  private async poll(): Promise<void> {
     const now = Date.now();
     const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
     while (await cursor.hasNext()) {
@@ -1691,6 +1695,20 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       await this.updateUserBalance(null, user, null);
     }
     await cursor.close();
+
+    const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
+    let count = 0;
+    while (await staleCursor.hasNext()) {
+      const user = await staleCursor.next();
+      console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
+      await db.removeBankTransactionRecordsByReason(user.id, "interest");
+      await db.removeUserRegistrations(user.id);
+      await db.removeUser(user.id);
+      if (count > MAX_STALE_USERS_PER_CYCLE) {
+        break;
+      }
+    }
+    await staleCursor.close();
   }
 
   async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {

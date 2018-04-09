@@ -523,7 +523,7 @@ export class Database {
     return this.oldUsers.find().toArray();
   }
 
-  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
+  async insertUser(type: UserAccountType, address: string, publicKey: string, encryptedPrivateKey: string, ipAddress: string, country: string, region: string, city: string, zip: string, referrer: string, landingPage: string, homeChannelId: string, firstArrivalCardId: string, initialBalance: number, preferredLangCodes: string[], id?: string, identity?: UserIdentity, includeInMailingList = true): Promise<UserRecord> {
     const now = Date.now();
     const record: UserRecord = {
       id: id ? id : uuid.v4(),
@@ -555,7 +555,7 @@ export class Database {
       firstArrivalCardId: firstArrivalCardId,
       referralBonusPaidToUserId: null,
       lastLanguagePublished: null,
-      preferredLangCodes: null,
+      preferredLangCodes: preferredLangCodes,
       commentsLastReviewed: 0,
       initialBalance: initialBalance
     };
@@ -765,6 +765,21 @@ export class Database {
 
   async findUserChannelUserBonusPayers(): Promise<UserRecord[]> {
     return this.users.find<UserRecord>({ referralBonusPaidToUserId: { $ne: null } }).toArray();
+  }
+
+  async removeUser(userId: string): Promise<void> {
+    await this.users.deleteOne({ id: userId });
+  }
+
+  getStaleUsers(before: number): Cursor<UserRecord> {
+    return this.users.find<UserRecord>({
+      lastContact: { $lt: before },
+      "identity.handle": { $exists: false },
+      $or: [
+        { firstCardPurchasedId: { $exists: false } },
+        { firstCardPurchasedId: null }
+      ]
+    }).sort({ lastContact: 1 });
   }
 
   async replaceUserImageUrl(userId: string, imageId: string): Promise<void> {
@@ -2078,6 +2093,10 @@ export class Database {
     });
   }
 
+  async removeBankTransactionRecordsByReason(participantUserId: string, reason: BankTransactionReason): Promise<void> {
+    await this.bankTransactions.deleteMany({ participantUserIds: participantUserId, "details.reason": reason });
+  }
+
   async insertUserCardAction(sessionId: string, userId: string, geo: GeoLocation, cardId: string, authorId: string, at: number, action: CardActionType, paymentInfo: UserCardActionPaymentInfo, redeemPromotion: number, redeemAdImpression: number, redeemOpen: number, redeemOpenNet: number, redeemTransactionId: string, redeemCampaignId: string, fraudReason: CardPaymentFraudReason, reportInfo: UserCardActionReportInfo, referringUserId: string): Promise<UserCardActionRecord> {
     const record: UserCardActionRecord = {
       id: uuid.v4(),
@@ -3379,6 +3398,10 @@ export class Database {
   async existsFingerprintAndIpAddress(fingerprint: string, ipAddress: string): Promise<boolean> {
     const existing = await this.userRegistrations.findOne<UserRegistrationRecord>({ fingerprint: fingerprint, ipAddress: ipAddress });
     return existing ? true : false;
+  }
+
+  async removeUserRegistrations(userId: string): Promise<void> {
+    await this.userRegistrations.deleteMany({ userId: userId });
   }
 
   async insertChannelKeyword(channelId: string, keyword: string, cardCount: number, lastUsed: number): Promise<ChannelKeywordRecord> {

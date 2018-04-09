@@ -267,11 +267,7 @@ export class FeedManager implements Initializable, RestServer {
       return true;
     }
     if (!user.preferredLangCodes || user.preferredLangCodes.length === 0) {
-      if (user.country === "United States") {
-        return card.summary.langCode === 'en';
-      } else {
-        return true;
-      }
+      return true;
     }
     return user.preferredLangCodes.indexOf(card.summary.langCode) >= 0;
   }
@@ -1879,7 +1875,7 @@ export class FeedManager implements Initializable, RestServer {
       firstName: Utils.getFirstName(name),
       lastName: Utils.getLastName(name)
     };
-    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, id, identity);
+    const user = await db.insertUser("normal", keyInfo.address, keyInfo.publicKeyPem, null, null, null, null, null, null, null, null, null, null, 0, null, id, identity);
     const grantDetails: BankTransactionDetails = {
       address: null,
       fingerprint: null,
