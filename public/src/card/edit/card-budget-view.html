@@ -117,6 +117,12 @@
         color: #555;
       }
 
+      #btnPause {
+        margin: 5px 0 6px 10px;
+        font-size: 14px;
+        padding: 6px;
+      }
+
       @media (max-width: 600px) {
         #statusPanel {
           margin-top: 0;
@@ -128,6 +134,7 @@
         <h2>Card Promotion Budget</h2>
         <div id="statusPanel" class="hidden">Campaign status:
           <span>[[status]]</span>
+          <button id="btnPause" class="hidden" on-click="_togglePause">[[pauseButtonText]]</button>
         </div>
         <section>
           <label>Promotion Cost</label>
@@ -236,7 +243,8 @@
           status: {
             type: String,
             observer: '_statusChange'
-          }
+          },
+          pauseButtonText: String
         };
       }
 
@@ -325,10 +333,27 @@
       }
 
       _statusChange() {
+        this.$.btnPause.classList.add('hidden');
         if (this.status) {
           this.$.statusPanel.classList.remove("hidden");
+          if (this.status === 'active' || this.status === 'paused') {
+            this.$.btnPause.classList.remove('hidden');
+            this.pauseButtonText = this.status === 'paused' ? 'Resume' : 'Pause';
+          }
         } else {
           this.$.statusPanel.classList.add("hidden");
+        }
+      }
+
+      _togglePause() {
+        if (this.data) {
+          let paused = !(this.status === 'paused');
+          $core.updateCardCampaignStatus(this.data.id, paused).then(response => {
+            this.status = response.updatedStatus;
+          }).catch((err) => {
+            console.error(err);
+            $app.showError(err);
+          });
         }
       }
 
