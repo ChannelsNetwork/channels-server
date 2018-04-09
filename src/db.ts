@@ -799,7 +799,7 @@ export class Database {
   countTotalUsersBefore(before: number, after = 0): Promise<number> {
     const added: any = { $lt: before };
     if (after) {
-      added.$gte = after;
+      added.$gt = after;
     }
     return this.users.count({ added: added, type: "normal" });
   }
@@ -807,7 +807,7 @@ export class Database {
   countTotalUsersWithIdentity(before: number, after = 0): Promise<number> {
     const added: any = { $lt: before };
     if (after) {
-      added.$gte = after;
+      added.$gt = after;
     }
     return this.users.count({ added: added, identity: { $exists: true }, type: "normal" });
   }
@@ -1076,19 +1076,19 @@ export class Database {
   }
 
   async countCards(before: number, after: number): Promise<number> {
-    return this.cards.count({ postedAt: { $lt: before, $gte: after } });
+    return this.cards.count({ postedAt: { $lt: before, $gt: after } });
   }
 
   // async countNonPromotedCards(before: number, after: number): Promise<number> {
-  //   return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
+  //   return this.cards.count({ postedAt: { $lt: before, $gt: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": 0 });
   // }
 
   // async countPromotedCards(before: number, after: number): Promise<number> {
-  //   return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
+  //   return this.cards.count({ postedAt: { $lt: before, $gt: after }, "pricing.openFeeUnits": { $gt: 0 }, "pricing.promotionFee": { $gt: 0 } });
   // }
 
   // async countAdCards(before: number, after: number): Promise<number> {
-  //   return this.cards.count({ postedAt: { $lt: before, $gte: after }, "pricing.openFeeUnits": 0 });
+  //   return this.cards.count({ postedAt: { $lt: before, $gt: after }, "pricing.openFeeUnits": 0 });
   // }
 
   async lockCard(cardId: string, timeout: number, serverId: string): Promise<CardRecord> {
@@ -3301,9 +3301,9 @@ export class Database {
     const query: any = { state: 'active', channelId: { $in: channelIds } };
     const cardPostedAt: any = { $gt: after };
     if (before && after) {
-      query.cardPostedAt = { $gt: after, $lte: before };
+      query.cardPostedAt = { $gt: after, $lt: before };
     } else if (before) {
-      query.cardPostedAt = { $lte: before };
+      query.cardPostedAt = { $lt: before };
     } else if (after) {
       query.cardPostedAt = { $gt: after };
     }
@@ -3319,9 +3319,9 @@ export class Database {
     const query: any = { state: 'active', channelId: { $in: channelIds }, pinned: false };
     const cardPostedAt: any = { $gt: after };
     if (before && after) {
-      query.cardPostedAt = { $gt: after, $lte: before };
+      query.cardPostedAt = { $gt: after, $lt: before };
     } else if (before) {
-      query.cardPostedAt = { $lte: before };
+      query.cardPostedAt = { $lt: before };
     } else if (after) {
       query.cardPostedAt = { $gt: after };
     }
@@ -3336,7 +3336,7 @@ export class Database {
   getChannelCardsUnpinnedByChannel(channelId: string, since: number): Cursor<ChannelCardRecord> {
     const query: any = { state: 'active', channelId: channelId, pinned: false };
     if (since) {
-      query.since = { $gte: since };
+      query.since = { $gt: since };
     }
     return this.channelCards.find<ChannelCardRecord>(query).sort({ cardPostedAt: -1 });
   }
@@ -3345,9 +3345,9 @@ export class Database {
     const query: any = { state: 'active', channelId: channelId, pinned: false };
     const cardPostedAt: any = { $gt: after };
     if (before && after) {
-      query.cardPostedAt = { $gt: after, $lte: before };
+      query.cardPostedAt = { $gt: after, $lt: before };
     } else if (before) {
-      query.cardPostedAt = { $lte: before };
+      query.cardPostedAt = { $lt: before };
     } else if (after) {
       query.cardPostedAt = { $gt: after };
     }
