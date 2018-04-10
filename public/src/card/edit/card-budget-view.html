@@ -277,6 +277,14 @@
         } else {
           budget = RestUtils.cardCampaignBudgetForAd(this.$.dailyBudget.value);
         }
+        const geoTargets = this._computeGeoTargets();
+        let campaignInfo = RestUtils.cardCampaignInfo(type, budget, endDate, geoTargets);
+        campaignInfo.paymentAmount = this._price || $core.getPromotionPriceByType(type);
+        return campaignInfo;
+      }
+
+      _computeGeoTargets() {
+        const type = this.data.type;
         const geoTargets = [];
         let regionType = this.$.regionGroup.selected;
         if (type !== "content-promotion") {
@@ -322,9 +330,31 @@
             }
           }
         }
-        let campaignInfo = RestUtils.cardCampaignInfo(type, budget, endDate, geoTargets);
-        campaignInfo.paymentAmount = this._price || $core.getPromotionPriceByType(type);
-        return campaignInfo;
+        return geoTargets;
+      }
+
+      _computePromotionPrice(type) {
+        const geoTargets = this._computeGeoTargets();
+        return new Promise(resolve => {
+          $core.getAvailableAdSlots(geoTargets).then(response => {
+            this._currentPricing = response.pricing;
+            let price = 0;
+            switch (type) {
+              case "content-promotion":
+                price = this._currentPricing.contentImpression;
+              case "impression-ad":
+                price = this._currentPricing.adImpression;
+              case "pay-to-open":
+                price = this._currentPricing.payToOpen;
+              case "pay-to-click":
+                price = this._currentPricing.payToClick;
+            }
+            resolve(price);
+          }).catch((err) => {
+            console.log(err);
+            resolve($core.getPromotionPriceByType(type));
+          });
+        });
       }
 
       connectedCallback() {
@@ -357,6 +387,14 @@
         }
       }
 
+      _refreshPromotionPrice() {
+        let type = this.data.type;
+        return this._computePromotionPrice(type).then(computedPromotionPrice => {
+          this._price = this.data.paymentAmount || computedPromotionPrice;
+          this.promotionPrice = (Math.floor(this._price * 1000) / 1000).toFixed(3);
+        });
+      }
+
       _refresh() {
         this.$.geographySection.classList.add("hidden");
         this.$.countriesSection.classList.add("hidden");
@@ -369,49 +407,46 @@
           if (type !== 'content-promotion') {
             this.$.geographySection.classList.remove("hidden");
           }
-          let price = this.data.paymentAmount || $core.getPromotionPriceByType(type);
-          this._price = price;
-          let subsidized = (typeof this.data.advertiserSubsidy === 'undefined') ? $core.promotionPricing.payToOpenSubsidy : (this.data.advertiserSubsidy || 0);
-          this.subsidizedRatio = Math.round((subsidized / price) * 100) + "%";
-          this.promotionPrice = (Math.floor(price * 1000) / 1000).toFixed(3);
-          this.$.subsidyMessage.classList.add("hidden");
-          switch (type) {
-            case "content-promotion":
-              this.$.promotionTotalSection.classList.remove("hidden");
-              this.$.dailySection.classList.add("hidden");
-              this.$.impressionPriceLabel.classList.remove("hidden");
-              this.$.openPriceLabel.classList.add("hidden");
-              break;
-            case "impression-ad":
-              this.$.promotionTotalSection.classList.add("hidden");
-              this.$.dailySection.classList.remove("hidden");
-              this.$.impressionPriceLabel.classList.remove("hidden");
-              this.$.openPriceLabel.classList.add("hidden");
-              break;
-            case "pay-to-open":
-            case "pay-to-click":
-              this.$.promotionTotalSection.classList.add("hidden");
-              this.$.dailySection.classList.remove("hidden");
-              this.$.impressionPriceLabel.classList.add("hidden");
-              this.$.openPriceLabel.classList.remove("hidden");
-              if (subsidized) {
-                this.$.subsidyMessage.classList.remove("hidden");
-              }
-              break;
-          }
-
-          if (this.data.budget) {
-            this.$.dailyBudget.value = this.data.budget.maxPerDay || 0;
-            this.$.budgetPercent.value = this.data.budget.plusPercent || 0;
-            if (this.data.budget.promotionTotal) {
-              this.$.totalBudget.value = this.data.budget.promotionTotal;
+          this._refreshPromotionPrice().then(() => {
+            let subsidized = (typeof this.data.advertiserSubsidy === 'undefined') ? this._currentPricing.payToOpenSubsidy : (this.data.advertiserSubsidy || 0);
+            this.subsidizedRatio = Math.round((subsidized / this._price) * 100) + "%";
+            this.$.subsidyMessage.classList.add("hidden");
+            switch (type) {
+              case "content-promotion":
+                this.$.promotionTotalSection.classList.remove("hidden");
+                this.$.dailySection.classList.add("hidden");
+                this.$.impressionPriceLabel.classList.remove("hidden");
+                this.$.openPriceLabel.classList.add("hidden");
+                break;
+              case "impression-ad":
+                this.$.promotionTotalSection.classList.add("hidden");
+                this.$.dailySection.classList.remove("hidden");
+                this.$.impressionPriceLabel.classList.remove("hidden");
+                this.$.openPriceLabel.classList.add("hidden");
+                break;
+              case "pay-to-open":
+              case "pay-to-click":
+                this.$.promotionTotalSection.classList.add("hidden");
+                this.$.dailySection.classList.remove("hidden");
+                this.$.impressionPriceLabel.classList.add("hidden");
+                this.$.openPriceLabel.classList.remove("hidden");
+                if (subsidized) {
+                  this.$.subsidyMessage.classList.remove("hidden");
+                }
+                break;
             }
-          }
-
-          // refresh end date
-          let endTime = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
-          this.$.endDate.value = this._dateFormat(endTime);
-          this._refreshRgionGroup();
+            if (this.data.budget) {
+              this.$.dailyBudget.value = this.data.budget.maxPerDay || 0;
+              this.$.budgetPercent.value = this.data.budget.plusPercent || 0;
+              if (this.data.budget.promotionTotal) {
+                this.$.totalBudget.value = this.data.budget.promotionTotal;
+              }
+            }
+            // refresh end date
+            let endTime = this.data.ends || ((new Date()).getTime() + (30 * 24 * 60 * 60 * 1000));
+            this.$.endDate.value = this._dateFormat(endTime);
+            this._refreshRgionGroup();
+          });
         }
       }
 
@@ -458,7 +493,6 @@
             this.$.regionGroup.selected = "countries";
           }
         }
-        this._onRegionSelectionChange();
         this._fetchAllCountries().then(() => {
           if (regionCountry) {
             for (let c of this.countries) {
@@ -468,6 +502,7 @@
               }
             }
           }
+          this._onRegionSelectionChange();
         });
       }
 
@@ -486,6 +521,7 @@
             this.$.regionsSection.classList.remove("hidden");
             break;
         }
+        this._refreshPromotionPrice();
       }
 
       _fetchAllCountries() {
@@ -615,6 +651,7 @@
             b.checked = checked;
           }
         }
+        this._refreshPromotionPrice();
       }
 
       _onCountryChange(event) {
@@ -629,6 +666,7 @@
             }
           }
         }
+        this._refreshPromotionPrice();
       }
 
       _onAllRegions(event) {
@@ -638,6 +676,7 @@
           let b = boxes[i];
           b.checked = checked;
         }
+        this._refreshPromotionPrice();
       }
 
       _regionChange(event) {
@@ -645,6 +684,7 @@
         if (!chk.checked) {
           this.$.chkAllRegions.checked = false;
         }
+        this._refreshPromotionPrice();
       }
 
       _countrySelected(event) {
@@ -659,6 +699,7 @@
         } else {
           this.$.countryRegionSection.classList.add("hidden");
         }
+        this._refreshPromotionPrice();
       }
     }
     window.customElements.define(CardBudgetView.is, CardBudgetView);
