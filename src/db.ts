@@ -164,6 +164,7 @@ export class Database {
     await this.users.createIndex({ added: -1 });
     await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
     await this.users.createIndex({ commentNotificationPending: 1 });
+    await this.users.createIndex({ lastContact: 1, "identity.handle": 1, firstCardPurchasedId: 1 });
   }
 
   private async initializeCards(): Promise<void> {
