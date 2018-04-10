@@ -3485,7 +3485,7 @@ db.cardCampaigns.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId:  "a499d009-4699-4f7b-afb6-336ffcd87aec", 
+    authorId:  "f21f14de-8592-436a-9e4d-ed681844ed66", 
     action: "pay",
     at: {$gt: 1520582400000}
   }},
@@ -3508,11 +3508,34 @@ db.userCardActions.aggregate([
     "registration.at": {$gt: 1522047600000}
   }},
   {$group: {
-    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed", cards: "$cards"},
+    _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed"},
     registrations: {$sum: 1},
     fingerprints: {$addToSet: "$registration.fingerprint"},
     ipAddresses: {$addToSet: "$registration.ipAddress"},
     userAgents: {$addToSet: "$registration.userAgent"},
+  }},
+  {$unwind: "$ipAddresses"},
+  {$lookup: {
+    from: "ipAddresses",
+    localField: "ipAddresses",
+    foreignField: "ipAddress",
+    as: "ipAddressInfo"
+  }},
+  {$project: {
+    _id: 0,
+    id: "$_id",
+    registrations: 1,
+    fingerprints: 1,
+    userAgents: 1,
+    ipAddress: {ipAddress: "$ipAddressInfo.ipAddress", city: "$ipAddressInfo.city", country: "$ipAddressInfo.country"}
+  }},
+  {$sort: {"ipAddress.ipAddress": 1}},
+  {$group: {
+    _id: "$id",
+    registrations: {$first: "$registrations"},
+    fingerprints: {$first: "$fingerprints"},
+    userAgents: {$first: "$userAgents"},
+    ipAddresses: {$addToSet: "$ipAddress"}
   }},
   {$sort: {"_id.revenue": -1}},
 ]).pretty()
@@ -3557,4 +3580,17 @@ db.authorUsers.aggregate([
     authorHandle: "$author.identity.handle",
   }},
   {$sort: {"stats.referredPurchases": -1, "stats.purchases": -1}}
+]).pretty()
+
+db.userRegistrations.aggregate([
+  {$match: {
+    fingerprint: "bb726b055a47ddaa893acef5f633e962"
+  }},
+  {$group: {
+    _id: "$userId",
+    sessions: {$sum: 1},
+    ipAddresses: {$addToSet: "$ipAddress"},
+    userAgents: {$addToSet: "$userAgent"}
+  }},
+  {$sort: {sessions: -1}}
 ]).pretty()
