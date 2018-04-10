@@ -1733,11 +1733,14 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     await cursor.close();
 
+    console.log("User.Poll (debug):  about to getStaleUsers");
     const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
-    console.log("User.Poll:  stale users: " + (await staleCursor.count()), now);
+    console.log("User.Poll (debug):  about to count()");
+    const cursorCount = await staleCursor.count();
+    console.log("User.Poll (debug):  stale users: " + cursorCount, now);
     let count = 0;
     const hasNext = await staleCursor.hasNext();
-    console.log("User.poll: hasNext: " + hasNext);
+    console.log("User.poll (debug): hasNext: " + hasNext);
     while (await staleCursor.hasNext()) {
       console.log("User.poll: next ...");
       const user = await staleCursor.next();
