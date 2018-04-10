@@ -394,7 +394,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
     setInterval(() => {
       void this.poll();
-    }, 30000);
+    }, 120000);
     await this.poll();
   }
 
@@ -1733,11 +1733,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     await cursor.close();
 
-    console.log("User.Poll");
     const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
     console.log("User.Poll:  stale users: " + (await staleCursor.count()), now);
     let count = 0;
+    const hasNext = await staleCursor.hasNext();
+    console.log("User.poll: hasNext: " + hasNext);
     while (await staleCursor.hasNext()) {
+      console.log("User.poll: next ...");
       const user = await staleCursor.next();
       console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
       await db.removeBankTransactionRecordsByReason(user.id, "interest");
@@ -1747,6 +1749,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         break;
       }
     }
+    console.log("User.poll: about to close");
     await staleCursor.close();
     console.log("User.Poll: finished", Date.now() - now);
   }
