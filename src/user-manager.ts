@@ -1725,6 +1725,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
   private async poll(): Promise<void> {
     const now = Date.now();
+    console.log("User.Poll", now);
     const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
     while (await cursor.hasNext()) {
       const user = await cursor.next();
@@ -1732,7 +1733,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     await cursor.close();
 
+    console.log("User.Poll");
     const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
+    console.log("User.Poll:  stale users: " + (await staleCursor.count()), now);
     let count = 0;
     while (await staleCursor.hasNext()) {
       const user = await staleCursor.next();
@@ -1745,6 +1748,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       }
     }
     await staleCursor.close();
+    console.log("User.Poll: finished", Date.now() - now);
   }
 
   async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {
