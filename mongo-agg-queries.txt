@@ -3485,7 +3485,7 @@ db.cardCampaigns.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId:  "f21f14de-8592-436a-9e4d-ed681844ed66", 
+    authorId:  "a962cb7e-811d-4045-851e-21ac0be8f9b3", 
     action: "pay",
     at: {$gt: 1520582400000}
   }},
@@ -3584,7 +3584,7 @@ db.authorUsers.aggregate([
 
 db.userRegistrations.aggregate([
   {$match: {
-    fingerprint: "bb726b055a47ddaa893acef5f633e962"
+    fingerprint: "9c515b0384576b1facf6f20b06d2ed8d"
   }},
   {$group: {
     _id: "$userId",
@@ -3592,5 +3592,165 @@ db.userRegistrations.aggregate([
     ipAddresses: {$addToSet: "$ipAddress"},
     userAgents: {$addToSet: "$userAgent"}
   }},
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$project: {
+    count: 1,
+    userHandle: "$user.identity.handle",
+  }},
   {$sort: {sessions: -1}}
 ]).pretty()
+
+db.userRegistrations.aggregate([
+  {$match: {
+    userId: "7e5f44b2-1bbd-4b36-a899-84b91e352928"
+  }},
+  {$group: {
+    _id: {ipAddress: "$ipAddress", fingerprint: "$fingerprint"},
+    count: {$sum: 1}
+  }},
+  {$sort: {count: -1}}
+])
+
+"42b964db-55f4-4a14-b1ec-0d28907524ea"
+
+"a962cb7e-811d-4045-851e-21ac0be8f9b3"
+
+db.userRegistrations.aggregate([
+  {$match: {
+    at: {$gt: 1517472000000},
+    isMobile: false
+  }},
+  {$group: {
+    _id: "$fingerprint",
+    userAgents: {$addToSet: "$userAgent"},
+    ipAddresses: {$addToSet: "$ipAddress"},
+    userIds: {$addToSet: "$userId"},    
+    count: {$sum: 1}
+  }},  
+  {$project: {
+    userAgents: 1,
+    ipAddressCount: {$size: "$ipAddresses"},
+    userIds: {$size: "$userIds"}
+  }},
+  {$sort: {userIds: -1}}
+])
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    at: {$gt: 1517472000000},
+  }},
+  {$group: {
+    _id: "$geo.fingerprint",
+    ipAddresses: {$addToSet: "$geo.ipAddress"},
+    userIds: {$addToSet: "$userId"},    
+    count: {$sum: 1}    
+  }},
+  {$project: { 
+    ipAddressCount: {$size: "$ipAddresses"},
+    userIds: {$size: "$userIds"},
+    count: 1,
+  }},
+  {$sort: {userIds: -1}},
+  {$limit: 20},
+  {$lookup: {
+    from: "userRegistrations",
+    localField: "_id",
+    foreignField: "fingerprint",
+    as: "registration"
+  }},
+  {$unwind: "$registration"},
+  {$group: {
+    _id: {fingerprint: "$_id", ipAccountCount: "$ipAddressCount", userIds: "$userIds", count: "$count"},
+    registrationItem: {$first: "$registration"},
+  }},
+  {$project: {
+    isMobile: "$registrationItem.isMobile",
+    userAgent: "$registrationItem.userAgent"
+  }},
+  {$match: {
+    isMobile: false
+  }}
+]).pretty()
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    "geo.fingerprint": "9c515b0384576b1facf6f20b06d2ed8d"
+  }},
+  {$group: {
+    _id: {user: "$userId", author: "$authorId"},
+    count: {$sum: 1}
+  }},
+    {$lookup: {
+    from: "users",
+    localField: "_id.user",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+  {$lookup: {
+    from: "users",
+    localField: "_id.author",
+    foreignField: "id",
+    as: "author"
+  }},
+  {$unwind: "$author"},
+  {$project: {
+    count: 1,    
+    userId: 1,
+    authorId: 1,
+    userHandle: "$user.identity.handle",
+    authorHandle: "$author.identity.handle",
+  }},
+  {$group: {
+    _id: {user: "$userHandle", count: "$count"},
+    authors: {$addToSet: "$authorHandle"}
+  }},
+  {$sort: {"_id.count": -1}}
+])
+
+
+db.userCardActions.aggregate([
+  {$match: {
+    action: "pay",
+    "geo.fingerprint": "9c515b0384576b1facf6f20b06d2ed8d"
+  }},
+  {$group: {
+    _id: "$geo.ipAddress",
+    count: {$sum: 1}
+  }},
+  {$lookup: {
+    from: "ipAddresses",
+    localField: "_id",
+    foreignField: "ipAddress",
+    as: "ipAddress"
+  }},
+  {$project: {
+    count: 1,
+    city: "$ipAddress.city",
+    country: "$ipAddress.country"
+  }},
+  {$sort: {count: -1}}
+])
+  {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "author"
+  }},
+  {$unwind: "$author"},
+  {$project: {
+    count: 1,
+    ipAddresses: 1,
+    userHandle: "$author.identity.handle",
+  }},
+  {$sort: {count: -1}}
+])
+
