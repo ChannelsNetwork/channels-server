@@ -164,7 +164,7 @@ export class Database {
     await this.users.createIndex({ added: -1 });
     await this.users.createIndex({ "identity.emailConfirmationCode": 1 });
     await this.users.createIndex({ commentNotificationPending: 1 });
-    await this.users.createIndex({ lastContact: 1, "identity.handle": 1, firstCardPurchasedId: 1 });
+    await this.users.createIndex({ type: 1, lastContact: 1, "identity.handle": 1, firstCardPurchasedId: 1 });
   }
 
   private async initializeCards(): Promise<void> {
@@ -775,6 +775,7 @@ export class Database {
 
   getStaleUsers(before: number): Cursor<UserRecord> {
     return this.users.find<UserRecord>({
+      type: "normal",
       lastContact: { $lt: before },
       "identity.handle": { $exists: false },
       $or: [

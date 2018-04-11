@@ -322,6 +322,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private regionCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
 
   private countryRegionsCache = LRU<string, CodeAndName[]>({ max: 10000, maxAge: 1000 * 60 * 60 * 3 });
+  private pollUnderway = false;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -393,8 +394,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     // }
 
     setInterval(() => {
-      void this.poll();
-    }, 120000);
+      if (this.pollUnderway) {
+        errorManager.error("User.poll is already underway.  Skipping cycle...", null);
+      } else {
+        void this.poll();
+      }
+    }, 60000);
     await this.poll();
   }
 
@@ -1724,35 +1729,40 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   private async poll(): Promise<void> {
-    const now = Date.now();
-    console.log("User.Poll", now);
-    const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
-    let count = 0;
-    while (await cursor.hasNext()) {
-      const user = await cursor.next();
-      await this.updateUserBalance(null, user, null);
-      if (count++ > 100) {
-        break;
+    try {
+      this.pollUnderway = true;
+      const now = Date.now();
+      console.log("User.Poll", now);
+      const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
+      let count = 0;
+      while (await cursor.hasNext()) {
+        const user = await cursor.next();
+        await this.updateUserBalance(null, user, null);
+        if (count++ > 100) {
+          break;
+        }
       }
-    }
-    await cursor.close();
+      await cursor.close();
 
-    const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
-    const cursorCount = await staleCursor.count();
-    count = 0;
-    const hasNext = await staleCursor.hasNext();
-    while (await staleCursor.hasNext()) {
-      const user = await staleCursor.next();
-      console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
-      await db.removeBankTransactionRecordsByReason(user.id, "interest");
-      await db.removeUserRegistrations(user.id);
-      await db.removeUser(user.id);
-      if (count > MAX_STALE_USERS_PER_CYCLE) {
-        break;
+      const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
+      const cursorCount = await staleCursor.count();
+      count = 0;
+      const hasNext = await staleCursor.hasNext();
+      while (await staleCursor.hasNext()) {
+        const user = await staleCursor.next();
+        console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
+        await db.removeBankTransactionRecordsByReason(user.id, "interest");
+        await db.removeUserRegistrations(user.id);
+        await db.removeUser(user.id);
+        if (count > MAX_STALE_USERS_PER_CYCLE) {
+          break;
+        }
       }
+      await staleCursor.close();
+      console.log("User.Poll: finished", Date.now() - now);
+    } finally {
+      this.pollUnderway = false;
     }
-    await staleCursor.close();
-    console.log("User.Poll: finished", Date.now() - now);
   }
 
   async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {

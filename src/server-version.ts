@@ -1,1 +1,1 @@
-export const SERVER_VERSION = 443;
+export const SERVER_VERSION = 444;

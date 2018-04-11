@@ -3485,7 +3485,7 @@ db.cardCampaigns.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId:  "a962cb7e-811d-4045-851e-21ac0be8f9b3", 
+    authorId:  "b69502e8-10fa-436b-a234-7c5a1b3cbbba", 
     action: "pay",
     at: {$gt: 1520582400000}
   }},
@@ -3584,7 +3584,7 @@ db.authorUsers.aggregate([
 
 db.userRegistrations.aggregate([
   {$match: {
-    fingerprint: "9c515b0384576b1facf6f20b06d2ed8d"
+    fingerprint: "d74797e396ca612e4743d9b10ebc6218"
   }},
   {$group: {
     _id: "$userId",
@@ -3600,7 +3600,7 @@ db.userRegistrations.aggregate([
   }},
   {$unwind: "$user"},
   {$project: {
-    count: 1,
+    sessions: 1,
     userHandle: "$user.identity.handle",
   }},
   {$sort: {sessions: -1}}
