@@ -1745,7 +1745,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
       const cursorCount = await staleCursor.count();
       count = 0;
-      const hasNext = await staleCursor.hasNext();
       while (await staleCursor.hasNext()) {
         const user = await staleCursor.next();
         const purchases = await db.countUserCardsPaid(user.id);
