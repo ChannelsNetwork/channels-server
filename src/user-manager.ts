@@ -4,8 +4,8 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo } from "./interfaces/rest-services";
-import { db } from "./db";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo, AdminGetAuthorUserStatsResponse, AdminGetAuthorUserStatsDetails } from "./interfaces/rest-services";
+import { db, AuthorUserAggregationAdminItem } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
 import { UrlManager } from "./url-manager";
@@ -46,7 +46,7 @@ const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 1;
 const REGISTRATION_BONUS = 1.5;
 const STALE_USER_INTERVAL = 1000 * 60 * 60 * 24 * 30;
-const MAX_STALE_USERS_PER_CYCLE = 1000;
+const MAX_STALE_USERS_PER_CYCLE = 100;
 
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
@@ -321,6 +321,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   private regionCache = LRU<string, string>({ max: 10000, maxAge: 1000 * 60 * 60 * 24 });
 
   private countryRegionsCache = LRU<string, CodeAndName[]>({ max: 10000, maxAge: 1000 * 60 * 60 * 3 });
+  private pollUnderway = false;
 
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
@@ -392,8 +393,12 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     // }
 
     setInterval(() => {
-      void this.poll();
-    }, 30000);
+      if (this.pollUnderway) {
+        errorManager.error("User.poll is already underway.  Skipping cycle...", null);
+      } else {
+        void this.poll();
+      }
+    }, 60000);
     await this.poll();
   }
 
@@ -454,6 +459,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     });
     this.app.post(this.urlManager.getDynamicUrl('get-community-info-more'), (request: Request, response: Response) => {
       void this.handleGetCommunityInfoMore(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-get-referrals'), (request: Request, response: Response) => {
+      void this.handleAdminGetReferrals(request, response);
     });
   }
 
@@ -1495,6 +1503,39 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private async handleAdminGetReferrals(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminGetAuthorUserStatsDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You are not an admin");
+        return;
+      }
+      const items: AuthorUserAggregationAdminItem[] = [];
+      const cursor = db.aggregateAuthorUserReferralsAdmin();
+      while (items.length < 200) {
+        const item = await cursor.next();
+        if (!item) {
+          break;
+        }
+        items.push(item);
+      }
+      await cursor.close();
+      console.log("UserManager.admin-get-referrals", user.id, requestBody.detailsObject);
+      const reply: AdminGetAuthorUserStatsResponse = {
+        serverVersion: SERVER_VERSION,
+        items: items
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminGetReferrals: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
   private async handleAdminSetUserMailingList(request: Request, response: Response): Promise<void> {
     try {
       const requestBody = request.body as RestRequest<AdminSetUserMailingListDetails>;
@@ -1686,27 +1727,40 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   private async poll(): Promise<void> {
-    const now = Date.now();
-    const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
-    while (await cursor.hasNext()) {
-      const user = await cursor.next();
-      await this.updateUserBalance(null, user, null);
-    }
-    await cursor.close();
-
-    const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
-    let count = 0;
-    while (await staleCursor.hasNext()) {
-      const user = await staleCursor.next();
-      console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
-      await db.removeBankTransactionRecordsByReason(user.id, "interest");
-      await db.removeUserRegistrations(user.id);
-      await db.removeUser(user.id);
-      if (count > MAX_STALE_USERS_PER_CYCLE) {
-        break;
+    try {
+      this.pollUnderway = true;
+      const now = Date.now();
+      console.log("User.Poll", now);
+      const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
+      let count = 0;
+      while (await cursor.hasNext()) {
+        const user = await cursor.next();
+        await this.updateUserBalance(null, user, null);
+        if (count++ > 100) {
+          break;
+        }
       }
+      await cursor.close();
+
+      const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
+      const cursorCount = await staleCursor.count();
+      count = 0;
+      const hasNext = await staleCursor.hasNext();
+      while (await staleCursor.hasNext()) {
+        const user = await staleCursor.next();
+        console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
+        await db.removeBankTransactionRecordsByReason(user.id, "interest");
+        await db.removeUserRegistrations(user.id);
+        await db.removeUser(user.id);
+        if (count > MAX_STALE_USERS_PER_CYCLE) {
+          break;
+        }
+      }
+      await staleCursor.close();
+      console.log("User.Poll: finished", Date.now() - now);
+    } finally {
+      this.pollUnderway = false;
     }
-    await staleCursor.close();
   }
 
   async updateUserBalance(request: Request, user: UserRecord, sessionId: string): Promise<void> {

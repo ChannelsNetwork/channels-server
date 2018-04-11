@@ -1,7 +1,7 @@
 
 import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats, CardCurationQuality, PromotionPricingInfo } from "./db-records";
 import { SignedObject } from "./signed-object";
-import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData, CardCampaignAggregationItem } from "../db";
+import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData, CardCampaignAggregationItem, AuthorUserAggregationAdminItem } from "../db";
 
 export interface RestRequest<T extends Signable> {
   sessionId: string;
@@ -1395,4 +1395,10 @@ export interface AdminGetCardCampaignsDetails extends Signable { }
 
 export interface AdminGetCardCampaignsResponse extends RestResponse {
   campaigns: CardCampaignAggregationItem[];
+}
+
+export interface AdminGetAuthorUserStatsDetails extends Signable { }
+
+export interface AdminGetAuthorUserStatsResponse extends RestResponse {
+  items: AuthorUserAggregationAdminItem[];
 }
