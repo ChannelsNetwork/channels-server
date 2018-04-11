@@ -1748,12 +1748,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const hasNext = await staleCursor.hasNext();
       while (await staleCursor.hasNext()) {
         const user = await staleCursor.next();
-        console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
-        await db.removeBankTransactionRecordsByReason(user.id, "interest");
-        await db.removeUserRegistrations(user.id);
-        await db.removeUser(user.id);
-        if (count > MAX_STALE_USERS_PER_CYCLE) {
-          break;
+        const purchases = await db.countUserCardsPaid(user.id);
+        if (purchases === 0) {
+          console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
+          await db.removeBankTransactionRecordsByReason(user.id, "interest");
+          await db.removeUserRegistrations(user.id);
+          await db.removeUser(user.id);
+          if (count > MAX_STALE_USERS_PER_CYCLE) {
+            break;
+          }
         }
       }
       await staleCursor.close();
