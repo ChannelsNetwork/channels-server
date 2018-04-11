@@ -150,7 +150,8 @@
           data.isPrivate ? true : false,
           data.packageName, data.openFeeUnits, data.keywords, data.searchText, $core.cardManager.cardService.uploadedFileIds,
           data.initialState,
-          data.campaignInfo
+          data.campaignInfo,
+          data.campaignPrice
         ).then(() => {
           $core.analytics.event("card", "publish");
           $core.cardManager.cardService.clearUploadedFileIds();

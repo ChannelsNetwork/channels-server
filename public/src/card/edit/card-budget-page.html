@@ -139,9 +139,9 @@
           $app.showError(validationError);
           return;
         }
-        let value = this.$.editor.value;
+        let campaignInfo = this.$.editor.value;
         this._showProgress("Saving");
-        $core.updateCardCampaign(this.campaign.id, value).then(() => {
+        $core.updateCardCampaign(this.campaign.id, campaignInfo, this.$.editor.campaignPrice).then(() => {
           this._onCancel();
         }).catch((err) => {
           this._showProgress(null);

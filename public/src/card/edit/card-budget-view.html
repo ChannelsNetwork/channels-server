@@ -390,7 +390,7 @@
       _refreshPromotionPrice() {
         let type = this.data.type;
         return this._computePromotionPrice(type).then(computedPromotionPrice => {
-          this._price = this.data.paymentAmount || computedPromotionPrice;
+          this._price = computedPromotionPrice;
           this.promotionPrice = (Math.floor(this._price * 1000) / 1000).toFixed(3);
         });
       }
@@ -522,6 +522,10 @@
             break;
         }
         this._refreshPromotionPrice();
+      }
+
+      get campaignPrice() {
+        return this._price;
       }
 
       _fetchAllCountries() {
