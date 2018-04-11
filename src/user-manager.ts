@@ -1727,9 +1727,13 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     const now = Date.now();
     console.log("User.Poll", now);
     const cursor = db.getUsersForBalanceUpdates(Date.now() - BALANCE_UPDATE_INTERVAL, Date.now() - BALANCE_DORMANT_ACCOUNT_INTERVAL);
+    let count = 0;
     while (await cursor.hasNext()) {
       const user = await cursor.next();
       await this.updateUserBalance(null, user, null);
+      if (count++ > 100) {
+        break;
+      }
     }
     await cursor.close();
 
@@ -1738,7 +1742,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     console.log("User.Poll (debug):  about to count()");
     const cursorCount = await staleCursor.count();
     console.log("User.Poll (debug):  stale users: " + cursorCount, now);
-    let count = 0;
+    count = 0;
     const hasNext = await staleCursor.hasNext();
     console.log("User.poll (debug): hasNext: " + hasNext);
     while (await staleCursor.hasNext()) {
