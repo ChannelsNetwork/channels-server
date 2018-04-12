@@ -373,6 +373,7 @@ export class Database {
 
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
+    await this.networkCardStats.createIndex({ isCurrent: 1 });
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
     const existing = await this.ensureNetworkCardStats(false);
     if (existing && existing.stats.advertisers === 908) {
@@ -489,7 +490,7 @@ export class Database {
 
   private async initializePromotionGeoPricing(): Promise<void> {
     this.promotionGeoPricing = this.db.collection('promotionGeoPricing');
-    await this.promotionGeoPricing.createIndex({geoTarget: 1}, { unique: true });
+    await this.promotionGeoPricing.createIndex({ geoTarget: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -2679,12 +2680,12 @@ export class Database {
   }
 
   async ensureNetworkCardStats(force = false): Promise<NetworkCardStatsHistoryRecord> {
-    let result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
+    let result = await this.networkCardStats.findOne<NetworkCardStatsHistoryRecord>({ isCurrent: true });
     const now = Date.now();
-    if (!force && result && result.length > 0 && now - result[0].periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
-      return result[0];
+    if (!force && result && now - result.periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
+      return result;
     }
-    const record = result[0];
+    const record = result;
     // We want to avoid multiple processes inserting duplicates, so we round the periodStarting to the nearest
     // 1 minute boundary.  Then if a second process tries to insert, it will get a duplicate error.
     const newPeriodStart = Math.round(now / (1000 * 60)) * (1000 * 60);
@@ -2699,14 +2700,14 @@ export class Database {
       baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)
     };
     try {
+      await this.networkCardStats.updateOne({ isCurrent: true, periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
       await this.networkCardStats.insertOne(newRecord);
-      await this.networkCardStats.updateOne({ periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
     } catch (err) {
       // May be race condition
       errorManager.warning("Db.ensureNetworkCardStats: record insert/update failed, ignoring because of probable race condition", null, err);
     }
-    result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
-    return result[0];
+    result = await this.networkCardStats.findOne<NetworkCardStatsHistoryRecord>({ isCurrent: true });
+    return result;
   }
 
   createEmptyNetworkCardStats(): NetworkCardStats {
@@ -4502,7 +4503,7 @@ export class Database {
   }
 
   async findPromotionPricingByGeo(geoTarget: string): Promise<PromotionGeoPricingRecord> {
-    return this.promotionGeoPricing.findOne<PromotionGeoPricingRecord>({geoTarget: geoTarget});
+    return this.promotionGeoPricing.findOne<PromotionGeoPricingRecord>({ geoTarget: geoTarget });
   }
 
   async insertShortUrl(code: string, originalUrl: string, byId: string, sessionId: string): Promise<ShortUrlRecord> {
