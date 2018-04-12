@@ -167,7 +167,7 @@
 
       _optionClick(event) {
         let item = event.model.item;
-        this.selected = item;
+        this._setSelection(item);
       }
 
       _onSelect() {
@@ -178,18 +178,28 @@
           this.$.selectedPanel.classList.add("hidden");
           this.$.editPanel.classList.remove("hidden");
         }
+      }
+
+      _setSelection(value) {
+        if (this.selected != value) {
+          this.selected = value;
+          this._fireSelect();
+        }
+      }
+
+      _fireSelect() {
         this.dispatchEvent(new CustomEvent('select', { bubbles: true, composed: true, detail: { selection: this.selected } }));
       }
 
       _clearSelection() {
-        this.selected = null;
+        this._setSelection(null);
         this._clear();
       }
 
       _filterKeyDown(event) {
         if (event.keyCode === 13) {
           if (this.matches.length === 1) {
-            this.selected = this.matches[0];
+            this._setSelection(this.matches[0]);
           }
         }
       }
