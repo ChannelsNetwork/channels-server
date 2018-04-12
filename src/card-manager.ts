@@ -3158,9 +3158,19 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       return DEFAULT_PROMOTION_PRICING;
     }
     for (const geoTarget of geoTargets) {
-      const info = await this.getPromotionPricingForGeo(geoTarget);
+      let info = await this.getPromotionPricingForGeo(geoTarget);
       if (info) {
         infos.push(info);
+      } else {
+        const parts = geoTarget.split(/[\.\:]/);
+        for (let i = parts.length - 1; i > 0; i--) {
+          const superTarget = parts.slice(0, i - 1).join('.');
+          info = await this.getPromotionPricingForGeo(superTarget);
+          if (info) {
+            infos.push(info);
+            break;
+          }
+        }
       }
     }
     if (infos.length === 0) {
