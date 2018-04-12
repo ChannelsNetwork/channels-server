@@ -549,11 +549,17 @@
           });
           this.countries = countries;
           this._refreshCheckAttempts = 0;
-          this._refreshChecks();
+          return this._refreshChecks();
         });
       }
 
       _refreshChecks() {
+        return new Promise(resolve => {
+          this._delayedRefreshChecks(resolve);
+        });
+      }
+
+      _delayedRefreshChecks(resolve) {
         const boxes = this.shadowRoot.querySelectorAll(".countryCheck");
         if (boxes.length >= this.countries.length) {
           for (let i = 0; i < boxes.length; i++) {
@@ -569,6 +575,7 @@
                 this._selectContinent(split[0].trim());
               }
             });
+            resolve();
           } else if (this.$.regionGroup.selected === 'region') {
             if (targets.length) {
               let countryCode = "";
@@ -599,18 +606,26 @@
                         }
                       });
                     }
+                    resolve();
                   }, 1000);
+                }).catch(() => {
+                  resolve();
                 });
+              } else {
+                resolve();
               }
+            } else {
+              resolve();
             }
           }
         } else {
           if (this._refreshCheckAttempts > 15) {
+            resolve();
             return;
           }
           this._refreshCheckAttempts++;
           setTimeout(() => {
-            this._refreshChecks();
+            this._delayedRefreshChecks(resolve);
           }, 200);
         }
       }
