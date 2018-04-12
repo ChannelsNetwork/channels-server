@@ -342,12 +342,16 @@
             switch (type) {
               case "content-promotion":
                 price = this._currentPricing.contentImpression;
+                break;
               case "impression-ad":
                 price = this._currentPricing.adImpression;
+                break;
               case "pay-to-open":
                 price = this._currentPricing.payToOpen;
+                break;
               case "pay-to-click":
                 price = this._currentPricing.payToClick;
+                break;
             }
             resolve(price);
           }).catch((err) => {
