@@ -4607,6 +4607,11 @@ export class Database {
         }
       },
       {
+        $match: {
+          referredPurchases: { $gt: 0 }
+        }
+      },
+      {
         $project: {
           userId: "$_id",
           authorIds: 1,
