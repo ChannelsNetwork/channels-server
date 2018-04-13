@@ -4589,7 +4589,7 @@ export class Database {
           referredCards: {
             $sum: {
               $cond: {
-                if: { $eq: ["$userId", "authorId"] },
+                if: { $eq: ["$userId", "$authorId"] },
                 then: 0,
                 else: "$stats.referredCards"
               }
@@ -4598,7 +4598,7 @@ export class Database {
           referredPurchases: {
             $sum: {
               $cond: {
-                if: { $eq: ["$userId", "authorId"] },
+                if: { $eq: ["$userId", "$authorId"] },
                 then: 0,
                 else: "$stats.referredPurchases"
               }
@@ -4620,49 +4620,63 @@ export class Database {
 
   aggregateAuthorUserReferralsAdmin(): AggregationCursor<AuthorUserAggregationAdminItem> {
     return this.authorUsers.aggregate([
-      {$match: {
-        isCurrent: true,
-      }},
-      {$project: {
-        userId: 1,
-        authorId: 1,
-        stats: 1,
-        same: {$cond: {
-          if: {$eq: ["$userId", "$authorId"]},
-          then: 1,
-          else: 0
-        }}
-      }},
-      {$match: {
-        same: 0
-      }},
-      {$lookup: {
-        from: "users",
-        localField: "userId",
-        foreignField: "id",
-        as: "user"
-      }},
-      {$unwind: "$user"},
-      {$lookup: {
-        from: "users",
-        localField: "authorId",
-        foreignField: "id",
-        as: "author"
-      }},
-      {$unwind: "$author"},
-      {$project: {
-        _id: 0,
-        userId: 1,
-        authorId: 1,
-        stats: 1,
-        userHandle: "$user.identity.handle",
-        userCity: "$user.city",
-        userCountry: "$user.country",
-        authorHandle: "$author.identity.handle",
-        authorCity: "$author.city",
-        authorCountry: "$author.country",
-      }},
-      {$sort: {"stats.referredPurchases": -1, "stats.purchases": -1}}
+      {
+        $match: {
+          isCurrent: true,
+        }
+      },
+      {
+        $project: {
+          userId: 1,
+          authorId: 1,
+          stats: 1,
+          same: {
+            $cond: {
+              if: { $eq: ["$userId", "$authorId"] },
+              then: 1,
+              else: 0
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          same: 0
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "id",
+          as: "user"
+        }
+      },
+      { $unwind: "$user" },
+      {
+        $lookup: {
+          from: "users",
+          localField: "authorId",
+          foreignField: "id",
+          as: "author"
+        }
+      },
+      { $unwind: "$author" },
+      {
+        $project: {
+          _id: 0,
+          userId: 1,
+          authorId: 1,
+          stats: 1,
+          userHandle: "$user.identity.handle",
+          userCity: "$user.city",
+          userCountry: "$user.country",
+          authorHandle: "$author.identity.handle",
+          authorCity: "$author.city",
+          authorCountry: "$author.country",
+        }
+      },
+      { $sort: { "stats.referredPurchases": -1, "stats.purchases": -1 } }
     ]);
   }
 

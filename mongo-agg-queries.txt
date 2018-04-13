@@ -3754,3 +3754,49 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
+
+
+db.authorUsers.aggregate([
+      { $match: { isCurrent: true, "stats.referredPurchases": { $gt: 0 } } },
+      {
+        $group: {
+          _id: "$userId",
+          authorIds: { $addToSet: "$authorId" },
+          referredCards: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "$authorId"] },
+                then: 0,
+                else: "$stats.referredCards"
+              }
+            }
+          },
+          referredPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "$authorId"] },
+                then: 0,
+                else: "$stats.referredPurchases"
+              }
+            }
+          },
+        }
+      },
+          {$lookup: {
+    from: "users",
+    localField: "_id",
+    foreignField: "id",
+    as: "user"
+  }},
+  {$unwind: "$user"},
+      {
+        $project: {
+          userId: "$_id",
+          authorIds: 1,
+          referredCards: 1,
+          referredPurchases: 1,
+          handle: "$user.identity.handle"
+        }
+      },
+      { $sort: { referredPurchases: -1 } }
+    ]).pretty()
