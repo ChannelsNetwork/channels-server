@@ -3782,6 +3782,11 @@ db.authorUsers.aggregate([
           },
         }
       },
+            {
+        $match: {
+          referredPurchases: { $gt: 0 }
+        }
+      },
           {$lookup: {
     from: "users",
     localField: "_id",
