@@ -280,7 +280,7 @@ export class Database {
     await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
-    await this.bankTransactions.createIndex({ participantUserIds: 1, "details.reason": 1 });
+    // await this.bankTransactions.createIndex({ participantUserIds: 1, "details.reason": 1 });
   }
 
   private async initializeUserCardActions(): Promise<void> {
@@ -4590,7 +4590,7 @@ export class Database {
           referredCards: {
             $sum: {
               $cond: {
-                if: { $eq: ["$userId", "authorId"] },
+                if: { $eq: ["$userId", "$authorId"] },
                 then: 0,
                 else: "$stats.referredCards"
               }
@@ -4599,12 +4599,17 @@ export class Database {
           referredPurchases: {
             $sum: {
               $cond: {
-                if: { $eq: ["$userId", "authorId"] },
+                if: { $eq: ["$userId", "$authorId"] },
                 then: 0,
                 else: "$stats.referredPurchases"
               }
             }
           },
+        }
+      },
+      {
+        $match: {
+          referredPurchases: { $gt: 0 }
         }
       },
       {
