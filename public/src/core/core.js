@@ -432,8 +432,11 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo) {
+  postCard(imageId, linkURL, iframeUrl, title, text, langCode, isPrivate, packageName, openFeeUnits, keywords, searchText, fileIds, initialState, campaignInfo, campaignPrice) {
     if (campaignInfo) {
+      if (!campaignPrice) {
+        campaignPrice = this.getPromotionPriceByType(campaignInfo.type);
+      }
       let reason;
       switch (campaignInfo.type) {
         case "content-promotion":
@@ -449,7 +452,7 @@ class CoreService extends Polymer.Element {
           reason = "card-click-payment";
           break;
       }
-      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, this.getPromotionPriceByType(campaignInfo.type), campaignInfo.budget.maxPerDay || campaignInfo.budget.promotionTotal, campaignInfo.budget.plusPercent || 0);
+      const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, campaignPrice, campaignInfo.budget.maxPerDay || campaignInfo.budget.promotionTotal, campaignInfo.budget.plusPercent || 0);
       const couponDetailsString = JSON.stringify(couponDetails);
       const coupon = {
         objectString: couponDetailsString,
@@ -828,7 +831,29 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
-  updateCardCampaign(campaignId, campaignInfo) {
+  updateCardCampaign(campaignId, campaignInfo, campaignPrice) {
+    let reason;
+    switch (campaignInfo.type) {
+      case "content-promotion":
+        reason = "card-promotion";
+        break;
+      case "impression-ad":
+        reason = "impression-ad";
+        break;
+      case "pay-to-open":
+        reason = "card-open-payment";
+        break;
+      case "pay-to-click":
+        reason = "card-click-payment";
+        break;
+    }
+    const couponDetails = RestUtils.getCouponDetails(this._keys.address, this._fingerprint, reason, campaignPrice, campaignInfo.budget.maxPerDay || campaignInfo.budget.promotionTotal, campaignInfo.budget.plusPercent || 0);
+    const couponDetailsString = JSON.stringify(couponDetails);
+    const coupon = {
+      objectString: couponDetailsString,
+      signature: this._sign(couponDetailsString)
+    }
+    campaignInfo.coupon = coupon;
     let details = RestUtils.updateCardCampaign(this._keys.address, this._fingerprint, campaignId, campaignInfo);
     let request = this._createRequest(details);
     const url = this.restBase + "/update-card-campaign";

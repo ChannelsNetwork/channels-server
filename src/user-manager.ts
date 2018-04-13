@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
-import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, PromotionPricingInfo, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo, AdminGetAuthorUserStatsResponse, AdminGetAuthorUserStatsDetails } from "./interfaces/rest-services";
+import { RestRequest, RegisterUserDetails, UserStatusDetails, Signable, UserStatusResponse, UpdateUserIdentityDetails, CheckHandleDetails, GetUserIdentityDetails, GetUserIdentityResponse, UpdateUserIdentityResponse, CheckHandleResponse, BankTransactionRecipientDirective, BankTransactionDetails, RegisterUserResponse, UserStatus, SignInDetails, SignInResponse, RequestRecoveryCodeDetails, RequestRecoveryCodeResponse, RecoverUserDetails, RecoverUserResponse, GetHandleDetails, GetHandleResponse, AdminGetUsersDetails, AdminGetUsersResponse, AdminSetUserMailingListDetails, AdminSetUserMailingListResponse, AdminUserInfo, AdminSetUserCurationResponse, AdminSetUserCurationDetails, UserDescriptor, ConfirmEmailDetails, ConfirmEmailResponse, RequestEmailConfirmationDetails, RequestEmailConfirmationResponse, AccountSettings, UpdateAccountSettingsDetails, UpdateAccountSettingsResponse, GeoTargetDescriptor, GetGeoDescriptorsDetails, GetGeoDescriptorsResponse, CodeAndName, GetCommunityInfoDetails, GetCommunityInfoResponse, GetCommunityInfoMoreDetails, GetCommunityInfoMoreResponse, CommunityInfoListType, CommunityMemberInfo, AdminGetAuthorUserStatsResponse, AdminGetAuthorUserStatsDetails } from "./interfaces/rest-services";
 import { db, AuthorUserAggregationAdminItem } from "./db";
 import { UserRecord, IpAddressRecord, IpAddressStatus, GeoLocation } from "./interfaces/db-records";
 import * as NodeRSA from "node-rsa";
@@ -26,7 +26,6 @@ import * as LRU from 'lru-cache';
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 import { NotificationHandler, ChannelsServerNotification, awsManager } from "./aws-manager";
-import { PROMOTION_PRICING } from "./card-manager";
 const { URL } = require("url");
 
 const INVITER_REWARD = 1;
@@ -647,7 +646,6 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         withdrawalsEnabled: bank.withdrawalsEnabled,
         depositUrl: configuration.get('braintree.enabled', false) ? this.urlManager.getPublicUrl('deposit') : null,
         admin: userRecord.admin,
-        promotionPricing: PROMOTION_PRICING
       };
       response.json(registerResponse);
     } catch (err) {
@@ -1747,15 +1745,17 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
       const cursorCount = await staleCursor.count();
       count = 0;
-      const hasNext = await staleCursor.hasNext();
       while (await staleCursor.hasNext()) {
         const user = await staleCursor.next();
-        console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
-        await db.removeBankTransactionRecordsByReason(user.id, "interest");
-        await db.removeUserRegistrations(user.id);
-        await db.removeUser(user.id);
-        if (count > MAX_STALE_USERS_PER_CYCLE) {
-          break;
+        const purchases = await db.countUserCardsPaid(user.id);
+        if (purchases === 0) {
+          console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
+          await db.removeBankTransactionRecordsByReason(user.id, "interest");
+          await db.removeUserRegistrations(user.id);
+          await db.removeUser(user.id);
+          if (count > MAX_STALE_USERS_PER_CYCLE) {
+            break;
+          }
         }
       }
       await staleCursor.close();

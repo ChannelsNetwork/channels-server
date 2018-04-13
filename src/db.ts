@@ -3,7 +3,7 @@ import * as uuid from "uuid";
 
 import { Request, Response } from 'express';
 import { configuration } from "./configuration";
-import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord, CardCurationQuality, AuthorUserStats } from "./interfaces/db-records";
+import { UserRecord, NetworkRecord, UserIdentity, CardRecord, FileRecord, FileStatus, CardMutationRecord, CardStateGroup, CardMutationType, CardPropertyRecord, CardCollectionItemRecord, Mutation, MutationIndexRecord, SubsidyBalanceRecord, CardOpensRecord, CardOpensInfo, BowerManagementRecord, BankTransactionRecord, UserAccountType, CardActionType, UserCardActionRecord, UserCardInfoRecord, CardLikeState, BankTransactionReason, BankCouponRecord, BankCouponDetails, CardActiveState, ManualWithdrawalState, ManualWithdrawalRecord, CardStatisticHistoryRecord, CardStatistic, CardCollectionRecord, CardPromotionScores, CardPromotionBin, UserAddressHistory, OldUserRecord, BowerPackageRecord, CardType, PublisherSubsidyDayRecord, CardTopicRecord, NetworkCardStatsHistoryRecord, NetworkCardStats, IpAddressRecord, IpAddressStatus, UserCurationType, SocialLink, ChannelRecord, ChannelSubscriptionState, ChannelUserRecord, UserRegistrationRecord, ImageInfo, CardFileRecord, ChannelCardRecord, ChannelKeywordRecord, CardPaymentFraudReason, UserCardActionPaymentInfo, AdSlotRecord, AdSlotType, AdSlotStatus, UserCardActionReportInfo, BankTransactionRefundInfo, ChannelStatus, ChannelCardState, CardCommentMetadata, CardCommentRecord, CommentCurationType, DepositRecord, DepositStatus, GeoLocation, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignRecord, CardCampaignStatsSnapshotRecord, ShortUrlRecord, AuthorUserRecord, UserStatsRecord, CardCurationQuality, AuthorUserStats, PromotionGeoPricingRecord } from "./interfaces/db-records";
 import { Utils } from "./utils";
 import { BankTransactionDetails, BowerInstallResult, ChannelComponentDescriptor, AdminUserStats, AdminActiveUserStats, AdminCardStats, AdminPurchaseStats, AdminAdStats, AdminSubscriptionStats, CardCampaignInfo } from "./interfaces/rest-services";
 import { SignedObject } from "./interfaces/signed-object";
@@ -57,6 +57,7 @@ export class Database {
   private shortUrls: Collection;
   private authorUsers: Collection;
   private userStats: Collection;
+  private promotionGeoPricing: Collection;
 
   async initialize(): Promise<void> {
     const configOptions = configuration.get('mongo.options') as MongoClientOptions;
@@ -100,6 +101,7 @@ export class Database {
     await this.initializeShortUrls();
     await this.initializeAuthorUsers();
     await this.initializeUserStats();
+    await this.initializePromotionGeoPricing();
   }
 
   private async initializeNetworks(): Promise<void> {
@@ -280,7 +282,7 @@ export class Database {
     await this.bankTransactions.createIndex({ originatorUserId: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ participantUserIds: 1, "details.timestamp": -1 });
     await this.bankTransactions.createIndex({ "details.reason": 1, "details.timestamp": -1 });
-    // await this.bankTransactions.createIndex({ participantUserIds: 1, "details.reason": 1 });
+    await this.bankTransactions.createIndex({ participantUserIds: 1, "details.reason": 1 });
   }
 
   private async initializeUserCardActions(): Promise<void> {
@@ -371,6 +373,7 @@ export class Database {
 
   private async initializeNetworkCardStats(): Promise<void> {
     this.networkCardStats = this.db.collection('networkCardStats');
+    await this.networkCardStats.createIndex({ isCurrent: 1 });
     await this.networkCardStats.createIndex({ periodStarting: -1 }, { unique: true });
     const existing = await this.ensureNetworkCardStats(false);
     if (existing && existing.stats.advertisers === 908) {
@@ -483,6 +486,11 @@ export class Database {
     this.userStats = this.db.collection('userStats');
     await this.userStats.createIndex({ userId: 1, periodStarting: -1 }, { unique: true });
     await this.userStats.createIndex({ userId: 1, isCurrent: 1 });
+  }
+
+  private async initializePromotionGeoPricing(): Promise<void> {
+    this.promotionGeoPricing = this.db.collection('promotionGeoPricing');
+    await this.promotionGeoPricing.createIndex({ geoTarget: 1 }, { unique: true });
   }
 
   async getNetwork(): Promise<NetworkRecord> {
@@ -2672,12 +2680,12 @@ export class Database {
   }
 
   async ensureNetworkCardStats(force = false): Promise<NetworkCardStatsHistoryRecord> {
-    let result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
+    let result = await this.networkCardStats.findOne<NetworkCardStatsHistoryRecord>({ isCurrent: true });
     const now = Date.now();
-    if (!force && result && result.length > 0 && now - result[0].periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
-      return result[0];
+    if (!force && result && now - result.periodStarting < NETWORK_CARD_STATS_SNAPSHOT_PERIOD) {
+      return result;
     }
-    const record = result[0];
+    const record = result;
     // We want to avoid multiple processes inserting duplicates, so we round the periodStarting to the nearest
     // 1 minute boundary.  Then if a second process tries to insert, it will get a duplicate error.
     const newPeriodStart = Math.round(now / (1000 * 60)) * (1000 * 60);
@@ -2692,14 +2700,14 @@ export class Database {
       baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)
     };
     try {
+      await this.networkCardStats.updateOne({ isCurrent: true, periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
       await this.networkCardStats.insertOne(newRecord);
-      await this.networkCardStats.updateOne({ periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
     } catch (err) {
       // May be race condition
       errorManager.warning("Db.ensureNetworkCardStats: record insert/update failed, ignoring because of probable race condition", null, err);
     }
-    result = await this.networkCardStats.find<NetworkCardStatsHistoryRecord>({}).sort({ periodStarting: -1 }).limit(1).toArray();
-    return result[0];
+    result = await this.networkCardStats.findOne<NetworkCardStatsHistoryRecord>({ isCurrent: true });
+    return result;
   }
 
   createEmptyNetworkCardStats(): NetworkCardStats {
@@ -4492,6 +4500,10 @@ export class Database {
   async findCardCampaignStatsAt(campaignId: string, before: number): Promise<CardCampaignStatsSnapshotRecord> {
     const result = await this.cardCampaignStats.find<CardCampaignStatsSnapshotRecord>({ campaignId: campaignId, at: { $lt: before } }).sort({ at: -1 }).limit(1).toArray();
     return result.length > 0 ? result[0] : null;
+  }
+
+  async findPromotionPricingByGeo(geoTarget: string): Promise<PromotionGeoPricingRecord> {
+    return this.promotionGeoPricing.findOne<PromotionGeoPricingRecord>({ geoTarget: geoTarget });
   }
 
   async insertShortUrl(code: string, originalUrl: string, byId: string, sessionId: string): Promise<ShortUrlRecord> {

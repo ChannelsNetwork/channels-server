@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord, BankCouponRecord } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord, BankCouponRecord, PromotionPricingInfo } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, PromotionPricingInfo, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse, UpdateCardCampaignStatusDetails, UpdateCardCampaignStatusResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse, UpdateCardCampaignStatusDetails, UpdateCardCampaignStatusResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -66,7 +66,7 @@ const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
 const USER_BALANCE_PAY_BUMP_THRESHOLD = 0.65;
 
-export const PROMOTION_PRICING: PromotionPricingInfo = {
+const DEFAULT_PROMOTION_PRICING: PromotionPricingInfo = {
   contentImpression: 0.003,
   adImpression: 0.02,
   payToOpen: 0.50,
@@ -81,6 +81,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   private lastMutationIndexSent = 0;
   private mutationSemaphore = promiseLimit(1) as (p: Promise<void>) => Promise<void>;
   private cardCache = LRU<string, CardRecord>({ max: 1000, maxAge: 1000 * 60 * 5 });
+
+  private promotionGeoPricing = LRU<string, PromotionPricingInfo>({ max: 1000, maxAge: 1000 * 60 * 5 });
 
   async initialize(): Promise<void> {
     awsManager.registerNotificationHandler(this);
@@ -298,14 +300,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return result;
   }
 
-  private getAppropriateCampaignAmount(card: CardRecord, type: CardCampaignType): number {
+  private async getAppropriateCampaignAmount(card: CardRecord, type: CardCampaignType, geoTargets: string[]): Promise<number> {
     switch (type) {
       case "content-promotion":
       case "impression-ad":
-        return Math.min(card.pricing.promotionFee, this.getCampaignAmount(type));
+        return Math.min(card.pricing.promotionFee, await this.getCampaignAmount(type, geoTargets));
       case "pay-to-open":
       case "pay-to-click":
-        return Math.min(card.pricing.openPayment, this.getCampaignAmount(type));
+        return Math.min(card.pricing.openPayment, await this.getCampaignAmount(type, geoTargets));
       default:
         throw new Error("Unsupported campaign type " + type);
     }
@@ -1874,8 +1876,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const card = await db.insertCard(user.id, sessionId, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.openFeeUnits, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (details.campaignInfo) {
-      const subsidy = this.getCampaignSubsidy(details.campaignInfo.type);
-      await db.insertCardCampaign(sessionId, user.id, "active", couponId, card.id, details.campaignInfo.type, this.getCampaignAmount(details.campaignInfo.type), subsidy, details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
+      const subsidy = await this.getCampaignSubsidy(details.campaignInfo.type, details.campaignInfo.geoTargets);
+      await db.insertCardCampaign(sessionId, user.id, "active", couponId, card.id, details.campaignInfo.type, await this.getCampaignAmount(details.campaignInfo.type, details.campaignInfo.geoTargets), subsidy, details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
     }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0, newAdvertisers, newAdCardsOpenOrClick, newAdCardsImpression, 0, 0, 0, 0);
     await db.updateUserLastPosted(user.id, card.postedAt, card.summary.langCode);
@@ -1884,29 +1886,31 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return card;
   }
 
-  private getCampaignAmount(type: CardCampaignType): number {
+  private async getCampaignAmount(type: CardCampaignType, geoTargets: string[]): Promise<number> {
+    const pricing = await this.getPromotionPricing(geoTargets);
     switch (type) {
       case "content-promotion":
-        return PROMOTION_PRICING.contentImpression;
+        return pricing.contentImpression;
       case "impression-ad":
-        return PROMOTION_PRICING.adImpression;
+        return pricing.adImpression;
       case "pay-to-open":
-        return PROMOTION_PRICING.payToOpen;
+        return pricing.payToOpen;
       case "pay-to-click":
-        return PROMOTION_PRICING.payToClick;
+        return pricing.payToClick;
       default:
         throw new ErrorWithStatusCode(500, "Unexpected campaign type " + type);
     }
   }
 
-  private getCampaignSubsidy(type: CardCampaignType): number {
+  private async getCampaignSubsidy(type: CardCampaignType, geoTargets: string[]): Promise<number> {
+    const pricing = await this.getPromotionPricing(geoTargets);
     let subsidy = 0;
     switch (type) {
       case "pay-to-open":
-        subsidy = PROMOTION_PRICING.payToOpenSubsidy;
+        subsidy = pricing.payToOpenSubsidy;
         break;
       case "pay-to-click":
-        subsidy = PROMOTION_PRICING.payToClickSubsidy;
+        subsidy = pricing.payToClickSubsidy;
         break;
       default:
         break;
@@ -2835,7 +2839,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       campaign.ends = requestBody.detailsObject.info.ends;
       campaign.geoTargets = requestBody.detailsObject.info.geoTargets;
       const status = this.getCardCampaignStatus(user, campaign);
-      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, this.getCampaignAmount(campaign.type), this.getCampaignSubsidy(campaign.type), 0);
+      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, await this.getCampaignAmount(campaign.type, campaign.geoTargets), await this.getCampaignSubsidy(campaign.type, campaign.geoTargets), 0);
       console.log("CardManager.update-card-campaign", requestBody.detailsObject);
       const reply: UpdateCardCampaignResponse = {
         serverVersion: SERVER_VERSION
@@ -2886,11 +2890,13 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         return;
       }
       const pastWeek = requestBody.detailsObject.geoTargets && requestBody.detailsObject.geoTargets.length > 0 ?
-        await db.countAdSlotsInGeosSince(requestBody.detailsObject.geoTargets, Date.now() - 1000 * 60 * 60 * 24 * 7) : await db.countAdSlotsSince(Date.now() - 1000 * 60 * 60 * 24 * 7);
+        await db.countAdSlotsInGeosSince(requestBody.detailsObject.geoTargets, Date.now() - 1000 * 60 * 60 * 24 * 7) :
+        await db.countAdSlotsSince(Date.now() - 1000 * 60 * 60 * 24 * 7);
       console.log("CardManager.get-available-ad-slots", requestBody.detailsObject);
       const reply: GetAvailableAdSlotsResponse = {
         serverVersion: SERVER_VERSION,
-        pastWeek: pastWeek
+        pastWeek: pastWeek,
+        pricing: await this.getPromotionPricing(requestBody.detailsObject.geoTargets)
       };
       response.json(reply);
     } catch (err) {
@@ -3144,6 +3150,46 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     console.log("Card.updateCardPurchaseStats: Completed");
+  }
+
+  async getPromotionPricing(geoTargets: string[]): Promise<PromotionPricingInfo> {
+    const infos: PromotionPricingInfo[] = [];
+    if (!geoTargets || geoTargets.length === 0) {
+      return DEFAULT_PROMOTION_PRICING;
+    }
+    for (const geoTarget of geoTargets) {
+      let info = await this.getPromotionPricingForGeo(geoTarget);
+      if (info) {
+        infos.push(info);
+      } else {
+        const parts = geoTarget.split(/[\.\:]/);
+        for (let i = parts.length - 1; i > 0; i--) {
+          const superTarget = parts.slice(0, i - 1).join('.');
+          info = await this.getPromotionPricingForGeo(superTarget);
+          if (info) {
+            infos.push(info);
+            break;
+          }
+        }
+      }
+    }
+    if (infos.length === 0) {
+      return DEFAULT_PROMOTION_PRICING;
+    }
+    infos.sort((a, b) => {
+      return b.payToOpen - a.payToOpen;
+    });
+    return infos[0];
+  }
+
+  private async getPromotionPricingForGeo(geoTarget: string): Promise<PromotionPricingInfo> {
+    const result = this.promotionGeoPricing.get(geoTarget);
+    if (typeof result !== "undefined") {
+      return result ? result : DEFAULT_PROMOTION_PRICING;
+    }
+    const record = await db.findPromotionPricingByGeo(geoTarget);
+    this.promotionGeoPricing.set(geoTarget, record ? record.pricing : null);
+    return record ? record.pricing : DEFAULT_PROMOTION_PRICING;
   }
 }
 

@@ -81,6 +81,7 @@
           const data = this.wizard.data;
           if (data.campaignInfo) {
             data.campaignInfo = this.$.view.value;
+            data.campaignPrice = this.$.view.campaignPrice;
           }
           resolve();
         });

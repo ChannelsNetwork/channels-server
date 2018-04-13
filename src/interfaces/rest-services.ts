@@ -1,5 +1,5 @@
 
-import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats, CardCurationQuality } from "./db-records";
+import { CardLikeState, BankTransactionReason, CardStatistics, UserRecord, SocialLink, ChannelSubscriptionState, ManualWithdrawalRecord, ManualWithdrawalState, UserCurationType, ImageInfo, ChannelStats, ChannelRecord, ChannelCardState, CardCommentMetadata, CardCommentRecord, CardRecord, CommentCurationType, DepositRecord, CardCampaignStatus, CardCampaignType, CardCampaignBudget, CardCampaignStats, BankCouponDetails, GeoLocation, CardActionType, UserStats, CardCurationQuality, PromotionPricingInfo } from "./db-records";
 import { SignedObject } from "./signed-object";
 import { BinnedUserData, BinnedCardData, BinnedPaymentData, BinnedAdSlotData, CardCampaignAggregationItem, AuthorUserAggregationAdminItem } from "../db";
 
@@ -43,16 +43,6 @@ export interface RegisterUserResponse extends RestResponseWithUserStatus {
   withdrawalsEnabled: boolean;
   depositUrl: string;
   admin: boolean;
-  promotionPricing: PromotionPricingInfo;
-}
-
-export interface PromotionPricingInfo {
-  contentImpression: number;
-  adImpression: number;
-  payToOpen: number;
-  payToClick: number;
-  payToOpenSubsidy: number;
-  payToClickSubsidy: number;
 }
 
 export interface SignInDetails extends Signable {
@@ -1322,6 +1312,7 @@ export interface GetAvailableAdSlotsDetails extends Signable {
 
 export interface GetAvailableAdSlotsResponse extends RestResponse {
   pastWeek: number;
+  pricing: PromotionPricingInfo;
 }
 
 export interface GetUserCardAnalyticsDetails extends Signable {
