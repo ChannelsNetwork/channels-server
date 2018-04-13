@@ -3754,6 +3754,7 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
+<<<<<<< HEAD
 db.userCardActions.aggregate([
   {$match: {
     action: "pay",
@@ -3875,12 +3876,49 @@ db.userRegistrations.aggregate([
     count: {$sum: 1}
   }},
   {$lookup: {
+=======
+
+
+db.authorUsers.aggregate([
+      { $match: { isCurrent: true, "stats.referredPurchases": { $gt: 0 } } },
+      {
+        $group: {
+          _id: "$userId",
+          authorIds: { $addToSet: "$authorId" },
+          referredCards: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "$authorId"] },
+                then: 0,
+                else: "$stats.referredCards"
+              }
+            }
+          },
+          referredPurchases: {
+            $sum: {
+              $cond: {
+                if: { $eq: ["$userId", "$authorId"] },
+                then: 0,
+                else: "$stats.referredPurchases"
+              }
+            }
+          },
+        }
+      },
+            {
+        $match: {
+          referredPurchases: { $gt: 0 }
+        }
+      },
+          {$lookup: {
+>>>>>>> e9af7d7e3d34be57ad2bcd9c9238d8fab7766793
     from: "users",
     localField: "_id",
     foreignField: "id",
     as: "user"
   }},
   {$unwind: "$user"},
+<<<<<<< HEAD
   {$project: {
     count: 1,
     handle: "$user.identity.handle",
@@ -3912,3 +3950,16 @@ db.userRegistrations.aggregate([
   }},
   {$sort: {"_id.count": -1}}
 ]).pretty()
+=======
+      {
+        $project: {
+          userId: "$_id",
+          authorIds: 1,
+          referredCards: 1,
+          referredPurchases: 1,
+          handle: "$user.identity.handle"
+        }
+      },
+      { $sort: { referredPurchases: -1 } }
+    ]).pretty()
+>>>>>>> e9af7d7e3d34be57ad2bcd9c9238d8fab7766793
