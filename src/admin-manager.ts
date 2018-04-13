@@ -406,7 +406,7 @@ export class AdminManager implements RestServer {
           firstTimePurchases: 0,
           normalPurchases: 0,
           fanPurchases: 0,
-          otherPurchases: 0
+          otherPurchases: 0,
         };
         const channels = await db.findChannelsByOwnerId(publisherUser.id);
         const channelIds: string[] = [];

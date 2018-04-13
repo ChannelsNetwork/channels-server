@@ -688,6 +688,7 @@ export interface AdminUserInfo {
   cardsBought: number;
   cardsSold: number;
   cardsDeleted: number;
+  stats: UserStats;
 }
 
 export interface AdminGetGoalsDetails extends Signable { }
@@ -1016,7 +1017,7 @@ export interface UserDescriptor {
   image: FileInfo;
   location: string;
   memberSince: number;
-  blocked?: boolean;
+  curation?: UserCurationType;
 }
 
 export interface FileInfo {

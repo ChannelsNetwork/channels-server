@@ -1,0 +1,103 @@
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../../bower_components/soso-radio-group/soso-radio-group.html">
+<link rel="import" href="../../bower_components/soso-radio-button/soso-radio-button.html">
+
+<dom-module id="admin-user-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      soso-text-input {
+        margin: 18px 0;
+      }
+
+      #blocked {
+        margin-top: 25px;
+        color: #555;
+      }
+
+      h3 {
+        margin-bottom: 30px;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>User Administration</h3>
+      <div>id:
+        <span>[[user.id]]</span>
+      </div>
+      <div>handle:
+        <span>[[user.identity.handle]]</span>
+      </div>
+      <soso-radio-group id="curation">
+        <soso-radio-button name="whitelisted" label="whitelisted"></soso-radio-button>
+        <soso-radio-button name="blacklisted" label="blacklisted"></soso-radio-button>
+        <soso-radio-button name="discounted" label="discounted"></soso-radio-button>
+        <soso-radio-button name="blocked" label="blocked"></soso-radio-button>
+        <soso-radio-button name="null" label="not set"></soso-radio-button>
+      </soso-radio-group>
+    </dialog-view>
+  </template>
+  <script>
+    class AdminUserDialog extends Polymer.Element {
+      static get is() { return 'admin-user-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array,
+          user: Object
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      show(user) {
+        this.set('user', user);
+        this._refreshCuration();
+        this._buttons = [
+          { id: 'ok', label: "Okay" },
+          { id: 'cancel', label: "Cancel" }
+        ];
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+      }
+
+      _refreshCuration() {
+        this.$.curation.selected = this.user.curation ? this.user.curation : "null";
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "ok":
+            this._doSave();
+            break;
+          case "deny":
+            this._doDeny();
+            break;
+          default:
+            this.hide();
+            this._resolve(false);
+            break;
+        }
+      }
+
+      _doSave() {
+        const curation = (this.$.curation.selected && this.$.curation.selected !== "null") ? this.$.curation.selected : null;
+        $core.admin_setUserCuration(this.user.id, curation).then(() => {
+          this.hide();
+          this._resolve(true);
+        });
+      }
+    }
+    window.customElements.define(AdminUserDialog.is, AdminUserDialog);
+  </script>
+</dom-module>

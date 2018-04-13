@@ -5,7 +5,7 @@ import * as net from 'net';
 import { configuration } from "./configuration";
 import { RestServer } from './interfaces/rest-server';
 import { db } from "./db";
-import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin, NetworkCardStatsHistoryRecord, NetworkCardStats, AdSlotRecord, AdSlotType, ChannelRecord, ChannelCardRecord, CardCampaignRecord, GeoLocation, CardCampaignType } from "./interfaces/db-records";
+import { UserRecord, CardRecord, BankTransactionReason, BankCouponDetails, CardStatistic, UserIdentity, UserCardInfoRecord, CardPromotionBin, NetworkCardStatsHistoryRecord, NetworkCardStats, AdSlotRecord, AdSlotType, ChannelRecord, ChannelCardRecord, CardCampaignRecord, GeoLocation, CardCampaignType, UserStats } from "./interfaces/db-records";
 import { UrlManager } from "./url-manager";
 import { RestHelper } from "./rest-helper";
 import { RestRequest, PostCardDetails, PostCardResponse, GetFeedsDetails, GetFeedsResponse, CardDescriptor, CardFeedSet, RequestedFeedDescriptor, BankTransactionDetails, SearchTopicDetails, SearchTopicResponse, ListTopicsDetails, ListTopicsResponse, AdminGetCardsDetails, AdminCardInfo, AdminGetCardsResponse, SearchCardResults, GetHomePageDetails, GetHomePageResponse, ChannelDescriptor, ChannelInfoWithCards, ChannelCardPinInfo } from "./interfaces/rest-services";
@@ -276,6 +276,10 @@ export class FeedManager implements Initializable, RestServer {
     if (user.balance >= TARGET_BALANCE) {
       return;
     }
+    const userStats = await db.findCurrentUserStats(user.id);
+    if (userStats && userStats.stats.adRevenue >= userStats.stats.adTargetRevenue) {
+      return;
+    }
     const cardIds: string[] = [];
     const cards: CardDescriptor[] = [];
     for (const card of reply.subscribedContent) {
@@ -291,7 +295,7 @@ export class FeedManager implements Initializable, RestServer {
     if (cardIds.length === 0) {
       return;
     }
-    const adSlotInfo = this.positionAdSlots(user, cardIds.length, false);
+    const adSlotInfo = this.positionAdSlots(user, cardIds.length, false, userStats ? userStats.stats : null);
     if (adSlotInfo.slotCount === 0) {
       return;
     }
@@ -580,14 +584,19 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
-  private positionAdSlots(user: UserRecord, cardCount: number, more: boolean): AdSlotInfo {
+  private positionAdSlots(user: UserRecord, cardCount: number, more: boolean, userStats: UserStats): AdSlotInfo {
     let result: AdSlotInfo = {
       slotCount: 0, slotSeparation: 0, firstSlotIndex: 0
     };
     if (user.balance >= TARGET_BALANCE || cardCount <= 1) {
-      console.log("Feed.positionAdSlots", result, user.balance, cardCount);
+      console.log("Feed.positionAdSlots: over target balance", result, user.balance, cardCount);
       return result;
     }
+    if (userStats && userStats.adRevenue >= userStats.adTargetRevenue) {
+      console.log("Feed.positionAdSlots: over target ad revenue", result, user.balance, cardCount, userStats.adRevenue, userStats.adTargetRevenue);
+      return result;
+    }
+
     // Based on the user balance, we choose the appropriate ratio between ads and
     // content
     const adRatio = Utils.interpolateRanges(adToContentRatioByBalance, user.balance);
@@ -612,7 +621,8 @@ export class FeedManager implements Initializable, RestServer {
     const amalgamated: CardDescriptor[] = [];
     // We have to inject ad slots if necessary, and populate those ad slots with cards that offer
     // the user some revenue-generating potential
-    const adSlots = this.positionAdSlots(user, cards.length, more);
+    const userStats = await db.findCurrentUserStats(user.id);
+    const adSlots = this.positionAdSlots(user, cards.length, more, userStats ? userStats.stats : null);
     const adIds: string[] = [];
     if (adSlots.slotCount > 0) {
       let cardIndex = 0;
@@ -1388,6 +1398,9 @@ export class FeedManager implements Initializable, RestServer {
     const networkStats = await db.getNetworkCardStatsAt(card.postedAt);
     const author = await userManager.getUser(card.createdById, false);
     if (!author) {
+      return 0;
+    }
+    if (author.curation && ["blocked", "discounted"].indexOf(author.curation) >= 0) {
       return 0;
     }
     return this.getTotalCardScore(card, currentStats, networkStats.stats, author);

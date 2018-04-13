@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../controls/moment.html">
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="admin-user-dialog.html">
 
 <dom-module id="admin-users-view">
   <template>
@@ -126,8 +127,8 @@
           <div class="headerCell center">Mailing List</div>
           <div class="headerCell">Original Referrer</div>
           <div class="headerCell">Original Landing</div>
+          <div class="headerCell right" on-click="_onNetAdRevClick">Net Ad Rev.</div>
           <div class="headerCell center">Curation</div>
-          <div class="headerCell center"></div>
           <div class="headerCell center"></div>
         </div>
         <template is="dom-repeat" items="[[users]]">
@@ -158,9 +159,9 @@
             <div class="cell center toggle" on-click="_onMailingListToggle">[[item.mailingList]]</div>
             <div class="widecell">[[item.referer]]</div>
             <div class="widecell">[[item.landingPage]]</div>
+            <div class="cell right">[[item.netAdRev]]</div>
             <div class="cell">[[item.curation]]</div>
-            <div class="cell center toggle" on-click="_onDiscountActionClick">[[item.discountAction]]</div>
-            <div class="cell center toggle" on-click="_onBlockActionClick">[[item.blockAction]]</div>
+            <div class="cell center toggle" on-click="_onEdit">edit</div>
           </div>
         </template>
       </div>
@@ -198,6 +199,7 @@
           </div>
         </template>
       </div>
+      <admin-user-dialog id="editDialog"></admin-user-dialog>
     </div>
   </template>
   <script>
@@ -264,6 +266,8 @@
               cardsDeleted: userInfo.cardsDeleted,
               referer: user.originalReferrer,
               landingPage: user.originalLandingPage,
+              netAdRevValue: userInfo.stats.adTargetRevenue - userInfo.stats.adRevenue,
+              netAdRev: (userInfo.stats.adTargetRevenue - userInfo.stats.adRevenue).toFixed(2),
               curation: user.curation ? user.curation : "",
               discountAction: user.curation ? "" : "discount",
               blockAction: user.curation === "blocked" ? "" : "block"
@@ -283,6 +287,14 @@
           nextWeek: 'dddd',
           lastWeek: '[Last] dddd',
           sameElse: 'M/D/YYYY'
+        });
+      }
+
+      _onEdit(event) {
+        this.$.editDialog.show(event.model.item.user).then((result) => {
+          if (result) {
+            this._refresh();
+          }
         });
       }
 
@@ -345,6 +357,15 @@
         this.set('users', []);
         newItems.sort((a, b) => {
           return b.user.lastPosted - a.user.lastPosted;
+        });
+        this.set('users', newItems);
+      }
+
+      _onNetAdRevClick() {
+        const newItems = this.users;
+        this.set('users', []);
+        newItems.sort((a, b) => {
+          return b.netAdRevValue - a.netAdRevValue;
         });
         this.set('users', newItems);
       }

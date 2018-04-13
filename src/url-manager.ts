@@ -13,7 +13,7 @@ import { db } from "./db";
 
 const LETTERS = 'abcdefghjklmnpqrstuvwxyz';
 const DIGITS = '0123456789';
-const URL_SYMBOLS = '-._~';
+const URL_SYMBOLS = '-._';
 const CODE_SYMBOLS = LETTERS + LETTERS.toUpperCase() + DIGITS + URL_SYMBOLS;
 
 export class UrlManager implements RestServer {

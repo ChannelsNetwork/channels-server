@@ -61,6 +61,7 @@ const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
 const FIRST_CARD_PURCHASE_AMOUNT = 0.01;
 const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
 const MAX_CARD_CAMPAIGN_SNAPSHOT_INTERVAL = 1000 * 60 * 15;
+const AD_REVENUE_TARGET_MULTIPLIER = 1.3;
 
 const MAX_SEARCH_STRING_LENGTH = 2000000;
 const INITIAL_BASE_CARD_PRICE = 0.05;
@@ -558,8 +559,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       // }
       let promotedCards: CardDescriptor[] = [];
       if (requestBody.detailsObject.includePromotedCards && !cardState.promoted && cardState.pricing.openFeeUnits > 0 && user.balance < USER_BALANCE_PAY_BUMP_THRESHOLD) {
-        const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
-        promotedCards = await feedManager.selectPromotedCards(request, requestBody.sessionId, user, geoLocation, 3, 1, 0, null, [card.id]);
+        const userStats = await db.findCurrentUserStats(user.id);
+        if (!userStats || userStats.stats.adRevenue < userStats.stats.adTargetRevenue) {
+          const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+          promotedCards = await feedManager.selectPromotedCards(request, requestBody.sessionId, user, geoLocation, 3, 1, 0, null, [card.id]);
+        }
       }
       if (requestBody.detailsObject.maxComments > 0) {
         await db.updateUserCardLastCommentFetch(user.id, card.id, Date.now());
@@ -813,6 +817,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await userManager.updateUserBalance(request, author, requestBody.sessionId);
         transactionResult = await bank.performRedemption(requestBody.sessionId, author, user, requestBody.detailsObject.transaction, "Card impression: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
         campaignExpense = transactionResult.record.details.amount;
+        await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, 0, 0, 0, campaignExpense, 0);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -1008,6 +1013,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await userManager.updateUserBalance(request, author, requestBody.sessionId);
         transactionResult = await bank.performRedemption(requestBody.sessionId, author, user, requestBody.detailsObject.transaction, "Card clicked: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
         campaignExpense = transactionResult.record.details.amount;
+        await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, 0, 0, 0, campaignExpense, 0);
         await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
         // const budgetAvailable = author.admin || card.budget.amount + (card.stats.revenue.value * card.budget.plusPercent / 100) > card.budget.spent + transactionResult.record.details.amount;
@@ -1208,7 +1214,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const publisherSubsidy = skipMoneyTransfer ? 0 : await this.payPublisherSubsidy(user, author, card, amount, now, request);
       await db.incrementNetworkTotals(transactionResult.amountByRecipientReason["content-purchase"] + publisherSubsidy, transactionResult.amountByRecipientReason["card-developer-royalty"], 0, 0, publisherSubsidy);
       const authorUserStats = await db.incrementAuthorUserStats(request, author.id, user.id, 0, 0, 1, 0, 0);
-      await db.incrementUserStats(request, user.id, 0, 0, 1, authorUserStats.stats.purchases === 1 ? 1 : 0, 0, 0, 0, 0);
+      await db.incrementUserStats(request, user.id, 0, 0, 1, authorUserStats.stats.purchases === 1 ? 1 : 0, 0, 0, 0, 0, 0, author.curation && author.curation === "whitelisted" ? amount * AD_REVENUE_TARGET_MULTIPLIER : 0);
       if (referringUserId) {
         const userCardInfo = await db.ensureUserCardInfo(referringUserId, card.id);
         let referredCards = 0;
@@ -1217,7 +1223,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         }
         await db.incrementUserCardReferredPurchases(userCardInfo, 1);
         const authorReferredStats = await db.incrementAuthorUserStats(request, author.id, referringUserId, 0, 0, 0, referredCards, 1);
-        await db.incrementUserStats(request, referringUserId, 0, 0, 0, 0, userCardInfo.referredPurchases === 1 ? 1 : 0, authorReferredStats.stats.referredPurchases === 1 ? 1 : 0, 1, 0);
+        await db.incrementUserStats(request, referringUserId, 0, 0, 0, 0, userCardInfo.referredPurchases === 1 ? 1 : 0, authorReferredStats.stats.referredPurchases === 1 ? 1 : 0, 1, 0, 0, 0);
       }
       const userStatus = await userManager.getUserStatus(request, user, requestBody.sessionId, false);
       await feedManager.rescoreCard(card, false);
@@ -1416,6 +1422,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       await userManager.updateUserBalance(request, author, requestBody.sessionId);
       const transactionResult = await bank.performRedemption(requestBody.sessionId, author, user, requestBody.detailsObject.transaction, "Card open payment: " + card.id, userManager.getIpAddressFromRequest(request), requestBody.detailsObject.fingerprint);
       campaignExpense = transactionResult.record.details.amount;
+      await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, 0, 0, 0, campaignExpense, 0);
       await db.updateUserCardIncrementEarnedFromAuthor(user.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       await db.updateUserCardIncrementPaidToReader(author.id, card.id, transactionResult.record.details.amount, transactionResult.record.id);
       const now = Date.now();
@@ -1567,7 +1574,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
             await db.incrementAuthorUserStats(request, card.createdById, user.id, deltaLikes > 0 ? 1 : 0, deltaDislikes > 0 ? 1 : 0, 0, 0, 0);
           }
           if (deltaLikes !== 0) {
-            await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, 0, 0, deltaLikes);
+            await db.incrementUserStats(request, user.id, 0, 0, 0, 0, 0, 0, 0, deltaLikes, 0, 0);
           }
           await feedManager.rescoreCard(card, false);
         }

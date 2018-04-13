@@ -44,6 +44,7 @@ const BALANCE_DORMANT_ACCOUNT_INTERVAL = 1000 * 60 * 60 * 24 * 45;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
 const INITIAL_BALANCE = 1;
+const INITIAL_FRAUD_BALANCE = 0.01;
 const REGISTRATION_BONUS = 1.5;
 const STALE_USER_INTERVAL = 1000 * 60 * 60 * 24 * 30;
 const MAX_STALE_USERS_PER_CYCLE = 100;
@@ -659,10 +660,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     // On mobile, we will deny if a user already exists with the same fingerprint and IP address
     if (isMobile && ipAddress) {
       const exists = await db.existsFingerprintAndIpAddress(fingerprint, ipAddress);
-      return exists ? 0 : INITIAL_BALANCE;
+      return exists ? INITIAL_FRAUD_BALANCE : INITIAL_BALANCE;
     } else {
       const exists = await db.existsFingerprint(fingerprint);
-      return exists ? 0 : INITIAL_BALANCE;
+      return exists ? INITIAL_FRAUD_BALANCE : INITIAL_BALANCE;
     }
   }
 
@@ -1228,7 +1229,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         continue;
       }
       const referrer = await userManager.getUserDescriptor(item.userId, false);
-      if (!referrer.handle || referrer.blocked) {
+      if (!referrer.handle || referrer.curation === "blocked") {
         continue;
       }
       const resultItem: CommunityMemberInfo = {
@@ -1262,7 +1263,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         break;
       }
       const referrer = await userManager.getUserDescriptor(authorUser.userId, false);
-      if (!referrer.handle || referrer.blocked) {
+      if (!referrer.handle || referrer.curation === "blocked") {
         continue;
       }
       const resultItem: CommunityMemberInfo = {
@@ -1296,7 +1297,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         break;
       }
       const referrer = await userManager.getUserDescriptor(authorUser.authorId, false);
-      if (!referrer.handle || referrer.blocked) {
+      if (!referrer.handle || referrer.curation === "blocked") {
         continue;
       }
       const resultItem: CommunityMemberInfo = {
@@ -1411,29 +1412,29 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
   }
 
   private async payRegistrationBonus(request: Request, user: UserRecord, fingerprint: string): Promise<void> {
-    if (user.balance > 2.51) {
-      return;
-    }
-    const grantRecipient: BankTransactionRecipientDirective = {
-      address: user.address,
-      portion: "remainder",
-      reason: "registration-bonus"
-    };
-    const grant: BankTransactionDetails = {
-      timestamp: null,
-      address: null,
-      fingerprint: null,
-      type: "transfer",
-      reason: "registration-bonus",
-      amount: REGISTRATION_BONUS,
-      relatedCardId: null,
-      relatedCouponId: null,
-      relatedCardCampaignId: null,
-      toRecipients: [grantRecipient]
-    };
-    await networkEntity.performBankTransaction(request, null, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
-    user.balance += REGISTRATION_BONUS;
-    console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
+    // if (user.balance > 2.51) {
+    //   return;
+    // }
+    // const grantRecipient: BankTransactionRecipientDirective = {
+    //   address: user.address,
+    //   portion: "remainder",
+    //   reason: "registration-bonus"
+    // };
+    // const grant: BankTransactionDetails = {
+    //   timestamp: null,
+    //   address: null,
+    //   fingerprint: null,
+    //   type: "transfer",
+    //   reason: "registration-bonus",
+    //   amount: REGISTRATION_BONUS,
+    //   relatedCardId: null,
+    //   relatedCouponId: null,
+    //   relatedCardCampaignId: null,
+    //   toRecipients: [grantRecipient]
+    // };
+    // await networkEntity.performBankTransaction(request, null, grant, null, "Registration bonus", userManager.getIpAddressFromRequest(request), fingerprint, Date.now());
+    // user.balance += REGISTRATION_BONUS;
+    // console.log("User.payRegistrationBonus: granting user bonus for confirming email", user.identity.handle);
   }
 
   private async handleAdminGetUsers(request: Request, response: Response): Promise<void> {
@@ -1480,6 +1481,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           }
         }
         const cardsSold = await this.countUserPaidOpens(userInfo, 0, Date.now());
+        const userStats = await db.findCurrentUserStats(userInfo.id);
         const item: AdminUserInfo = {
           user: userInfo,
           cardsPosted: totalPosts,
@@ -1488,7 +1490,8 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
           cardsBought: cardsBought,
           cardsOpened: cardsOpened,
           cardsSold: cardsSold,
-          cardsDeleted: cardsDeleted
+          cardsDeleted: cardsDeleted,
+          stats: userStats ? userStats.stats : null
         };
         usersWithData.push(item);
       }
@@ -1866,7 +1869,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       image: user.identity && user.identity.imageId ? await fileManager.getFileInfo(user.identity.imageId) : (user.identity ? { id: null, imageInfo: null, url: user.identity.imageUrl } : null),
       location: user.identity ? user.identity.location : null,
       memberSince: user.added,
-      blocked: user.curation === "blocked"
+      curation: user.curation
     };
     return result;
   }

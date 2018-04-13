@@ -2,6 +2,7 @@
 <link rel="import" href="../../bower_components/soso-tooltip/soso-tooltip.html">
 <link rel="import" href="../controls/user-image.html">
 <link rel="import" href="../controls/moment.html">
+<link rel="import" href="../admin/admin-user-dialog.html">
 
 <dom-module id="card-header">
   <template>
@@ -95,6 +96,7 @@
         <li id="curateGoodQualityAction" on-click="_curateGoodQuality" class="hidden">Good</li>
         <li id="curateExcellentQualityAction" on-click="_curateExcellentQuality" class="hidden">Excellent</li>
         <li id="curateMarket" on-click="_curateToggleMarket" class="upperMenuDivider hidden">Market</li>
+        <li id="curateUser" on-click="_curateUser" class="upperMenuDivider hidden">[[userCuration]]</li>
       </soso-dropdown>
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
@@ -113,6 +115,7 @@
 
     <!-- Dialogs -->
     <share-link-dialog id="shareDialog"></share-link-dialog>
+    <admin-user-dialog id="editUserDialog"></admin-user-dialog>
   </template>
   <script>
     class CardHeader extends Polymer.Element {
@@ -129,7 +132,8 @@
           showPinAction: {
             type: Boolean,
             observer: '_refreshMore'
-          }
+          },
+          userCuration: String
         };
       }
 
@@ -176,6 +180,7 @@
           this.$.curateGoodQualityAction.classList.remove('hidden');
           this.$.curateExcellentQualityAction.classList.remove('hidden');
           this.$.curateMarket.classList.remove('hidden');
+          this.$.curateUser.classList.remove('hidden');
           this.$.curateLowQualityAction.classList.remove('selectedQuality')
           this.$.curateGoodQualityAction.classList.remove('selectedQuality')
           this.$.curateExcellentQualityAction.classList.remove('selectedQuality')
@@ -197,11 +202,17 @@
           } else {
             this.$.curateMarket.classList.remove('selectedQuality');
           }
+          if (this.data.curation) {
+            this.set('userCuration', "user: " + this.data.curation + "...");
+          } else {
+            this.set('userCuration', "user: not curated...");
+          }
         } else {
           this.$.curateLowQualityAction.classList.add('hidden');
           this.$.curateGoodQualityAction.classList.add('hidden');
           this.$.curateExcellentQualityAction.classList.add('hidden');
           this.$.curateMarket.classList.add('hidden');
+          this.$.curateUser.classList.add('hidden');
         }
       }
 
@@ -329,6 +340,19 @@
         $core.admin_curateCardQuality(this.data.id, null, this.data.market ? false : true);
         this.data.market = !this.data.market;
         this._refreshCuration();
+      }
+
+      _curateUser() {
+        const user = {
+          id: this.data.by.id,
+          handle: this.data.by.handle,
+          curation: this.data.by.curation
+        };
+        this.$.editUserDialog.show(user).then((result) => {
+          if (typeof result === "string") {
+            this.data.by.curation = result;
+          }
+        });
       }
 
       _openUserChannel() {

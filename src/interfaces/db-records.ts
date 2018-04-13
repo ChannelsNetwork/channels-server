@@ -28,7 +28,7 @@ export interface UserRecord {
   region?: string;
   city?: string;
   zip?: string;
-  curation?: UserCurationType;
+  curation: UserCurationType;
   originalReferrer: string;
   originalLandingPage: string;
   notifications?: {
@@ -49,7 +49,7 @@ export interface UserRecord {
   initialBalance: number;
 }
 
-export type UserCurationType = "blocked" | "discounted";
+export type UserCurationType = "whitelisted" | "blacklisted" | "blocked" | "discounted";
 
 export type CommentCurationType = "blocked";
 
@@ -880,6 +880,8 @@ export interface UserStats {
   vendorsReferred: number;
   purchasesReferred: number;
   cardsLiked: number;
+  adRevenue: number;
+  adTargetRevenue: number;
 }
 
 export interface PromotionGeoPricingRecord {

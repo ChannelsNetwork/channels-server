@@ -486,6 +486,9 @@ export class Database {
     this.userStats = this.db.collection('userStats');
     await this.userStats.createIndex({ userId: 1, periodStarting: -1 }, { unique: true });
     await this.userStats.createIndex({ userId: 1, isCurrent: 1 });
+    await this.userStats.createIndex({ isCurrent: 1 });
+
+    await this.userStats.updateMany({ isCurrent: true, "stats.adRevenue": { $exists: false } }, { $set: { "stats.adRevenue": 0, "stats.adTargetRevenue": 0 } });
   }
 
   private async initializePromotionGeoPricing(): Promise<void> {
@@ -567,7 +570,8 @@ export class Database {
       lastLanguagePublished: null,
       preferredLangCodes: preferredLangCodes,
       commentsLastReviewed: 0,
-      initialBalance: initialBalance
+      initialBalance: initialBalance,
+      curation: null
     };
     if (identity) {
       if (!identity.emailAddress) {
@@ -4721,6 +4725,8 @@ export class Database {
           vendorsReferred: 0,
           purchasesReferred: 0,
           cardsLiked: 0,
+          adRevenue: 0,
+          adTargetRevenue: 0
         },
         isCurrent: true,
         periodStarting: Date.now()
@@ -4732,7 +4738,7 @@ export class Database {
     }
   }
 
-  async incrementUserStats(request: Request, userId: string, cardsSold: number, distinctPurchasers: number, cardsPurchased: number, distinctVendors: number, cardsReferred: number, vendorsReferred: number, purchasesReferred: number, cardsLiked: number): Promise<void> {
+  async incrementUserStats(request: Request, userId: string, cardsSold: number, distinctPurchasers: number, cardsPurchased: number, distinctVendors: number, cardsReferred: number, vendorsReferred: number, purchasesReferred: number, cardsLiked: number, adRevenue: number, adTargetRevenue: number): Promise<void> {
     const now = Date.now();
     const existing = await this.ensureUserStats(userId);
     let updatePeriod = false;
@@ -4759,6 +4765,8 @@ export class Database {
       "stats.vendorsReferred": vendorsReferred,
       "stats.purchasesReferred": purchasesReferred,
       "stats.cardsLiked": cardsLiked,
+      "stats.adRevenue": adRevenue,
+      "stats.adTargetRevenue": adTargetRevenue
     };
     const update: any = { $inc: increments };
     if (updatePeriod) {

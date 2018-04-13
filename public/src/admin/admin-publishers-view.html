@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/polymer/lib/elements/dom-repeat.html">
 <link rel="import" href="../controls/moment.html">
 <link rel="import" href="../../bower_components/soso-checkbox/soso-checkbox.html">
+<link rel="import" href="admin-user-dialog.html">
 
 <dom-module id="admin-publishers-view">
   <template>
@@ -119,7 +120,6 @@
           <div class="headerCell">Original Landing</div>
           <div class="headerCell center">Curation</div>
           <div class="headerCell center"></div>
-          <div class="headerCell center"></div>
         </div>
         <template is="dom-repeat" items="[[publishers]]">
           <div class="row">
@@ -154,8 +154,7 @@
             <div class="cell">[[item.referer]]</div>
             <div class="cell">[[item.landingPage]]</div>
             <div class="cell">[[item.curation]]</div>
-            <div class="cell center toggle" on-click="_onDiscountActionClick">[[item.discountAction]]</div>
-            <div class="cell center toggle" on-click="_onBlockActionClick">[[item.blockAction]]</div>
+            <div class="cell center toggle" on-click="_onEdit">edit</div>
           </div>
         </template>
       </div>
@@ -199,6 +198,7 @@
           </div>
         </template>
       </div>
+      <admin-user-dialog id="editDialog"></admin-user-dialog>
     </div>
   </template>
   <script>
@@ -269,7 +269,7 @@
               landingPage: user.originalLandingPage,
               curation: user.curation ? user.curation : "",
               discountAction: user.curation ? "" : "discount",
-              blockAction: user.curation === "blocked" ? "" : "block"
+              blockAction: user.curation === "blocked" ? "" : "block",
             });
           }
           this.set('publishers', publishers);
@@ -289,15 +289,11 @@
         });
       }
 
-      _onDiscountActionClick(event) {
-        $core.admin_setUserCuration(event.model.item.id, "discounted").then(() => {
-          this._refresh();
-        });
-      }
-
-      _onBlockActionClick(event) {
-        $core.admin_setUserCuration(event.model.item.id, "blocked").then(() => {
-          this._refresh();
+      _onEdit(event) {
+        this.$.editDialog.show(event.model.item.user).then((result) => {
+          if (result) {
+            this._refresh();
+          }
         });
       }
 
@@ -381,6 +377,7 @@
         });
         this.set('publishers', newItems);
       }
+
     }
     window.customElements.define(AdminPublishersView.is, AdminPublishersView);
   </script>
