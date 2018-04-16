@@ -1,4 +1,88 @@
 {
+  "entrypoint": "index.html",
+  "shell": "src/app/channels-app.html",
+  "fragments": [
+    "src/account/sign-in-view.html",
+    "src/account/register-view.html",
+    "src/account/register-image-view.html",
+    "src/account/request-recovery-view.html",
+    "src/account/recover-account-view.html",
+    "src/account/account-view.html",
+    "src/account/edit-profile-view.html",
+    "src/account/email-confirm-page.html",
+    "src/about/about-view.html",
+    "src/about/learn-card-development-view.html",
+    "src/home/advertising-page.html",
+    "src//balance/balance-view.html",
+    "src/balance/withdraw-dialog.html",
+    "src/channel/channel-page.html",
+    "src/channel/channel-edit-page.html",
+    "src/feed/subscriptions-page.html",
+    "src/feed/feed-page.html",
+    "src/feed/top-page.html",
+    "src/feed/search-view.html",
+    "src/compose/compose-view.html",
+    "src/card/card-page.html",
+    "src/card/edit/card-budget-page.html",
+    "src/community/community-page.html",
+    "src/home/home-page.html",
+    "src/dialogs/confirm-dialog.html",
+    "src/dialogs/error-dialog.html",
+    "src/dialogs/share-link-dialog.html",
+    "src/dialogs/refund-dialog.html",
+    "src/card/card-analytics-dialog.html",
+    "src/card/edit/edit-card-dialog.html",
+    "src/card/edit/edit-card-content-dialog.html",
+    "src/comments/card-comments.html",
+    "src/channel/channel-card.html",
+    "src/card/card-list.html",
+    "src/comments/register-to-comment-dlg",
+    "src/card/card-view.html",
+    "src/compose/edit-card-summary-dialog.html",
+    "src/compose/compose-card-preview.html",
+    "src/core/utils/load-image.html",
+    "bower_components/channels-web-utils/channels-key-utils.html"
+  ],
+  "sources": [
+    "src/**/*",
+    "scripts/**/*",
+    "bower.json",
+    "deposit-page.html",
+    "index.html",
+    "terms.html",
+    "whitepaper.pdf"
+  ],
+  "builds": [
+    {
+      "name": "es6",
+      "bundle": true,
+      "sourcemaps": "true",
+      "js": {
+        "minify": false
+      },
+      "css": {
+        "minify": true
+      },
+      "html": {
+        "minify": true
+      }
+    },
+    {
+      "name": "es5",
+      "bundle": true,
+      "sourcemaps": "true",
+      "js": {
+        "minify": true,
+        "compile": true
+      },
+      "css": {
+        "minify": true
+      },
+      "html": {
+        "minify": true
+      }
+    }
+  ],
   "lint": {
     "rules": [
       "polymer-2"
