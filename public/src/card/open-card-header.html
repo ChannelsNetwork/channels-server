@@ -262,6 +262,7 @@
         if (!this.data) {
           return;
         }
+        this._shareUrl = null;
         this._cardPaymentMade = false;
         this.$.authorImage.image = this.data.by.image && this.data.by.image.url ? this.data.by.image.url : $core.userManager.getFallbackUserImage(this.data.by.handle);
         if (!this.data.postedAtDisplay) {
