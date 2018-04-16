@@ -146,6 +146,7 @@
       }
 
       _refresh() {
+        this._shareUrl = null;
         if (this._attached && this.data) {
           if (!this.data.postedAtDisplay) {
             this.set("data.postedAtDisplay", displayFriendlyTime(this.data.postedAt));
