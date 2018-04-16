@@ -163,7 +163,7 @@ class ChannelsNetworkWebClient {
 
     await this.setupServerPing();
 
-    const publicFolder = 'public/build/es6';
+    const publicFolder = 'public/build/es5';
 
     this.app.use('/d/terms.html', express.static(path.join(__dirname, `../${publicFolder}/terms.html`), { maxAge: 1000 * 60 }));
     this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, `../${publicFolder}/whitepaper.pdf`), { maxAge: 1000 * 60 * 15 }));
