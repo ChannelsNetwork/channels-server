@@ -3485,9 +3485,9 @@ db.cardCampaigns.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId:  "93a5b4ba-3116-4300-b61a-3116abe74d8f", 
+    authorId:  "03036793-3a99-4ed9-947b-b6d3151056f9", 
     action: "pay",
-    at: {$gt: 1520582400000}
+    at: {$gt: 0}
   }},
   {$group: {
     _id: "$userId",
@@ -3505,7 +3505,7 @@ db.userCardActions.aggregate([
   {$lookup: {from: "userRegistrations", localField: "_id", foreignField: "userId", as: "registration"}},
   {$unwind: "$registration"},
   {$match: {
-    "registration.at": {$gt: 1522047600000}
+    "registration.at": {$gt: 0}
   }},
   {$group: {
     _id: {userId: "$buyer.id", handle: "$buyer.identity.handle", city: "$buyer.city", country: "$buyer.country", referrer: "$buyer.originalReferrer", landingPage: "$buyer.originalLandingPage", balance: "$buyer.balance", purchases: "$count", revenue: "$revenue", email: "$buyer.identity.emailAddress", confirmed: "$buyer.identity.emailConfirmed"},
@@ -3514,6 +3514,17 @@ db.userCardActions.aggregate([
     ipAddresses: {$addToSet: "$registration.ipAddress"},
     userAgents: {$addToSet: "$registration.userAgent"},
   }},
+  {$project: {
+    _id: 0,
+    id: "$_id",
+    registrations: 1,
+    fingerprints: 1,
+    userAgents: 1,
+    ipAddresses: 1
+  }},
+  {$sort: {"id.revenue": -1}},
+]).pretty()
+
   {$unwind: "$ipAddresses"},
   {$lookup: {
     from: "ipAddresses",
@@ -3521,15 +3532,8 @@ db.userCardActions.aggregate([
     foreignField: "ipAddress",
     as: "ipAddressInfo"
   }},
-  {$project: {
-    _id: 0,
-    id: "$_id",
-    registrations: 1,
-    fingerprints: 1,
-    userAgents: 1,
-    ipAddress: {ipAddress: "$ipAddressInfo.ipAddress", city: "$ipAddressInfo.city", country: "$ipAddressInfo.country"}
-  }},
-  {$sort: {"ipAddress.ipAddress": 1}},
+
+    {$sort: {"ipAddress.ipAddress": 1}},
   {$group: {
     _id: "$id",
     registrations: {$first: "$registrations"},
@@ -3537,8 +3541,8 @@ db.userCardActions.aggregate([
     userAgents: {$first: "$userAgents"},
     ipAddresses: {$addToSet: "$ipAddress"}
   }},
-  {$sort: {"_id.revenue": -1}},
-]).pretty()
+
+
 
 db.authorUsers.aggregate([
   {$match: {
