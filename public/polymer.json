@@ -36,7 +36,7 @@
     "src/comments/card-comments.html",
     "src/channel/channel-card.html",
     "src/card/card-list.html",
-    "src/comments/register-to-comment-dlg",
+    "src/comments/register-to-comment-dlg.html",
     "src/card/card-view.html",
     "src/compose/edit-card-summary-dialog.html",
     "src/compose/compose-card-preview.html",

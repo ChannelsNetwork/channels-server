@@ -163,13 +163,13 @@ class ChannelsNetworkWebClient {
 
     await this.setupServerPing();
 
-    this.app.use('/d/terms.html', express.static(path.join(__dirname, "../public/terms.html"), { maxAge: 1000 * 60 }));
-    this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, "../public/whitepaper.pdf"), { maxAge: 1000 * 60 * 15 }));
-    this.app.use('/manifest.json', express.static(path.join(__dirname, "../public/manifest.json"), { maxAge: 0 }));
-    // this.app.use('/OneSignalSDKWorker.js', express.static(path.join(__dirname, "../public/OneSignalSDKWorker.js"), { maxAge: 1000 * 60 * 60 * 24 }));
-    // this.app.use('/OneSignalSDKUpdaterWorker.js', express.static(path.join(__dirname, "../public/OneSignalSDKUpdaterWorker.js"), { maxAge: 1000 * 60 * 60 * 24 }));
+    const publicFolder = 'public/build/es6';
 
-    this.app.use('/v' + SERVER_VERSION, express.static(path.join(__dirname, '../public'), { maxAge: 1000 * 60 * 60 * 24 }));
+    this.app.use('/d/terms.html', express.static(path.join(__dirname, `../${publicFolder}/terms.html`), { maxAge: 1000 * 60 }));
+    this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, `../${publicFolder}/whitepaper.pdf`), { maxAge: 1000 * 60 * 15 }));
+    this.app.use('/manifest.json', express.static(path.join(__dirname, `../${publicFolder}/manifest.json`), { maxAge: 0 }));
+
+    this.app.use('/v' + SERVER_VERSION, express.static(path.join(__dirname, `../${publicFolder}`), { maxAge: 1000 * 60 * 60 * 24 }));
 
     for (const restServer of this.restServers) {
       await restServer.initializeRestServices(this.urlManager, this.app);
