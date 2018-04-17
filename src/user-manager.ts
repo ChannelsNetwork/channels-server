@@ -53,7 +53,7 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
-const GRANT_WHITELIST_COUNTRIES: string[] = ["US, CA, UK, AU, NZ"];
+const GRANT_WHITELIST_COUNTRIES: string[] = ["US", "CA", "UK", "AU", "NZ"];
 
 const continentNameByContinentCode: { [continentCode: string]: string } = {
   "AF": "Africa",
