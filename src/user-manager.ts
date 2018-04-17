@@ -663,6 +663,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (!ipAddressInfo || !ipAddressInfo.countryCode || !ipAddressInfo.ipAddress) {
       return 0;
     }
+    if (ipAddressInfo.isp && ipAddressInfo.isp.toLowerCase() === "amazon") {
+      return 0;
+    }
     let grant = INITIAL_BALANCE_BLACKLIST;
     if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) >= 0) {
       grant = INITIAL_BALANCE;
@@ -1429,6 +1432,9 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
     const ipAddressInfo = await this.fetchIpAddressInfo(user.ipAddresses[0], false);
     if (!ipAddressInfo || !ipAddressInfo.countryCode) {
+      return;
+    }
+    if (ipAddressInfo.isp && ipAddressInfo.isp.toLowerCase() === "amazon") {
       return;
     }
     if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) < 0) {
