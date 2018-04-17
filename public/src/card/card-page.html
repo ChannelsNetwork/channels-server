@@ -216,11 +216,8 @@
         </div>
         <div id="unregisteredSection" class="moreSection hidden">
           On
-          <a href="/about">Channels</a>, you pay for content using ChannelCoins.
-          <span id="allotedMessage">
-            <span class="priceLabel">We alloted you ℂ1.00</span> to get started.
-          </span>
-          You can buy ChannelCoins or earn them by viewing promoted content.
+          <a href="/about">Channels</a>, you pay for content using ChannelCoins. You can buy ChannelCoins or earn them by viewing promoted
+          content.
           <a href="/register">Register</a> to create your account.
           <a href="/about">Learn more.</a>
         </div>
@@ -519,11 +516,6 @@
             this.$.unregisteredSection.classList.remove("hidden");
           }
           this.lowBalanceMessage = this._insufficientFunds ? "You do not have enough ChannelCoins to view this card." : "Your balance is low!";
-          if ($core.initialBalance) {
-            this.$.allotedMessage.classList.remove('hidden');
-          } else {
-            this.$.allotedMessage.classList.add('hidden');
-          }
           setTimeout(() => {
             this._refreshPromotedCards();
           }, 1000);
