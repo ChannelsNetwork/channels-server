@@ -535,22 +535,24 @@
       _fetchAllCountries() {
         return $core.getGeoDescriptors().then(result => {
           let countries = [];
+          const sortFunction = (a, b) => {
+            let an = a.name.toLowerCase();
+            let bn = b.name.toLowerCase();
+            if (an < bn) return -1;
+            if (an > bn) return 1;
+            return 0;
+          };
           for (let cont of result.continents) {
             let cByC = result.countriesByContinent[cont.code];
             cByC.forEach((d) => {
               d.continent = cont.code;
             });
             countries = countries.concat(cByC);
+            cByC.sort(sortFunction);
             cont.countries = cByC;
           }
           this.continents = result.continents;
-          countries.sort((a, b) => {
-            let an = a.name.toLowerCase();
-            let bn = b.name.toLowerCase();
-            if (an < bn) return -1;
-            if (an > bn) return 1;
-            return 0;
-          });
+          countries.sort(sortFunction);
           this.countries = countries;
           this._refreshCheckAttempts = 0;
           return this._refreshChecks();
