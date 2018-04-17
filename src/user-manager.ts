@@ -663,7 +663,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (!ipAddressInfo || !ipAddressInfo.countryCode || !ipAddressInfo.ipAddress) {
       return 0;
     }
-    if (ipAddressInfo.isp && ipAddressInfo.isp.toLowerCase() === "amazon") {
+    if (this.isDatacenterIpAddress(ipAddressInfo)) {
       return 0;
     }
     let grant = INITIAL_BALANCE_BLACKLIST;
@@ -1423,6 +1423,15 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private isDatacenterIpAddress(ipAddressInfo: IpAddressRecord): boolean {
+    if (ipAddressInfo && ipAddressInfo.isp) {
+      if (/(amazon)|(rackspace)|(ovh)/i.test(ipAddressInfo.isp)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async payRegistrationBonus(request: Request, user: UserRecord, fingerprint: string): Promise<void> {
     if (user.balance > 2.51) {
       return;
@@ -1434,7 +1443,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     if (!ipAddressInfo || !ipAddressInfo.countryCode) {
       return;
     }
-    if (ipAddressInfo.isp && ipAddressInfo.isp.toLowerCase() === "amazon") {
+    if (this.isDatacenterIpAddress(ipAddressInfo)) {
       return;
     }
     if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) < 0) {
