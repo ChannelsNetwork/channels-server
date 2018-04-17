@@ -72,14 +72,14 @@
       "bundle": true,
       "sourcemaps": "true",
       "js": {
-        "minify": true,
+        "minify": false,
         "compile": true
       },
       "css": {
-        "minify": true
+        "minify": false
       },
       "html": {
-        "minify": true
+        "minify": false
       }
     }
   ],
