@@ -43,6 +43,7 @@ const BALANCE_UPDATE_INTERVAL = 1000 * 60 * 60 * 24;
 const BALANCE_DORMANT_ACCOUNT_INTERVAL = 1000 * 60 * 60 * 24 * 45;
 const RECOVERY_CODE_LIFETIME = 1000 * 60 * 10;
 const MAX_USER_IP_ADDRESSES = 64;
+const INITIAL_BALANCE_BLACKLIST = 0.15;
 const INITIAL_BALANCE = 1;
 const REGISTRATION_BONUS = 1.5;
 const STALE_USER_INTERVAL = 1000 * 60 * 60 * 24 * 30;
@@ -51,6 +52,8 @@ const MAX_STALE_USERS_PER_CYCLE = 100;
 const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
+
+const GRANT_WHITELIST_COUNTRIES: string[] = ["US", "CA", "UK", "AU", "NZ"];
 
 const continentNameByContinentCode: { [continentCode: string]: string } = {
   "AF": "Africa",
@@ -580,7 +583,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         //   inviteeReward = INVITEE_REWARD;
         // }
         // const inviteCode = await this.generateInviteCode();
-        const initialGrant = await this.getInitialBalanceGrantAppropriate(request, ipAddress, requestBody.detailsObject.fingerprint, isMobile);
+        const initialGrant = await this.getInitialBalanceGrantAppropriate(request, ipAddressInfo, requestBody.detailsObject.fingerprint, isMobile);
         const preferredLangCodes: string[] = ipAddressInfo && ipAddressInfo.countryCode === "US" ? ['en'] : null;
         userRecord = await db.insertUser("normal", requestBody.detailsObject.address, requestBody.detailsObject.publicKey, null, ipAddress, ipAddressInfo ? ipAddressInfo.country : null, ipAddressInfo ? ipAddressInfo.region : null, ipAddressInfo ? ipAddressInfo.city : null, ipAddressInfo ? ipAddressInfo.zip : null, requestBody.detailsObject.referrer, requestBody.detailsObject.landingUrl, null, requestBody.detailsObject.landingCardId, initialGrant, preferredLangCodes);
         if (initialGrant > 0) {
@@ -654,15 +657,25 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
-  private async getInitialBalanceGrantAppropriate(request: Request, ipAddress: string, fingerprint: string, isMobile: boolean): Promise<number> {
+  private async getInitialBalanceGrantAppropriate(request: Request, ipAddressInfo: IpAddressRecord, fingerprint: string, isMobile: boolean): Promise<number> {
     // We will deny an initial balance if there is already a user registered who used this fingerprint before.
     // On mobile, we will deny if a user already exists with the same fingerprint and IP address
-    if (isMobile && ipAddress) {
-      const exists = await db.existsFingerprintAndIpAddress(fingerprint, ipAddress);
-      return exists ? 0 : INITIAL_BALANCE;
+    if (!ipAddressInfo || !ipAddressInfo.countryCode || !ipAddressInfo.ipAddress) {
+      return 0;
+    }
+    if (this.isDatacenterIpAddress(ipAddressInfo)) {
+      return 0;
+    }
+    let grant = INITIAL_BALANCE_BLACKLIST;
+    if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) >= 0) {
+      grant = INITIAL_BALANCE;
+    }
+    if (isMobile) {
+      const exists = await db.existsFingerprintAndIpAddress(fingerprint, ipAddressInfo.ipAddress);
+      return exists ? 0 : grant;
     } else {
       const exists = await db.existsFingerprint(fingerprint);
-      return exists ? 0 : INITIAL_BALANCE;
+      return exists ? 0 : grant;
     }
   }
 
@@ -1410,8 +1423,30 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
     }
   }
 
+  private isDatacenterIpAddress(ipAddressInfo: IpAddressRecord): boolean {
+    if (ipAddressInfo && ipAddressInfo.isp) {
+      if (/(amazon)|(rackspace)|(ovh)/i.test(ipAddressInfo.isp)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async payRegistrationBonus(request: Request, user: UserRecord, fingerprint: string): Promise<void> {
     if (user.balance > 2.51) {
+      return;
+    }
+    if (user.ipAddresses.length === 0) {
+      return;
+    }
+    const ipAddressInfo = await this.fetchIpAddressInfo(user.ipAddresses[0], false);
+    if (!ipAddressInfo || !ipAddressInfo.countryCode) {
+      return;
+    }
+    if (this.isDatacenterIpAddress(ipAddressInfo)) {
+      return;
+    }
+    if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) < 0) {
       return;
     }
     const grantRecipient: BankTransactionRecipientDirective = {
