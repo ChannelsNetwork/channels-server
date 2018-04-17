@@ -37,6 +37,7 @@ import { clientServices } from "./client-services";
 import { adminManager } from "./admin-manager";
 import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
+import { config } from "rx";
 
 const xFrameOptions = require('x-frame-options');
 
@@ -163,7 +164,7 @@ class ChannelsNetworkWebClient {
 
     await this.setupServerPing();
 
-    const publicFolder = 'public/build/es5';
+    const publicFolder = configuration.get('publicFolder') || 'public';
 
     this.app.use('/d/terms.html', express.static(path.join(__dirname, `../${publicFolder}/terms.html`), { maxAge: 1000 * 60 }));
     this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, `../${publicFolder}/whitepaper.pdf`), { maxAge: 1000 * 60 * 15 }));

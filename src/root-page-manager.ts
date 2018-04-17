@@ -25,7 +25,7 @@ export class RootPageManager implements Initializable {
   async initialize(urlManager: UrlManager): Promise<void> {
     this.urlManager = urlManager;
     if (!this.templatesLoaded) {
-      const publicFolder = 'public/build/es5';
+      const publicFolder = configuration.get('publicFolder') || 'public';
 
       this.templates['index'] = fs.readFileSync(path.join(__dirname, `../${publicFolder}/index.html`), 'utf8');
       const gaId = configuration.get('google.analytics.id', "UA-52117709-8");
