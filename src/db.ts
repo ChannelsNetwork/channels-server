@@ -462,7 +462,7 @@ export class Database {
     await this.cardCampaigns.createIndex({ id: 1 }, { unique: true });
     await this.cardCampaigns.createIndex({ cardIds: 1 }, { unique: true });
     await this.cardCampaigns.createIndex({ status: 1, eligibleAfter: 1, type: 1, geoTargets: 1 });
-    await this.cardCampaigns.createIndex({ createdById: 1, status: 1 });
+    await this.cardCampaigns.createIndex({ createdById: 1, status: 1, type: 1 });
   }
 
   private async initializeCardCampaignStats(): Promise<void> {
@@ -4315,8 +4315,8 @@ export class Database {
     return this.cardCampaigns.findOne<CardCampaignRecord>({ cardIds: cardId });
   }
 
-  async countCardCampaignsByCreator(creatorId: string, status: CardCampaignStatus): Promise<number> {
-    return this.cardCampaigns.count({createdById: creatorId, status: status});
+  async countCardCampaignsByCreator(creatorId: string, status: CardCampaignStatus, types: CardCampaignType[]): Promise<number> {
+    return this.cardCampaigns.count({createdById: creatorId, status: status, type: {$in: types}});
   }
 
   aggregateCardCampaigns(): AggregationCursor<CardCampaignAggregationItem> {

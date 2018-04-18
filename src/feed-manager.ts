@@ -588,7 +588,7 @@ export class FeedManager implements Initializable, RestServer {
       console.log("Feed.positionAdSlots", result, user.balance, cardCount);
       return result;
     }
-    const campaigns = await db.countCardCampaignsByCreator(user.id, "active");
+    const campaigns = await db.countCardCampaignsByCreator(user.id, "active", ["impression-ad", "pay-to-open", "pay-to-click"]);
     if (campaigns > 0) {
       console.log("Feed.positionAdSlots: active card campaigns, so no ad slots", result, user.balance, cardCount, campaigns);
       return result;

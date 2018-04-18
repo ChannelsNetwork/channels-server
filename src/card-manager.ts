@@ -559,7 +559,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       let promotedCards: CardDescriptor[] = [];
       if (requestBody.detailsObject.includePromotedCards && !cardState.promoted && cardState.pricing.openFeeUnits > 0 && user.balance < USER_BALANCE_PAY_BUMP_THRESHOLD) {
         const geoLocation = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
-        const campaigns = await db.countCardCampaignsByCreator(user.id, "active");
+        const campaigns = await db.countCardCampaignsByCreator(user.id, "active", ["impression-ad", "pay-to-open", "pay-to-click"]);
         if (campaigns === 0) {
           promotedCards = await feedManager.selectPromotedCards(request, requestBody.sessionId, user, geoLocation, 3, 1, 0, null, [card.id]);
         }
