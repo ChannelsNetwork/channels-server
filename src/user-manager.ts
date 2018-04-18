@@ -1790,8 +1790,11 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       count = 0;
       while (await staleCursor.hasNext()) {
         const user = await staleCursor.next();
-        const purchases = await db.countUserCardsPaid(user.id);
-        if (purchases === 0) {
+        const userCardAction = await db.findFirstUserCardActionByUser(user.id, "pay");
+        if (userCardAction) {
+          console.log("User.poll: Filling in missing firstCardPurchase (" + (count++) + ")", user.id, userCardAction.cardId);
+          await db.updateUserFirstCardPurchased(user.id, userCardAction.cardId);
+        } else {
           console.log("User.poll: Removing stale user (" + (count++) + ")", user.id, user.added);
           await db.removeBankTransactionRecordsByReason(user.id, "interest");
           await db.removeUserRegistrations(user.id);
