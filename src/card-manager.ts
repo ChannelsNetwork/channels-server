@@ -75,6 +75,15 @@ const DEFAULT_PROMOTION_PRICING: PromotionPricingInfo = {
   payToClickSubsidy: 0.45
 };
 
+const DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES: PromotionPricingInfo = {
+  contentImpression: 0.003,
+  adImpression: 0.02,
+  payToOpen: 0.50,
+  payToClick: 0.50,
+  payToOpenSubsidy: 0,
+  payToClickSubsidy: 0
+};
+
 export class CardManager implements Initializable, NotificationHandler, CardHandler, RestServer {
   private app: express.Application;
   private urlManager: UrlManager;
@@ -300,14 +309,14 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return result;
   }
 
-  private async getAppropriateCampaignAmount(card: CardRecord, type: CardCampaignType, geoTargets: string[]): Promise<number> {
+  private async getAppropriateCampaignAmount(card: CardRecord, type: CardCampaignType, geoTargets: string[], ipAddressInfo: IpAddressRecord): Promise<number> {
     switch (type) {
       case "content-promotion":
       case "impression-ad":
-        return Math.min(card.pricing.promotionFee, await this.getCampaignAmount(type, geoTargets));
+        return Math.min(card.pricing.promotionFee, await this.getCampaignAmount(type, geoTargets, ipAddressInfo));
       case "pay-to-open":
       case "pay-to-click":
-        return Math.min(card.pricing.openPayment, await this.getCampaignAmount(type, geoTargets));
+        return Math.min(card.pricing.openPayment, await this.getCampaignAmount(type, geoTargets, ipAddressInfo));
       default:
         throw new Error("Unsupported campaign type " + type);
     }
@@ -1882,7 +1891,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const ipAddress = userManager.getIpAddressFromRequest(request);
       const ipAddressInfo = await userManager.fetchIpAddressInfo(ipAddress, false);
       const subsidy = await this.getCampaignSubsidy(details.campaignInfo.type, details.campaignInfo.geoTargets, ipAddressInfo);
-      await db.insertCardCampaign(sessionId, user.id, "active", couponId, card.id, details.campaignInfo.type, await this.getCampaignAmount(details.campaignInfo.type, details.campaignInfo.geoTargets), subsidy, details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
+      await db.insertCardCampaign(sessionId, user.id, "active", couponId, card.id, details.campaignInfo.type, await this.getCampaignAmount(details.campaignInfo.type, details.campaignInfo.geoTargets, ipAddressInfo), subsidy, details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
     }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0, newAdvertisers, newAdCardsOpenOrClick, newAdCardsImpression, 0, 0, 0, 0);
     await db.updateUserLastPosted(user.id, card.postedAt, card.summary.langCode);
@@ -1891,8 +1900,8 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     return card;
   }
 
-  private async getCampaignAmount(type: CardCampaignType, geoTargets: string[]): Promise<number> {
-    const pricing = await this.getPromotionPricing(geoTargets);
+  private async getCampaignAmount(type: CardCampaignType, geoTargets: string[], ipAddressInfo: IpAddressRecord): Promise<number> {
+    const pricing = await this.getPromotionPricing(geoTargets, ipAddressInfo);
     switch (type) {
       case "content-promotion":
         return pricing.contentImpression;
@@ -1911,7 +1920,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     if (!userManager.isWhitelistedSource(ipAddressInfo)) {
       return 0;
     }
-    const pricing = await this.getPromotionPricing(geoTargets);
+    const pricing = await this.getPromotionPricing(geoTargets, ipAddressInfo);
     let subsidy = 0;
     switch (type) {
       case "pay-to-open":
@@ -2849,7 +2858,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       const status = this.getCardCampaignStatus(user, campaign);
       const ipAddress = userManager.getIpAddressFromRequest(request);
       const ipAddressInfo = await userManager.fetchIpAddressInfo(ipAddress, false);
-      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, await this.getCampaignAmount(campaign.type, campaign.geoTargets), await this.getCampaignSubsidy(campaign.type, campaign.geoTargets, ipAddressInfo), 0);
+      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, await this.getCampaignAmount(campaign.type, campaign.geoTargets, ipAddressInfo), await this.getCampaignSubsidy(campaign.type, campaign.geoTargets, ipAddressInfo), 0);
       console.log("CardManager.update-card-campaign", requestBody.detailsObject);
       const reply: UpdateCardCampaignResponse = {
         serverVersion: SERVER_VERSION
@@ -2903,10 +2912,12 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.countAdSlotsInGeosSince(requestBody.detailsObject.geoTargets, Date.now() - 1000 * 60 * 60 * 24 * 7) :
         await db.countAdSlotsSince(Date.now() - 1000 * 60 * 60 * 24 * 7);
       console.log("CardManager.get-available-ad-slots", requestBody.detailsObject);
+      const ipAddress =  userManager.getIpAddressFromRequest(request);
+      const ipAddressInfo = await userManager.fetchIpAddressInfo(ipAddress, false);
       const reply: GetAvailableAdSlotsResponse = {
         serverVersion: SERVER_VERSION,
         pastWeek: pastWeek,
-        pricing: await this.getPromotionPricing(requestBody.detailsObject.geoTargets)
+        pricing: await this.getPromotionPricing(requestBody.detailsObject.geoTargets, ipAddressInfo)
       };
       response.json(reply);
     } catch (err) {
@@ -3162,10 +3173,11 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     console.log("Card.updateCardPurchaseStats: Completed");
   }
 
-  async getPromotionPricing(geoTargets: string[]): Promise<PromotionPricingInfo> {
+  async getPromotionPricing(geoTargets: string[], ipAddressInfo: IpAddressRecord): Promise<PromotionPricingInfo> {
+    const includeSubsidies = await userManager.isWhitelistedSource(ipAddressInfo);
     const infos: PromotionPricingInfo[] = [];
     if (!geoTargets || geoTargets.length === 0) {
-      return DEFAULT_PROMOTION_PRICING;
+      return includeSubsidies ? DEFAULT_PROMOTION_PRICING : DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES;
     }
     for (const geoTarget of geoTargets) {
       let info = await this.getPromotionPricingForGeo(geoTarget);
@@ -3184,12 +3196,17 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       }
     }
     if (infos.length === 0) {
-      return DEFAULT_PROMOTION_PRICING;
+      return includeSubsidies ? DEFAULT_PROMOTION_PRICING : DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES;
     }
     infos.sort((a, b) => {
       return b.payToOpen - a.payToOpen;
     });
-    return infos[0];
+    const result = infos[0];
+    if (!includeSubsidies) {
+      result.payToClickSubsidy = 0;
+      result.payToOpenSubsidy = 0;
+    }
+    return result;
   }
 
   private async getPromotionPricingForGeo(geoTarget: string): Promise<PromotionPricingInfo> {
