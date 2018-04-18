@@ -53,7 +53,7 @@ const MAX_IP_ADDRESS_LIFETIME = 1000 * 60 * 60 * 24 * 30;
 const IP_ADDRESS_FAIL_RETRY_INTERVAL = 1000 * 60 * 60 * 24;
 const MINIMUM_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24 * 7;
 
-const GRANT_WHITELIST_COUNTRIES: string[] = ["US", "CA", "UK", "AU", "NZ"];
+const GRANT_WHITELIST_COUNTRIES: string[] = ["US", "CA", "GB", "AU", "NZ"];
 
 const continentNameByContinentCode: { [continentCode: string]: string } = {
   "AF": "Africa",
@@ -667,7 +667,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       return 0;
     }
     let grant = INITIAL_BALANCE_BLACKLIST;
-    if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) >= 0) {
+    if (this.isWhitelistedSource(ipAddressInfo)) {
       grant = INITIAL_BALANCE;
     }
     if (isMobile) {
@@ -677,6 +677,19 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       const exists = await db.existsFingerprint(fingerprint);
       return exists ? 0 : grant;
     }
+  }
+
+  isWhitelistedSource(ipAddressInfo: IpAddressRecord): boolean {
+    if (!ipAddressInfo || !ipAddressInfo.countryCode || !ipAddressInfo.ipAddress) {
+      return false;
+    }
+    if (this.isDatacenterIpAddress(ipAddressInfo)) {
+      return false;
+    }
+    if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) >= 0) {
+      return true;
+    }
+    return false;
   }
 
   getIpAddressFromRequest(request: Request): string {
@@ -1440,13 +1453,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
       return;
     }
     const ipAddressInfo = await this.fetchIpAddressInfo(user.ipAddresses[0], false);
-    if (!ipAddressInfo || !ipAddressInfo.countryCode) {
-      return;
-    }
-    if (this.isDatacenterIpAddress(ipAddressInfo)) {
-      return;
-    }
-    if (GRANT_WHITELIST_COUNTRIES.indexOf(ipAddressInfo.countryCode) < 0) {
+    if (!this.isWhitelistedSource(ipAddressInfo)) {
       return;
     }
     const grantRecipient: BankTransactionRecipientDirective = {
@@ -1776,9 +1783,10 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
         }
       }
       await cursor.close();
-
+      console.log("User.poll: Checking for stale users...");
       const staleCursor = db.getStaleUsers(Date.now() - STALE_USER_INTERVAL);
       const cursorCount = await staleCursor.count();
+      console.log("User.poll: Stale users: " + cursorCount);
       count = 0;
       while (await staleCursor.hasNext()) {
         const user = await staleCursor.next();

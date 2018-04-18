@@ -1,7 +1,7 @@
 import * as express from "express";
 // tslint:disable-next-line:no-duplicate-imports
 import { Request, Response } from 'express';
-import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord, BankCouponRecord, PromotionPricingInfo } from "./interfaces/db-records";
+import { CardRecord, UserRecord, CardMutationType, CardMutationRecord, CardStateGroup, Mutation, SetPropertyMutation, AddRecordMutation, UpdateRecordMutation, DeleteRecordMutation, MoveRecordMutation, IncrementPropertyMutation, UpdateRecordFieldMutation, IncrementRecordFieldMutation, CardActionType, BankCouponDetails, CardStatistic, CardPromotionScores, NetworkCardStats, PublisherSubsidyDayRecord, ImageInfo, CardPaymentFraudReason, UserCardActionPaymentInfo, CardPaymentCategory, AdSlotStatus, UserCardActionReportInfo, ChannelCardRecord, CardCommentRecord, AdSlotRecord, CardCampaignRecord, CardCampaignStats, CardCampaignStatus, CardCampaignType, CardCampaignBudget, GeoLocation, UserStats, UserStatsRecord, BankCouponRecord, PromotionPricingInfo, IpAddressRecord } from "./interfaces/db-records";
 import { db } from "./db";
 import { configuration } from "./configuration";
 import * as AWS from 'aws-sdk';
@@ -1876,7 +1876,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     const card = await db.insertCard(user.id, sessionId, user.address, user.identity.handle, user.identity.name, details.imageId, details.linkUrl, details.iframeUrl, details.title, details.text, details.langCode, details.private, details.cardType, componentResponse.channelComponent.iconUrl, componentResponse.channelComponent.developerAddress, componentResponse.channelComponent.developerFraction, details.openFeeUnits, keywords, searchText, details.fileIds, user.curation && user.curation === 'blocked' ? true : false, cardId);
     await fileManager.finalizeFiles(user, card.fileIds);
     if (details.campaignInfo) {
-      const subsidy = await this.getCampaignSubsidy(details.campaignInfo.type, details.campaignInfo.geoTargets);
+      const ipAddress = userManager.getIpAddressFromRequest(request);
+      const ipAddressInfo = await userManager.fetchIpAddressInfo(ipAddress, false);
+      const subsidy = await this.getCampaignSubsidy(details.campaignInfo.type, details.campaignInfo.geoTargets, ipAddressInfo);
       await db.insertCardCampaign(sessionId, user.id, "active", couponId, card.id, details.campaignInfo.type, await this.getCampaignAmount(details.campaignInfo.type, details.campaignInfo.geoTargets), subsidy, details.campaignInfo.budget, details.campaignInfo.ends, details.campaignInfo.geoTargets);
     }
     await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, user.lastPosted ? 0 : 1, 0, 1, 0, newAdvertisers, newAdCardsOpenOrClick, newAdCardsImpression, 0, 0, 0, 0);
@@ -1902,7 +1904,10 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     }
   }
 
-  private async getCampaignSubsidy(type: CardCampaignType, geoTargets: string[]): Promise<number> {
+  private async getCampaignSubsidy(type: CardCampaignType, geoTargets: string[], ipAddressInfo: IpAddressRecord): Promise<number> {
+    if (!userManager.isWhitelistedSource(ipAddressInfo)) {
+      return 0;
+    }
     const pricing = await this.getPromotionPricing(geoTargets);
     let subsidy = 0;
     switch (type) {
@@ -2702,7 +2707,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
 
       let html = "";
       html += "<p>A user has reported a card.</p>";
-      html += "<p>Card: <a href='" + this.urlManager.getAbsoluteUrl('/c/' + card.id) + "'>" + card.summary.title + "</a></p>";
+      html += "<p>Card: <a href='" + this.urlManager.getAbsoluteUrl('/c/' + card.id) + "'>" + (card.summary.title ? card.summary.title : "untitled") + "</a></p>";
       html += "<p>By: " + card.by.handle + "</p>";
       html += "<p>Reasons: " + requestBody.detailsObject.reasons.join(',') + "</p>";
       html += "<p>Comment: \"" + escapeHtml(requestBody.detailsObject.comment) + "\"</p>";
@@ -2839,7 +2844,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       campaign.ends = requestBody.detailsObject.info.ends;
       campaign.geoTargets = requestBody.detailsObject.info.geoTargets;
       const status = this.getCardCampaignStatus(user, campaign);
-      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, await this.getCampaignAmount(campaign.type, campaign.geoTargets), await this.getCampaignSubsidy(campaign.type, campaign.geoTargets), 0);
+      const ipAddress = userManager.getIpAddressFromRequest(request);
+      const ipAddressInfo = await userManager.fetchIpAddressInfo(ipAddress, false);
+      await db.updateCardCampaignInfo(campaign.id, requestBody.detailsObject.info, status, await this.getCampaignAmount(campaign.type, campaign.geoTargets), await this.getCampaignSubsidy(campaign.type, campaign.geoTargets, ipAddressInfo), 0);
       console.log("CardManager.update-card-campaign", requestBody.detailsObject);
       const reply: UpdateCardCampaignResponse = {
         serverVersion: SERVER_VERSION
