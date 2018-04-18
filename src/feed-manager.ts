@@ -291,7 +291,7 @@ export class FeedManager implements Initializable, RestServer {
     if (cardIds.length === 0) {
       return;
     }
-    const adSlotInfo = this.positionAdSlots(user, cardIds.length, false);
+    const adSlotInfo = await this.positionAdSlots(user, cardIds.length, false);
     if (adSlotInfo.slotCount === 0) {
       return;
     }
@@ -580,12 +580,17 @@ export class FeedManager implements Initializable, RestServer {
   }
 
   // This determines how many ad slots should appear in the user's feed and where the first slot will appear
-  private positionAdSlots(user: UserRecord, cardCount: number, more: boolean): AdSlotInfo {
+  private async positionAdSlots(user: UserRecord, cardCount: number, more: boolean): Promise<AdSlotInfo> {
     let result: AdSlotInfo = {
       slotCount: 0, slotSeparation: 0, firstSlotIndex: 0
     };
     if (user.balance >= TARGET_BALANCE || cardCount <= 1) {
       console.log("Feed.positionAdSlots", result, user.balance, cardCount);
+      return result;
+    }
+    const campaigns = await db.countCardCampaignsByCreator(user.id, "active");
+    if (campaigns > 0) {
+      console.log("Feed.positionAdSlots: active card campaigns, so no ad slots", result, user.balance, cardCount, campaigns);
       return result;
     }
     // Based on the user balance, we choose the appropriate ratio between ads and
@@ -612,7 +617,7 @@ export class FeedManager implements Initializable, RestServer {
     const amalgamated: CardDescriptor[] = [];
     // We have to inject ad slots if necessary, and populate those ad slots with cards that offer
     // the user some revenue-generating potential
-    const adSlots = this.positionAdSlots(user, cards.length, more);
+    const adSlots = await this.positionAdSlots(user, cards.length, more);
     const adIds: string[] = [];
     if (adSlots.slotCount > 0) {
       let cardIndex = 0;
