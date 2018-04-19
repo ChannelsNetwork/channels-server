@@ -3485,9 +3485,9 @@ db.cardCampaigns.aggregate([
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId:  "03036793-3a99-4ed9-947b-b6d3151056f9", 
+    authorId:  "f8ee300c-9722-479c-a5b5-74a68d5bd637", 
     action: "pay",
-    at: {$gt: 0}
+    at: {$gt: 1522947600000}
   }},
   {$group: {
     _id: "$userId",
@@ -3758,129 +3758,6 @@ db.userCardActions.aggregate([
   {$sort: {count: -1}}
 ])
 
-<<<<<<< HEAD
-db.userCardActions.aggregate([
-  {$match: {
-    action: "pay",
-	  "geo.fingerprint": "3f478cf2a99350bc44c417166bd4c757"
-  }},
-  {$group: {
-    _id: "$geo.ipAddress",
-    count: {$sum: 1}
-  }},
-  {$sort: {count: -1}}
-]).pretty()
-
-db.userCardActions.aggregate([
-  {$match: {
-    action: "pay",
-	  "geo.ipAddress": "46.128.67.79"
-  }},
-  {$group: {
-    _id: {user: "$userId", author: "$authorId"},
-    count: {$sum: 1}
-  }},
-  {$lookup: {
-    from: "users",
-    localField: "_id.user",
-    foreignField: "id",
-    as: "user"
-  }},
-  {$unwind: "$user"},
-  {$lookup: {
-    from: "users",
-    localField: "_id.author",
-    foreignField: "id",
-    as: "author"
-  }},
-  {$unwind: "$author"},
-  {$project: {
-    count: 1,    
-    userId: 1,
-    authorId: 1,
-    userHandle: "$user.identity.handle",
-    authorHandle: "$author.identity.handle",
-  }},
-  {$sort: {count: -1}}
-]).pretty()
-
-db.userRegistrations.aggregate([
-  {$match: {ipAddress: "46.128.67.79"}},
-  {$group: {
-    _id: "$userId",
-    count: {$sum: 1}
-  }},
-  {$lookup: {
-    from: "users",
-    localField: "_id",
-    foreignField: "id",
-    as: "user"
-  }},
-  {$unwind: "$user"},
-  {$project: {
-    count: 1,
-    handle: "$user.identity.handle",
-    city: "$user.city",
-    country: "$user.country"
-  }},
-  {$lookup: {
-    from: "userCardActions",
-    localField: "_id",
-    foreignField: "userId",
-    as: "action"
-  }},
-  {$unwind: "$action"},
-  {$project: {
-    count: 1,
-    handle: 1,
-    city: 1,
-    country: 1,
-    action: "$action.action",
-    author: "$action.author"
-  }},
-  {$match: {
-    action: "pay"
-  }},
-  {$group: {
-    _id: {user: "$_id", count: "$count", handle: "$handle"},
-    authors: {$addToSet: "$author"}
-  }},
-  {$sort: {"_id.count": -1}}
-]).pretty()
-
-db.userCardActions.aggregate([
-  {$match: {
-    action: "pay",
-    userId: "0dcfa06d-3aad-4869-a4ec-6e79ea0b40c0"
-  }},
-  {$group: {
-    _id: "$authorId",
-    count: {$sum: 1}
-  }},
-  {$lookup: {
-    from: "users",
-    localField: "_id",
-    foreignField: "id",
-    as: "user"
-  }},
-  {$unwind: "$user"},
-  {$project: {
-    count: 1,
-    handle: "$user.identity.handle",
-    city: "$user.city",
-    country: "$user.country"
-  }},
-  {$sort: {count: -1}}  
-])
-
-db.userRegistrations.aggregate([
-  {$match: {"fingerprint": "9ede90f36aa3fb50b21f4ea9a161c15d"}},
-  {$group: {
-    _id: "$userId",
-    count: {$sum: 1}
-  }},
-  {$lookup: {
-=======
 
 
 db.authorUsers.aggregate([
@@ -3915,46 +3792,12 @@ db.authorUsers.aggregate([
         }
       },
           {$lookup: {
->>>>>>> e9af7d7e3d34be57ad2bcd9c9238d8fab7766793
     from: "users",
     localField: "_id",
     foreignField: "id",
     as: "user"
   }},
   {$unwind: "$user"},
-<<<<<<< HEAD
-  {$project: {
-    count: 1,
-    handle: "$user.identity.handle",
-    city: "$user.city",
-    country: "$user.country"
-  }},
-])
-  {$lookup: {
-    from: "userCardActions",
-    localField: "_id",
-    foreignField: "userId",
-    as: "action"
-  }},
-  {$unwind: "$action"},
-  {$project: {
-    count: 1,
-    handle: 1,
-    city: 1,
-    country: 1,
-    action: "$action.action",
-    author: "$action.author"
-  }},
-  {$match: {
-    action: "pay"
-  }},
-  {$group: {
-    _id: {user: "$_id", count: "$count", handle: "$handle"},
-    authors: {$addToSet: "$author"}
-  }},
-  {$sort: {"_id.count": -1}}
-]).pretty()
-=======
       {
         $project: {
           userId: "$_id",
@@ -3966,4 +3809,3 @@ db.authorUsers.aggregate([
       },
       { $sort: { referredPurchases: -1 } }
     ]).pretty()
->>>>>>> e9af7d7e3d34be57ad2bcd9c9238d8fab7766793

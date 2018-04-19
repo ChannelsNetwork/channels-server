@@ -241,15 +241,18 @@
           } else {
             this.$.pinAction.classList.add("hidden");
           }
+          if (owner || $core.isAdmin) {
+            this.$.analyticsAction.classList.remove("hidden");
+          } else {
+            this.$.analyticsAction.classList.add("hidden");
+          }
           if (owner) {
             this.$.editAction.classList.remove("hidden");
             this.$.editCampaignAction.classList.remove("hidden");
-            this.$.analyticsAction.classList.remove("hidden");
             this.$.deleteAction.classList.remove("hidden");
           } else {
             this.$.editAction.classList.add("hidden");
             this.$.editCampaignAction.classList.add("hidden");
-            this.$.analyticsAction.classList.add("hidden");
             this.$.deleteAction.classList.add("hidden");
           }
         } else {
