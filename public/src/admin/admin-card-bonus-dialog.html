@@ -1,0 +1,75 @@
+<link rel="import" href="../controls/dialog-view.html">
+<link rel="import" href="../../bower_components/soso-text-input/soso-text-input.html">
+
+<dom-module id="admin-card-bonus-dialog">
+  <template>
+    <style is="custom-style" include="app-styles">
+      :host {
+        display: block;
+      }
+
+      soso-text-input {
+        margin: 18px 0;
+      }
+    </style>
+    <dialog-view id="dlg" buttons="[[_buttons]]" on-button-click="_handleButton">
+      <h3>Pay Card Bonus</h3>
+      <soso-text-input id="amount" label="Amount (1 - 99)" placeholder="Amount (1 - 99)"></soso-text-input>
+    </dialog-view>
+  </template>
+  <script>
+    class AdminCardBonusDialog extends Polymer.Element {
+      static get is() { return 'admin-card-bonus-dialog'; }
+      static get properties() {
+        return {
+          _buttons: Array
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      show(cardId) {
+        this._cardId = cardId;
+        this._buttons = [
+          { id: 'cancel', label: "Cancel" },
+          { id: 'pay', label: "Pay" }
+        ];
+        this.$.amount.value = "";
+        this._promise = new Promise((resolve, reject) => {
+          this._resolve = resolve;
+          this.$.dlg.show();
+        });
+        return this._promise;
+      }
+
+      hide() {
+        return this.$.dlg.hide();
+      }
+
+      _handleButton(event) {
+        switch (event.detail.button.id) {
+          case "pay":
+            this._doPay();
+            break;
+          default:
+            this.hide();
+            this._resolve(false);
+            break;
+        }
+      }
+
+      _doPay() {
+        const amount = this.$.amount.value ? Number(this.$.amount.value) : 0
+        if (amount > 0 && amount < 100) {
+          $core.admin_payCardBonus(this._cardId, amount).then(() => {
+            this.hide();
+            this._resolve(true);
+          });
+        }
+      }
+    }
+    window.customElements.define(AdminCardBonusDialog.is, AdminCardBonusDialog);
+  </script>
+</dom-module>

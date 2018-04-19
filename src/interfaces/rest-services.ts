@@ -563,7 +563,7 @@ export interface BankTransactionRecipientDirective {
   reason: BankTransactionRecipientReason;
 }
 
-export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus" | "advertiser-subsidy";
+export type BankTransactionRecipientReason = "content-purchase" | "card-developer-royalty" | "referral-fee" | "coupon-redemption" | "network-operations" | "network-creator-royalty" | "grant-recipient" | "depositor" | "invitation-reward-recipient" | "interest-recipient" | "subsidy-recipient" | "publisher-subsidy-recipient" | "referral-bonus" | "registration-bonus" | "advertiser-subsidy" | "content-bonus";
 
 export type BankTransactionRecipientPortion = "remainder" | "fraction" | "absolute";
 
@@ -1402,3 +1402,10 @@ export interface AdminGetAuthorUserStatsDetails extends Signable { }
 export interface AdminGetAuthorUserStatsResponse extends RestResponse {
   items: AuthorUserAggregationAdminItem[];
 }
+
+export interface AdminCardPayBonusDetails extends Signable {
+  cardId: string;
+  amount: number;
+}
+
+export interface AdminCardPayBonusResponse extends RestResponse { }

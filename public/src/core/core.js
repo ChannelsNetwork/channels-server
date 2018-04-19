@@ -1259,6 +1259,13 @@ class CoreService extends Polymer.Element {
     return this.rest.post(url, request);
   }
 
+  admin_payCardBonus(cardId, amount) {
+    let details = RestUtils.admin_payCardBonus(this._keys.address, this._fingerprint, cardId, amount);
+    let request = this._createRequest(details);
+    const url = this.restBase + "/admin-card-pay-bonus";
+    return this.rest.post(url, request);
+  }
+
   get languages() {
     const result = {};
     result.ar = "Arabic";

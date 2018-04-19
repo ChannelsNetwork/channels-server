@@ -753,6 +753,16 @@ class RestUtils {
     };
   }
 
+  static admin_payCardBonus(address, fingerprint, cardId, amount) {
+    return {
+      address: address,
+      fingerprint: fingerprint,
+      timestamp: RestUtils.now(),
+      cardId: cardId,
+      amount: amount
+    };
+  }
+
   static queryPage(address, fingerprint, url) {
     return {
       address: address,

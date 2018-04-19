@@ -9,7 +9,7 @@ import { awsManager, NotificationHandler, ChannelsServerNotification } from "./a
 import { Initializable } from "./interfaces/initializable";
 import { socketServer, CardHandler } from "./socket-server";
 import { NotifyCardPostedDetails, NotifyCardMutationDetails, BankTransactionResult } from "./interfaces/socket-messages";
-import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse, UpdateCardCampaignStatusDetails, UpdateCardCampaignStatusResponse } from "./interfaces/rest-services";
+import { CardDescriptor, RestRequest, GetCardDetails, GetCardResponse, PostCardDetails, PostCardResponse, CardImpressionDetails, CardImpressionResponse, CardOpenedDetails, CardOpenedResponse, CardPayDetails, CardPayResponse, CardClosedDetails, CardClosedResponse, UpdateCardLikeDetails, UpdateCardLikeResponse, BankTransactionDetails, CardRedeemOpenDetails, CardRedeemOpenResponse, UpdateCardPrivateDetails, DeleteCardDetails, DeleteCardResponse, CardStatsHistoryDetails, CardStatsHistoryResponse, CardStatDatapoint, UpdateCardPrivateResponse, UpdateCardStateDetails, UpdateCardStateResponse, UpdateCardPricingDetails, UpdateCardPricingResponse, BankTransactionRecipientDirective, AdminUpdateCardDetails, AdminUpdateCardResponse, CardClickedResponse, CardClickedDetails, PublisherSubsidiesInfo, CardState, CardSummary, FileMetadata, ReportCardDetails, ReportCardResponse, CommentorInfo, CardCommentDescriptor, PostCardCommentResponse, PostCardCommentDetails, GetCardCommentsDetails, GetCardCommentsResponse, AdminGetCommentsDetails, AdminGetCommentsResponse, AdminCommentInfo, AdminSetCommentCurationDetails, AdminSetCommentCurationResponse, ChannelCardPinInfo, CardCampaignDescriptor, UpdateCardCampaignResponse, UpdateCardCampaignDetails, CardCampaignInfo, GetAvailableAdSlotsDetails, GetAvailableAdSlotsResponse, GetUserCardAnalyticsDetails, GetUserCardAnalyticsResponse, UserCardActionDescriptor, GetUserStatsDetails, GetUserStatsResponse, CardDescriptorStatistics, AdminGetCardCampaignsResponse, AdminGetCardCampaignsDetails, AdminCurateCardQualityDetails, AdminCurateCardQualityResponse, UpdateCardCampaignStatusDetails, UpdateCardCampaignStatusResponse, AdminCardPayBonusDetails, AdminCardPayBonusResponse } from "./interfaces/rest-services";
 import { priceRegulator } from "./price-regulator";
 import { RestServer } from "./interfaces/rest-server";
 import { UrlManager } from "./url-manager";
@@ -187,6 +187,9 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
     });
     this.app.post(this.urlManager.getDynamicUrl('admin-get-card-campaigns'), (request: Request, response: Response) => {
       void this.handleAdminGetCardCampaigns(request, response);
+    });
+    this.app.post(this.urlManager.getDynamicUrl('admin-card-pay-bonus'), (request: Request, response: Response) => {
+      void this.handleAdminCardPayBonus(request, response);
     });
   }
 
@@ -2912,7 +2915,7 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
         await db.countAdSlotsInGeosSince(requestBody.detailsObject.geoTargets, Date.now() - 1000 * 60 * 60 * 24 * 7) :
         await db.countAdSlotsSince(Date.now() - 1000 * 60 * 60 * 24 * 7);
       console.log("CardManager.get-available-ad-slots", requestBody.detailsObject);
-      const ipAddress =  userManager.getIpAddressFromRequest(request);
+      const ipAddress = userManager.getIpAddressFromRequest(request);
       const ipAddressInfo = await userManager.fetchIpAddressInfo(ipAddress, false);
       const reply: GetAvailableAdSlotsResponse = {
         serverVersion: SERVER_VERSION,
@@ -3143,6 +3146,78 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
       response.json(reply);
     } catch (err) {
       errorManager.error("User.handleAdminCurateCardQuality: Failure", request, err);
+      response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
+    }
+  }
+
+  private async handleAdminCardPayBonus(request: Request, response: Response): Promise<void> {
+    try {
+      const requestBody = request.body as RestRequest<AdminCardPayBonusDetails>;
+      const user = await RestHelper.validateRegisteredRequest(requestBody, request, response);
+      if (!user) {
+        return;
+      }
+      if (!user.admin) {
+        response.status(403).send("You must be an admin");
+        return;
+      }
+      if (!requestBody.detailsObject.cardId) {
+        response.status(400).send("Missing cardId");
+        return;
+      }
+      if (!requestBody.detailsObject.amount || requestBody.detailsObject.amount < 0 || requestBody.detailsObject.amount > 100) {
+        response.status(400).send("Missing or invalid amount");
+        return;
+      }
+      const card = await db.findCardById(requestBody.detailsObject.cardId, false);
+      if (!card) {
+        response.status(404).send("No such card");
+        return;
+      }
+      const author = await userManager.getUser(card.createdById, true);
+      if (!author) {
+        response.status(500).send("Card author is missing");
+        return;
+      }
+      console.log("CardManager.admin-card-pay-bonus", requestBody.detailsObject);
+      const recipient: BankTransactionRecipientDirective = {
+        address: author.address,
+        portion: "remainder",
+        reason: "content-bonus"
+      };
+      const transactionDetails: BankTransactionDetails = {
+        address: null,
+        timestamp: null,
+        fingerprint: null,
+        type: "transfer",
+        reason: "card-bonus",
+        relatedCardId: card.id,
+        relatedCardCampaignId: null,
+        relatedCouponId: null,
+        amount: requestBody.detailsObject.amount,
+        toRecipients: [recipient]
+      };
+      const now = Date.now();
+      await userManager.updateUserBalance(request, author, requestBody.sessionId);
+      const geo = await userManager.getGeoFromRequest(request, requestBody.detailsObject.fingerprint);
+      const transactionResult = await networkEntity.performBankTransaction(request, requestBody.sessionId, transactionDetails, card.summary.title, "Content bonus", geo ? geo.ipAddress : null, geo ? geo.fingerprint : null, now);
+      const paymentInfo: UserCardActionPaymentInfo = {
+        amount: requestBody.detailsObject.amount,
+        transactionId: transactionResult.record.id,
+        cardCampaignId: transactionResult.record.details.relatedCardCampaignId,
+        category: "bonus",
+        weight: 1,
+        weightedRevenue: requestBody.detailsObject.amount,
+        mobile: false
+      };
+      await db.insertUserCardAction(requestBody.sessionId, user.id, geo, card.id, card.createdById, now, "pay", paymentInfo, 0, 0, 0, 0, null, null, null, null, null);
+      await this.incrementStat(card, "revenue", requestBody.detailsObject.amount, now, REVENUE_SNAPSHOT_INTERVAL);
+      const reply: AdminCardPayBonusResponse = {
+        serverVersion: SERVER_VERSION,
+      };
+      response.json(reply);
+    } catch (err) {
+      errorManager.error("User.handleAdminCardPayBonus: Failure", request, err);
       response.status(err.code ? err.code : 500).send(err.message ? err.message : err);
     }
   }
