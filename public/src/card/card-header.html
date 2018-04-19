@@ -95,6 +95,7 @@
         <li id="curateGoodQualityAction" on-click="_curateGoodQuality" class="hidden">Good</li>
         <li id="curateExcellentQualityAction" on-click="_curateExcellentQuality" class="hidden">Excellent</li>
         <li id="curateMarket" on-click="_curateToggleMarket" class="upperMenuDivider hidden">Market</li>
+        <li id="payBonus" on-click="_payBonus" class="upperMenuDivider hidden">Pay Bonus</li>
       </soso-dropdown>
       <soso-dropdown for="shareIcon" alignment="right" offset="-5">
         <li on-click="_tweet">Share on Twitter</li>
@@ -113,6 +114,7 @@
 
     <!-- Dialogs -->
     <share-link-dialog id="shareDialog"></share-link-dialog>
+    <admin-card-bonus-dialog id="bonusDialog"></admin-card-bonus-dialog>
   </template>
   <script>
     class CardHeader extends Polymer.Element {
@@ -177,6 +179,7 @@
           this.$.curateGoodQualityAction.classList.remove('hidden');
           this.$.curateExcellentQualityAction.classList.remove('hidden');
           this.$.curateMarket.classList.remove('hidden');
+          this.$.payBonus.classList.remove('hidden');
           this.$.curateLowQualityAction.classList.remove('selectedQuality')
           this.$.curateGoodQualityAction.classList.remove('selectedQuality')
           this.$.curateExcellentQualityAction.classList.remove('selectedQuality')
@@ -203,6 +206,7 @@
           this.$.curateGoodQualityAction.classList.add('hidden');
           this.$.curateExcellentQualityAction.classList.add('hidden');
           this.$.curateMarket.classList.add('hidden');
+          this.$.payBonus.classList.add('hidden');
         }
       }
 
@@ -330,6 +334,12 @@
         $core.admin_curateCardQuality(this.data.id, null, this.data.market ? false : true);
         this.data.market = !this.data.market;
         this._refreshCuration();
+      }
+
+      _payBonus() {
+        this._import("../admin/admin-card-bonus-dialog.html").then(() => {
+          return this.$.bonusDialog.show(this.data.id);
+        });
       }
 
       _openUserChannel() {

@@ -470,7 +470,7 @@ export interface UserCardActionReportInfo {
   transactionId: string;
 }
 
-export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked";
+export type CardPaymentCategory = "normal" | "first" | "fan" | "fraud" | "blocked" | "bonus";
 
 export type CardActionType = "impression" | "open" | "pay" | "close" | "like" | "reset-like" | "dislike" | "redeem-promotion" | "redeem-ad-impression" | "redeem-open-payment" | "redeem-click-payment" | "make-private" | "make-public" | "click" | "report" | "comment";
 export type CardPaymentFraudReason = "author-fingerprint" | "prior-payor-fingerprint";
@@ -515,7 +515,7 @@ export interface BankCouponRecord {
   cardId: string;
 }
 
-export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy" | "impression-ad";
+export type BankTransactionReason = "card-promotion" | "card-open-payment" | "card-click-payment" | "card-open-fee" | "interest" | "subsidy" | "grant" | "inviter-reward" | "invitee-reward" | "withdrawal" | "deposit" | "publisher-subsidy" | "referral-bonus" | "registration-bonus" | "paypal-payment-received" | "advertiser-subsidy" | "impression-ad" | "card-bonus";
 
 export interface BankCouponDetails extends Signable {
   reason: BankTransactionReason;
