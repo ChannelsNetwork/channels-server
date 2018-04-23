@@ -4316,7 +4316,7 @@ export class Database {
   }
 
   async countCardCampaignsByCreator(creatorId: string, status: CardCampaignStatus, types: CardCampaignType[]): Promise<number> {
-    return this.cardCampaigns.count({createdById: creatorId, status: status, type: {$in: types}});
+    return this.cardCampaigns.count({ createdById: creatorId, status: status, type: { $in: types } });
   }
 
   aggregateCardCampaigns(): AggregationCursor<CardCampaignAggregationItem> {
