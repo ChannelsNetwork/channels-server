@@ -295,15 +295,15 @@ export class FeedManager implements Initializable, RestServer {
     if (adSlotInfo.slotCount === 0) {
       return;
     }
-    const promotedCards = await this.selectPromotedCards(request, sessionId, user, geoLocation, adSlotInfo.slotCount, 1, 0, null, cardIds);
+    const promotedCards = await this.selectPromotedCards(request, sessionId, user, geoLocation, adSlotInfo.slotCount, 1, 0, null, cardIds, false);
     for (const card of promotedCards) {
       reply.promotedContent.push(card);
     }
   }
 
-  async selectPromotedCards(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardDescriptor[]> {
+  async selectPromotedCards(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[], more: boolean): Promise<CardDescriptor[]> {
     const result: CardDescriptor[] = [];
-    const cards = await this.selectPromotedCardsWithCampaigns(request, sessionId, user, geoLocation, count, fractionPayToOpen, fractionImpressionAd, channelId, existingContentCardIds);
+    const cards = await this.selectPromotedCardsWithCampaigns(request, sessionId, user, geoLocation, count, fractionPayToOpen, fractionImpressionAd, channelId, existingContentCardIds, more);
     for (const card of cards) {
       result.push(card.card);
     }
@@ -311,7 +311,7 @@ export class FeedManager implements Initializable, RestServer {
     return result;
   }
 
-  private async selectPromotedCardsWithCampaigns(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[]): Promise<CardWithCampaign[]> {
+  private async selectPromotedCardsWithCampaigns(request: Request, sessionId: string, user: UserRecord, geoLocation: GeoLocation, count: number, fractionPayToOpen: number, fractionImpressionAd: number, channelId: string, existingContentCardIds: string[], more: boolean): Promise<CardWithCampaign[]> {
     const result: CardWithCampaign[] = [];
     const authorIds: string[] = [];
     const adCardIds: string[] = [];
@@ -333,7 +333,7 @@ export class FeedManager implements Initializable, RestServer {
       }
     }
     const numberPromoted = count - result.length;
-    if (numberPromoted > 0) {
+    if (numberPromoted > 0 && !more) {
       const cards = await this.fetchPromotedCards(request, sessionId, user, geoLocation, numberPromoted, channelId, ["content-promotion"], authorIds, adCardIds, existingContentCardIds, []);
       for (const card of cards) {
         result.push(card);
@@ -629,7 +629,7 @@ export class FeedManager implements Initializable, RestServer {
       for (const card of cards) {
         existingContentCardIds.push(card.id);
       }
-      const promotedCards = await this.selectPromotedCardsWithCampaigns(request, sessionId, user, geoLocation, adSlots.slotCount, payToOpenFraction, adImpressionFraction, channelId, existingContentCardIds);
+      const promotedCards = await this.selectPromotedCardsWithCampaigns(request, sessionId, user, geoLocation, adSlots.slotCount, payToOpenFraction, adImpressionFraction, channelId, existingContentCardIds, more);
       let promotedCardIndex = 0;
       while ((cardIndex < cards.length && cardIndex < limit) || promotedCardIndex < promotedCards.length) {
         let filled = false;
