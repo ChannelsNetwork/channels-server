@@ -1438,7 +1438,7 @@ export class UserManager implements RestServer, UserSocketHandler, Initializable
 
   private isDatacenterIpAddress(ipAddressInfo: IpAddressRecord): boolean {
     if (ipAddressInfo && ipAddressInfo.isp) {
-      if (/(amazon)|(rackspace)|(ovh)/i.test(ipAddressInfo.isp)) {
+      if (/(amazon)|(rackspace)|(ovh)|(aruba)/i.test(ipAddressInfo.isp)) {
         return true;
       }
     }
