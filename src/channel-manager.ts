@@ -48,60 +48,30 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
   }
 
   async initialize2(): Promise<void> {
-    // // Need to create channels for users if they don't already have one
-    // const cursor = db.getUsersWithIdentity();
-    // while (await cursor.hasNext()) {
-    //   const user = await cursor.next();
-    //   let channel = await db.findChannelByHandle(user.identity.handle);
-    //   if (!channel) {
-    //     channel = await this.createChannelForUser(user);
-    //     const cardCursor = await db.getCardsByAuthor(user.id);
-    //     while (await cardCursor.hasNext()) {
-    //       const card = await cardCursor.next();
-    //       console.log("Channel.initialize2:     Adding card to channel", channel.handle, card.summary.title);
-    //       await this.addCardToChannel(card, channel);
-    //       await db.incrementChannelStat(channel.id, "revenue", card.stats.revenue.value);
-    //     }
-    //     await cardCursor.close();
-    //   }
-    // }
-    // await cursor.close();
-
-    // const channelCursor = db.getChannelsWithoutFirstCard();
-    // while (await channelCursor.hasNext()) {
-    //   const channel = await channelCursor.next();
-    //   const channelCard = await db.findChannelCardFirstByChannel(channel.id);
-    //   if (channelCard) {
-    //     await db.updateChannelFirstCardPosted(channel.id, channelCard.cardPostedAt);
-    //     console.log("Channel.initialize2: Updating channel firstCardPostedAt", channel.id);
-    //   }
-    // }
-    // await channelCursor.close();
-
-    // const userCursor = db.getUsersMissingHomeChannel();
-    // while (await userCursor.hasNext()) {
-    //   const user = await userCursor.next();
-    //   await this.ensureUserHomeChannel(user, null);
-    // }
-    // await userCursor.close();
-
-    // This code is because if there are no bonuses that have been paid so far,
-    // we are migrating from when we were failing to record these bonuses in the ChannelUser collection.
-    // const userBonusCount = await db.countAllChannelUserBonusesPaid();
-    // if (userBonusCount === 0) {
-    //   console.log("Channel.initialize2: Reprocessing missing channel referral bonus payments");
-    //   const referrees = await db.findUserChannelUserBonusPayers();
-    //   for (const referree of referrees) {
-    //     const referrer = await userManager.getUser(referree.referralBonusPaidToUserId, false);
-    //     if (referrer) {
-    //       const channels = await db.findChannelsByOwnerId(referrer.id);
-    //       if (channels.length > 0) {
-    //         console.log("Channel.initialize2: Adding bonus indicator", channels[0].handle, referree.id, referrer.id);
-    //         await db.updateChannelUserBonus(channels[0].id, referree.id, 1, 0, false);
-    //       }
-    //     }
-    //   }
-    // }
+    // Audit all channels, updating card counts
+    console.log("Channel.initialize2:  Auditing channel card stats...");
+    const cursor = db.getChannels();
+    while (await cursor.hasNext()) {
+      const channel = await cursor.next();
+      const channelCardCursor = db.getChannelCardsByChannel(channel.id);
+      let count = 0;
+      while (await channelCardCursor.hasNext()) {
+        const channelCard = await channelCardCursor.next();
+        if (channelCard.state === "active") {
+          const card = await db.findCardById(channelCard.cardId, false);
+          if (card) {
+            count++;
+          }
+        }
+      }
+      await channelCardCursor.close();
+      if (channel.stats && channel.stats.cards !== count) {
+        console.log("Channel.initialize2:  Correcting card count", channel.handle, channel.stats.cards, count);
+        await db.updateChannelStat(channel.id, "cards", count);
+      }
+    }
+    console.log("Channel.initialize2:  Done");
+    await cursor.close();
     setInterval(this.poll.bind(this), 1000 * 60 * 15);
   }
 
@@ -909,6 +879,10 @@ export class ChannelManager implements RestServer, Initializable, NotificationHa
       }
       if (card.createdById === channel.ownerId) {
         response.status(400).send("This card cannot be moved within this channel");
+        return;
+      }
+      if (card.state !== "active" && requestBody.detailsObject.includeInChannel) {
+        response.status(400).send("The card must be active to include it in a channel");
         return;
       }
       console.log("ChannelManager.update-channel-card:", request.headers, requestBody.detailsObject);

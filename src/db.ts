@@ -3088,6 +3088,12 @@ export class Database {
     await this.channels.updateOne({ id: channelId }, { $inc: inc });
   }
 
+  async updateChannelStat(channelId: string, statName: string, value: number): Promise<void> {
+    const update: any = {};
+    update["stats." + statName] = value;
+    await this.channels.updateOne({ id: channelId }, { $set: update });
+  }
+
   async updateChannelLatestCardPosted(channelId: string, cardPostedAt: number): Promise<void> {
     await this.channels.updateOne({ id: channelId }, { $set: { latestCardPosted: cardPostedAt } });
   }
@@ -3265,6 +3271,11 @@ export class Database {
 
   getChannelCardsByCard(cardId: string): Cursor<ChannelCardRecord> {
     const query: any = { state: 'active', cardId: cardId };
+    return this.channelCards.find<ChannelCardRecord>(query);
+  }
+
+  getChannelCardsByChannel(channelId: string): Cursor<ChannelCardRecord> {
+    const query: any = { state: 'active', channelId: channelId };
     return this.channelCards.find<ChannelCardRecord>(query);
   }
 
