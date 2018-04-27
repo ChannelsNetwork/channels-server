@@ -58,7 +58,7 @@ const MINIMUM_USER_FRAUD_AGE = 1000 * 60 * 15;
 const REPEAT_CARD_PAYMENT_DELAY = 1000 * 15;
 const PUBLISHER_SUBSIDY_RETURN_VIEWER_MULTIPLIER = 2;
 const PUBLISHER_SUBSIDY_MAX_CARD_AGE = 1000 * 60 * 60 * 24 * 2;
-const FIRST_CARD_PURCHASE_AMOUNT = 0.01;
+const FIRST_CARD_PURCHASE_AMOUNT = 0.05;
 const MINIMUM_COMMENT_NOTIFICATION_INTERVAL = 1000 * 60 * 60 * 3;
 const MAX_CARD_CAMPAIGN_SNAPSHOT_INTERVAL = 1000 * 60 * 15;
 
@@ -69,17 +69,17 @@ const USER_BALANCE_PAY_BUMP_THRESHOLD = 0.65;
 const DEFAULT_PROMOTION_PRICING: PromotionPricingInfo = {
   contentImpression: 0.003,
   adImpression: 0.02,
-  payToOpen: 0.50,
-  payToClick: 0.50,
-  payToOpenSubsidy: 0.45,
-  payToClickSubsidy: 0.45
+  payToOpen: 0.25,
+  payToClick: 0.25,
+  payToOpenSubsidy: 0,
+  payToClickSubsidy: 0
 };
 
 const DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES: PromotionPricingInfo = {
   contentImpression: 0.003,
   adImpression: 0.02,
-  payToOpen: 0.50,
-  payToClick: 0.50,
+  payToOpen: 0.25,
+  payToClick: 0.25,
   payToOpenSubsidy: 0,
   payToClickSubsidy: 0
 };
@@ -194,101 +194,32 @@ export class CardManager implements Initializable, NotificationHandler, CardHand
   }
 
   async initialize2(): Promise<void> {
-    // const lastMutation = await db.findLastMutationByIndex();
-    // if (lastMutation) {
-    //   this.lastMutationIndexSent = lastMutation.index;
-    // }
-    // // Migrate promoted cards to use campaigns and populate geo into adslots
-    // if (await db.countCardCampaigns() === 0) {
-    //   const cursor = db.getCardsWithPromotion();
-    //   let count = await cursor.count();
-    //   while (await cursor.hasNext()) {
-    //     const card = await cursor.next();
-    //     const author = await userManager.getUser(card.createdById, false);
-    //     if (author) {
-    //       const type = this.getAppropriateCampaignType(card);
-    //       const status = this.getAppropriateCampaignStatus(card, author, type);
-    //       const budget = this.getAppropriateCampaignBudget(card, type);
-    //       const amount = this.getAppropriateCampaignAmount(card, type);
-    //       const campaign = await db.insertCardCampaign(null, card.createdById, status, card.couponIds.length > 0 ? card.couponIds[0] : null, card.id, type, amount, 0, budget, Date.now() + 1000 * 60 * 60 * 24 * 30, []);
-    //       console.log("Card.initialize2: " + (count--) + ": Migrating promotion to campaign", card.id, card.summary.title, type, status, campaign.paymentAmount);
-    //     }
-    //   }
-    //   await cursor.close();
-
-    //   const adSlotCursor = db.getAdSlotsMissingGeo(Date.now() - 1000 * 60 * 60 * 24 * 30);
-    //   count = await adSlotCursor.count();
-    //   while (await adSlotCursor.hasNext()) {
-    //     const adSlot = await adSlotCursor.next();
-    //     const user = await userManager.getUser(adSlot.userId, false);
-    //     let found = false;
-    //     if (user && user.ipAddresses.length > 0) {
-    //       const ipInfo = await userManager.fetchIpAddressInfo(user.ipAddresses[user.ipAddresses.length - 1], false);
-    //       if (ipInfo) {
-    //         const geoLocation = userManager.getGeoLocationFromIpInfo(null, ipInfo);
-    //         const geoTargets = this.getGeoTargetsFromGeoLocation(geoLocation);
-    //         await db.updateAdSlotGeo(adSlot.id, geoLocation, geoTargets);
-    //         found = true;
-    //         console.log("Card.initialize2: " + (count--) + ": Populating geo into adSlot", adSlot.id, geoTargets.join(','));
-    //       }
-    //     }
-    //     if (!found) {
-    //       await db.updateAdSlotGeo(adSlot.id, null, []);
-    //       console.log("Card.initialize2: " + (count--) + ": Populating null geo into adSlot", adSlot.id);
-    //     }
-    //   }
-    //   await adSlotCursor.close();
-
-    // }
-
-    // const reportedCardCount = await db.countCardsReported();
-    // if (reportedCardCount === 0) {
-    //   const reportedCardIds = await db.findDistinctReportedCardIds();
-    //   for (const cardId of reportedCardIds) {
-    //     await db.updateCardReported(cardId, true);
-    //   }
-    // }
-
-    // const ipAddressCursor = db.getUserCardActionsWithFromIpAddress(Date.now() - 1000 * 60 * 60 * 24 * 30);
-    // let addressCount = await ipAddressCursor.count();
-    // while (await ipAddressCursor.hasNext()) {
-    //   const record = await ipAddressCursor.next();
-    //   const ipInfo = await userManager.fetchIpAddressInfo(record.fromIpAddress, false);
-    //   if (ipInfo) {
-    //     const geoLocation = userManager.getGeoLocationFromIpInfo(record.fromFingerprint, ipInfo);
-    //     await db.updateUserActionWithGeo(record.id, geoLocation);
-    //     if (--addressCount % 10 === 0) {
-    //       console.log("Card.initialize2: " + addressCount + ": Populating geo into userCardAction", record.id);
-    //     }
-    //   } else {
-    //     await db.updateUserActionWithGeo(record.id, null);
-    //   }
-    // }
-    // await ipAddressCursor.close();
-
-    // const networkStats = await db.ensureNetworkCardStats(true);
-    // if (!networkStats.stats.advertisers) {
-    //   const advertisers = await db.countAdvertisers();
-    //   await db.incrementNetworkCardStatItems(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, advertisers, 0, 0, 0, 0, 0, 0);
-    // }
-
-    // const userCursor = db.getUsersWithIdentity();
-    // let userCount = await userCursor.count();
-    // while (await userCursor.hasNext()) {
-    //   const user = await userCursor.next();
-    //   const currentStats = await db.findCurrentUserStats(user.id);
-    //   if (!currentStats) {
-    //     console.log("Card.initialize2: " + (userCount--) + " Processing user stats for " + user.identity.handle);
-    //     const cardsSold = await db.countAuthorCardPurchases(user.id);
-    //     const distinctPurchasers = await db.countDistinctCardPurchasers(user.id);
-    //     const cardsPurchased = await db.countUserCardPurchasesByUser(user.id);
-    //     const distinctVendors = await db.countDistinctCardPurchaseAuthors(user.id);
-    //     const likes = await db.countCardLikes(user.id);
-    //     await db.incrementUserStats(null, user.id, cardsSold, distinctPurchasers, cardsPurchased, distinctVendors, 0, 0, 0, likes);
-    //   }
-    // }
-    // await userCursor.close();
-
+    console.log("Card.initialize2: Revising over/under-priced campaigns...");
+    const cursor = db.getActiveOrPausedCardCampaigns();
+    while (await cursor.hasNext()) {
+      const campaign = await cursor.next();
+      switch (campaign.type) {
+        case "content-promotion":
+          break;
+        case "impression-ad":
+          await db.updateCardCampaignStatus(campaign.id, "suspended");
+          break;
+        case "pay-to-open":
+        case "pay-to-click":
+          const amount = await this.getCampaignAmount(campaign.type, campaign.geoTargets, null);
+          if (campaign.paymentAmount > DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES.payToOpen) {
+            await db.updateCardCampaignPaymentAmount(campaign.id, DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES.payToOpen);
+          } else if (campaign.paymentAmount < DEFAULT_PROMOTION_PRICING_WITHOUT_SUBSIDIES.payToOpen) {
+            await db.updateCardCampaignEnds(campaign.id, Date.now(), "expired");
+          }
+          break;
+          break;
+        default:
+          throw new Error("Unhandled card campaign type " + campaign.type);
+      }
+    }
+    await cursor.close();
+    console.log("Card.initialize2: Done");
     setInterval(this.poll.bind(this), 1000 * 60 * 5);
   }
 

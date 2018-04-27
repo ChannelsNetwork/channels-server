@@ -4318,6 +4318,10 @@ export class Database {
     return record;
   }
 
+  getActiveOrPausedCardCampaigns(): Cursor<CardCampaignRecord> {
+    return this.cardCampaigns.find<CardCampaignRecord>({ status: {$in: ["active", "paused"]} });
+  }
+
   async findCardCampaignById(id: string): Promise<CardCampaignRecord> {
     return this.cardCampaigns.findOne<CardCampaignRecord>({ id: id });
   }

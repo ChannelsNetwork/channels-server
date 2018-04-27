@@ -263,7 +263,7 @@
           <card-header id="cardHeader" data="[[data]]" show-pin-action="[[showPinAction]]" on-summary-updated="_onSummaryUpdated"></card-header>
         </div>
       </div>
-      <div id="price">
+      <div id="price" class="hidden">
         <label>Pays</label>
         <span>[[price]]</span>
         <soso-icon id="paidCheck" icon="check-circle" icon-map="[[iconMap]]"></soso-icon>
@@ -414,20 +414,20 @@
         }
 
         // Price tag visibility
-        let hidePriceTag = (cost === 0) || ((cost < 0) && this._isImpressionCampaign()) || (cost < 0 && (!this.data.promoted));
-        if (hidePriceTag && this._cardConsumed && cost) {
-          hidePriceTag = false;
-        }
-        if (hidePriceTag) {
-          this.$.price.classList.add("hidden");
-        } else {
-          this.$.price.classList.remove("hidden");
-          if (cost <= 0) {
-            this.$.price.classList.add("negative");
-          } else {
-            this.$.price.classList.remove("negative");
-          }
-        }
+        // let hidePriceTag = (cost === 0) || ((cost < 0) && this._isImpressionCampaign()) || (cost < 0 && (!this.data.promoted));
+        // if (hidePriceTag && this._cardConsumed && cost) {
+        //   hidePriceTag = false;
+        // }
+        // if (hidePriceTag) {
+        //   this.$.price.classList.add("hidden");
+        // } else {
+        //   this.$.price.classList.remove("hidden");
+        //   if (cost <= 0) {
+        //     this.$.price.classList.add("negative");
+        //   } else {
+        //     this.$.price.classList.remove("negative");
+        //   }
+        // }
 
         // Promoted tag visibility
         let promotedVisible = this._isImpressionCampaign() && this.data.promoted;

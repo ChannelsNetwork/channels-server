@@ -145,11 +145,11 @@
         this.$.filePicker.image = card.summary.imageURL;
         this.$.languageSelect.selection = card.summary.langCode || 'en';
         if (card.pricing && card.pricing.openFee) {
-          this.$.pricePanel.classList.remove("hidden");
+          // this.$.pricePanel.classList.remove("hidden");
           this.$.earnPrice.value = card.pricing.openFeeUnits || 1;
           this._onEarnPriceChange();
         } else {
-          this.$.pricePanel.classList.add("hidden");
+          // this.$.pricePanel.classList.add("hidden");
         }
         if (card.summary.linkUrl) {
           this.$.linkPanel.classList.remove("hidden");

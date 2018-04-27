@@ -78,31 +78,33 @@
       <h2>Price your card</h2>
       <soso-radio-group id="group" on-select="_onRadioSelect">
         <soso-radio-button id="earn" name="earn" label="I want to earn money with this card"></soso-radio-button>
-        <soso-radio-button name="pay" label="I am willing to pay readers to see this card"></soso-radio-button>
+        <soso-radio-button name="pay" label="I will pay readers to view this card"></soso-radio-button>
       </soso-radio-group>
 
       <section id="earnSection" class="hidden">
-        <div>Readers will pay you after your card is open for at least 10 seconds</div>
-        <div class="row horizontal layout end">
+        <div>Approved viewers will pay you after your card is open for 30 seconds</div>
+        <div class="row horizontal layout end hidden">
           <label>Price level</label>
           <div class="flex">
             <soso-slider label id="earnPrice" min="1" max="5" value="1" step="1" on-input="_onEarnPriceChange"></soso-slider>
           </div>
         </div>
-        <div class="caption">Currently
+        <div class="caption">Current card price:
           <span>[[earnEstimate]]</span>
         </div>
-        <div class="caption">Viewer must stay for at least
+        <div class="caption hidden">Viewer must stay for at least
           <span>[[payInterval]]</span> seconds before paying.</div>
-        <div class="caption">New Channels users always pay ℂ0.01 for their first card.</div>
+        <div class="caption hidden">New Channels users always pay ℂ0.01 for their first card.</div>
         <div class="row">
           <soso-checkbox id="chkPromote" label="I want to promote this card to people who don't follow me"></soso-checkbox>
         </div>
       </section>
 
       <section id="paySection" class="hidden">
-        <div>I will pay readers who:</div>
-        <soso-radio-group id="group2">
+        <div>I will pay approved viewers:
+          <span>ℂ0.25</span>
+        </div>
+        <soso-radio-group id="group2" class="hidden">
           <soso-radio-button name="impressions" label="See this card in their feed (impressions)"></soso-radio-button>
           <soso-radio-button name="clicks" label="Open this card (clicks)"></soso-radio-button>
         </soso-radio-group>
@@ -121,7 +123,8 @@
         return {
           wizard: Object,
           earnEstimate: String,
-          payInterval: Number
+          payInterval: Number,
+          payEstimate: String
         };
       }
 
@@ -153,16 +156,16 @@
           this._prevSelected = selected;
           if (selected == "earn") {
             this.$.earnSection.classList.remove("hidden");
-            this.$.paySection.classList.add("hidden");
+            // this.$.paySection.classList.add("hidden");
             this._onEarnPriceChange();
           } else {
             this.$.earnSection.classList.add("hidden");
-            this.$.paySection.classList.remove("hidden");
-            setTimeout(() => {
-              if (!this.$.group2.selected) {
-                this.$.group2.selected = "impressions";
-              }
-            }, 10);
+            // this.$.paySection.classList.remove("hidden");
+            // setTimeout(() => {
+            //   if (!this.$.group2.selected) {
+            //     this.$.group2.selected = "impressions";
+            //   }
+            // }, 10);
           }
         }
       }
@@ -181,17 +184,17 @@
         }
         if (reset) {
           this.$.group.selected = null;
-          this.$.group2.selected = "impressions";
+          // this.$.group2.selected = "impressions";
           this.$.earnPrice.value = 1;
           this.$.chkPromote.checked = false;
           this.$.earnSection.classList.add("hidden");
-          this.$.paySection.classList.add("hidden");
+          // this.$.paySection.classList.add("hidden");
           this.$.next.disabled = true;
           this.dispatchEvent(new CustomEvent('next-disable', { bubbles: true, composed: true }));
         }
         if (this.wizard.data.linkURL) {
           this.$.group.selected = "pay";
-          this.$.group2.selected = "impressions";
+          // this.$.group2.selected = "impressions";
           this.$.earn.disabled = true;
           this._onRadioSelect();
         } else {
@@ -210,11 +213,11 @@
               campaignInfo = { type: 'content-promotion' };
             }
           } else {
-            if (this.$.group2.selected === 'impressions') {
-              campaignInfo = { type: 'impression-ad' };
-            } else {
-              campaignInfo = { type: data.linkURL ? 'pay-to-click' : 'pay-to-open' };
-            }
+            // if (this.$.group2.selected === 'impressions') {
+            //   campaignInfo = { type: 'impression-ad' };
+            // } else {
+            campaignInfo = { type: data.linkURL ? 'pay-to-click' : 'pay-to-open' };
+            // }
           }
           data.campaignInfo = campaignInfo;
           resolve();
