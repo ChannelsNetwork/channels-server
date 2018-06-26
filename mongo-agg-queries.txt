@@ -2,9 +2,9 @@
 
 db.userCardActions.aggregate([
   {$match: {
-    authorId:  "e3d0288c-7e6a-4e13-aadb-837e14164a8d", 
+    authorId:  "5dd2b53f-b438-4504-8641-cffce3c838b3", 
     action: "pay",
-    at: {$gt: 1524432720000}
+    at: {$gt: 1528677480000}
   }},
   {$group: {
     _id: "$userId",
