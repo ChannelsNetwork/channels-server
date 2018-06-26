@@ -229,16 +229,7 @@ class ChannelsNetworkWebClient {
 
   private setupServerPing(): void {
     this.app.get('/ping', (request: Request, response: Response) => {
-      response.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
-      response.setHeader('Content-Type', 'application/json');
-      const result: any = {
-        product: 'Channel-Elements-Web-Client-Server',
-        status: 'OK',
-        version: SERVER_VERSION,
-        deployed: new Date(this.started).toISOString(),
-        server: configuration.get('serverId')
-      };
-      response.json(result);
+      void this.handlePing(request, response);
     });
   }
 
@@ -260,7 +251,6 @@ class ChannelsNetworkWebClient {
       response.status(500).send("Internal error");
     }
   }
-
 }
 
 const server = new ChannelsNetworkWebClient();
