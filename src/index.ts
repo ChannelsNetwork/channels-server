@@ -242,6 +242,25 @@ class ChannelsNetworkWebClient {
     });
   }
 
+  private async handlePing(request: Request, response: Response): Promise<void> {
+    try {
+      await db.getNetwork();
+      const result: any = {
+        product: 'Channel-Elements-Web-Client-Server',
+        status: 'OK',
+        version: SERVER_VERSION,
+        deployed: new Date(this.started).toISOString(),
+        server: configuration.get('serverId')
+      };
+      response.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
+      response.setHeader('Content-Type', 'application/json');
+      response.json(result);
+    } catch (err) {
+      console.error("Index.handlePing", JSON.stringify(err));
+      response.status(500).send("Internal error");
+    }
+  }
+
 }
 
 const server = new ChannelsNetworkWebClient();
