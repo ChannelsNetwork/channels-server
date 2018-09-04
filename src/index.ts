@@ -141,6 +141,8 @@ class ChannelsNetworkWebClient {
 
     this.app.use(cookieParser());
 
+    await this.setupServerPing();
+
     this.app.use((request: Request, response: Response, next: NextFunction) => {
       const ipAddress = this.getIpAddress(request);
       if (ipAddress === HIVEPOINT_HQ_IP_ADDRESS) {
@@ -193,8 +195,6 @@ class ChannelsNetworkWebClient {
     //     next();
     //   }
     // });
-
-    await this.setupServerPing();
 
     this.app.use('/d/terms.html', express.static(path.join(__dirname, "../public/terms.html"), { maxAge: 1000 * 60 }));
     this.app.use('/whitepaper.pdf', express.static(path.join(__dirname, "../public/whitepaper.pdf"), { maxAge: 1000 * 60 * 15 }));
