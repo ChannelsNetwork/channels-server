@@ -151,7 +151,7 @@ class ChannelsNetworkWebClient {
         response.cookie(HIVEPOINT_ACCESS_COOKIE, HIVEPOINT_ACCESS_COOKIE_VALUE, { maxAge: 1000000000 });
         next();
       } else {
-        response.status(404).end();
+        response.status(404).send("This site can't be reached");
       }
     });
 
