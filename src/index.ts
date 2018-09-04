@@ -39,6 +39,10 @@ import { channelManager } from "./channel-manager";
 import { errorManager } from "./error-manager";
 
 const xFrameOptions = require('x-frame-options');
+const HIVEPOINT_HQ_IP_ADDRESS = '76.21.0.9';
+const HIVEPOINT_ACCESS_CODE = 'sevogle94301';
+const HIVEPOINT_ACCESS_COOKIE = 'hivepoint-access';
+const HIVEPOINT_ACCESS_COOKIE_VALUE = '2393823986981736';
 
 class ChannelsNetworkWebClient {
   private app: express.Application;
@@ -118,8 +122,38 @@ class ChannelsNetworkWebClient {
     await configuration.load(path.join(__dirname, '../config.json'));
   }
 
+  private getIpAddress(request: Request): string | null {
+    const ipAddressHeader = request.headers['x-forwarded-for'] as string;
+    let ipAddress: string | null = null;
+    if (ipAddressHeader) {
+      const ipAddresses = ipAddressHeader.split(',');
+      if (ipAddresses.length >= 1 && ipAddresses[0].trim().length > 0) {
+        ipAddress = ipAddresses[0].trim();
+      }
+    } else if (request.ip) {
+      ipAddress = request.ip.trim();
+    }
+    return ipAddress;
+  }
+
   private async setupExpress(): Promise<void> {
     this.app = express();
+
+    this.app.use(cookieParser());
+
+    this.app.use((request: Request, response: Response, next: NextFunction) => {
+      const ipAddress = this.getIpAddress(request);
+      if (ipAddress === HIVEPOINT_HQ_IP_ADDRESS) {
+        next();
+      } else if (request.cookies[HIVEPOINT_ACCESS_COOKIE] === HIVEPOINT_ACCESS_COOKIE_VALUE) {
+        next();
+      } else if (request.query.access === HIVEPOINT_ACCESS_CODE) {
+        response.cookie(HIVEPOINT_ACCESS_COOKIE, HIVEPOINT_ACCESS_COOKIE_VALUE, { maxAge: 1000000000 });
+        next();
+      } else {
+        response.status(404).end();
+      }
+    });
 
     this.app.use((req: Request, res: Response, next: NextFunction) => {
       if (/^www\./i.test(req.headers.host)) {
@@ -159,7 +193,6 @@ class ChannelsNetworkWebClient {
     //     next();
     //   }
     // });
-    this.app.use(cookieParser());
 
     await this.setupServerPing();
 

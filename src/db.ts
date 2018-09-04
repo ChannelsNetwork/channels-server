@@ -139,19 +139,19 @@ export class Database {
   private async initializeUsers(): Promise<void> {
     this.users = this.db.collection('users');
 
-    if (await this.users.indexExists("inviterCode_1")) {
-      await this.users.dropIndex('inviterCode_1');
-      // await this.users.updateMany({ inviterCode: { $exists: true } }, {
-      //   $unset: {
-      //     inviterCode: 1,
-      //     inviteeCode: 1,
-      //     invitationsRemaining: 1,
-      //     invitationsAccepted: 1,
-      //     minBalanceAfterWithdrawal: 1,
-      //     targetBalance: 1
-      //   }
-      // });
-    }
+    // if (await this.users.indexExists("inviterCode_1")) {
+    //   await this.users.dropIndex('inviterCode_1');
+    //   // await this.users.updateMany({ inviterCode: { $exists: true } }, {
+    //   //   $unset: {
+    //   //     inviterCode: 1,
+    //   //     inviteeCode: 1,
+    //   //     invitationsRemaining: 1,
+    //   //     invitationsAccepted: 1,
+    //   //     minBalanceAfterWithdrawal: 1,
+    //   //     targetBalance: 1
+    //   //   }
+    //   // });
+    // }
 
     await this.users.createIndex({ id: 1 }, { unique: true });
     await this.users.createIndex({ address: 1 }, { unique: true });
@@ -2701,7 +2701,9 @@ export class Database {
       baseCardPrice: await priceRegulator.calculateBaseCardPrice(record)
     };
     try {
-      await this.networkCardStats.updateOne({ isCurrent: true, periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
+      if (record) {
+        await this.networkCardStats.updateOne({ isCurrent: true, periodStarting: record.periodStarting }, { $set: { isCurrent: false } });
+      }
       await this.networkCardStats.insertOne(newRecord);
     } catch (err) {
       // May be race condition
